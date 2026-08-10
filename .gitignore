@@ -33,6 +33,7 @@ test-results/
 prisma/**/migrations/dev/
 *.db
 *.db-journal
+src/generated/
 
 # IDE
 .vscode/
