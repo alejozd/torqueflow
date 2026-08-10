@@ -9,9 +9,9 @@ export function NuevoClienteForm() {
   const [state, formAction, isPending] = useActionState(createClienteAction, initialState);
 
   return (
-    <form action={formAction}>
+    <form noValidate action={formAction}>
       <label htmlFor="nombre">Nombre</label>
-      <input id="nombre" name="nombre" />
+      <input id="nombre" name="nombre" required />
 
       <label htmlFor="telefono">Teléfono</label>
       <input id="telefono" name="telefono" />
