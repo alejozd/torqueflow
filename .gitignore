@@ -15,6 +15,7 @@ out/
 next-env.d.ts
 build/
 dist/
+*.tsbuildinfo
 
 # Testing
 coverage/
