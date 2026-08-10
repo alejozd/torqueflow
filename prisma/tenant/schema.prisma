@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../src/generated/prisma-tenant"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("TENANT_DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  TECNICO
+  RECEPCION
+}
+
+model Usuario {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  nombre       String
+  role         Role     @default(RECEPCION)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("usuarios")
+}
+
+model Cliente {
+  id        String     @id @default(cuid())
+  nombre    String
+  telefono  String?
+  email     String?
+  documento String?
+  vehiculos Vehiculo[]
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  @@map("clientes")
+}
+
+model Vehiculo {
+  id        String              @id @default(cuid())
+  placa     String              @unique
+  marca     String
+  modelo    String
+  anio      Int?
+  clienteId String              @map("cliente_id")
+  cliente   Cliente             @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  historial HistorialVehiculo[]
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
+
+  @@map("vehiculos")
+  @@index([clienteId])
+}
+
+model HistorialVehiculo {
+  id          String   @id @default(cuid())
+  vehiculoId  String   @map("vehiculo_id")
+  vehiculo    Vehiculo @relation(fields: [vehiculoId], references: [id], onDelete: Cascade)
+  descripcion String
+  fecha       DateTime @default(now())
+  autorId     String?  @map("autor_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("historial_vehiculo")
+  @@index([vehiculoId])
+}
