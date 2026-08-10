@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
+import type { Session } from "next-auth";
 import { auth } from "@/auth";
 
 export type Role = "ADMIN" | "TECNICO" | "RECEPCION";
-
-type Session = NonNullable<Awaited<ReturnType<typeof auth>>>;
 
 export async function requireSession(): Promise<Session> {
   const session = await auth();
