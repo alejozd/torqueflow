@@ -1,7 +1,18 @@
 import type { ReactNode } from "react";
 import { requireSession } from "@/lib/auth/guards";
+import { SignOutButton } from "./sign-out-button";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  await requireSession();
-  return <div style={{ padding: "2rem" }}>{children}</div>;
+  const session = await requireSession();
+  return (
+    <div style={{ padding: "2rem" }}>
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+        <span>
+          Sesión: {session.user.email} — {session.user.tenantSlug}
+        </span>
+        <SignOutButton />
+      </header>
+      {children}
+    </div>
+  );
 }
