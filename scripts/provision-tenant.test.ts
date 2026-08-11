@@ -81,4 +81,35 @@ describe("provisionTenant", () => {
     );
     expect(schemaRow).toHaveLength(0);
   });
+
+  it("does NOT drop the schema when a concurrent call already created a Tenant row for schemaName (race safety)", async () => {
+    // Simulate the winner of a race: a normal provisionTenant() call that has already
+    // created the real schema, run the real migration, and inserted the real Tenant row.
+    await provisionTenant({ slug: SLUG, schemaName: SCHEMA });
+
+    // Simulate the loser of the race: a second provisionTenant() call whose own
+    // pre-check ran (hypothetically) before the winner's tenant.create() committed, so it
+    // proceeds past the pre-check. We reproduce that ordering by making only THIS call's
+    // pre-check believe no tenant exists yet (mockResolvedValueOnce), while every other
+    // findFirst call (including the one inside the new cleanup guard) sees real DB state.
+    // The loser then hits CREATE SCHEMA IF NOT EXISTS (idempotent), re-runs migrate deploy
+    // (idempotent, no-op), and finally fails at tenant.create() with a real unique-constraint
+    // violation because the winner's row already exists for this slug/schemaName.
+    vi.spyOn(publicDb.tenant, "findFirst").mockResolvedValueOnce(null);
+
+    await expect(provisionTenant({ slug: SLUG, schemaName: SCHEMA })).rejects.toThrow();
+
+    vi.restoreAllMocks();
+
+    // The winner's schema must survive: the loser's cleanup must see the real Tenant row
+    // (created by the winner) and skip DROP SCHEMA entirely.
+    const schemaRow = await publicDb.$queryRawUnsafe<{ schema_name: string }[]>(
+      `SELECT schema_name FROM information_schema.schemata WHERE schema_name = $1`,
+      SCHEMA,
+    );
+    expect(schemaRow).toHaveLength(1);
+
+    const tenantCount = await publicDb.tenant.count({ where: { schemaName: SCHEMA } });
+    expect(tenantCount).toBe(1);
+  });
 });

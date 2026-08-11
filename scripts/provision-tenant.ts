@@ -43,10 +43,13 @@ export async function provisionTenant({ slug, schemaName }: ProvisionTenantInput
 
     return await publicDb.tenant.create({ data: { slug, schemaName } });
   } catch (err) {
-    try {
-      await publicDb.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`);
-    } catch (cleanupErr) {
-      console.error(`Failed to clean up orphaned schema "${schemaName}" after provisioning error:`, cleanupErr);
+    const stillExists = await publicDb.tenant.findFirst({ where: { schemaName } });
+    if (!stillExists) {
+      try {
+        await publicDb.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`);
+      } catch (cleanupErr) {
+        console.error(`Failed to clean up orphaned schema "${schemaName}" after provisioning error:`, cleanupErr);
+      }
     }
     throw err;
   }
