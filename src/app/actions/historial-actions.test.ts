@@ -7,9 +7,6 @@ vi.mock("@/lib/auth/guards", () => ({
   requireSession: () => mockRequireSession(),
 }));
 
-const mockResolveTenant = vi.fn();
-vi.mock("@/lib/tenant/resolve-tenant", () => ({ resolveTenant: () => mockResolveTenant() }));
-
 const mockCreate = vi.fn();
 const mockFindMany = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
@@ -28,8 +25,7 @@ const initialState: HistorialFormState = { error: null, success: false };
 
 describe("addHistorialEntryAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { id: "u1", role: "TECNICO" } });
-    mockResolveTenant.mockReset().mockResolvedValue({ slug: "taller-perez", schemaName: "taller_perez" });
+    mockRequireRole.mockReset().mockResolvedValue({ user: { id: "u1", role: "TECNICO", tenantSchema: "taller_perez" } });
     mockCreate.mockReset();
   });
 
@@ -57,12 +53,26 @@ describe("addHistorialEntryAction", () => {
       data: { descripcion: "Cambio de aceite", vehiculoId: "v1", autorId: "u1" },
     });
   });
+
+  it("returns a friendly Spanish message instead of the raw Prisma error on a foreign key violation", async () => {
+    mockCreate.mockRejectedValue({
+      code: "P2003",
+      message: "Foreign key constraint violated: `historial_vehiculo_vehiculo_id_fkey (index)`",
+    });
+    const formData = new FormData();
+    formData.set("descripcion", "Cambio de aceite");
+
+    const result = await addHistorialEntryAction("v1", initialState, formData);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("No se puede completar la operación porque hay registros relacionados.");
+    expect(result.error).not.toContain("Foreign key constraint");
+  });
 });
 
 describe("listHistorial", () => {
   beforeEach(() => {
-    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "TECNICO" } });
-    mockResolveTenant.mockReset().mockResolvedValue({ slug: "taller-perez", schemaName: "taller_perez" });
+    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
     mockFindMany.mockReset();
   });
 

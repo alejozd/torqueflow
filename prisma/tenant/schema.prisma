@@ -58,7 +58,7 @@ model Vehiculo {
 model HistorialVehiculo {
   id          String   @id @default(cuid())
   vehiculoId  String   @map("vehiculo_id")
-  vehiculo    Vehiculo @relation(fields: [vehiculoId], references: [id], onDelete: Cascade)
+  vehiculo    Vehiculo @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
   descripcion String
   fecha       DateTime @default(now())
   autorId     String?  @map("autor_id")

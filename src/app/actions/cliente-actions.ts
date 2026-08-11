@@ -2,47 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth/guards";
-import { resolveTenant } from "@/lib/tenant/resolve-tenant";
 import { getTenantDb } from "@/lib/db/tenant-client";
-import { clienteInputSchema, type ClienteInput } from "@/lib/validation/cliente";
+import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
+import { clienteInputSchema } from "@/lib/validation/cliente";
 import type { Cliente, Vehiculo } from "@/generated/prisma-tenant";
 
 export interface ClienteFormState {
   error: string | null;
   success: boolean;
-}
-
-async function tenantDbOrThrow() {
-  const tenant = await resolveTenant();
-  if (!tenant) throw new Error("No se pudo resolver el taller actual");
-  return getTenantDb(tenant.schemaName);
-}
-
-async function createCliente(input: ClienteInput): Promise<Cliente> {
-  await requireRole(["ADMIN", "RECEPCION"]);
-  const tenantDb = await tenantDbOrThrow();
-  return tenantDb.cliente.create({
-    data: {
-      nombre: input.nombre,
-      telefono: input.telefono || null,
-      email: input.email || null,
-      documento: input.documento || null,
-    },
-  });
-}
-
-async function updateCliente(id: string, input: ClienteInput): Promise<Cliente> {
-  await requireRole(["ADMIN", "RECEPCION"]);
-  const tenantDb = await tenantDbOrThrow();
-  return tenantDb.cliente.update({
-    where: { id },
-    data: {
-      nombre: input.nombre,
-      telefono: input.telefono || null,
-      email: input.email || null,
-      documento: input.documento || null,
-    },
-  });
 }
 
 function parseClienteFormData(formData: FormData) {
@@ -55,14 +22,14 @@ function parseClienteFormData(formData: FormData) {
 }
 
 export async function listClientes(): Promise<Cliente[]> {
-  await requireSession();
-  const tenantDb = await tenantDbOrThrow();
+  const session = await requireSession();
+  const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.cliente.findMany({ orderBy: { nombre: "asc" } });
 }
 
 export async function getCliente(id: string): Promise<(Cliente & { vehiculos: Vehiculo[] }) | null> {
-  await requireSession();
-  const tenantDb = await tenantDbOrThrow();
+  const session = await requireSession();
+  const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.cliente.findUnique({ where: { id }, include: { vehiculos: true } });
 }
 
@@ -75,10 +42,20 @@ export async function createClienteAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
+  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
   try {
-    await createCliente(parsed.data);
+    await tenantDb.cliente.create({
+      data: {
+        nombre: parsed.data.nombre,
+        telefono: parsed.data.telefono || null,
+        email: parsed.data.email || null,
+        documento: parsed.data.documento || null,
+      },
+    });
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Error al crear cliente", success: false };
+    return { error: friendlyPrismaErrorMessage(err, "Error al crear cliente"), success: false };
   }
 
   revalidatePath("/clientes");
@@ -95,10 +72,21 @@ export async function updateClienteAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
+  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
   try {
-    await updateCliente(id, parsed.data);
+    await tenantDb.cliente.update({
+      where: { id },
+      data: {
+        nombre: parsed.data.nombre,
+        telefono: parsed.data.telefono || null,
+        email: parsed.data.email || null,
+        documento: parsed.data.documento || null,
+      },
+    });
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Error al actualizar cliente", success: false };
+    return { error: friendlyPrismaErrorMessage(err, "Error al actualizar cliente"), success: false };
   }
 
   revalidatePath(`/clientes/${id}`);
@@ -106,8 +94,12 @@ export async function updateClienteAction(
 }
 
 export async function deleteClienteAction(id: string): Promise<void> {
-  await requireRole(["ADMIN", "RECEPCION"]);
-  const tenantDb = await tenantDbOrThrow();
-  await tenantDb.cliente.delete({ where: { id } });
+  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  try {
+    await tenantDb.cliente.delete({ where: { id } });
+  } catch (err) {
+    throw new Error(friendlyPrismaErrorMessage(err, "Error al eliminar cliente"));
+  }
   revalidatePath("/clientes");
 }

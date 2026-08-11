@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth/guards";
-import { resolveTenant } from "@/lib/tenant/resolve-tenant";
 import { getTenantDb } from "@/lib/db/tenant-client";
+import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { historialInputSchema } from "@/lib/validation/historial";
 import type { HistorialVehiculo } from "@/generated/prisma-tenant";
 
@@ -12,15 +12,9 @@ export interface HistorialFormState {
   success: boolean;
 }
 
-async function tenantDbOrThrow() {
-  const tenant = await resolveTenant();
-  if (!tenant) throw new Error("No se pudo resolver el taller actual");
-  return getTenantDb(tenant.schemaName);
-}
-
 export async function listHistorial(vehiculoId: string): Promise<HistorialVehiculo[]> {
-  await requireSession();
-  const tenantDb = await tenantDbOrThrow();
+  const session = await requireSession();
+  const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.historialVehiculo.findMany({
     where: { vehiculoId },
     orderBy: { fecha: "desc" },
@@ -39,14 +33,14 @@ export async function addHistorialEntryAction(
   }
 
   const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
-  const tenantDb = await tenantDbOrThrow();
+  const tenantDb = getTenantDb(session.user.tenantSchema);
 
   try {
     await tenantDb.historialVehiculo.create({
       data: { descripcion: parsed.data.descripcion, vehiculoId, autorId: session.user.id },
     });
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Error al registrar entrada", success: false };
+    return { error: friendlyPrismaErrorMessage(err, "Error al registrar entrada"), success: false };
   }
 
   revalidatePath(`/vehiculos/${vehiculoId}`);

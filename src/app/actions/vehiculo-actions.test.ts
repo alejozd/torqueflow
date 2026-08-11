@@ -7,9 +7,6 @@ vi.mock("@/lib/auth/guards", () => ({
   requireSession: () => mockRequireSession(),
 }));
 
-const mockResolveTenant = vi.fn();
-vi.mock("@/lib/tenant/resolve-tenant", () => ({ resolveTenant: () => mockResolveTenant() }));
-
 const mockCreate = vi.fn();
 const mockFindMany = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
@@ -28,8 +25,7 @@ const initialState: VehiculoFormState = { error: null, success: false };
 
 describe("createVehiculoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN" } });
-    mockResolveTenant.mockReset().mockResolvedValue({ slug: "taller-perez", schemaName: "taller_perez" });
+    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockCreate.mockReset();
   });
 
@@ -60,12 +56,29 @@ describe("createVehiculoAction", () => {
       data: { placa: "ABC123", marca: "Toyota", modelo: "Corolla", anio: 2020, clienteId: "c1" },
     });
   });
+
+  it("returns a friendly Spanish message instead of the raw Prisma error on a unique constraint violation", async () => {
+    mockCreate.mockRejectedValue({
+      code: "P2002",
+      message: "Unique constraint failed on the fields: (`placa`)",
+    });
+    const formData = new FormData();
+    formData.set("placa", "ABC123");
+    formData.set("marca", "Toyota");
+    formData.set("modelo", "Corolla");
+    formData.set("anio", "2020");
+
+    const result = await createVehiculoAction("c1", initialState, formData);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Ya existe un registro con ese valor.");
+    expect(result.error).not.toContain("Unique constraint");
+  });
 });
 
 describe("listVehiculosByCliente", () => {
   beforeEach(() => {
-    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "TECNICO" } });
-    mockResolveTenant.mockReset().mockResolvedValue({ slug: "taller-perez", schemaName: "taller_perez" });
+    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
     mockFindMany.mockReset();
   });
 
