@@ -5,19 +5,24 @@ import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { historialInputSchema } from "@/lib/validation/historial";
-import type { HistorialVehiculo } from "@/generated/prisma-tenant";
+import type { Prisma } from "@/generated/prisma-tenant";
 
 export interface HistorialFormState {
   error: string | null;
   success: boolean;
 }
 
-export async function listHistorial(vehiculoId: string): Promise<HistorialVehiculo[]> {
+export type HistorialEntryWithAutor = Prisma.HistorialVehiculoGetPayload<{
+  include: { autor: true };
+}>;
+
+export async function listHistorial(vehiculoId: string): Promise<HistorialEntryWithAutor[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.historialVehiculo.findMany({
     where: { vehiculoId },
     orderBy: { fecha: "desc" },
+    include: { autor: true },
   });
 }
 

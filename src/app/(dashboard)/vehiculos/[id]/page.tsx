@@ -25,7 +25,8 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
       <ul>
         {historial.map((entrada) => (
           <li key={entrada.id}>
-            {new Date(entrada.fecha).toLocaleDateString()} — {entrada.descripcion}
+            {new Date(entrada.fecha).toLocaleDateString()} — {entrada.descripcion} —{" "}
+            {entrada.autor?.nombre ?? "Desconocido"}
           </li>
         ))}
       </ul>

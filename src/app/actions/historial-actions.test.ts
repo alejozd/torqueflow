@@ -82,6 +82,10 @@ describe("listHistorial", () => {
     const result = await listHistorial("v1");
 
     expect(result).toEqual([{ id: "h1", descripcion: "Cambio de aceite" }]);
-    expect(mockFindMany).toHaveBeenCalledWith({ where: { vehiculoId: "v1" }, orderBy: { fecha: "desc" } });
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: { vehiculoId: "v1" },
+      orderBy: { fecha: "desc" },
+      include: { autor: true },
+    });
   });
 });
