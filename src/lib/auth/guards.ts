@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Session } from "next-auth";
 import { auth } from "@/auth";
+import { resolveTenant } from "@/lib/tenant/resolve-tenant";
 
 export type Role = "ADMIN" | "TECNICO" | "RECEPCION";
 
@@ -9,6 +10,12 @@ export async function requireSession(): Promise<Session> {
   if (!session?.user) {
     redirect("/login");
   }
+
+  const tenant = await resolveTenant();
+  if (!tenant || tenant.schemaName !== session.user.tenantSchema) {
+    redirect("/login?error=tenant-mismatch");
+  }
+
   return session;
 }
 

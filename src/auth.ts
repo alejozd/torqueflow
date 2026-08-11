@@ -5,6 +5,7 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { verifyCredentials } from "@/lib/auth/verify-credentials";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [
