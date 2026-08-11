@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractTenantSlug } from "./subdomain";
+import { extractTenantSlug, isValidTenantSlug } from "./subdomain";
 
 describe("extractTenantSlug", () => {
   it("extracts the first-level subdomain as the tenant slug", () => {
@@ -33,5 +33,31 @@ describe("extractTenantSlug", () => {
 
   it("is case-insensitive", () => {
     expect(extractTenantSlug("Taller-Perez.ZDEVS.UK", "zdevs.uk")).toBe("taller-perez");
+  });
+});
+
+describe("isValidTenantSlug", () => {
+  it("accepts a valid lowercase alphanumeric-with-hyphens slug", () => {
+    expect(isValidTenantSlug("taller-perez")).toBe(true);
+  });
+
+  it.each(["www", "app", "api", "admin"])("rejects the reserved word %s", (word) => {
+    expect(isValidTenantSlug(word)).toBe(false);
+  });
+
+  it("rejects a slug with uppercase letters", () => {
+    expect(isValidTenantSlug("Taller-Perez")).toBe(false);
+  });
+
+  it("rejects a slug starting with a digit", () => {
+    expect(isValidTenantSlug("1taller")).toBe(false);
+  });
+
+  it("rejects a slug containing a dot", () => {
+    expect(isValidTenantSlug("taller.perez")).toBe(false);
+  });
+
+  it("rejects an empty string", () => {
+    expect(isValidTenantSlug("")).toBe(false);
   });
 });

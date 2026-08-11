@@ -26,3 +26,16 @@ export function extractTenantSlug(
 
   return prefix;
 }
+
+const VALID_SLUG_FORMAT = /^[a-z][a-z0-9-]*$/;
+
+/**
+ * Pure validation for a tenant slug at provisioning time: must be
+ * lowercase alphanumeric-with-hyphens (starting with a letter) and must
+ * not collide with a reserved subdomain that `extractTenantSlug` always
+ * rejects — otherwise the tenant would be provisioned but permanently
+ * unreachable via its subdomain.
+ */
+export function isValidTenantSlug(slug: string): boolean {
+  return VALID_SLUG_FORMAT.test(slug) && !RESERVED_SUBDOMAINS.has(slug);
+}
