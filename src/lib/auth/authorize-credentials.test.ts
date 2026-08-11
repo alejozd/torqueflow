@@ -29,6 +29,7 @@ describe("authorizeCredentials", () => {
 
     expect(result).toBeNull();
     expect(mockResolveTenant).not.toHaveBeenCalled();
+    expect(mockGetTenantDb).not.toHaveBeenCalled();
     expect(mockVerifyCredentials).not.toHaveBeenCalled();
   });
 
@@ -37,6 +38,7 @@ describe("authorizeCredentials", () => {
 
     expect(result).toBeNull();
     expect(mockResolveTenant).not.toHaveBeenCalled();
+    expect(mockGetTenantDb).not.toHaveBeenCalled();
     expect(mockVerifyCredentials).not.toHaveBeenCalled();
   });
 
@@ -45,6 +47,7 @@ describe("authorizeCredentials", () => {
 
     expect(result).toBeNull();
     expect(mockResolveTenant).not.toHaveBeenCalled();
+    expect(mockGetTenantDb).not.toHaveBeenCalled();
     expect(mockVerifyCredentials).not.toHaveBeenCalled();
   });
 
@@ -54,6 +57,7 @@ describe("authorizeCredentials", () => {
     const result = await authorizeCredentials({ email: "user@example.com", password: "secret" });
 
     expect(result).toBeNull();
+    expect(mockGetTenantDb).not.toHaveBeenCalled();
     expect(mockVerifyCredentials).not.toHaveBeenCalled();
   });
 

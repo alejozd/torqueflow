@@ -11,8 +11,11 @@ export default defineConfig({
     exclude: ["e2e/**", "node_modules/**", ".next/**"],
     // Several test files provision real Postgres schemas concurrently (each running
     // `prisma migrate deploy` via execSync against the same remote server); under
-    // that contention a single provisioning call can exceed the 5s Vitest default.
+    // that contention a single provisioning call can exceed Vitest's defaults.
+    // Provisioning happens in both test bodies (testTimeout) and beforeAll hooks
+    // (hookTimeout) — both must be raised, or the hook-based calls stay capped low.
     testTimeout: 20000,
+    hookTimeout: 20000,
   },
   resolve: {
     alias: {
