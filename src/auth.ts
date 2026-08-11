@@ -1,8 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { resolveTenant } from "@/lib/tenant/resolve-tenant";
-import { getTenantDb } from "@/lib/db/tenant-client";
-import { verifyCredentials } from "@/lib/auth/verify-credentials";
+import { authorizeCredentials } from "@/lib/auth/authorize-credentials";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
@@ -15,27 +13,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Contraseña", type: "password" },
       },
       async authorize(credentials) {
-        const email = credentials?.email;
-        const password = credentials?.password;
-        if (typeof email !== "string" || typeof password !== "string") {
-          return null;
-        }
-
-        const tenant = await resolveTenant();
-        if (!tenant) return null;
-
-        const tenantDb = getTenantDb(tenant.schemaName);
-        const usuario = await verifyCredentials(tenantDb, email, password);
-        if (!usuario) return null;
-
-        return {
-          id: usuario.id,
-          email: usuario.email,
-          name: usuario.nombre,
-          role: usuario.role,
-          tenantSlug: tenant.slug,
-          tenantSchema: tenant.schemaName,
-        };
+        return authorizeCredentials(credentials);
       },
     }),
   ],
