@@ -70,6 +70,20 @@ describe("createClienteAction", () => {
     expect(result.error).toBe("Ya existe un registro con ese valor.");
     expect(result.error).not.toContain("Unique constraint");
   });
+
+  it("propagates the redirect rejection and never touches the database when requireRole rejects (unauthorized)", async () => {
+    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+    const formData = new FormData();
+    formData.set("nombre", "Juan Pérez");
+    formData.set("telefono", "");
+    formData.set("email", "");
+    formData.set("documento", "");
+
+    await expect(createClienteAction(initialState, formData)).rejects.toThrow(
+      "REDIRECT:/login?error=forbidden",
+    );
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
 });
 
 describe("listClientes", () => {

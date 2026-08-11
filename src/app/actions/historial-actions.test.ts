@@ -68,6 +68,17 @@ describe("addHistorialEntryAction", () => {
     expect(result.error).toBe("No se puede completar la operación porque hay registros relacionados.");
     expect(result.error).not.toContain("Foreign key constraint");
   });
+
+  it("propagates the redirect rejection and never touches the database when requireRole rejects (unauthorized)", async () => {
+    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+    const formData = new FormData();
+    formData.set("descripcion", "Cambio de aceite");
+
+    await expect(addHistorialEntryAction("v1", initialState, formData)).rejects.toThrow(
+      "REDIRECT:/login?error=forbidden",
+    );
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
 });
 
 describe("listHistorial", () => {
