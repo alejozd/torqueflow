@@ -1,9 +1,21 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { publicDb } from "@/lib/db/public-client";
+import { provisionTenant } from "../../../scripts/provision-tenant";
 import { LruCache, buildTenantConnectionString, getTenantDb, disconnectEvictedClient } from "./tenant-client";
 
-const TEST_SCHEMA = "test_task5_fixture";
+const TEST_SLUG = "test-tenant-client-fixture";
+const TEST_SCHEMA = "test_tenant_client_fixture";
 
 describe("getTenantDb", () => {
+  beforeAll(async () => {
+    await provisionTenant({ slug: TEST_SLUG, schemaName: TEST_SCHEMA });
+  });
+
+  afterAll(async () => {
+    await publicDb.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${TEST_SCHEMA}" CASCADE`);
+    await publicDb.tenant.deleteMany({ where: { slug: TEST_SLUG } });
+  });
+
   afterEach(async () => {
     const tenantDb = getTenantDb(TEST_SCHEMA);
     await tenantDb.vehiculo.deleteMany({ where: { placa: "TEST-001" } });
