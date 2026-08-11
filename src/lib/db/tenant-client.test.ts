@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { LruCache, buildTenantConnectionString, getTenantDb } from "./tenant-client";
+import { LruCache, buildTenantConnectionString, getTenantDb, disconnectEvictedClient } from "./tenant-client";
 
 const TEST_SCHEMA = "test_task5_fixture";
 
@@ -103,5 +103,51 @@ describe("LruCache", () => {
     const cache = new LruCache<string, number>(1);
     cache.set("a", 1);
     expect(() => cache.set("b", 2)).not.toThrow();
+  });
+});
+
+describe("disconnectEvictedClient", () => {
+  it("catches rejection from $disconnect and calls console.error without throwing", async () => {
+    const schemaName = "test_schema";
+    const disconnectError = new Error("Database connection failed");
+    const mockClient = {
+      $disconnect: vi.fn().mockRejectedValue(disconnectError),
+    };
+
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    // Should not throw or reject.
+    await expect(
+      Promise.resolve(disconnectEvictedClient(schemaName, mockClient as any)),
+    ).resolves.toBeUndefined();
+
+    // Wait a tick to ensure the .catch() handler completes.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(consoleErrorSpy).toHaveBeenCalledOnce();
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining(`[tenant-client] Failed to disconnect evicted client for schema "${schemaName}"`),
+      disconnectError,
+    );
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("does not call console.error when $disconnect resolves successfully", async () => {
+    const schemaName = "test_schema";
+    const mockClient = {
+      $disconnect: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    disconnectEvictedClient(schemaName, mockClient as any);
+
+    // Wait a tick to ensure the promise chain completes.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+
+    consoleErrorSpy.mockRestore();
   });
 });

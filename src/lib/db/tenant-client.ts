@@ -73,7 +73,7 @@ export function buildTenantConnectionString(schemaName: string): string {
   return `${base}${separator}${schemaParam}&${connectionLimitParam}`;
 }
 
-function disconnectEvictedClient(schemaName: string, client: TenantPrismaClient): void {
+export function disconnectEvictedClient(schemaName: string, client: TenantPrismaClient): void {
   client.$disconnect().catch((error: unknown) => {
     console.error(`[tenant-client] Failed to disconnect evicted client for schema "${schemaName}":`, error);
   });
