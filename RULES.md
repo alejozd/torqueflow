@@ -12,7 +12,7 @@
 
 ## 3. COMMITS ATÓMICOS POR TAREA
 - Al completar CADA tarea, haz commit y push inmediato a main.
-- Formato del commit: "task X: descripción breve"
+- Formato del commit: "fase{N}-task X: descripción breve" (usa el número de la fase activa; Fase 3 → "fase3-task X: ...").
 - NO acumules cambios de varias tareas en un solo commit.
 - Esto permite retomar fácilmente si se agotan los tokens.
 
@@ -29,3 +29,9 @@
 ## 6. CUANDO SE ACERQUEN LOS LÍMITES
 - Si detectas que estás cerca del límite de tokens, termina la tarea actual, 
   haz commit, y reporta el estado para retomar fácilmente.
+
+## 7. NO TRABAJAR EN BACKLOG DE FASES ANTERIORES
+- Durante la ejecución de una fase, no toques items de deuda técnica ni hallazgos Minor
+  documentados en el progress ledger de fases previas, aunque los veas mientras trabajas.
+- Enfócate exclusivamente en las tareas planificadas de la fase activa.
+- El backlog se revisa y prioriza aparte, cuando el usuario lo pida explícitamente.
