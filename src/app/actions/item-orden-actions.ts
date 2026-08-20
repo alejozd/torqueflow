@@ -18,9 +18,10 @@ export async function addItemOrdenAction(
   formData: FormData,
 ): Promise<ItemOrdenFormState> {
   const parsed = itemOrdenInputSchema.safeParse({
-    descripcion: formData.get("descripcion"),
+    repuestoId: formData.get("repuestoId") ?? "",
+    descripcion: formData.get("descripcion") ?? "",
     cantidad: formData.get("cantidad"),
-    precioUnitario: formData.get("precioUnitario"),
+    precioUnitario: formData.get("precioUnitario") || undefined,
   });
 
   if (!parsed.success) {
@@ -40,13 +41,29 @@ export async function addItemOrdenAction(
     return { error: err instanceof Error ? err.message : "Orden no modificable", success: false };
   }
 
+  let descripcion: string;
+  let precioUnitario: number;
+
+  if (parsed.data.repuestoId) {
+    const repuesto = await tenantDb.repuesto.findUnique({ where: { id: parsed.data.repuestoId } });
+    if (!repuesto) {
+      return { error: "Repuesto no encontrado", success: false };
+    }
+    descripcion = repuesto.nombre;
+    precioUnitario = Number(repuesto.precioVenta);
+  } else {
+    descripcion = parsed.data.descripcion as string;
+    precioUnitario = parsed.data.precioUnitario as number;
+  }
+
   try {
     await tenantDb.itemOrden.create({
       data: {
         ordenId,
-        descripcion: parsed.data.descripcion,
+        repuestoId: parsed.data.repuestoId || null,
+        descripcion,
         cantidad: parsed.data.cantidad,
-        precioUnitario: parsed.data.precioUnitario,
+        precioUnitario,
       },
     });
   } catch (err) {

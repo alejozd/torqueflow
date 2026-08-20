@@ -8,11 +8,16 @@ export const ordenTrabajoInputSchema = z.object({
 
 export type OrdenTrabajoInput = z.infer<typeof ordenTrabajoInputSchema>;
 
-export const itemOrdenInputSchema = z.object({
-  descripcion: z.string().min(1, "La descripción es obligatoria"),
-  cantidad: z.coerce.number().int().min(1, "La cantidad debe ser al menos 1"),
-  precioUnitario: z.coerce.number().min(0, "El precio no puede ser negativo"),
-});
+export const itemOrdenInputSchema = z
+  .object({
+    repuestoId: z.string().optional().or(z.literal("")),
+    descripcion: z.string().optional().or(z.literal("")),
+    cantidad: z.coerce.number().int().min(1, "La cantidad debe ser al menos 1"),
+    precioUnitario: z.coerce.number().min(0, "El precio no puede ser negativo").optional(),
+  })
+  .refine((data) => Boolean(data.repuestoId) || (Boolean(data.descripcion) && data.precioUnitario !== undefined), {
+    message: "Selecciona un repuesto del inventario o completa descripción y precio manualmente",
+  });
 
 export type ItemOrdenInput = z.infer<typeof itemOrdenInputSchema>;
 

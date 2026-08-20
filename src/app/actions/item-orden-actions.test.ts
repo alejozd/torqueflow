@@ -8,10 +8,12 @@ vi.mock("@/lib/auth/guards", () => ({
 const mockCreate = vi.fn();
 const mockDeleteMany = vi.fn();
 const mockOrdenFindUnique = vi.fn();
+const mockRepuestoFindUnique = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     itemOrden: { create: mockCreate, deleteMany: mockDeleteMany },
     ordenTrabajo: { findUnique: mockOrdenFindUnique },
+    repuesto: { findUnique: mockRepuestoFindUnique },
   }),
 }));
 
@@ -25,6 +27,7 @@ describe("addItemOrdenAction", () => {
   beforeEach(() => {
     mockRequireRole.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
     mockCreate.mockReset();
+    mockRepuestoFindUnique.mockReset();
     mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO" });
   });
 
@@ -41,7 +44,18 @@ describe("addItemOrdenAction", () => {
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
-  it("creates the item linked to the given ordenId on valid input", async () => {
+  it("returns a validation error when neither repuestoId nor manual descripcion+precio are given", async () => {
+    const formData = new FormData();
+    formData.set("cantidad", "2");
+
+    const result = await addItemOrdenAction("o1", initialState, formData);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Selecciona un repuesto del inventario o completa descripción y precio manualmente");
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("creates a manual (non-catalog) item linked to the given ordenId on valid input", async () => {
     mockCreate.mockResolvedValue({ id: "i1" });
     const formData = new FormData();
     formData.set("descripcion", "Filtro de aceite");
@@ -51,9 +65,45 @@ describe("addItemOrdenAction", () => {
     const result = await addItemOrdenAction("o1", initialState, formData);
 
     expect(result).toEqual({ error: null, success: true });
+    expect(mockRepuestoFindUnique).not.toHaveBeenCalled();
     expect(mockCreate).toHaveBeenCalledWith({
-      data: { ordenId: "o1", descripcion: "Filtro de aceite", cantidad: 2, precioUnitario: 15.5 },
+      data: { ordenId: "o1", repuestoId: null, descripcion: "Filtro de aceite", cantidad: 2, precioUnitario: 15.5 },
     });
+  });
+
+  it("creates a catalog-linked item, deriving descripcion/precioUnitario from the Repuesto and ignoring manual fields", async () => {
+    mockRepuestoFindUnique.mockResolvedValue({ id: "r1", nombre: "Filtro de aceite Bosch", precioVenta: 18.9 });
+    mockCreate.mockResolvedValue({ id: "i1" });
+    const formData = new FormData();
+    formData.set("repuestoId", "r1");
+    formData.set("cantidad", "3");
+
+    const result = await addItemOrdenAction("o1", initialState, formData);
+
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockRepuestoFindUnique).toHaveBeenCalledWith({ where: { id: "r1" } });
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: {
+        ordenId: "o1",
+        repuestoId: "r1",
+        descripcion: "Filtro de aceite Bosch",
+        cantidad: 3,
+        precioUnitario: 18.9,
+      },
+    });
+  });
+
+  it("returns an error when repuestoId references a repuesto that doesn't exist", async () => {
+    mockRepuestoFindUnique.mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("repuestoId", "r-missing");
+    formData.set("cantidad", "1");
+
+    const result = await addItemOrdenAction("o1", initialState, formData);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Repuesto no encontrado");
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 
   it("allows TECNICO to add items (not just ADMIN/RECEPCION)", async () => {

@@ -130,6 +130,8 @@ model ItemOrden {
   id             String       @id @default(cuid())
   ordenId        String       @map("orden_id")
   orden          OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  repuestoId     String?      @map("repuesto_id")
+  repuesto       Repuesto?    @relation(fields: [repuestoId], references: [id], onDelete: SetNull)
   descripcion    String
   cantidad       Int
   precioUnitario Decimal      @map("precio_unitario") @db.Decimal(10, 2)
@@ -137,6 +139,7 @@ model ItemOrden {
 
   @@map("items_orden")
   @@index([ordenId])
+  @@index([repuestoId])
 }
 
 model ManoDeObra {
@@ -225,6 +228,7 @@ model Repuesto {
   proveedorId  String?                @map("proveedor_id")
   proveedor    Proveedor?             @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
   entradaItems EntradaMercanciaItem[]
+  itemsOrden   ItemOrden[]
   createdAt    DateTime               @default(now()) @map("created_at")
   updatedAt    DateTime               @updatedAt @map("updated_at")
 
