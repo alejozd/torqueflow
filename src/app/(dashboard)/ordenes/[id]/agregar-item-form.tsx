@@ -2,11 +2,11 @@
 
 import { useActionState } from "react";
 import { addItemOrdenAction, type ItemOrdenFormState } from "@/app/actions/item-orden-actions";
-import type { Repuesto } from "@/generated/prisma-tenant";
+import type { RepuestoOption } from "@/app/actions/repuesto-actions";
 
 const initialState: ItemOrdenFormState = { error: null, success: false };
 
-export function AgregarItemForm({ ordenId, repuestos }: { ordenId: string; repuestos: Repuesto[] }) {
+export function AgregarItemForm({ ordenId, repuestos }: { ordenId: string; repuestos: RepuestoOption[] }) {
   const addItem = addItemOrdenAction.bind(null, ordenId);
   const [state, formAction, isPending] = useActionState(addItem, initialState);
 

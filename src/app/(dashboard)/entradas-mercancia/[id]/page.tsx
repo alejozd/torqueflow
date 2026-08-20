@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
 import { getEntrada } from "@/app/actions/entrada-mercancia-actions";
-import { listRepuestos } from "@/app/actions/repuesto-actions";
+import { listRepuestoOptions } from "@/app/actions/repuesto-actions";
 import { AgregarEntradaItemForm } from "./agregar-entrada-item-form";
 
 export default async function EntradaMercanciaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [entrada, repuestos] = await Promise.all([getEntrada(id), listRepuestos()]);
+  const [entrada, repuestos] = await Promise.all([getEntrada(id), listRepuestoOptions()]);
 
   if (!entrada) {
     notFound();

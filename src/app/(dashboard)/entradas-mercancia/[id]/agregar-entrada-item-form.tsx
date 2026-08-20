@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { addEntradaItemAction, type EntradaFormState } from "@/app/actions/entrada-mercancia-actions";
-import type { Repuesto } from "@/generated/prisma-tenant";
+import type { RepuestoOption } from "@/app/actions/repuesto-actions";
 
 const initialState: EntradaFormState = { error: null, success: false };
 
@@ -11,7 +11,7 @@ export function AgregarEntradaItemForm({
   repuestos,
 }: {
   entradaId: string;
-  repuestos: Repuesto[];
+  repuestos: RepuestoOption[];
 }) {
   const addItem = addEntradaItemAction.bind(null, entradaId);
   const [state, formAction, isPending] = useActionState(addItem, initialState);

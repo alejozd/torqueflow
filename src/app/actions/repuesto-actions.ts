@@ -20,6 +20,12 @@ const REPUESTO_DETAIL_INCLUDE = {
 
 export type RepuestoWithDetalle = Prisma.RepuestoGetPayload<{ include: typeof REPUESTO_DETAIL_INCLUDE }>;
 
+export interface RepuestoOption {
+  id: string;
+  codigo: string;
+  nombre: string;
+}
+
 const stockInicialSchema = z.coerce.number().int().min(0, "El stock inicial no puede ser negativo");
 
 function parseRepuestoFormData(formData: FormData) {
@@ -39,6 +45,15 @@ export async function listRepuestos(): Promise<RepuestoWithDetalle[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.repuesto.findMany({ include: REPUESTO_DETAIL_INCLUDE, orderBy: { nombre: "asc" } });
+}
+
+export async function listRepuestoOptions(): Promise<RepuestoOption[]> {
+  const session = await requireSession();
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  return tenantDb.repuesto.findMany({
+    select: { id: true, codigo: true, nombre: true },
+    orderBy: { nombre: "asc" },
+  });
 }
 
 export async function getRepuesto(id: string): Promise<RepuestoWithDetalle | null> {

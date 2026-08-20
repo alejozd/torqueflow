@@ -8,7 +8,7 @@ test.use({ baseURL: "http://taller-e2e-smoke.localhost:3000" });
 const TINY_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
 
-test("login through Orden de trabajo terminada y entregada, end to end", async ({ page }) => {
+test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Correo").fill(E2E_ADMIN_EMAIL);
   await page.getByLabel("Contraseña").fill(E2E_ADMIN_PASSWORD);
@@ -16,6 +16,53 @@ test("login through Orden de trabajo terminada y entregada, end to end", async (
 
   await expect(page).toHaveURL(/\/clientes$/);
 
+  // --- Fase 3: Inventario, repuestos y proveedores ---
+
+  await page.goto("/bodegas");
+  await expect(page.getByText("Bodega principal")).toBeVisible();
+  await page.getByLabel("Nombre").fill("Bodega norte");
+  await page.getByRole("button", { name: "Crear bodega" }).click();
+  await expect(page.getByRole("status")).toHaveText("Bodega creada");
+  await expect(page.getByText("Bodega norte")).toBeVisible();
+
+  await page.goto("/proveedores");
+  await page.getByLabel("Nombre").fill("Repuestos El Motor");
+  await page.getByRole("button", { name: "Crear proveedor" }).click();
+  await expect(page.getByRole("status")).toHaveText("Proveedor creado");
+
+  await page.goto("/repuestos");
+  await page.getByLabel("Código").fill("FRN-001");
+  await page.getByLabel("Nombre").fill("Filtro de aceite");
+  await page.getByLabel("Precio de compra").fill("8");
+  await page.getByLabel("Precio de venta").fill("18.9");
+  await page.getByLabel("Stock inicial").fill("0");
+  await page.getByLabel("Stock mínimo").fill("5");
+  await page.getByLabel("Bodega").selectOption({ label: "Bodega principal" });
+  await page.getByLabel("Proveedor").selectOption({ label: "Repuestos El Motor" });
+  await page.getByRole("button", { name: "Crear repuesto" }).click();
+  await expect(page.getByRole("status")).toHaveText("Repuesto creado");
+
+  await page.goto("/entradas-mercancia");
+  await page.getByLabel("Proveedor").selectOption({ label: "Repuestos El Motor" });
+  await page.getByLabel("Bodega").selectOption({ label: "Bodega principal" });
+  await page.getByRole("button", { name: "Crear entrada" }).click();
+  await expect(page.getByRole("status")).toHaveText("Entrada creada");
+
+  await page.getByRole("link", { name: /Repuestos El Motor/ }).click();
+  await expect(page.getByRole("heading", { name: /Entrada de mercancía/ })).toBeVisible();
+
+  await page.getByLabel("Repuesto").selectOption({ label: "FRN-001 — Filtro de aceite" });
+  await page.getByLabel("Cantidad").fill("20");
+  await page.getByLabel("Precio de compra unitario").fill("8");
+  await page.getByRole("button", { name: "Registrar ítem" }).click();
+  await expect(page.getByRole("status")).toHaveText("Ítem registrado, stock actualizado");
+
+  await page.goto("/repuestos");
+  await expect(page.getByText(/FRN-001.*stock: 20/)).toBeVisible();
+
+  // --- Fase 1: Clientes, Vehículos, Historial ---
+
+  await page.goto("/clientes");
   await page.getByLabel("Nombre").fill("Juan Pérez");
   await page.getByRole("button", { name: "Crear cliente" }).click();
   await expect(page.getByRole("status")).toHaveText("Cliente creado");
@@ -54,6 +101,20 @@ test("login through Orden de trabajo terminada y entregada, end to end", async (
   await expect(page.getByRole("status").filter({ hasText: "Ítem agregado" })).toBeVisible();
   await expect(page.getByText("Pastillas de freno")).toBeVisible();
 
+  // --- Fase 3: link a catalog Repuesto to this same order — trusted server-side pricing, no stock deduction ---
+
+  await page.getByLabel("Repuesto del inventario (opcional)").selectOption({ label: "FRN-001 — Filtro de aceite" });
+  await page.getByLabel("Cantidad").fill("2");
+  await page.getByRole("button", { name: "Agregar ítem" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Ítem agregado" })).toBeVisible();
+  await expect(page.getByText(/Filtro de aceite — 2 x 18.9/)).toBeVisible();
+
+  await page.goto("/repuestos");
+  await expect(page.getByText(/FRN-001.*stock: 20/)).toBeVisible();
+
+  await page.goto(`/ordenes`);
+  await page.getByRole("link", { name: /ABC123/ }).click();
+
   await page.getByLabel("Descripción").nth(1).fill("Cambio de pastillas de freno");
   await page.getByLabel("Horas").fill("1.5");
   await page.getByLabel("Precio por hora").fill("20");
@@ -91,4 +152,7 @@ test("login through Orden de trabajo terminada y entregada, end to end", async (
   await page.getByLabel("Cambiar estado a").selectOption("ENTREGADA");
   await page.getByRole("button", { name: "Cambiar estado" }).click();
   await expect(page.getByText(/Estado actual: Entregada/)).toBeVisible();
+
+  await page.goto("/repuestos");
+  await expect(page.getByText(/FRN-001.*stock: 20/)).toBeVisible();
 });
