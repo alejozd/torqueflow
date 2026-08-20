@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { requireSession } from "@/lib/auth/guards";
 import { SignOutButton } from "./sign-out-button";
@@ -7,6 +8,10 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   return (
     <div style={{ padding: "2rem" }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+        <nav style={{ display: "flex", gap: "1rem" }}>
+          <Link href="/clientes">Clientes</Link>
+          <Link href="/ordenes">Órdenes</Link>
+        </nav>
         <span>
           Sesión: {session.user.email} — {session.user.tenantSlug}
         </span>
