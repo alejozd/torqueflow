@@ -3,6 +3,9 @@ import { getOrden } from "@/app/actions/orden-actions";
 import { CambiarEstadoForm } from "./cambiar-estado-form";
 import { AgregarItemForm } from "./agregar-item-form";
 import { AgregarManoObraForm } from "./agregar-mano-obra-form";
+import { DviChecklistForm } from "./dvi-checklist-form";
+import { DviFotoForm } from "./dvi-foto-form";
+import type { DviChecklist } from "@/lib/dvi/checklist-items";
 
 export default async function OrdenDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -41,6 +44,19 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
         {orden.manoDeObra.map((linea) => (
           <li key={linea.id}>
             {linea.descripcion} — {linea.horas.toString()}h x {linea.precioHora.toString()}
+          </li>
+        ))}
+      </ul>
+
+      <h2>Inspección vehicular digital (DVI)</h2>
+      <DviChecklistForm ordenId={orden.id} checklist={(orden.dvi?.checklist as DviChecklist | undefined) ?? null} />
+      <DviFotoForm ordenId={orden.id} />
+      <ul>
+        {orden.dvi?.fotos.map((foto) => (
+          <li key={foto.id}>
+            {foto.momento === "ANTES" ? "Antes" : "Después"}:{" "}
+            {/* eslint-disable-next-line @next/next/no-img-element -- auth-gated route, next/image's optimizer can't reach it */}
+            <img src={foto.url} alt={`Foto ${foto.momento.toLowerCase()} de la inspección`} width={200} />
           </li>
         ))}
       </ul>

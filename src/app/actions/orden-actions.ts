@@ -20,6 +20,7 @@ const ORDEN_DETAIL_INCLUDE = {
   mecanico: true,
   items: true,
   manoDeObra: true,
+  dvi: { include: { fotos: true } },
 } satisfies Prisma.OrdenTrabajoInclude;
 
 export type OrdenWithDetalle = Prisma.OrdenTrabajoGetPayload<{ include: typeof ORDEN_DETAIL_INCLUDE }>;
