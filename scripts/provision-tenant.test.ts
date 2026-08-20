@@ -92,6 +92,26 @@ describe("provisionTenant", () => {
     expect(schemaRow).toHaveLength(0);
   });
 
+  it("cleans up the Tenant row and the schema when sede.create fails after the Tenant row was inserted", async () => {
+    const tenantDb = getTenantDb(SCHEMA);
+    vi.spyOn(tenantDb.sede, "create").mockRejectedValueOnce(new Error("Simulated Sede failure"));
+
+    await expect(provisionTenant({ slug: SLUG, schemaName: SCHEMA })).rejects.toThrow(
+      /Simulated Sede failure/,
+    );
+
+    vi.restoreAllMocks();
+
+    const tenantCount = await publicDb.tenant.count({ where: { slug: SLUG } });
+    expect(tenantCount).toBe(0);
+
+    const schemaRow = await publicDb.$queryRawUnsafe<{ schema_name: string }[]>(
+      `SELECT schema_name FROM information_schema.schemata WHERE schema_name = $1`,
+      SCHEMA,
+    );
+    expect(schemaRow).toHaveLength(0);
+  });
+
   it("does NOT drop the schema when a concurrent call already created a Tenant row for schemaName (race safety)", async () => {
     // Simulate the winner of a race: a normal provisionTenant() call that has already
     // created the real schema, run the real migration, and inserted the real Tenant row.

@@ -44,8 +44,13 @@ export async function provisionTenant({ slug, schemaName }: ProvisionTenantInput
 
     const tenant = await publicDb.tenant.create({ data: { slug, schemaName } });
 
-    const tenantDb = getTenantDb(schemaName);
-    await tenantDb.sede.create({ data: { nombre: "Sede principal" } });
+    try {
+      const tenantDb = getTenantDb(schemaName);
+      await tenantDb.sede.create({ data: { nombre: "Sede principal" } });
+    } catch (err) {
+      await publicDb.tenant.delete({ where: { id: tenant.id } });
+      throw err;
+    }
 
     return tenant;
   } catch (err) {
