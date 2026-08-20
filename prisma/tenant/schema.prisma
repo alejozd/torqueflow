@@ -183,25 +183,48 @@ model DviFoto {
 }
 
 model Bodega {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   nombre    String
-  sedeId    String   @map("sede_id")
-  sede      Sede     @relation(fields: [sedeId], references: [id], onDelete: Restrict)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  sedeId    String     @map("sede_id")
+  sede      Sede       @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  repuestos Repuesto[]
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
 
   @@map("bodegas")
   @@index([sedeId])
 }
 
 model Proveedor {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   nombre    String
   contacto  String?
   telefono  String?
   email     String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  repuestos Repuesto[]
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
 
   @@map("proveedores")
+}
+
+model Repuesto {
+  id           String     @id @default(cuid())
+  codigo       String     @unique
+  nombre       String
+  descripcion  String?
+  precioCompra Decimal    @map("precio_compra") @db.Decimal(10, 2)
+  precioVenta  Decimal    @map("precio_venta") @db.Decimal(10, 2)
+  stockActual  Int        @default(0) @map("stock_actual")
+  stockMinimo  Int        @default(0) @map("stock_minimo")
+  bodegaId     String     @map("bodega_id")
+  bodega       Bodega     @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
+  proveedorId  String?    @map("proveedor_id")
+  proveedor    Proveedor? @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  @@map("repuestos")
+  @@index([bodegaId])
+  @@index([proveedorId])
 }
