@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getOrden } from "@/app/actions/orden-actions";
+import { listRepuestos } from "@/app/actions/repuesto-actions";
 import { CambiarEstadoForm } from "./cambiar-estado-form";
 import { AgregarItemForm } from "./agregar-item-form";
 import { AgregarManoObraForm } from "./agregar-mano-obra-form";
@@ -9,7 +10,7 @@ import type { DviChecklist } from "@/lib/dvi/checklist-items";
 
 export default async function OrdenDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const orden = await getOrden(id);
+  const [orden, repuestos] = await Promise.all([getOrden(id), listRepuestos()]);
 
   if (!orden) {
     notFound();
@@ -29,7 +30,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
       <CambiarEstadoForm ordenId={orden.id} estadoActual={orden.estado} />
 
       <h2>Ítems (repuestos)</h2>
-      <AgregarItemForm ordenId={orden.id} />
+      <AgregarItemForm ordenId={orden.id} repuestos={repuestos} />
       <ul>
         {orden.items.map((item) => (
           <li key={item.id}>
