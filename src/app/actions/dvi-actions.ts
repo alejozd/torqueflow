@@ -7,6 +7,7 @@ import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { saveDviFoto } from "@/lib/storage/local-file-storage";
 import { DVI_CHECKLIST_ITEMS, type DviChecklist } from "@/lib/dvi/checklist-items";
 import { dviChecklistStatusSchema, dviFotoMomentoSchema } from "@/lib/validation/dvi";
+import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
 
 export interface DviFormState {
   error: string | null;
@@ -28,6 +29,16 @@ export async function updateDviChecklistAction(
 
   const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const orden = await tenantDb.ordenTrabajo.findUnique({ where: { id: ordenId }, select: { estado: true } });
+  if (!orden) {
+    return { error: "Orden no encontrada", success: false };
+  }
+  try {
+    assertOrdenMutable(orden);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Orden no modificable", success: false };
+  }
 
   try {
     await tenantDb.dvi.upsert({
@@ -61,6 +72,16 @@ export async function addDviFotoAction(
   const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
+  const orden = await tenantDb.ordenTrabajo.findUnique({ where: { id: ordenId }, select: { estado: true } });
+  if (!orden) {
+    return { error: "Orden no encontrada", success: false };
+  }
+  try {
+    assertOrdenMutable(orden);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Orden no modificable", success: false };
+  }
+
   const dvi = await tenantDb.dvi.findUnique({ where: { ordenId } });
   if (!dvi) {
     return { error: "Primero guarda el checklist de inspección", success: false };
@@ -88,6 +109,13 @@ export async function addDviFotoAction(
 export async function deleteDviFotoAction(id: string, ordenId: string): Promise<void> {
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const orden = await tenantDb.ordenTrabajo.findUnique({ where: { id: ordenId }, select: { estado: true } });
+  if (!orden) {
+    throw new Error("Orden no encontrada");
+  }
+  assertOrdenMutable(orden);
+
   await tenantDb.dviFoto.delete({ where: { id } });
   revalidatePath(`/ordenes/${ordenId}`);
 }

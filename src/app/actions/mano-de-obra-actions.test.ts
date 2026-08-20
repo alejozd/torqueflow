@@ -7,8 +7,12 @@ vi.mock("@/lib/auth/guards", () => ({
 
 const mockCreate = vi.fn();
 const mockDelete = vi.fn();
+const mockOrdenFindUnique = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
-  getTenantDb: () => ({ manoDeObra: { create: mockCreate, delete: mockDelete } }),
+  getTenantDb: () => ({
+    manoDeObra: { create: mockCreate, delete: mockDelete },
+    ordenTrabajo: { findUnique: mockOrdenFindUnique },
+  }),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -21,6 +25,7 @@ describe("addManoDeObraAction", () => {
   beforeEach(() => {
     mockRequireRole.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
     mockCreate.mockReset();
+    mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO" });
   });
 
   it("returns a validation error when horas is 0", async () => {
@@ -50,12 +55,27 @@ describe("addManoDeObraAction", () => {
       data: { ordenId: "o1", descripcion: "Cambio de pastillas de freno", horas: 1.5, precioHora: 20 },
     });
   });
+
+  it("blocks adding a labor line when the order is in a terminal state (ENTREGADA)", async () => {
+    mockOrdenFindUnique.mockResolvedValue({ estado: "ENTREGADA" });
+    const formData = new FormData();
+    formData.set("descripcion", "Cambio de pastillas de freno");
+    formData.set("horas", "1");
+    formData.set("precioHora", "20");
+
+    const result = await addManoDeObraAction("o1", initialState, formData);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("No se puede modificar una orden en estado ENTREGADA.");
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
 });
 
 describe("deleteManoDeObraAction", () => {
   beforeEach(() => {
     mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockDelete.mockReset();
+    mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO" });
   });
 
   it("requires ADMIN/RECEPCION (not TECNICO) to delete a labor line", async () => {
@@ -63,5 +83,14 @@ describe("deleteManoDeObraAction", () => {
 
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
     expect(mockDelete).toHaveBeenCalledWith({ where: { id: "m1" } });
+  });
+
+  it("blocks deleting a labor line when the order is in a terminal state (ENTREGADA)", async () => {
+    mockOrdenFindUnique.mockResolvedValue({ estado: "ENTREGADA" });
+
+    await expect(deleteManoDeObraAction("m1", "o1")).rejects.toThrow(
+      "No se puede modificar una orden en estado ENTREGADA.",
+    );
+    expect(mockDelete).not.toHaveBeenCalled();
   });
 });

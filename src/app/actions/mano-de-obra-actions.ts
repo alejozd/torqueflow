@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { manoDeObraInputSchema } from "@/lib/validation/orden";
+import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
 
 export interface ManoDeObraFormState {
   error: string | null;
@@ -29,6 +30,16 @@ export async function addManoDeObraAction(
   const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
+  const orden = await tenantDb.ordenTrabajo.findUnique({ where: { id: ordenId }, select: { estado: true } });
+  if (!orden) {
+    return { error: "Orden no encontrada", success: false };
+  }
+  try {
+    assertOrdenMutable(orden);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Orden no modificable", success: false };
+  }
+
   try {
     await tenantDb.manoDeObra.create({
       data: {
@@ -49,6 +60,13 @@ export async function addManoDeObraAction(
 export async function deleteManoDeObraAction(id: string, ordenId: string): Promise<void> {
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const orden = await tenantDb.ordenTrabajo.findUnique({ where: { id: ordenId }, select: { estado: true } });
+  if (!orden) {
+    throw new Error("Orden no encontrada");
+  }
+  assertOrdenMutable(orden);
+
   try {
     await tenantDb.manoDeObra.delete({ where: { id } });
   } catch (err) {

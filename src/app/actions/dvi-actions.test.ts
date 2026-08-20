@@ -9,10 +9,12 @@ const mockUpsert = vi.fn();
 const mockDviFindUnique = vi.fn();
 const mockFotoCreate = vi.fn();
 const mockFotoDelete = vi.fn();
+const mockOrdenFindUnique = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     dvi: { upsert: mockUpsert, findUnique: mockDviFindUnique },
     dviFoto: { create: mockFotoCreate, delete: mockFotoDelete },
+    ordenTrabajo: { findUnique: mockOrdenFindUnique },
   }),
 }));
 
@@ -36,6 +38,7 @@ describe("updateDviChecklistAction", () => {
   beforeEach(() => {
     mockRequireRole.mockReset().mockResolvedValue({ user: { id: "u1", role: "TECNICO", tenantSchema: "taller_perez" } });
     mockUpsert.mockReset();
+    mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO" });
   });
 
   it("upserts only the recognized checklist keys with valid statuses", async () => {
@@ -55,6 +58,18 @@ describe("updateDviChecklistAction", () => {
       update: { checklist: { frenos: "OK", luces: "ATENCION" } },
     });
   });
+
+  it("blocks updating the checklist when the order is in a terminal state (ENTREGADA)", async () => {
+    mockOrdenFindUnique.mockResolvedValue({ estado: "ENTREGADA" });
+    const formData = new FormData();
+    formData.set("frenos", "OK");
+
+    const result = await updateDviChecklistAction("o1", initialState, formData);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("No se puede modificar una orden en estado ENTREGADA.");
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
 });
 
 describe("addDviFotoAction", () => {
@@ -63,6 +78,7 @@ describe("addDviFotoAction", () => {
     mockDviFindUnique.mockReset();
     mockFotoCreate.mockReset();
     mockSaveDviFoto.mockReset();
+    mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO" });
   });
 
   it("returns an error when no checklist (Dvi record) exists yet", async () => {
@@ -107,16 +123,41 @@ describe("addDviFotoAction", () => {
     expect(result.error).toBe("Tipo de archivo no permitido: application/pdf");
     expect(mockFotoCreate).not.toHaveBeenCalled();
   });
+
+  it("blocks adding a foto when the order is in a terminal state (ENTREGADA)", async () => {
+    mockOrdenFindUnique.mockResolvedValue({ estado: "ENTREGADA" });
+    const formData = new FormData();
+    formData.set("momento", "ANTES");
+    formData.set("foto", new File(["x"], "foto.jpg", { type: "image/jpeg" }));
+
+    const result = await addDviFotoAction("o1", initialState, formData);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("No se puede modificar una orden en estado ENTREGADA.");
+    expect(mockSaveDviFoto).not.toHaveBeenCalled();
+  });
 });
 
 describe("deleteDviFotoAction", () => {
-  it("requires ADMIN/RECEPCION (not TECNICO) to delete a foto", async () => {
+  beforeEach(() => {
     mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockFotoDelete.mockReset();
+    mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO" });
+  });
 
+  it("requires ADMIN/RECEPCION (not TECNICO) to delete a foto", async () => {
     await deleteDviFotoAction("f1", "o1");
 
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
     expect(mockFotoDelete).toHaveBeenCalledWith({ where: { id: "f1" } });
+  });
+
+  it("blocks deleting a foto when the order is in a terminal state (ENTREGADA)", async () => {
+    mockOrdenFindUnique.mockResolvedValue({ estado: "ENTREGADA" });
+
+    await expect(deleteDviFotoAction("f1", "o1")).rejects.toThrow(
+      "No se puede modificar una orden en estado ENTREGADA.",
+    );
+    expect(mockFotoDelete).not.toHaveBeenCalled();
   });
 });

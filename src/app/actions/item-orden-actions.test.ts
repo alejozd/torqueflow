@@ -7,8 +7,12 @@ vi.mock("@/lib/auth/guards", () => ({
 
 const mockCreate = vi.fn();
 const mockDelete = vi.fn();
+const mockOrdenFindUnique = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
-  getTenantDb: () => ({ itemOrden: { create: mockCreate, delete: mockDelete } }),
+  getTenantDb: () => ({
+    itemOrden: { create: mockCreate, delete: mockDelete },
+    ordenTrabajo: { findUnique: mockOrdenFindUnique },
+  }),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -21,6 +25,7 @@ describe("addItemOrdenAction", () => {
   beforeEach(() => {
     mockRequireRole.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
     mockCreate.mockReset();
+    mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO" });
   });
 
   it("returns a validation error when cantidad is less than 1", async () => {
@@ -62,12 +67,27 @@ describe("addItemOrdenAction", () => {
 
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION", "TECNICO"]);
   });
+
+  it("blocks adding an item when the order is in a terminal state (ENTREGADA)", async () => {
+    mockOrdenFindUnique.mockResolvedValue({ estado: "ENTREGADA" });
+    const formData = new FormData();
+    formData.set("descripcion", "Filtro de aceite");
+    formData.set("cantidad", "1");
+    formData.set("precioUnitario", "15");
+
+    const result = await addItemOrdenAction("o1", initialState, formData);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("No se puede modificar una orden en estado ENTREGADA.");
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
 });
 
 describe("deleteItemOrdenAction", () => {
   beforeEach(() => {
     mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockDelete.mockReset();
+    mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO" });
   });
 
   it("requires ADMIN/RECEPCION (not TECNICO) to delete an item", async () => {
@@ -75,5 +95,14 @@ describe("deleteItemOrdenAction", () => {
 
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
     expect(mockDelete).toHaveBeenCalledWith({ where: { id: "i1" } });
+  });
+
+  it("blocks deleting an item when the order is in a terminal state (ENTREGADA)", async () => {
+    mockOrdenFindUnique.mockResolvedValue({ estado: "ENTREGADA" });
+
+    await expect(deleteItemOrdenAction("i1", "o1")).rejects.toThrow(
+      "No se puede modificar una orden en estado ENTREGADA.",
+    );
+    expect(mockDelete).not.toHaveBeenCalled();
   });
 });

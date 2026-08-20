@@ -9,7 +9,7 @@ vi.mock("@/app/actions/orden-actions", () => ({
 
 import { NuevaOrdenForm } from "./nueva-orden-form";
 
-const tecnicos = [{ id: "t1", nombre: "Carlos Ruiz" }] as never;
+const tecnicos = [{ id: "t1", nombre: "Carlos Ruiz" }];
 
 describe("NuevaOrdenForm", () => {
   beforeEach(() => {

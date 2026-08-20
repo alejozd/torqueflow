@@ -35,11 +35,21 @@ export async function GET(
     return NextResponse.json({ error: "Ruta inválida" }, { status: 400 });
   }
 
+  const extension = path.extname(requestedPath).toLowerCase();
+  const contentType = CONTENT_TYPES[extension];
+  if (!contentType) {
+    return NextResponse.json({ error: "Archivo no encontrado" }, { status: 404 });
+  }
+
   try {
     const file = await readFile(requestedPath);
-    const extension = path.extname(requestedPath).toLowerCase();
-    const contentType = CONTENT_TYPES[extension] ?? "application/octet-stream";
-    return new NextResponse(new Uint8Array(file), { headers: { "Content-Type": contentType } });
+    return new NextResponse(new Uint8Array(file), {
+      headers: {
+        "Content-Type": contentType,
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "private, no-store",
+      },
+    });
   } catch {
     return NextResponse.json({ error: "Archivo no encontrado" }, { status: 404 });
   }

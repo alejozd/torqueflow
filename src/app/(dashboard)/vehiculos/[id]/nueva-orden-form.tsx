@@ -1,8 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { createOrdenAction, type OrdenFormState } from "@/app/actions/orden-actions";
-import type { Usuario } from "@/generated/prisma-tenant";
+import { createOrdenAction, type OrdenFormState, type TecnicoOption } from "@/app/actions/orden-actions";
 
 const initialState: OrdenFormState = { error: null, success: false };
 
@@ -13,7 +12,7 @@ export function NuevaOrdenForm({
 }: {
   clienteId: string;
   vehiculoId: string;
-  tecnicos: Usuario[];
+  tecnicos: TecnicoOption[];
 }) {
   const createForVehiculo = createOrdenAction.bind(null, clienteId, vehiculoId);
   const [state, formAction, isPending] = useActionState(createForVehiculo, initialState);

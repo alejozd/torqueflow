@@ -6,18 +6,23 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { ordenTrabajoInputSchema, estadoOrdenSchema } from "@/lib/validation/orden";
 import { isValidEstadoTransition } from "@/lib/orden/estado-transitions";
-import type { EstadoOrden, OrdenTrabajo, Prisma, Usuario } from "@/generated/prisma-tenant";
+import type { EstadoOrden, OrdenTrabajo, Prisma } from "@/generated/prisma-tenant";
 
 export interface OrdenFormState {
   error: string | null;
   success: boolean;
 }
 
+export interface TecnicoOption {
+  id: string;
+  nombre: string;
+}
+
 const ORDEN_DETAIL_INCLUDE = {
   cliente: true,
   vehiculo: true,
   sede: true,
-  mecanico: true,
+  mecanico: { select: { id: true, nombre: true } },
   items: true,
   manoDeObra: true,
   dvi: { include: { fotos: true } },
@@ -47,10 +52,14 @@ export async function getOrden(id: string): Promise<OrdenWithDetalle | null> {
   return tenantDb.ordenTrabajo.findUnique({ where: { id }, include: ORDEN_DETAIL_INCLUDE });
 }
 
-export async function listTecnicos(): Promise<Usuario[]> {
+export async function listTecnicos(): Promise<TecnicoOption[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  return tenantDb.usuario.findMany({ where: { role: "TECNICO" }, orderBy: { nombre: "asc" } });
+  return tenantDb.usuario.findMany({
+    where: { role: "TECNICO" },
+    select: { id: true, nombre: true },
+    orderBy: { nombre: "asc" },
+  });
 }
 
 export async function createOrdenAction(
