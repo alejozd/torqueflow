@@ -31,6 +31,7 @@ model Usuario {
   historialEntries  HistorialVehiculo[]
   ordenesCreadas    OrdenTrabajo[]      @relation("OrdenCreadoPor")
   ordenesAsignadas  OrdenTrabajo[]      @relation("OrdenMecanico")
+  dviRealizados     Dvi[]
   createdAt         DateTime            @default(now()) @map("created_at")
   updatedAt         DateTime            @updatedAt @map("updated_at")
 
@@ -110,6 +111,7 @@ model OrdenTrabajo {
   sintomas           String?
   items              ItemOrden[]
   manoDeObra         ManoDeObra[]
+  dvi                Dvi?
   entregadaAt        DateTime?    @map("entregada_at")
   anuladaAt          DateTime?    @map("anulada_at")
   createdAt          DateTime     @default(now()) @map("created_at")
@@ -146,4 +148,35 @@ model ManoDeObra {
 
   @@map("mano_de_obra")
   @@index([ordenId])
+}
+
+enum DviFotoMomento {
+  ANTES
+  DESPUES
+}
+
+model Dvi {
+  id          String        @id @default(cuid())
+  ordenId     String        @unique @map("orden_id")
+  orden       OrdenTrabajo  @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  checklist   Json          @default("{}")
+  fotos       DviFoto[]
+  creadoPorId String        @map("creado_por_id")
+  creadoPor   Usuario       @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  @@map("dvi")
+}
+
+model DviFoto {
+  id        String         @id @default(cuid())
+  dviId     String         @map("dvi_id")
+  dvi       Dvi            @relation(fields: [dviId], references: [id], onDelete: Cascade)
+  momento   DviFotoMomento
+  url       String
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  @@map("dvi_fotos")
+  @@index([dviId])
 }
