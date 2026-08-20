@@ -77,7 +77,11 @@ Definidos abiertamente a partir de la investigación de mercado (no atados a la 
 9. **Dashboard de rentabilidad y reportes** operativos.
 10. **Usuarios, roles y permisos** — por taller (cada tenant administra los suyos).
 11. **Panel de super-admin** (el usuario, como proveedor del SaaS) — alta/baja de talleres (tenants), estado de cada uno. La facturación del arriendo en sí puede ser manual en v1 (ver §6, fuera de alcance).
-12. **Sedes (multi-sede)** — un tenant puede tener varias ubicaciones físicas dentro del mismo schema (no son tenants separados). Modelo de datos:
+12. **Sedes (multi-sede)** — un tenant puede tener varias ubicaciones físicas dentro del mismo schema (no son tenants separados).
+
+    **Estrategia de lanzamiento: arquitectura preparada, MVP de una sola sede** (decisión 2026-08-20, ver §11). El taller real donde se desplegará el sistema ya opera con varias sedes — multi-sede no es opcional a mediano plazo — pero para lanzar más rápido, el modelo de datos completo (`Sede`, `sede_id` en las entidades relevantes) se construye desde el principio en cada módulo que lo requiera, mientras la UI de gestión de sedes, el selector de sede y el enforcement de consultas por sede activa se activan en una fase posterior dedicada (Fase 6). Esto evita una migración de esquema disruptiva más adelante: llegado el momento, activar multi-sede es trabajo de UI/enforcement, no de columnas nuevas.
+
+    Modelo de datos:
     - `Sede` (id, nombre, dirección) nueva entidad por schema de tenant.
     - `Bodega` (módulo 4) pasa a pertenecer a una `Sede` (`sede_id`).
     - `OrdenTrabajo` (módulo 2) y `Cita` (módulo 7) llevan `sede_id` — se originan en una ubicación concreta.
@@ -85,6 +89,8 @@ Definidos abiertamente a partir de la investigación de mercado (no atados a la 
     - Clientes y vehículos siguen compartidos a nivel de tenant (un cliente puede llevar su vehículo a cualquier sede del mismo taller).
     - El dashboard de rentabilidad (módulo 9) suma sede como dimensión de filtro/comparación.
     - Gating por plan: ver §9.
+
+    **Antes de la Fase 6**: al provisionar un tenant nuevo (`provisionTenant`, Fase 1) se crea automáticamente una `Sede` por defecto; cada módulo que introduce una entidad con `sede_id` (Órdenes en Fase 2, Bodegas/Repuestos en Fase 3, Citas en Fase 7) la asocia a esa sede única desde su propia migración. No hay selector de sede en la UI ni tabla `UsuarioSede` poblada más allá de esa sede por defecto hasta que la Fase 6 la active.
 
 ## 6. Explícitamente fuera de alcance en v1 (YAGNI)
 
@@ -135,12 +141,26 @@ Estructura de 3 niveles (alineada a la investigación de mercado, §2): **básic
 
 Los valores sugeridos de `maxUsuarios` son defaults iniciales, ajustables sin cambiar el modelo de datos (son columnas en `Plan`, no lógica hardcodeada).
 
+**Nota (2026-08-20)**: el modelo de datos multi-sede (`Sede`, `sede_id`) se construye desde la Fase 2 en todos los planes por igual (ver §5, módulo 12); lo que la Fase 6 activa es la UI y el enforcement de `maxSedes` > 1, no el esquema.
+
 ## 10. Decisiones abiertas (a resolver antes o durante la implementación)
 
 - Precio exacto (€ o moneda local) de cada plan — el modelo de datos ya soporta el campo, falta definir el número.
 - Valores finales de `maxUsuarios` por plan (§9 propone defaults ajustables: 3/10/sin límite práctico).
 
-## 11. Próximos pasos
+## 11. Roadmap de fases (actualizado 2026-08-20)
 
-1. Invocar el skill `writing-plans` para convertir este diseño en un plan de implementación por fases (12 módulos es demasiado para un solo plan — probablemente: núcleo clientes/vehículos/órdenes/inventario/sedes primero, luego notificaciones/DVI/agendamiento/dashboard/planes).
-2. Definir precios exactos (§10) antes de exponer el panel de super-admin a talleres reales — no bloquea el desarrollo del núcleo.
+**Fase 1 (núcleo — auth, multi-tenant, Clientes/Vehículos/Historial) completada.** Los módulos restantes se secuencian priorizando velocidad de lanzamiento sobre completitud inmediata, con **arquitectura multi-sede preparada desde el inicio pero activada al final** (decisión de la sección §5, módulo 12 — motivo: el taller real que usará el sistema ya opera con varias sedes, pero construir la UI multi-sede de entrada retrasaría el lanzamiento sin necesidad, dado que el modelo de datos puede quedar listo desde ya):
+
+- **Fase 2** — Órdenes de trabajo + Inspección vehicular digital (DVI), con `sede_id` ya presente en el modelo (módulos 2 y 3, §5).
+- **Fase 3** — Inventario, repuestos y proveedores, con `sede_id` en `Bodega` (módulos 4 y 5, §5).
+- **Fase 4** — Facturación y pagos (parte de facturación del módulo 2, §5).
+- **Fase 5** — Dashboard y reportes básicos (módulo 9, §5).
+- **Fase 6** — Gestión de sedes: UI de administración, selector de sede en login, enforcement de `maxSedes` y de consultas por sede activa — activa multi-sede completo sobre el modelo de datos ya existente (módulo 12, §5).
+- **Fase 7** — Agendamiento de citas + recordatorios de mantenimiento preventivo (módulos 7 y 8, §5).
+- **Fase 8** — Notificaciones automáticas al cliente vía WhatsApp/Email (módulo 6, §5).
+- **Fase 9** — Panel de super-admin + planes y niveles de suscripción (módulos 10 y 11, §5).
+
+Precios exactos y valores finales de `maxUsuarios`/`maxSedes` (§10) siguen sin definir — deben resolverse antes de exponer el panel de super-admin a talleres reales (Fase 9), no bloquean el desarrollo de fases anteriores.
+
+Cada fase se convierte en su propio plan de implementación con el skill `writing-plans` al comenzarla, siguiendo el mismo patrón usado para la Fase 1.
