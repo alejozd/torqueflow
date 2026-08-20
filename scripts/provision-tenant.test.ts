@@ -31,6 +31,16 @@ describe("provisionTenant", () => {
     expect(clienteCount).toBe(0);
   });
 
+  it("creates one default Sede for the new tenant", async () => {
+    await provisionTenant({ slug: SLUG, schemaName: SCHEMA });
+
+    const tenantDb = getTenantDb(SCHEMA);
+    const sedes = await tenantDb.sede.findMany();
+
+    expect(sedes).toHaveLength(1);
+    expect(sedes[0].nombre).toBe("Sede principal");
+  });
+
   it("rejects a schema name that is not a safe SQL identifier", async () => {
     await expect(
       provisionTenant({ slug: "bad", schemaName: "not valid; DROP TABLE x;" }),

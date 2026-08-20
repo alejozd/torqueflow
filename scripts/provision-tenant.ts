@@ -1,5 +1,6 @@
 import { execSync } from "node:child_process";
 import { publicDb } from "@/lib/db/public-client";
+import { getTenantDb } from "@/lib/db/tenant-client";
 import { isValidTenantSlug } from "@/lib/tenant/subdomain";
 import type { Tenant } from "@/generated/prisma-public";
 
@@ -41,7 +42,12 @@ export async function provisionTenant({ slug, schemaName }: ProvisionTenantInput
       stdio: "inherit",
     });
 
-    return await publicDb.tenant.create({ data: { slug, schemaName } });
+    const tenant = await publicDb.tenant.create({ data: { slug, schemaName } });
+
+    const tenantDb = getTenantDb(schemaName);
+    await tenantDb.sede.create({ data: { nombre: "Sede principal" } });
+
+    return tenant;
   } catch (err) {
     const stillExists = await publicDb.tenant.findFirst({ where: { schemaName } });
     if (!stillExists) {

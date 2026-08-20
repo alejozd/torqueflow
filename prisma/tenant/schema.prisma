@@ -14,28 +14,39 @@ enum Role {
   RECEPCION
 }
 
+enum EstadoOrden {
+  BORRADOR
+  EN_PROCESO
+  TERMINADA
+  ENTREGADA
+  ANULADA
+}
+
 model Usuario {
-  id               String              @id @default(cuid())
-  email            String              @unique
-  passwordHash     String              @map("password_hash")
-  nombre           String
-  role             Role                @default(RECEPCION)
-  historialEntries HistorialVehiculo[]
-  createdAt        DateTime            @default(now()) @map("created_at")
-  updatedAt        DateTime            @updatedAt @map("updated_at")
+  id                String              @id @default(cuid())
+  email             String              @unique
+  passwordHash      String              @map("password_hash")
+  nombre            String
+  role              Role                @default(RECEPCION)
+  historialEntries  HistorialVehiculo[]
+  ordenesCreadas    OrdenTrabajo[]      @relation("OrdenCreadoPor")
+  ordenesAsignadas  OrdenTrabajo[]      @relation("OrdenMecanico")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
 
   @@map("usuarios")
 }
 
 model Cliente {
-  id        String     @id @default(cuid())
+  id        String         @id @default(cuid())
   nombre    String
   telefono  String?
   email     String?
   documento String?
   vehiculos Vehiculo[]
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @updatedAt @map("updated_at")
+  ordenes   OrdenTrabajo[]
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
 
   @@map("clientes")
 }
@@ -49,6 +60,7 @@ model Vehiculo {
   clienteId String              @map("cliente_id")
   cliente   Cliente             @relation(fields: [clienteId], references: [id], onDelete: Restrict)
   historial HistorialVehiculo[]
+  ordenes   OrdenTrabajo[]
   createdAt DateTime            @default(now()) @map("created_at")
   updatedAt DateTime            @updatedAt @map("updated_at")
 
@@ -68,4 +80,70 @@ model HistorialVehiculo {
 
   @@map("historial_vehiculo")
   @@index([vehiculoId])
+}
+
+model Sede {
+  id        String         @id @default(cuid())
+  nombre    String
+  direccion String?
+  ordenes   OrdenTrabajo[]
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  @@map("sedes")
+}
+
+model OrdenTrabajo {
+  id                 String       @id @default(cuid())
+  estado             EstadoOrden  @default(BORRADOR)
+  clienteId          String       @map("cliente_id")
+  cliente            Cliente      @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  vehiculoId         String       @map("vehiculo_id")
+  vehiculo           Vehiculo     @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  sedeId             String       @map("sede_id")
+  sede               Sede         @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  mecanicoId         String?      @map("mecanico_id")
+  mecanico           Usuario?     @relation("OrdenMecanico", fields: [mecanicoId], references: [id], onDelete: SetNull)
+  creadoPorId        String       @map("creado_por_id")
+  creadoPor          Usuario      @relation("OrdenCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  kilometrajeIngreso Int?         @map("kilometraje_ingreso")
+  sintomas           String?
+  items              ItemOrden[]
+  manoDeObra         ManoDeObra[]
+  entregadaAt        DateTime?    @map("entregada_at")
+  anuladaAt          DateTime?    @map("anulada_at")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  @@map("ordenes_trabajo")
+  @@index([clienteId])
+  @@index([vehiculoId])
+  @@index([sedeId])
+  @@index([estado])
+}
+
+model ItemOrden {
+  id             String       @id @default(cuid())
+  ordenId        String       @map("orden_id")
+  orden          OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  descripcion    String
+  cantidad       Int
+  precioUnitario Decimal      @map("precio_unitario") @db.Decimal(10, 2)
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@map("items_orden")
+  @@index([ordenId])
+}
+
+model ManoDeObra {
+  id          String       @id @default(cuid())
+  ordenId     String       @map("orden_id")
+  orden       OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  descripcion String
+  horas       Decimal      @db.Decimal(5, 2)
+  precioHora  Decimal      @map("precio_hora") @db.Decimal(10, 2)
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  @@map("mano_de_obra")
+  @@index([ordenId])
 }
