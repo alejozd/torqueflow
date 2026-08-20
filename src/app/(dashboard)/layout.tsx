@@ -13,6 +13,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           <Link href="/ordenes">Órdenes</Link>
           <Link href="/bodegas">Bodegas</Link>
           <Link href="/proveedores">Proveedores</Link>
+          <Link href="/repuestos">Repuestos</Link>
         </nav>
         <span>
           Sesión: {session.user.email} — {session.user.tenantSlug}
