@@ -27,3 +27,18 @@ export const repuestoInputSchema = z.object({
 });
 
 export type RepuestoInput = z.infer<typeof repuestoInputSchema>;
+
+export const entradaMercanciaInputSchema = z.object({
+  proveedorId: z.string().min(1, "Selecciona un proveedor"),
+  bodegaId: z.string().min(1, "Selecciona una bodega"),
+});
+
+export type EntradaMercanciaInput = z.infer<typeof entradaMercanciaInputSchema>;
+
+export const entradaMercanciaItemInputSchema = z.object({
+  repuestoId: z.string().min(1, "Selecciona un repuesto"),
+  cantidad: z.coerce.number().int().min(1, "La cantidad debe ser al menos 1"),
+  precioCompraUnitario: z.coerce.number().min(0, "El precio no puede ser negativo"),
+});
+
+export type EntradaMercanciaItemInput = z.infer<typeof entradaMercanciaItemInputSchema>;
