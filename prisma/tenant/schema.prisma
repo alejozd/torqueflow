@@ -88,6 +88,7 @@ model Sede {
   nombre    String
   direccion String?
   ordenes   OrdenTrabajo[]
+  bodegas   Bodega[]
   createdAt DateTime       @default(now()) @map("created_at")
   updatedAt DateTime       @updatedAt @map("updated_at")
 
@@ -179,4 +180,28 @@ model DviFoto {
 
   @@map("dvi_fotos")
   @@index([dviId])
+}
+
+model Bodega {
+  id        String   @id @default(cuid())
+  nombre    String
+  sedeId    String   @map("sede_id")
+  sede      Sede     @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("bodegas")
+  @@index([sedeId])
+}
+
+model Proveedor {
+  id        String   @id @default(cuid())
+  nombre    String
+  contacto  String?
+  telefono  String?
+  email     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("proveedores")
 }

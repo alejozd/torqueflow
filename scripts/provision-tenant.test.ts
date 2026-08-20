@@ -41,6 +41,18 @@ describe("provisionTenant", () => {
     expect(sedes[0].nombre).toBe("Sede principal");
   });
 
+  it("creates one default Bodega for the new tenant, tied to the default Sede", async () => {
+    await provisionTenant({ slug: SLUG, schemaName: SCHEMA });
+
+    const tenantDb = getTenantDb(SCHEMA);
+    const sedes = await tenantDb.sede.findMany();
+    const bodegas = await tenantDb.bodega.findMany();
+
+    expect(bodegas).toHaveLength(1);
+    expect(bodegas[0].nombre).toBe("Bodega principal");
+    expect(bodegas[0].sedeId).toBe(sedes[0].id);
+  });
+
   it("rejects a schema name that is not a safe SQL identifier", async () => {
     await expect(
       provisionTenant({ slug: "bad", schemaName: "not valid; DROP TABLE x;" }),
