@@ -10,17 +10,25 @@ vi.mock("@/lib/auth/guards", () => ({
 const mockCreate = vi.fn();
 const mockFindMany = vi.fn();
 const mockFindUnique = vi.fn();
+const mockUpdate = vi.fn();
 const mockSedeFindFirst = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
-    ordenTrabajo: { create: mockCreate, findMany: mockFindMany, findUnique: mockFindUnique },
+    ordenTrabajo: { create: mockCreate, findMany: mockFindMany, findUnique: mockFindUnique, update: mockUpdate },
     sede: { findFirst: mockSedeFindFirst },
   }),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { createOrdenAction, listOrdenes, getOrden, type OrdenFormState } from "./orden-actions";
+import {
+  createOrdenAction,
+  listOrdenes,
+  getOrden,
+  updateEstadoOrdenAction,
+  type OrdenFormState,
+  type EstadoFormState,
+} from "./orden-actions";
 
 const initialState: OrdenFormState = { error: null, success: false };
 
@@ -126,5 +134,61 @@ describe("getOrden", () => {
     const result = await getOrden("missing");
 
     expect(result).toBeNull();
+  });
+});
+
+describe("updateEstadoOrdenAction", () => {
+  const initialEstadoState: EstadoFormState = { error: null };
+
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
+    mockFindUnique.mockReset();
+    mockUpdate.mockReset();
+  });
+
+  it("rejects an invalid estado value", async () => {
+    const formData = new FormData();
+    formData.set("estado", "NOT_A_REAL_ESTADO");
+
+    const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
+
+    expect(result.error).toBe("Estado inválido");
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a transition that skips states (BORRADOR straight to TERMINADA)", async () => {
+    mockFindUnique.mockResolvedValue({ id: "o1", estado: "BORRADOR" });
+    const formData = new FormData();
+    formData.set("estado", "TERMINADA");
+
+    const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
+
+    expect(result.error).toBe("No se puede cambiar de BORRADOR a TERMINADA");
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("applies a valid transition and stamps entregadaAt when moving to ENTREGADA", async () => {
+    mockFindUnique.mockResolvedValue({ id: "o1", estado: "TERMINADA" });
+    mockUpdate.mockResolvedValue({ id: "o1", estado: "ENTREGADA" });
+    const formData = new FormData();
+    formData.set("estado", "ENTREGADA");
+
+    const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
+
+    expect(result.error).toBeNull();
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: "o1" },
+      data: { estado: "ENTREGADA", entregadaAt: expect.any(Date), anuladaAt: undefined },
+    });
+  });
+
+  it("returns 'Orden no encontrada' when the order does not exist", async () => {
+    mockFindUnique.mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("estado", "EN_PROCESO");
+
+    const result = await updateEstadoOrdenAction("missing", initialEstadoState, formData);
+
+    expect(result.error).toBe("Orden no encontrada");
   });
 });

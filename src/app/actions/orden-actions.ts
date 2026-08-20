@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
-import { ordenTrabajoInputSchema } from "@/lib/validation/orden";
+import { ordenTrabajoInputSchema, estadoOrdenSchema } from "@/lib/validation/orden";
+import { isValidEstadoTransition } from "@/lib/orden/estado-transitions";
 import type { EstadoOrden, OrdenTrabajo, Prisma, Usuario } from "@/generated/prisma-tenant";
 
 export interface OrdenFormState {
@@ -93,4 +94,47 @@ export async function createOrdenAction(
 
   revalidatePath(`/vehiculos/${vehiculoId}`);
   return { error: null, success: true };
+}
+
+export interface EstadoFormState {
+  error: string | null;
+}
+
+export async function updateEstadoOrdenAction(
+  id: string,
+  prevState: EstadoFormState,
+  formData: FormData,
+): Promise<EstadoFormState> {
+  const parsedEstado = estadoOrdenSchema.safeParse(formData.get("estado"));
+  if (!parsedEstado.success) {
+    return { error: "Estado inválido" };
+  }
+
+  const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const orden = await tenantDb.ordenTrabajo.findUnique({ where: { id } });
+  if (!orden) {
+    return { error: "Orden no encontrada" };
+  }
+
+  if (!isValidEstadoTransition(orden.estado, parsedEstado.data)) {
+    return { error: `No se puede cambiar de ${orden.estado} a ${parsedEstado.data}` };
+  }
+
+  try {
+    await tenantDb.ordenTrabajo.update({
+      where: { id },
+      data: {
+        estado: parsedEstado.data,
+        entregadaAt: parsedEstado.data === "ENTREGADA" ? new Date() : undefined,
+        anuladaAt: parsedEstado.data === "ANULADA" ? new Date() : undefined,
+      },
+    });
+  } catch (err) {
+    return { error: friendlyPrismaErrorMessage(err, "Error al actualizar el estado") };
+  }
+
+  revalidatePath(`/ordenes/${id}`);
+  return { error: null };
 }
