@@ -11,6 +11,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         <nav style={{ display: "flex", gap: "1rem" }}>
           <Link href="/clientes">Clientes</Link>
           <Link href="/ordenes">Órdenes</Link>
+          <Link href="/bodegas">Bodegas</Link>
         </nav>
         <span>
           Sesión: {session.user.email} — {session.user.tenantSlug}
