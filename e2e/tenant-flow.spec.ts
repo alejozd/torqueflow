@@ -70,7 +70,13 @@ test("login through Orden de trabajo terminada y entregada, end to end", async (
     mimeType: "image/png",
     buffer: Buffer.from(TINY_PNG_BASE64, "base64"),
   });
-  await page.getByRole("button", { name: "Subir foto" }).click();
+  const [uploadsResponse] = await Promise.all([
+    page.waitForResponse(
+      (resp) => resp.url().includes("/api/uploads/") && resp.request().resourceType() === "image",
+    ),
+    page.getByRole("button", { name: "Subir foto" }).click(),
+  ]);
+  expect(uploadsResponse.status()).toBe(200);
   await expect(page.getByRole("status").filter({ hasText: "Foto subida" })).toBeVisible();
   await expect(page.getByRole("img", { name: "Foto antes de la inspección" })).toBeVisible();
 
