@@ -8,12 +8,12 @@ vi.mock("@/lib/auth/guards", () => ({
 const mockUpsert = vi.fn();
 const mockDviFindUnique = vi.fn();
 const mockFotoCreate = vi.fn();
-const mockFotoDelete = vi.fn();
+const mockFotoDeleteMany = vi.fn();
 const mockOrdenFindUnique = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     dvi: { upsert: mockUpsert, findUnique: mockDviFindUnique },
-    dviFoto: { create: mockFotoCreate, delete: mockFotoDelete },
+    dviFoto: { create: mockFotoCreate, deleteMany: mockFotoDeleteMany },
     ordenTrabajo: { findUnique: mockOrdenFindUnique },
   }),
 }));
@@ -141,15 +141,17 @@ describe("addDviFotoAction", () => {
 describe("deleteDviFotoAction", () => {
   beforeEach(() => {
     mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
-    mockFotoDelete.mockReset();
+    mockFotoDeleteMany.mockReset();
     mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO" });
   });
 
   it("requires ADMIN/RECEPCION (not TECNICO) to delete a foto", async () => {
+    mockFotoDeleteMany.mockResolvedValue({ count: 1 });
+
     await deleteDviFotoAction("f1", "o1");
 
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
-    expect(mockFotoDelete).toHaveBeenCalledWith({ where: { id: "f1" } });
+    expect(mockFotoDeleteMany).toHaveBeenCalledWith({ where: { id: "f1", dvi: { ordenId: "o1" } } });
   });
 
   it("blocks deleting a foto when the order is in a terminal state (ENTREGADA)", async () => {
@@ -158,6 +160,12 @@ describe("deleteDviFotoAction", () => {
     await expect(deleteDviFotoAction("f1", "o1")).rejects.toThrow(
       "No se puede modificar una orden en estado ENTREGADA.",
     );
-    expect(mockFotoDelete).not.toHaveBeenCalled();
+    expect(mockFotoDeleteMany).not.toHaveBeenCalled();
+  });
+
+  it("throws when the foto exists but belongs to a different orden", async () => {
+    mockFotoDeleteMany.mockResolvedValue({ count: 0 });
+
+    await expect(deleteDviFotoAction("f1", "o1")).rejects.toThrow("Foto no encontrada en esta orden");
   });
 });

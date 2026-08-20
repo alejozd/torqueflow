@@ -68,8 +68,14 @@ export async function deleteManoDeObraAction(id: string, ordenId: string): Promi
   assertOrdenMutable(orden);
 
   try {
-    await tenantDb.manoDeObra.delete({ where: { id } });
+    const { count } = await tenantDb.manoDeObra.deleteMany({ where: { id, ordenId } });
+    if (count === 0) {
+      throw new Error("Registro no encontrado en esta orden");
+    }
   } catch (err) {
+    if (err instanceof Error && err.message === "Registro no encontrado en esta orden") {
+      throw err;
+    }
     throw new Error(friendlyPrismaErrorMessage(err, "Error al eliminar la mano de obra"));
   }
   revalidatePath(`/ordenes/${ordenId}`);

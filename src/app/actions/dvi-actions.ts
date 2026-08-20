@@ -116,6 +116,9 @@ export async function deleteDviFotoAction(id: string, ordenId: string): Promise<
   }
   assertOrdenMutable(orden);
 
-  await tenantDb.dviFoto.delete({ where: { id } });
+  const { count } = await tenantDb.dviFoto.deleteMany({ where: { id, dvi: { ordenId } } });
+  if (count === 0) {
+    throw new Error("Foto no encontrada en esta orden");
+  }
   revalidatePath(`/ordenes/${ordenId}`);
 }

@@ -6,11 +6,11 @@ vi.mock("@/lib/auth/guards", () => ({
 }));
 
 const mockCreate = vi.fn();
-const mockDelete = vi.fn();
+const mockDeleteMany = vi.fn();
 const mockOrdenFindUnique = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
-    itemOrden: { create: mockCreate, delete: mockDelete },
+    itemOrden: { create: mockCreate, deleteMany: mockDeleteMany },
     ordenTrabajo: { findUnique: mockOrdenFindUnique },
   }),
 }));
@@ -86,15 +86,17 @@ describe("addItemOrdenAction", () => {
 describe("deleteItemOrdenAction", () => {
   beforeEach(() => {
     mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
-    mockDelete.mockReset();
+    mockDeleteMany.mockReset();
     mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO" });
   });
 
   it("requires ADMIN/RECEPCION (not TECNICO) to delete an item", async () => {
+    mockDeleteMany.mockResolvedValue({ count: 1 });
+
     await deleteItemOrdenAction("i1", "o1");
 
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
-    expect(mockDelete).toHaveBeenCalledWith({ where: { id: "i1" } });
+    expect(mockDeleteMany).toHaveBeenCalledWith({ where: { id: "i1", ordenId: "o1" } });
   });
 
   it("blocks deleting an item when the order is in a terminal state (ENTREGADA)", async () => {
@@ -103,6 +105,12 @@ describe("deleteItemOrdenAction", () => {
     await expect(deleteItemOrdenAction("i1", "o1")).rejects.toThrow(
       "No se puede modificar una orden en estado ENTREGADA.",
     );
-    expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockDeleteMany).not.toHaveBeenCalled();
+  });
+
+  it("throws when the item exists but belongs to a different orden", async () => {
+    mockDeleteMany.mockResolvedValue({ count: 0 });
+
+    await expect(deleteItemOrdenAction("i1", "o1")).rejects.toThrow("Ítem no encontrado en esta orden");
   });
 });

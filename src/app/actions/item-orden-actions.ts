@@ -68,8 +68,14 @@ export async function deleteItemOrdenAction(id: string, ordenId: string): Promis
   assertOrdenMutable(orden);
 
   try {
-    await tenantDb.itemOrden.delete({ where: { id } });
+    const { count } = await tenantDb.itemOrden.deleteMany({ where: { id, ordenId } });
+    if (count === 0) {
+      throw new Error("Ítem no encontrado en esta orden");
+    }
   } catch (err) {
+    if (err instanceof Error && err.message === "Ítem no encontrado en esta orden") {
+      throw err;
+    }
     throw new Error(friendlyPrismaErrorMessage(err, "Error al eliminar el ítem"));
   }
   revalidatePath(`/ordenes/${ordenId}`);

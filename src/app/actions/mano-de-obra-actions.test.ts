@@ -6,11 +6,11 @@ vi.mock("@/lib/auth/guards", () => ({
 }));
 
 const mockCreate = vi.fn();
-const mockDelete = vi.fn();
+const mockDeleteMany = vi.fn();
 const mockOrdenFindUnique = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
-    manoDeObra: { create: mockCreate, delete: mockDelete },
+    manoDeObra: { create: mockCreate, deleteMany: mockDeleteMany },
     ordenTrabajo: { findUnique: mockOrdenFindUnique },
   }),
 }));
@@ -74,15 +74,17 @@ describe("addManoDeObraAction", () => {
 describe("deleteManoDeObraAction", () => {
   beforeEach(() => {
     mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
-    mockDelete.mockReset();
+    mockDeleteMany.mockReset();
     mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO" });
   });
 
   it("requires ADMIN/RECEPCION (not TECNICO) to delete a labor line", async () => {
+    mockDeleteMany.mockResolvedValue({ count: 1 });
+
     await deleteManoDeObraAction("m1", "o1");
 
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
-    expect(mockDelete).toHaveBeenCalledWith({ where: { id: "m1" } });
+    expect(mockDeleteMany).toHaveBeenCalledWith({ where: { id: "m1", ordenId: "o1" } });
   });
 
   it("blocks deleting a labor line when the order is in a terminal state (ENTREGADA)", async () => {
@@ -91,6 +93,12 @@ describe("deleteManoDeObraAction", () => {
     await expect(deleteManoDeObraAction("m1", "o1")).rejects.toThrow(
       "No se puede modificar una orden en estado ENTREGADA.",
     );
-    expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockDeleteMany).not.toHaveBeenCalled();
+  });
+
+  it("throws when the labor line exists but belongs to a different orden", async () => {
+    mockDeleteMany.mockResolvedValue({ count: 0 });
+
+    await expect(deleteManoDeObraAction("m1", "o1")).rejects.toThrow("Registro no encontrado en esta orden");
   });
 });
