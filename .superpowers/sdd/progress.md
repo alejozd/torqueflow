@@ -180,3 +180,88 @@ All 14 tasks + 2 review-driven fix rounds (Critical/Important batch, then the de
 - 5 security findings found and resolved during the process (Task 1 orphan-tenant gap, Task 11 cross-tenant path-traversal, Task 14 e2e false-positive, final-review Critical passwordHash leak, final-review-2 delete-action IDOR)
 - Technical debt documented: Sede migration/backfill script for tenants provisioned before this phase (backlog, not blocking -- no real tenants yet) + 11 Minor findings (see "Final whole-branch review" section above for the full list)
 - Status: Fase 2 complete, ready for Fase 3
+
+
+======================================================================
+# TorqueFlow Fase 3 (Inventario, Repuestos y Proveedores) -- Progress Ledger
+======================================================================
+Started 2026-08-20. Plan: docs/superpowers/plans/2026-08-20-torqueflow-phase3-inventario.md (16 tasks). Executing via subagent-driven-development directly on main (explicit user consent, same as Fase 1-2 -- no worktree). Fase 3 RULES.md updates apply: commit format "fase3-task X: descripcion" (not just "task X"), do not touch Fase 1/2 backlog items during this phase, max 1 fix/re-review loop per task.
+
+Task 1: complete (commit c0d9e30, pushed to main, review APPROVED -- controller performed this review directly, Agent-dispatch classifier blocked subagent review twice, same recurring issue as end of Fase 2). Bodega/Proveedor models live, provisionTenant reuses the existing Sede-creation try/catch (Fase 2's orphan-safety fix) to also create a default "Bodega principal" tied to the new Sede's id -- verified: same catch block, tenant.delete on any failure inside it. Migration SQL correct (bodegas.sede_id FK RESTRICT, indexed). No Repuesto/EntradaMercancia references (correctly deferred). New test mirrors the existing Sede test's real-DB pattern exactly. 9/9 tests passing.
+
+Task 2: complete (commit bfadcb5, pushed to main, tsc clean). src/lib/validation/inventario.ts: bodegaInputSchema, proveedorInputSchema. NOTE: from this point, Fase 3 execution switched to INLINE (not subagent-driven) -- Claude Code auto-mode classifier began blocking ALL Agent dispatches (both implementer and reviewer) with generic "Blocked by classifier", confirmed after 2 retries each. User approved switching to inline execution for the rest of the phase, reaffirming the same operational rules (fase3-task N commit format, max 1 correction attempt, concise reports, tsc/tests at task end, stop near token limits).
+
+Task 3: complete (commit bee3f04, pushed to main, inline execution). bodega-actions.ts CRUD. 1 correction applied: plan's exact code used formData.get("nombre") without ?? "" -- when the field is absent, FormData.get returns null, and zod 4.4.3's z.string().min(1) gives the generic type-error message ("Invalid input: expected string, received null") instead of the custom "El nombre es obligatorio" message for null specifically (same known class documented in Fase 1's ledger for placa/marca/modelo). Fixed both createBodegaAction and updateBodegaAction with formData.get("nombre") ?? "". REMEMBER: apply this same ?? "" pattern to every required-string formData.get(...) call in the remaining Fase 3 actions (proveedor nombre, repuesto codigo/nombre, entrada-mercancia proveedorId/bodegaId, item repuestoId etc.) instead of copying the plan's literal code verbatim. 6/6 tests.
+
+Task 4: complete (commit d97cc4a, pushed to main, inline execution). /bodegas list page + NuevoBodegaForm + nav link. 174/174 full suite, tsc clean.
+
+Task 5: complete (commit 9cd4d56, pushed to main, inline execution). proveedor-actions.ts CRUD, ?? "" pattern applied from the start (no correction needed). 5/5 tests, tsc clean.
+
+Task 6: complete (commit e4bd58c, pushed to main, inline execution). /proveedores list page + NuevoProveedorForm + nav link. 182/182 full suite, tsc clean.
+
+Task 7: complete (commit 73023e5, pushed to main, inline execution). Repuesto model added (codigo unique, bodegaId required RESTRICT, proveedorId optional SETNULL), repuestos back-relations on Bodega/Proveedor. Migration applied against real Postgres, tsc clean.
+
+Task 8: complete (commit d7e8ecf, pushed to main, inline execution). repuestoInputSchema + repuesto-actions.ts CRUD. Confirmed z.coerce.number() fields (precioCompra/precioVenta/stockMinimo) don't need the ?? "" fix (Number(null)=0, no type-mismatch error like z.string() has) -- only applied ?? "" to plain z.string() fields (codigo, nombre, bodegaId, proveedorId, descripcion). stockActual write-once enforced structurally (absent from updateRepuestoAction's data object). 7/7 tests, tsc clean, no correction needed.
+
+Task 9: complete (commit 93ea064, pushed to main, inline execution). /repuestos list page + NuevoRepuestoForm (bodega/proveedor selects) + passive "stock bajo" marker + nav link. 192/192 full suite, tsc clean.
+
+Task 10: complete (commit 107af57, pushed to main, inline execution). EntradaMercancia + EntradaMercanciaItem models added (header+lines pattern mirroring OrdenTrabajo/ItemOrden; EntradaMercanciaItem.repuesto onDelete:Restrict unlike ItemOrden's SetNull). Back-relations added on Proveedor/Bodega/Repuesto/Usuario. Migration applied against real Postgres, tsc clean.
+
+Task 11: complete (commit df4e266, pushed to main, inline execution). entradaMercanciaInputSchema + entradaMercanciaItemInputSchema + entrada-mercancia-actions.ts: createEntradaMercanciaAction (header) + addEntradaItemAction (atomic tenantDb.$transaction([itemCreate, repuestoUpdate-increment])) + listEntradas/getEntrada. 6/6 tests including atomicity/rejection test, tsc clean, no correction needed.
+
+Task 12: complete (commit 48adbad, pushed to main, inline execution). /entradas-mercancia list page + NuevaEntradaMercanciaForm (proveedor/bodega selects) + nav link. 201/201 full suite, tsc clean.
+
+Task 13: complete (commit 1663484, pushed to main, inline execution). /entradas-mercancia/[id] detail page + AgregarEntradaItemForm (repuesto select). 204/204 full suite, tsc clean.
+
+Task 14: complete (commit d68c161, pushed to main, inline execution). ItemOrden.repuestoId (optional FK, SetNull) linked to Repuesto. itemOrdenInputSchema now .refine()-based (repuestoId OR manual descripcion+precioUnitario). addItemOrdenAction derives trusted descripcion/precioVenta server-side when repuestoId given. item-orden-actions.test.ts fully replaced (existing "creates item" test updated to expect repuestoId:null, 4 new tests added). 10/10 file tests, 207/207 full suite, tsc clean, ZERO corrections needed -- careful upfront design (schema refine ordering, ?? "" pattern) paid off.
+
+Task 15: complete (commit 7b1c32a, pushed to main, inline execution). AgregarItemForm gets repuesto select ("Ítem manual" default + catalog options), descripcion/precioUnitario no longer required (server-refined). Orden detail page fetches listRepuestos() alongside getOrden(), passes to AgregarItemForm. 208/208 full suite, tsc clean.
+
+Task 16: complete (commit 596414f, pushed to main, inline execution). e2e/tenant-flow.spec.ts extended: bodega creation -> proveedor -> repuesto -> entrada de mercancia (real stock increment via $transaction) -> existing Fase1/2 flow -> catalog-linked order item (trusted pricing) -> stock unchanged through order lifecycle to ENTREGADA.
+  REAL BUG CAUGHT BY THIS E2E RUN (not caught by any unit test, since mocks never exercise real RSC/Client serialization): passing Repuesto[]/RepuestoWithDetalle[] (Decimal precioCompra/precioVenta fields) as props into "use client" components (AgregarEntradaItemForm from Task 13, AgregarItemForm from Task 15) crashed at runtime -- "Only plain objects can be passed to Client Components from Server Components. Decimal objects are not supported." Same root-cause class as Fase 2's final-review Critical (listTecnicos leaking full Usuario) but here it's a hard crash instead of a data leak. FIXED: added RepuestoOption {id, codigo, nombre} type + listRepuestoOptions() (select-only, no Decimal fields) to repuesto-actions.ts, mirroring the TecnicoOption/listTecnicos pattern from Fase 2's fix. Updated both AgregarEntradaItemForm's and AgregarItemForm's prop types + their pages to use listRepuestoOptions() instead of listRepuestos(). Also fixed 2 unrelated e2e bugs in the same pass (my own test code): selectOption({label: /regex/}) isn't valid Playwright API, needs an exact string -- changed both occurrences to "FRN-001 -- Filtro de aceite". 1 correction attempt, e2e 2/2 clean after, unit 208/208 unaffected.
+
+======================================================================
+FASE 3 (INVENTARIO, REPUESTOS Y PROVEEDORES): ALL 16 TASKS COMPLETE (2026-08-20)
+======================================================================
+All 16 tasks implemented (Tasks 1 inline-reviewed by controller after classifier blocked subagent review; Tasks 2-16 fully inline per user's approval after the classifier began blocking ALL Agent dispatches). 208/208 unit tests + 2/2 e2e passing, tsc clean. Final whole-branch review pending next (controller will perform it directly given the classifier situation).
+
+## Final whole-branch review (2026-08-20, session 2)
+Dispatched final review (opus) over the full Fase 3 diff (`c0d9e30~1..596414f`, 16 commits, +1981/-21). Agent dispatch worked this session (classifier did not block it, unlike the rest of the phase). Tenant isolation, Decimal/secret-leak guard, assertOrdenMutable placement, delete-ownership, stock write-once, `?? ""` formData pattern, role matrix, and Prisma error handling all traced clean with no regressions. Found 1 Critical + 3 Important (cross-cutting, spanning Tasks 7/8/10/11/13/14):
+
+1. CRITICAL - Zero-price coercion: `precioCompra`/`precioVenta` used bare `z.coerce.number().min(0, ...)`. Since `NuevoRepuestoForm` has `noValidate`, a blank price input submits `""`, `Number("")` is `0`, so `.min(0)` silently accepted it. A part could be created with `precioVenta: 0`, invisible in the `/repuestos` list view (prices aren't displayed there), with no in-app repair path (`updateRepuestoAction` is wired to zero UI). That `0` then flows into order billing via Task 14's server-trusted-pricing path (`item-orden-actions.ts` derives `precioUnitario` from `repuesto.precioVenta`, ignoring any manual override) -- silent revenue loss reachable through ordinary UI use, no tampering required.
+2. Important (I2): identical mechanism on `precioCompraUnitario` in entrada de mercancia -- blank input records the goods-receipt line at cost 0 while still incrementing stock correctly, permanently destroying the cost basis (no edit/delete UI for receipt items).
+3. Important (I3): `addEntradaItemAction` incremented `repuesto.stockActual` by id with no check that the chosen Repuesto's `bodegaId` matches the EntradaMercancia's `bodegaId` -- the picker on the entrada detail page listed every repuesto in the tenant regardless of warehouse. A receipt logged "at Bodega norte" could silently increment a Bodega-principal part's stock instead, making per-warehouse stock unreconcilable with the receipt ledger. Genuine cross-task gap (Task 7 model + Task 10 model + Task 11 transaction + Task 13 page) that no single task's scoped review could see.
+4. Important (I4): `listRepuestoOptions` (the select-only fix that resolved Task 16's Decimal-crash) had zero test coverage proving its `select`-only shape -- same bug class had already caused two production-shaped failures in this codebase (Fase 2 `listTecnicos` passwordHash leak, Fase 3 Task 16 Decimal crash).
+
+FIXED in commit 8c45b54 (pushed to main):
+- `src/lib/validation/inventario.ts`: new `requiredMoney(msg)` helper (`z.preprocess` mapping `""`/`null`/`undefined` to `undefined` before `z.coerce.number().min(0)`) applied to `precioCompra`, `precioVenta`, `precioCompraUnitario` -- blank now fails with a required-field error; `0`, decimals, and negative-rejection all still behave correctly.
+- `src/app/actions/entrada-mercancia-actions.ts`: `addEntradaItemAction` now fetches the entrada's and repuesto's `bodegaId` before the `$transaction` and rejects with a friendly error on mismatch (or missing entrada/repuesto), never throws.
+- `src/app/actions/repuesto-actions.ts`: `listRepuestoOptions(bodegaId?)` now accepts an optional warehouse filter; the entrada detail page passes `entrada.bodegaId` to scope its picker. The orden detail page's unscoped call was deliberately left unchanged (orders aren't tied to one warehouse; `addItemOrdenAction` never touches `stockActual`).
+- New regression tests: blank-price rejection (repuesto + entrada-item actions), cross-bodega rejection (3 cases: entrada not found, repuesto not found, bodega mismatch), and `listRepuestoOptions`' exact `findMany` call shape (proven to fail against both the pre-fix code and a hypothetical `include`-based leak).
+- 215/215 unit tests passing, tsc --noEmit clean.
+
+Independently re-reviewed (opus, adversarial -- ran zod boundary tests against the real installed version, re-derived the exploit paths, ran tsc/vitest itself rather than trusting reported numbers, proved the new I4 tests actually discriminate old vs. new vs. a leaky-`include` implementation). Verdict: all 4 findings Resolved, no regressions. New Minor-only findings (misleading error message on negative prices sharing C1's message; whitespace-only string still coerces to 0, unreachable from a real `<input type="number">`; TOCTOU window between the I3 check and the transaction, judged negligible, no locking warranted) -- all deferred to backlog per RULES.md #7.
+
+**Ready to merge: Yes.**
+
+Minor findings from the review NOT addressed (deferred to backlog, none blocking):
+- `revalidatePath` gaps: `addEntradaItemAction` misses `/entradas-mercancia`; `createRepuestoAction` misses `/ordenes/[id]` and `/entradas-mercancia/[id]`; `createBodegaAction`/`createProveedorAction` miss `/repuestos` and `/entradas-mercancia`. Stale dropdowns until a hard nav.
+- `createBodegaAction` picks the tenant's oldest Sede via `findFirst({orderBy: createdAt asc})` with no selector -- mirrors the pre-existing `createOrdenAction` pattern, consistent-by-convention, more visible now that Bodega->Sede exists.
+- Validation runs before the auth guard in all 5 new action files (convention-level, matches Fase 2's `orden-actions.ts`, not a Fase 3 regression).
+- `updateBodegaAction`/`deleteBodegaAction`/`updateProveedorAction`/`deleteProveedorAction`/`updateRepuestoAction`/`deleteRepuestoAction` are exported and tested but wired to no UI (intentionally deferred).
+- `entradaMercanciaItemInputSchema.cantidad` has no upper bound (Postgres INTEGER overflow caught by the generic fallback error).
+- `proveedorInputSchema.email` uses the zod-4-deprecated `z.string().email()` (still works).
+- The new C1/I2/I3 Minor cosmetic items from the fix's re-review (see above).
+
+======================================================================
+FASE 3 (INVENTARIO, REPUESTOS Y PROVEEDORES): COMPLETE, REVIEWED, READY TO MERGE (2026-08-20)
+======================================================================
+All 16 tasks + 1 review-driven fix round (1 Critical + 3 Important) implemented, reviewed, independently re-reviewed, and pushed to main. Final state: 215/215 unit tests passing, tsc --noEmit clean. No branch/PR (direct-to-main per established project convention). Next: Fase 4 (Facturacion y Pagos) per the design doc's roadmap.
+
+## FASE 3 SUMMARY
+- 16 tasks completed (final feature commit 596414f) + 1 review-fix commit (8c45b54)
+- 215/215 unit tests passing (208 pre-review + 7 new from the fix round), 2/2 e2e, tsc clean
+- Real bug caught by e2e (not unit tests, since mocks never exercise real RSC/Client serialization): passing Prisma Decimal fields as props into "use client" components crashed at runtime (Task 16) -- fixed with a select-only Option type + listRepuestoOptions(), mirroring Fase 2's listTecnicos/TecnicoOption fix for the same leak class
+- 1 Critical + 3 Important findings from the final whole-branch review, all fixed and independently re-verified: zero-price coercion into order billing, cross-bodega stock increment, missing regression coverage for the Decimal-leak guard
+- Technical debt documented: revalidatePath gaps on 4 create actions, oldest-Sede-only bodega creation, unwired update/delete UI for Bodega/Proveedor/Repuesto, plus the pre-Fase-3 backlog carried from Fase 1/2 (see their sections above)
+- Status: Fase 3 complete, ready for Fase 4
