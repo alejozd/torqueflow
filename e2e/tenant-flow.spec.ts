@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD } from "./global-setup";
+import { E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD, E2E_TECNICO_EMAIL, E2E_TECNICO_PASSWORD } from "./global-setup";
 
 test.use({ baseURL: "http://taller-e2e-smoke.localhost:3000" });
 
@@ -187,4 +187,72 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
 
   await page.goto("/repuestos");
   await expect(page.getByText(/FRN-001.*stock: 18/)).toBeVisible();
+
+  // --- Fase 5: Dashboard y reportes básicos ---
+
+  // The ADMIN sees the nav entry; the default range is the current month to
+  // date, which covers everything this spec just created.
+  await expect(page.getByRole("link", { name: "Reportes" })).toBeVisible();
+  await page.getByRole("link", { name: "Reportes" }).click();
+  await expect(page.getByRole("heading", { name: "Reportes" })).toBeVisible();
+
+  await expect(page.getByText("Facturas emitidas: 1")).toBeVisible();
+  await expect(page.getByText("Total facturado: 140.18")).toBeVisible();
+  await expect(page.getByText("Costo de repuestos: 16")).toBeVisible();
+  await expect(page.getByText("Margen bruto: 124.18")).toBeVisible();
+  await expect(page.getByText("Mano de obra facturada: 30")).toBeVisible();
+
+  const filaTecnico = page.getByRole("row").filter({ hasText: "Tec E2E" });
+  await expect(filaTecnico).toContainText("1.5");
+  await expect(filaTecnico).toContainText("30");
+
+  // An explicit range that still contains today's fixtures must produce the
+  // same numbers — proves the GET form actually round-trips through searchParams.
+  const hoy = new Date();
+  const aIso = (fecha: Date) => fecha.toISOString().slice(0, 10);
+  const primerDiaDelMes = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), 1));
+
+  await page.getByLabel("Desde").fill(aIso(primerDiaDelMes));
+  await page.getByLabel("Hasta").fill(aIso(hoy));
+  await page.getByRole("button", { name: "Aplicar" }).click();
+  await expect(page).toHaveURL(/\/reportes\?desde=/);
+  await expect(page.getByText("Total facturado: 140.18")).toBeVisible();
+
+  // A range that excludes today's fixtures must zero out — proves the date
+  // filter really filters instead of always returning every row.
+  await page.getByLabel("Desde").fill("2020-01-01");
+  await page.getByLabel("Hasta").fill("2020-01-31");
+  await page.getByRole("button", { name: "Aplicar" }).click();
+  await expect(page.getByText("Facturas emitidas: 0")).toBeVisible();
+  await expect(page.getByText("Total facturado: 0")).toBeVisible();
+  await expect(page.getByText("No hay órdenes entregadas en este rango.")).toBeVisible();
+
+  // An inverted range is rejected by the schema, not silently swapped.
+  await page.getByLabel("Desde").fill("2026-08-22");
+  await page.getByLabel("Hasta").fill("2026-08-21");
+  await page.getByRole("button", { name: "Aplicar" }).click();
+  await expect(page.getByRole("alert")).toHaveText("La fecha inicial no puede ser posterior a la final");
+
+  // --- Fase 5: role gate — reportes son solo para ADMIN ---
+
+  await page.getByRole("button", { name: "Cerrar sesión" }).click();
+  await expect(page).toHaveURL(/\/login/);
+
+  await page.getByLabel("Correo").fill(E2E_TECNICO_EMAIL);
+  await page.getByLabel("Contraseña").fill(E2E_TECNICO_PASSWORD);
+  await page.getByRole("button", { name: "Ingresar" }).click();
+  await expect(page).toHaveURL(/\/clientes$/);
+
+  await expect(page.getByRole("link", { name: "Reportes" })).toHaveCount(0);
+
+  await page.goto("/reportes");
+  await expect(page).toHaveURL(/\/login\?error=forbidden/);
+  // Two role="alert" elements exist on this page after a client-side
+  // navigation: the app's own <p role="alert"> (src/app/login/page.tsx) and
+  // Next.js's __next-route-announcer__, which also gets populated for a11y.
+  // Scope to the app's element by its known text, same pattern as the
+  // getByRole("status") ambiguity fixed in Fase 2 Task 14.
+  await expect(page.getByRole("alert").filter({ hasText: "No tienes permiso" })).toHaveText(
+    "No tienes permiso para acceder a esa sección.",
+  );
 });
