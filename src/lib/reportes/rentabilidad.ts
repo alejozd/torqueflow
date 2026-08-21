@@ -12,7 +12,10 @@ export interface RentabilidadManoDeObra {
 }
 
 export interface RentabilidadFactura {
+  /** Factura.total (IVA-inclusive) -- reported as "Total facturado", NOT used for margin. */
   total: number;
+  /** Factura.subtotal - Factura.descuento (IVA-exclusive) -- used for margen/margenPorcentaje. */
+  base: number;
   items: RentabilidadItem[];
   manoDeObra: RentabilidadManoDeObra[];
 }
@@ -29,11 +32,13 @@ export interface RentabilidadTotales {
 
 export function computeRentabilidad(facturas: RentabilidadFactura[]): RentabilidadTotales {
   let facturado = 0;
+  let baseFacturado = 0;
   let costo = 0;
   let manoDeObra = 0;
 
   for (const factura of facturas) {
     facturado += factura.total;
+    baseFacturado += factura.base;
     for (const item of factura.items) {
       if (item.precioCompra !== null) {
         costo += item.cantidad * item.precioCompra;
@@ -45,15 +50,16 @@ export function computeRentabilidad(facturas: RentabilidadFactura[]): Rentabilid
   }
 
   const totalFacturado = roundMoney(facturado);
+  const baseTotal = roundMoney(baseFacturado);
   const costoRepuestos = roundMoney(costo);
-  const margen = roundMoney(totalFacturado - costoRepuestos);
+  const margen = roundMoney(baseTotal - costoRepuestos);
 
   return {
     facturasCount: facturas.length,
     totalFacturado,
     costoRepuestos,
     margen,
-    margenPorcentaje: totalFacturado === 0 ? 0 : roundMoney((margen / totalFacturado) * 100),
+    margenPorcentaje: baseTotal === 0 ? 0 : roundMoney((margen / baseTotal) * 100),
     manoDeObraFacturada: roundMoney(manoDeObra),
   };
 }

@@ -90,6 +90,8 @@ describe("getReporteRentabilidad", () => {
     mockFacturaFindMany.mockResolvedValue([
       {
         total: "140.18",
+        subtotal: "127.80",
+        descuento: "10",
         orden: {
           items: [
             { cantidad: 4, repuesto: null },
@@ -107,8 +109,8 @@ describe("getReporteRentabilidad", () => {
       facturasCount: 1,
       totalFacturado: 140.18,
       costoRepuestos: 16,
-      margen: 124.18,
-      margenPorcentaje: 88.59,
+      margen: 101.8,
+      margenPorcentaje: 86.42,
       manoDeObraFacturada: 30,
     });
   });
@@ -120,6 +122,8 @@ describe("getReporteRentabilidad", () => {
       where: expect.anything(),
       select: {
         total: true,
+        subtotal: true,
+        descuento: true,
         orden: {
           select: {
             items: { select: { cantidad: true, repuesto: { select: { precioCompra: true } } } },

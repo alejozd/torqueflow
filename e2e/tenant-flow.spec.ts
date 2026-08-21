@@ -199,7 +199,7 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   await expect(page.getByText("Facturas emitidas: 1")).toBeVisible();
   await expect(page.getByText("Total facturado: 140.18")).toBeVisible();
   await expect(page.getByText("Costo de repuestos: 16")).toBeVisible();
-  await expect(page.getByText("Margen bruto: 124.18")).toBeVisible();
+  await expect(page.getByText("Margen bruto: 101.8")).toBeVisible();
   await expect(page.getByText("Mano de obra facturada: 30")).toBeVisible();
 
   const filaTecnico = page.getByRole("row").filter({ hasText: "Tec E2E" });

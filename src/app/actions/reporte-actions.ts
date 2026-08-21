@@ -79,6 +79,8 @@ export async function getReporteRentabilidad(filtros: ReporteFiltros): Promise<R
     },
     select: {
       total: true,
+      subtotal: true,
+      descuento: true,
       orden: {
         select: {
           items: { select: { cantidad: true, repuesto: { select: { precioCompra: true } } } },
@@ -91,6 +93,7 @@ export async function getReporteRentabilidad(filtros: ReporteFiltros): Promise<R
   const totales = computeRentabilidad(
     facturas.map((factura) => ({
       total: Number(factura.total),
+      base: Number(factura.subtotal) - Number(factura.descuento),
       items: factura.orden.items.map((item) => ({
         cantidad: item.cantidad,
         precioCompra: item.repuesto ? Number(item.repuesto.precioCompra) : null,
