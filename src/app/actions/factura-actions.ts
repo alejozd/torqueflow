@@ -1,0 +1,124 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { requireRole, requireSession } from "@/lib/auth/guards";
+import { getTenantDb } from "@/lib/db/tenant-client";
+import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
+import { facturarOrdenInputSchema } from "@/lib/validation/factura";
+import { assertOrdenFacturable } from "@/lib/factura/facturable-guard";
+import { computeFacturaTotales } from "@/lib/factura/totales";
+import type { EstadoFactura, Prisma } from "@/generated/prisma-tenant";
+
+export interface FacturaFormState {
+  error: string | null;
+  success: boolean;
+  facturaId: string | null;
+}
+
+const FACTURA_DETAIL_INCLUDE = {
+  cliente: true,
+  orden: { include: { vehiculo: true, items: true, manoDeObra: true } },
+  pagos: { orderBy: { createdAt: "desc" } },
+} satisfies Prisma.FacturaInclude;
+
+export type FacturaWithDetalle = Prisma.FacturaGetPayload<{ include: typeof FACTURA_DETAIL_INCLUDE }>;
+
+export async function listFacturas(estado?: EstadoFactura): Promise<FacturaWithDetalle[]> {
+  const session = await requireSession();
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  return tenantDb.factura.findMany({
+    where: estado ? { estado } : undefined,
+    include: FACTURA_DETAIL_INCLUDE,
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function getFactura(id: string): Promise<FacturaWithDetalle | null> {
+  const session = await requireSession();
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  return tenantDb.factura.findUnique({ where: { id }, include: FACTURA_DETAIL_INCLUDE });
+}
+
+export async function crearFacturaAction(
+  ordenId: string,
+  prevState: FacturaFormState,
+  formData: FormData,
+): Promise<FacturaFormState> {
+  const parsed = facturarOrdenInputSchema.safeParse({
+    descuento: formData.get("descuento") || undefined,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false, facturaId: null };
+  }
+
+  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const orden = await tenantDb.ordenTrabajo.findUnique({
+    where: { id: ordenId },
+    include: { items: true, manoDeObra: true, factura: true },
+  });
+  if (!orden) {
+    return { error: "Orden no encontrada", success: false, facturaId: null };
+  }
+  if (orden.factura) {
+    return { error: "Esta orden ya tiene una factura generada", success: false, facturaId: null };
+  }
+  try {
+    assertOrdenFacturable(orden);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Orden no facturable", success: false, facturaId: null };
+  }
+
+  const descuento = parsed.data.descuento ?? 0;
+  const { subtotal, iva, total } = computeFacturaTotales({
+    items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
+    manoDeObra: orden.manoDeObra.map((linea) => ({
+      horas: Number(linea.horas),
+      precioHora: Number(linea.precioHora),
+    })),
+    descuento,
+  });
+
+  if (descuento > subtotal) {
+    return { error: "El descuento no puede ser mayor al subtotal", success: false, facturaId: null };
+  }
+
+  const decrementosStock = new Map<string, number>();
+  for (const item of orden.items) {
+    if (item.repuestoId) {
+      decrementosStock.set(item.repuestoId, (decrementosStock.get(item.repuestoId) ?? 0) + item.cantidad);
+    }
+  }
+
+  let facturaId: string;
+  try {
+    const factura = await tenantDb.$transaction(async (tx) => {
+      const creada = await tx.factura.create({
+        data: {
+          ordenId,
+          clienteId: orden.clienteId,
+          subtotal,
+          descuento,
+          iva,
+          total,
+          saldoPendiente: total,
+          emitidaPorId: session.user.id,
+        },
+      });
+      for (const [repuestoId, cantidad] of decrementosStock) {
+        await tx.repuesto.update({ where: { id: repuestoId }, data: { stockActual: { decrement: cantidad } } });
+      }
+      return creada;
+    });
+    facturaId = factura.id;
+  } catch (err) {
+    return { error: friendlyPrismaErrorMessage(err, "Error al generar la factura"), success: false, facturaId: null };
+  }
+
+  revalidatePath(`/ordenes/${ordenId}`);
+  revalidatePath("/facturas");
+  revalidatePath("/repuestos");
+  return { error: null, success: true, facturaId };
+}
