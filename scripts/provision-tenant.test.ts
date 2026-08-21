@@ -1,3 +1,7 @@
+import { execSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { publicDb } from "@/lib/db/public-client";
 import { getTenantDb } from "@/lib/db/tenant-client";
@@ -11,8 +15,64 @@ async function dropTestSchema() {
   await publicDb.tenant.deleteMany({ where: { slug: SLUG } });
 }
 
+// --- Regression guard for the UsuarioSede backfill in migration
+// 20260821173618_add_usuario_sede (see that file's INSERT ... SELECT). This is
+// the highest-risk piece of Fase 6: a wrong or missing backfill locks every
+// non-ADMIN user out of every already-provisioned tenant once the login sede
+// gate ships. The tests above only ever provision FRESH schemas (zero
+// pre-existing Usuario rows), so they never exercise the backfill's
+// SELECT/ORDER BY/LIMIT/CROSS JOIN logic. This block reproduces "users and
+// sedes already existed before this migration ran" and asserts the backfill
+// grants the OLDEST Sede, not an arbitrary one.
+const TENANT_SCHEMA_DIR = path.join(process.cwd(), "prisma", "tenant");
+const USUARIO_SEDE_MIGRATION = "20260821173618_add_usuario_sede";
+const BACKFILL_SCHEMA = "test_task6_usuario_sede_backfill";
+
+async function dropBackfillSchema() {
+  await publicDb.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${BACKFILL_SCHEMA}" CASCADE`);
+}
+
+function runMigrateDeploy(schemaPrismaPath: string, schemaName: string) {
+  const base = process.env.TENANT_DATABASE_BASE_URL;
+  if (!base) {
+    throw new Error("TENANT_DATABASE_BASE_URL is not set");
+  }
+  const separator = base.includes("?") ? "&" : "?";
+  const tenantUrl = `${base}${separator}schema=${schemaName}`;
+
+  execSync(`npx prisma migrate deploy --schema=${schemaPrismaPath}`, {
+    env: { ...process.env, TENANT_DATABASE_URL: tenantUrl },
+    stdio: "inherit",
+  });
+}
+
+/**
+ * Builds a throwaway copy of prisma/tenant (schema.prisma + migrations) in a
+ * temp dir, holding out one migration folder by name. This lets a test apply
+ * "every migration up to but not including X" WITHOUT touching the real,
+ * committed migrations/ directory -- other test files run `migrate deploy`
+ * against that same real directory concurrently (see vitest.config.ts), so
+ * mutating it in place would race them.
+ */
+function buildHoldoutSchemaDir(holdoutMigration: string): string {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tenant-holdout-"));
+  fs.copyFileSync(path.join(TENANT_SCHEMA_DIR, "schema.prisma"), path.join(tmpDir, "schema.prisma"));
+
+  const migrationsSrc = path.join(TENANT_SCHEMA_DIR, "migrations");
+  const migrationsDest = path.join(tmpDir, "migrations");
+  fs.mkdirSync(migrationsDest);
+
+  for (const entry of fs.readdirSync(migrationsSrc)) {
+    if (entry === holdoutMigration) continue;
+    fs.cpSync(path.join(migrationsSrc, entry), path.join(migrationsDest, entry), { recursive: true });
+  }
+
+  return tmpDir;
+}
+
 describe("provisionTenant", () => {
   afterEach(dropTestSchema);
+  afterEach(dropBackfillSchema);
 
   it("creates the Postgres schema, applies tenant migrations, and inserts a Tenant row", async () => {
     const tenant = await provisionTenant({ slug: SLUG, schemaName: SCHEMA });
@@ -164,4 +224,64 @@ describe("provisionTenant", () => {
     // so there is nothing to grant yet (seedTenantUser does that -- Task 2).
     await expect(tenantDb.usuarioSede.count()).resolves.toBe(0);
   });
+
+  it("backfills every pre-existing Usuario onto the tenant's OLDEST Sede when the usuario_sede migration runs (regression guard for 20260821173618_add_usuario_sede)", async () => {
+    // Two full `prisma migrate deploy` runs (holdout + real schema) against a
+    // real Postgres schema, on top of everything else the test does -- give it
+    // headroom beyond the file's default 20s testTimeout.
+    await publicDb.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS "${BACKFILL_SCHEMA}"`);
+
+    // 1. Apply every migration EXCEPT the one under test, via a throwaway
+    //    schema copy, so Usuario/Sede rows can be inserted BEFORE the backfill
+    //    migration ever runs -- reproducing "already-provisioned tenant with
+    //    real users" instead of the fresh-schema case the other tests cover.
+    const holdoutDir = buildHoldoutSchemaDir(USUARIO_SEDE_MIGRATION);
+    try {
+      runMigrateDeploy(path.join(holdoutDir, "schema.prisma"), BACKFILL_SCHEMA);
+    } finally {
+      fs.rmSync(holdoutDir, { recursive: true, force: true });
+    }
+
+    const tenantDb = getTenantDb(BACKFILL_SCHEMA);
+
+    // 2. Seed pre-existing Sede and Usuario rows with distinct, known
+    //    createdAt timestamps -- mirroring the implementer's manual proof.
+    const olderSede = await tenantDb.sede.create({
+      data: { nombre: "Sede antigua", createdAt: new Date("2026-01-01T00:00:00.000Z") },
+    });
+    const newerSede = await tenantDb.sede.create({
+      data: { nombre: "Sede nueva", createdAt: new Date("2026-06-01T00:00:00.000Z") },
+    });
+
+    const usuarios = await Promise.all(
+      ["a", "b", "c"].map((suffix) =>
+        tenantDb.usuario.create({
+          data: {
+            email: `backfill-${suffix}@task6-fixture.test`,
+            passwordHash: "hash",
+            nombre: `Usuario ${suffix}`,
+          },
+        }),
+      ),
+    );
+
+    // 3. Apply the migration under test, using the real committed
+    //    schema.prisma (full migrations dir). Prisma's migration history
+    //    table -- scoped to BACKFILL_SCHEMA -- means only this still-pending
+    //    migration actually runs; its INSERT ... SELECT backfill fires
+    //    against the pre-existing rows seeded above.
+    runMigrateDeploy(path.join(TENANT_SCHEMA_DIR, "schema.prisma"), BACKFILL_SCHEMA);
+
+    // 4. Every pre-existing Usuario must get exactly one UsuarioSede row,
+    //    pointing at the OLDER Sede -- not the newer one, not an arbitrary one.
+    const usuarioSedes = await tenantDb.usuarioSede.findMany();
+    expect(usuarioSedes).toHaveLength(usuarios.length);
+
+    for (const usuario of usuarios) {
+      const grants = usuarioSedes.filter((row) => row.usuarioId === usuario.id);
+      expect(grants).toHaveLength(1);
+      expect(grants[0].sedeId).toBe(olderSede.id);
+      expect(grants[0].sedeId).not.toBe(newerSede.id);
+    }
+  }, 60000);
 });
