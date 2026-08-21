@@ -154,4 +154,14 @@ describe("provisionTenant", () => {
     const tenantCount = await publicDb.tenant.count({ where: { schemaName: SCHEMA } });
     expect(tenantCount).toBe(1);
   });
+
+  it("exposes the usuarioSede bridge table on a freshly provisioned tenant", async () => {
+    await provisionTenant({ slug: SLUG, schemaName: SCHEMA });
+
+    const tenantDb = getTenantDb(SCHEMA);
+
+    // The table exists and is empty: provisionTenant creates no Usuario rows,
+    // so there is nothing to grant yet (seedTenantUser does that -- Task 2).
+    await expect(tenantDb.usuarioSede.count()).resolves.toBe(0);
+  });
 });

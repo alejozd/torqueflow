@@ -35,6 +35,7 @@ model Usuario {
   entradasCreadas   EntradaMercancia[]
   facturasEmitidas  Factura[]
   pagosRegistrados  Pago[]
+  sedes             UsuarioSede[]
   createdAt         DateTime            @default(now()) @map("created_at")
   updatedAt         DateTime            @updatedAt @map("updated_at")
 
@@ -93,10 +94,27 @@ model Sede {
   direccion String?
   ordenes   OrdenTrabajo[]
   bodegas   Bodega[]
+  usuarios  UsuarioSede[]
   createdAt DateTime       @default(now()) @map("created_at")
   updatedAt DateTime       @updatedAt @map("updated_at")
 
   @@map("sedes")
+}
+
+/// Bridge table: which sedes a Usuario may work in. ADMIN bypasses this table
+/// entirely (see src/lib/auth/sede-access.ts) -- rows here only ever matter for
+/// TECNICO and RECEPCION. Composite PK, so the same grant can never be
+/// duplicated and no surrogate id is needed.
+model UsuarioSede {
+  usuarioId String   @map("usuario_id")
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  sedeId    String   @map("sede_id")
+  sede      Sede     @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([usuarioId, sedeId])
+  @@map("usuario_sedes")
+  @@index([sedeId])
 }
 
 model OrdenTrabajo {
