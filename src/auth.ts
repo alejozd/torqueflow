@@ -14,6 +14,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       credentials: {
         email: { label: "Correo", type: "email" },
         password: { label: "Contraseña", type: "password" },
+        sedeId: { label: "Sede", type: "text" },
       },
       async authorize(credentials) {
         return authorizeCredentials(credentials);
@@ -26,6 +27,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.role = user.role;
         token.tenantSlug = user.tenantSlug;
         token.tenantSchema = user.tenantSchema;
+        token.sedeActivaId = user.sedeActivaId;
+        token.sedeActivaNombre = user.sedeActivaNombre;
       }
       return token;
     },
@@ -34,6 +37,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       session.user.role = token.role as "ADMIN" | "TECNICO" | "RECEPCION";
       session.user.tenantSlug = token.tenantSlug as string;
       session.user.tenantSchema = token.tenantSchema as string;
+      session.user.sedeActivaId = token.sedeActivaId as string;
+      session.user.sedeActivaNombre = token.sedeActivaNombre as string;
       return session;
     },
     async redirect({ url, baseUrl }) {
