@@ -88,6 +88,7 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
 
   await page.getByLabel("Kilometraje de ingreso").fill("45000");
   await page.getByLabel("Síntomas reportados").fill("Ruido al frenar");
+  await page.getByLabel("Mecánico asignado").selectOption({ label: "Tec E2E" });
   await page.getByRole("button", { name: "Crear orden" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Orden creada" })).toBeVisible();
 

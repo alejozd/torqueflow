@@ -7,6 +7,9 @@ export const E2E_SLUG = "taller-e2e-smoke";
 export const E2E_SCHEMA = "taller_e2e_smoke";
 export const E2E_ADMIN_EMAIL = "admin@e2e-smoke.test";
 export const E2E_ADMIN_PASSWORD = "SmokeTest123!";
+export const E2E_TECNICO_EMAIL = "tecnico@e2e-smoke.test";
+export const E2E_TECNICO_PASSWORD = "SmokeTest123!";
+export const E2E_TECNICO_NOMBRE = "Tec E2E";
 
 export default async function globalSetup() {
   await publicDb.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${E2E_SCHEMA}" CASCADE`);
@@ -19,5 +22,12 @@ export default async function globalSetup() {
     password: E2E_ADMIN_PASSWORD,
     nombre: "Admin E2E",
     role: "ADMIN",
+  });
+  await seedTenantUser({
+    schemaName: E2E_SCHEMA,
+    email: E2E_TECNICO_EMAIL,
+    password: E2E_TECNICO_PASSWORD,
+    nombre: E2E_TECNICO_NOMBRE,
+    role: "TECNICO",
   });
 }
