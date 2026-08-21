@@ -1,4 +1,8 @@
-import { getReporteRentabilidad, type ReporteFiltros } from "@/app/actions/reporte-actions";
+import {
+  getReporteProductividad,
+  getReporteRentabilidad,
+  type ReporteFiltros,
+} from "@/app/actions/reporte-actions";
 import { rangoMesActual } from "@/lib/reportes/rango-fechas";
 
 export default async function ReportesPage({
@@ -15,6 +19,7 @@ export default async function ReportesPage({
   };
 
   const rentabilidad = await getReporteRentabilidad(filtros);
+  const productividad = await getReporteProductividad(filtros);
 
   return (
     <main>
@@ -49,6 +54,32 @@ export default async function ReportesPage({
       <p>Margen bruto: {rentabilidad.totales.margen}</p>
       <p>Margen bruto (%): {rentabilidad.totales.margenPorcentaje}</p>
       <p>Mano de obra facturada: {rentabilidad.totales.manoDeObraFacturada}</p>
+
+      <h2>Productividad por técnico</h2>
+      {productividad.filas.length === 0 ? (
+        <p>No hay órdenes entregadas en este rango.</p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Técnico</th>
+              <th scope="col">Órdenes entregadas</th>
+              <th scope="col">Horas</th>
+              <th scope="col">Mano de obra</th>
+            </tr>
+          </thead>
+          <tbody>
+            {productividad.filas.map((fila) => (
+              <tr key={fila.mecanicoId ?? "sin-asignar"}>
+                <td>{fila.mecanicoNombre}</td>
+                <td>{fila.ordenesCompletadas}</td>
+                <td>{fila.horasManoDeObra}</td>
+                <td>{fila.montoManoDeObra}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </main>
   );
 }
