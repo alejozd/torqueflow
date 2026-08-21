@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrden } from "@/app/actions/orden-actions";
 import { listRepuestoOptions } from "@/app/actions/repuesto-actions";
@@ -6,6 +7,7 @@ import { AgregarItemForm } from "./agregar-item-form";
 import { AgregarManoObraForm } from "./agregar-mano-obra-form";
 import { DviChecklistForm } from "./dvi-checklist-form";
 import { DviFotoForm } from "./dvi-foto-form";
+import { GenerarFacturaForm } from "./generar-factura-form";
 import type { DviChecklist } from "@/lib/dvi/checklist-items";
 
 export default async function OrdenDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -61,6 +63,17 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
           </li>
         ))}
       </ul>
+
+      <h2>Facturación</h2>
+      {orden.factura ? (
+        <p>
+          <Link href={`/facturas/${orden.factura.id}`}>Ver factura #{orden.factura.numero}</Link>
+        </p>
+      ) : orden.estado === "TERMINADA" || orden.estado === "ENTREGADA" ? (
+        <GenerarFacturaForm ordenId={orden.id} />
+      ) : (
+        <p>La orden debe estar Terminada o Entregada para poder facturarse.</p>
+      )}
     </main>
   );
 }
