@@ -398,6 +398,23 @@ All 11 tasks + 3 fix rounds (Task 3's date-ordering short-circuit, Task 11's sig
 - Status: Fase 5 complete, ready for Fase 6
 
 ======================================================================
+# Decisiones de diseño diferidas (para fases futuras)
+======================================================================
+
+## Fase 8 (Notificaciones automáticas al cliente, módulo 6 §5) -- alcance acotado a email/SMTP (decidido 2026-08-21)
+
+**Fase 8 = SOLO notificaciones por email vía SMTP del propio cliente (el taller), no WhatsApp/SMS, no proveedor externo de email.**
+
+- Motivo: evitar costos de servicios externos (SendGrid, AWS SES, Resend, etc.) y de mensajería (Meta/Twilio/360dialog) antes de que el negocio los necesite.
+- Cada tenant configura su propio servidor SMTP (host, puerto, usuario, password, fromEmail, fromName) usando el correo corporativo que ya tiene -- no un proveedor centralizado gestionado por el SaaS.
+- Librería: Nodemailer (estándar de Node.js, sin costo). Password SMTP encriptado con `crypto` usando una clave maestra en `.env` (nunca en texto plano en la base de datos).
+- Plantillas: texto plano o HTML básico en v1 -- no un motor de plantillas complejo.
+- **WhatsApp/SMS quedan diferidos a una fase posterior** (candidata: Fase 10), condicionado a: cuenta de Meta Business verificada, presupuesto definido para costo por mensaje, templates aprobados por Meta, y una decisión de intermediario (Twilio, 360dialog) vs. API directa de WhatsApp Business.
+- **Explícitamente fuera de Fase 8**: WhatsApp/SMS, SendGrid/AWS SES/Resend (o cualquier proveedor externo de email), motores de plantillas HTML complejos.
+
+Cuando se planifique Fase 8 (después de Fase 7, agendamiento de citas), usar esta sección como el alcance vinculante en lugar de re-derivarlo del design doc, que aún no refleja esta decisión de reducción de alcance.
+
+======================================================================
 # TorqueFlow Fase 6 (Gestión de Sedes) -- Progress Ledger
 ======================================================================
 Started 2026-08-21. Plan: docs/superpowers/plans/2026-08-21-torqueflow-phase6-sedes.md (20 tasks). Executing via subagent-driven-development directly on main (explicit standing user consent, same as Fases 1-5 -- no worktree). User explicitly deferred Plan/maxSedes billing-tier enforcement to a future Fase 9. Agent-dispatch classifier blocked a reviewer subagent twice this phase already (same recurring issue as Fases 2-3) -- one retry each time resolved it, no need to switch to inline execution yet.
