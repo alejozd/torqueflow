@@ -3,11 +3,14 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import type { SedeOption } from "@/lib/sede/login-sedes";
 
-export function LoginForm() {
+export function LoginForm({ sedes }: { sedes: SedeOption[] }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+
+  const sinSedes = sedes.length === 0;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -17,12 +20,16 @@ export function LoginForm() {
     const formData = new FormData(event.currentTarget);
     const email = String(formData.get("email") ?? "");
     const password = String(formData.get("password") ?? "");
+    const sedeId = String(formData.get("sedeId") ?? "");
 
-    const result = await signIn("credentials", { email, password, redirect: false });
+    const result = await signIn("credentials", { email, password, sedeId, redirect: false });
     setIsPending(false);
 
     if (!result?.ok) {
-      setError("Correo o contraseña incorrectos");
+      // One message for every failure -- wrong password, unknown email, and
+      // "not assigned to that sede" are indistinguishable on purpose, so this
+      // form cannot be used to enumerate accounts or sede assignments.
+      setError("Correo, contraseña o sede incorrectos");
       return;
     }
 
@@ -37,10 +44,22 @@ export function LoginForm() {
       <label htmlFor="password">Contraseña</label>
       <input id="password" name="password" type="password" required />
 
-      <button type="submit" disabled={isPending}>
+      <label htmlFor="sedeId">Sede</label>
+      <select id="sedeId" name="sedeId" required defaultValue={sedes[0]?.id ?? ""}>
+        {sedes.map((sede) => (
+          <option key={sede.id} value={sede.id}>
+            {sede.nombre}
+          </option>
+        ))}
+      </select>
+
+      <button type="submit" disabled={isPending || sinSedes}>
         {isPending ? "Ingresando..." : "Ingresar"}
       </button>
 
+      {sinSedes ? (
+        <p role="alert">Este taller no tiene sedes configuradas. Contacta al administrador.</p>
+      ) : null}
       {error ? <p role="alert">{error}</p> : null}
     </form>
   );

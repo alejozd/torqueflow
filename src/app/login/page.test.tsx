@@ -3,6 +3,9 @@ import { render, screen, cleanup } from "@testing-library/react";
 
 vi.mock("next-auth/react", () => ({ signIn: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("@/lib/sede/login-sedes", () => ({
+  listSedesDelTenant: () => Promise.resolve([{ id: "sede-1", nombre: "Sede principal" }]),
+}));
 
 import LoginPage from "./page";
 
