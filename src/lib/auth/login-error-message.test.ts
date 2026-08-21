@@ -14,6 +14,12 @@ describe("getLoginErrorMessage", () => {
     );
   });
 
+  it("returns the sede-required message for 'sede-requerida'", () => {
+    expect(getLoginErrorMessage("sede-requerida")).toBe(
+      "Tu sesión no tiene una sede activa. Vuelve a iniciar sesión.",
+    );
+  });
+
   it("returns null when no code is provided", () => {
     expect(getLoginErrorMessage(undefined)).toBeNull();
   });

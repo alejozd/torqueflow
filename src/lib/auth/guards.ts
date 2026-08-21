@@ -16,6 +16,16 @@ export async function requireSession(): Promise<Session> {
     redirect("/login?error=tenant-mismatch");
   }
 
+  // A session minted before Fase 6 (or any token that somehow lost the
+  // field) carries no sedeActivaId. Without this guard, scopeOrden/scopeBodega/
+  // etc. would receive `undefined` and Prisma silently drops an undefined
+  // field from a where clause -- every sede filter in the app would vanish
+  // for that session, exposing the whole tenant instead of one sede. Forcing
+  // a fresh login is what mints a token with a real sedeActivaId (Task 6).
+  if (!session.user.sedeActivaId) {
+    redirect("/login?error=sede-requerida");
+  }
+
   return session;
 }
 

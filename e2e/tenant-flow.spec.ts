@@ -101,6 +101,8 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
 
   await page.getByRole("link", { name: /EN_PROCESO|BORRADOR/ }).first().click();
   await expect(page.getByRole("heading", { name: /Orden — ABC123/ })).toBeVisible();
+  // Captured here (Sede principal) for Fase 6's direct-URL cross-sede check.
+  const ordenAbc123Url = page.url();
 
   await page.getByLabel("Descripción").first().fill("Pastillas de freno");
   await page.getByLabel("Cantidad").fill("4");
@@ -322,6 +324,12 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   // bodegas and FRN-001 all live in Sede principal.
   await page.goto("/ordenes");
   await expect(page.getByRole("link", { name: /ABC123/ })).toHaveCount(0);
+
+  // The IDOR boundary itself: pasting Sede principal's own orden URL while
+  // logged into Sede norte must 404, not resolve -- getOrden's findFirst (not
+  // findUnique) is what this proves, not just that the list hides the link.
+  const directUrlResponse = await page.goto(ordenAbc123Url);
+  expect(directUrlResponse?.status()).toBe(404);
 
   await page.goto("/bodegas");
   await expect(page.getByText("Bodega principal")).toHaveCount(0);

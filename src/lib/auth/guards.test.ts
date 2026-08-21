@@ -21,7 +21,9 @@ describe("requireSession", () => {
   });
 
   it("returns the session when one exists and matches the resolved tenant", async () => {
-    const session = { user: { id: "1", role: "ADMIN", tenantSlug: "taller-a", tenantSchema: "taller_a" } };
+    const session = {
+      user: { id: "1", role: "ADMIN", tenantSlug: "taller-a", tenantSchema: "taller_a", sedeActivaId: "sede-1" },
+    };
     mockAuth.mockResolvedValue(session);
     mockResolveTenant.mockResolvedValue({ slug: "taller-a", schemaName: "taller_a" });
 
@@ -50,6 +52,26 @@ describe("requireSession", () => {
 
     await expect(requireSession()).rejects.toThrow("REDIRECT:/login?error=tenant-mismatch");
   });
+
+  it("redirects to /login?error=sede-requerida when the session has no sedeActivaId (a pre-Fase-6 JWT)", async () => {
+    const session = {
+      user: { id: "1", role: "ADMIN", tenantSlug: "taller-a", tenantSchema: "taller_a", sedeActivaId: undefined },
+    };
+    mockAuth.mockResolvedValue(session);
+    mockResolveTenant.mockResolvedValue({ slug: "taller-a", schemaName: "taller_a" });
+
+    await expect(requireSession()).rejects.toThrow("REDIRECT:/login?error=sede-requerida");
+  });
+
+  it("returns the session when sedeActivaId is present", async () => {
+    const session = {
+      user: { id: "1", role: "ADMIN", tenantSlug: "taller-a", tenantSchema: "taller_a", sedeActivaId: "sede-1" },
+    };
+    mockAuth.mockResolvedValue(session);
+    mockResolveTenant.mockResolvedValue({ slug: "taller-a", schemaName: "taller_a" });
+
+    await expect(requireSession()).resolves.toBe(session);
+  });
 });
 
 describe("requireRole", () => {
@@ -60,7 +82,9 @@ describe("requireRole", () => {
   });
 
   it("returns the session when the user's role is allowed and the tenant matches", async () => {
-    const session = { user: { id: "1", role: "RECEPCION", tenantSlug: "taller-a", tenantSchema: "taller_a" } };
+    const session = {
+      user: { id: "1", role: "RECEPCION", tenantSlug: "taller-a", tenantSchema: "taller_a", sedeActivaId: "sede-1" },
+    };
     mockAuth.mockResolvedValue(session);
     mockResolveTenant.mockResolvedValue({ slug: "taller-a", schemaName: "taller_a" });
 
@@ -68,7 +92,9 @@ describe("requireRole", () => {
   });
 
   it("redirects when the user's role is not allowed", async () => {
-    const session = { user: { id: "1", role: "TECNICO", tenantSlug: "taller-a", tenantSchema: "taller_a" } };
+    const session = {
+      user: { id: "1", role: "TECNICO", tenantSlug: "taller-a", tenantSchema: "taller_a", sedeActivaId: "sede-1" },
+    };
     mockAuth.mockResolvedValue(session);
     mockResolveTenant.mockResolvedValue({ slug: "taller-a", schemaName: "taller_a" });
 
