@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+const requiredMoney = (msg: string) =>
+  z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? undefined : v),
+    z.coerce.number({ error: msg }).min(0, msg),
+  );
+
 export const bodegaInputSchema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio"),
 });
@@ -19,8 +25,8 @@ export const repuestoInputSchema = z.object({
   codigo: z.string().min(1, "El código es obligatorio"),
   nombre: z.string().min(1, "El nombre es obligatorio"),
   descripcion: z.string().optional().or(z.literal("")),
-  precioCompra: z.coerce.number().min(0, "El precio de compra no puede ser negativo"),
-  precioVenta: z.coerce.number().min(0, "El precio de venta no puede ser negativo"),
+  precioCompra: requiredMoney("El precio de compra es obligatorio"),
+  precioVenta: requiredMoney("El precio de venta es obligatorio"),
   stockMinimo: z.coerce.number().int().min(0, "El stock mínimo no puede ser negativo"),
   bodegaId: z.string().min(1, "Selecciona una bodega"),
   proveedorId: z.string().optional().or(z.literal("")),
@@ -38,7 +44,7 @@ export type EntradaMercanciaInput = z.infer<typeof entradaMercanciaInputSchema>;
 export const entradaMercanciaItemInputSchema = z.object({
   repuestoId: z.string().min(1, "Selecciona un repuesto"),
   cantidad: z.coerce.number().int().min(1, "La cantidad debe ser al menos 1"),
-  precioCompraUnitario: z.coerce.number().min(0, "El precio no puede ser negativo"),
+  precioCompraUnitario: requiredMoney("El precio de compra unitario es obligatorio"),
 });
 
 export type EntradaMercanciaItemInput = z.infer<typeof entradaMercanciaItemInputSchema>;

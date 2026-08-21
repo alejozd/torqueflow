@@ -47,10 +47,11 @@ export async function listRepuestos(): Promise<RepuestoWithDetalle[]> {
   return tenantDb.repuesto.findMany({ include: REPUESTO_DETAIL_INCLUDE, orderBy: { nombre: "asc" } });
 }
 
-export async function listRepuestoOptions(): Promise<RepuestoOption[]> {
+export async function listRepuestoOptions(bodegaId?: string): Promise<RepuestoOption[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.repuesto.findMany({
+    where: bodegaId ? { bodegaId } : undefined,
     select: { id: true, codigo: true, nombre: true },
     orderBy: { nombre: "asc" },
   });

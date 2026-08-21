@@ -5,11 +5,13 @@ import { AgregarEntradaItemForm } from "./agregar-entrada-item-form";
 
 export default async function EntradaMercanciaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [entrada, repuestos] = await Promise.all([getEntrada(id), listRepuestoOptions()]);
+  const entrada = await getEntrada(id);
 
   if (!entrada) {
     notFound();
   }
+
+  const repuestos = await listRepuestoOptions(entrada.bodegaId);
 
   return (
     <main>

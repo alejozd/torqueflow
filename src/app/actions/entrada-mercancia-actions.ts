@@ -82,6 +82,21 @@ export async function addEntradaItemAction(
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
+  const [entrada, repuesto] = await Promise.all([
+    tenantDb.entradaMercancia.findUnique({ where: { id: entradaId }, select: { bodegaId: true } }),
+    tenantDb.repuesto.findUnique({ where: { id: parsed.data.repuestoId }, select: { bodegaId: true } }),
+  ]);
+
+  if (!entrada) {
+    return { error: "Entrada no encontrada", success: false };
+  }
+  if (!repuesto) {
+    return { error: "Repuesto no encontrado", success: false };
+  }
+  if (repuesto.bodegaId !== entrada.bodegaId) {
+    return { error: "El repuesto no pertenece a la bodega de esta entrada", success: false };
+  }
+
   try {
     await tenantDb.$transaction([
       tenantDb.entradaMercanciaItem.create({

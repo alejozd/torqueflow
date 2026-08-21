@@ -9,14 +9,16 @@ vi.mock("@/lib/auth/guards", () => ({
 
 const mockEntradaCreate = vi.fn();
 const mockEntradaFindMany = vi.fn();
+const mockEntradaFindUnique = vi.fn();
 const mockItemCreate = vi.fn();
 const mockRepuestoUpdate = vi.fn();
+const mockRepuestoFindUnique = vi.fn();
 const mockTransaction = vi.fn((ops: unknown[]) => Promise.all(ops));
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
-    entradaMercancia: { create: mockEntradaCreate, findMany: mockEntradaFindMany },
+    entradaMercancia: { create: mockEntradaCreate, findMany: mockEntradaFindMany, findUnique: mockEntradaFindUnique },
     entradaMercanciaItem: { create: mockItemCreate },
-    repuesto: { update: mockRepuestoUpdate },
+    repuesto: { update: mockRepuestoUpdate, findUnique: mockRepuestoFindUnique },
     $transaction: mockTransaction,
   }),
 }));
@@ -70,6 +72,8 @@ describe("addEntradaItemAction", () => {
     mockItemCreate.mockReset();
     mockRepuestoUpdate.mockReset();
     mockTransaction.mockClear();
+    mockEntradaFindUnique.mockReset().mockResolvedValue({ bodegaId: "b1" });
+    mockRepuestoFindUnique.mockReset().mockResolvedValue({ bodegaId: "b1" });
   });
 
   it("returns a validation error when cantidad is less than 1", async () => {
@@ -84,6 +88,19 @@ describe("addEntradaItemAction", () => {
     expect(result.error).toBe("La cantidad debe ser al menos 1");
     expect(mockItemCreate).not.toHaveBeenCalled();
     expect(mockRepuestoUpdate).not.toHaveBeenCalled();
+  });
+
+  it("returns a validation error when precioCompraUnitario is left blank, instead of silently defaulting to 0", async () => {
+    const formData = new FormData();
+    formData.set("repuestoId", "r1");
+    formData.set("cantidad", "20");
+    formData.set("precioCompraUnitario", "");
+
+    const result = await addEntradaItemAction("e1", initialState, formData);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("El precio de compra unitario es obligatorio");
+    expect(mockItemCreate).not.toHaveBeenCalled();
   });
 
   it("creates the item AND atomically increments the repuesto's stockActual on valid input", async () => {
@@ -105,7 +122,7 @@ describe("addEntradaItemAction", () => {
     expect(mockTransaction).toHaveBeenCalledTimes(1);
   });
 
-  it("does not increment stock at all if the transaction rejects (no partial write)", async () => {
+  it("surfaces a friendly error when the transaction rejects", async () => {
     mockTransaction.mockRejectedValueOnce(new Error("simulated DB failure"));
     const formData = new FormData();
     formData.set("repuestoId", "r1");
@@ -115,6 +132,49 @@ describe("addEntradaItemAction", () => {
     const result = await addEntradaItemAction("e1", initialState, formData);
 
     expect(result.success).toBe(false);
+  });
+
+  it("rejects when the entrada does not exist", async () => {
+    mockEntradaFindUnique.mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("repuestoId", "r1");
+    formData.set("cantidad", "20");
+    formData.set("precioCompraUnitario", "8.5");
+
+    const result = await addEntradaItemAction("e1", initialState, formData);
+
+    expect(result).toEqual({ error: "Entrada no encontrada", success: false });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects when the repuesto does not exist", async () => {
+    mockRepuestoFindUnique.mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("repuestoId", "r1");
+    formData.set("cantidad", "20");
+    formData.set("precioCompraUnitario", "8.5");
+
+    const result = await addEntradaItemAction("e1", initialState, formData);
+
+    expect(result).toEqual({ error: "Repuesto no encontrado", success: false });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects when the repuesto belongs to a different bodega than the entrada", async () => {
+    mockEntradaFindUnique.mockResolvedValue({ bodegaId: "b1" });
+    mockRepuestoFindUnique.mockResolvedValue({ bodegaId: "b2" });
+    const formData = new FormData();
+    formData.set("repuestoId", "r1");
+    formData.set("cantidad", "20");
+    formData.set("precioCompraUnitario", "8.5");
+
+    const result = await addEntradaItemAction("e1", initialState, formData);
+
+    expect(result).toEqual({
+      error: "El repuesto no pertenece a la bodega de esta entrada",
+      success: false,
+    });
+    expect(mockTransaction).not.toHaveBeenCalled();
   });
 });
 

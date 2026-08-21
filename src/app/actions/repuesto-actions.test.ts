@@ -24,6 +24,7 @@ import {
   updateRepuestoAction,
   deleteRepuestoAction,
   listRepuestos,
+  listRepuestoOptions,
   type RepuestoFormState,
 } from "./repuesto-actions";
 
@@ -54,6 +55,17 @@ describe("createRepuestoAction", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toBe("El código es obligatorio");
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns a validation error when precioVenta is left blank, instead of silently defaulting to 0", async () => {
+    const formData = baseFormData();
+    formData.set("precioVenta", "");
+
+    const result = await createRepuestoAction(initialState, formData);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("El precio de venta es obligatorio");
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
@@ -155,6 +167,33 @@ describe("listRepuestos", () => {
     expect(result).toEqual([{ id: "r1", nombre: "Filtro de aceite" }]);
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({ orderBy: { nombre: "asc" } }),
+    );
+  });
+});
+
+describe("listRepuestoOptions", () => {
+  it("selects only id/codigo/nombre, never Decimal price fields, with no bodega filter by default", async () => {
+    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
+    mockFindMany.mockReset().mockResolvedValue([{ id: "r1", codigo: "FRN-001", nombre: "Filtro de aceite" }]);
+
+    const result = await listRepuestoOptions();
+
+    expect(result).toEqual([{ id: "r1", codigo: "FRN-001", nombre: "Filtro de aceite" }]);
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: undefined,
+      select: { id: true, codigo: true, nombre: true },
+      orderBy: { nombre: "asc" },
+    });
+  });
+
+  it("filters by bodegaId when given, for entrada-de-mercancia's warehouse-scoped picker", async () => {
+    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
+    mockFindMany.mockReset().mockResolvedValue([]);
+
+    await listRepuestoOptions("b1");
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { bodegaId: "b1" } }),
     );
   });
 });
