@@ -1,6 +1,9 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { authorizeCredentials } from "@/lib/auth/authorize-credentials";
+import { resolveRedirectUrl } from "@/lib/auth/resolve-redirect";
+
+const BASE_DOMAIN = process.env.BASE_DOMAIN ?? "zdevs.uk";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
@@ -32,6 +35,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       session.user.tenantSlug = token.tenantSlug as string;
       session.user.tenantSchema = token.tenantSchema as string;
       return session;
+    },
+    async redirect({ url, baseUrl }) {
+      return resolveRedirectUrl(url, baseUrl, BASE_DOMAIN);
     },
   },
 });
