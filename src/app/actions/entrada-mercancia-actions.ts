@@ -5,12 +5,15 @@ import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { entradaMercanciaInputSchema, entradaMercanciaItemInputSchema } from "@/lib/validation/inventario";
+import { scopeBodega, scopeEntrada, scopeRepuesto } from "@/lib/sede/scope";
 import type { Prisma } from "@/generated/prisma-tenant";
 
 export interface EntradaFormState {
   error: string | null;
   success: boolean;
 }
+
+const BODEGA_AJENA = "La bodega seleccionada no pertenece a tu sede activa.";
 
 const ENTRADA_DETAIL_INCLUDE = {
   proveedor: true,
@@ -23,13 +26,20 @@ export type EntradaWithDetalle = Prisma.EntradaMercanciaGetPayload<{ include: ty
 export async function listEntradas(): Promise<EntradaWithDetalle[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  return tenantDb.entradaMercancia.findMany({ include: ENTRADA_DETAIL_INCLUDE, orderBy: { createdAt: "desc" } });
+  return tenantDb.entradaMercancia.findMany({
+    where: { ...scopeEntrada(session.user.sedeActivaId) },
+    include: ENTRADA_DETAIL_INCLUDE,
+    orderBy: { createdAt: "desc" },
+  });
 }
 
 export async function getEntrada(id: string): Promise<EntradaWithDetalle | null> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  return tenantDb.entradaMercancia.findUnique({ where: { id }, include: ENTRADA_DETAIL_INCLUDE });
+  return tenantDb.entradaMercancia.findFirst({
+    where: { id, ...scopeEntrada(session.user.sedeActivaId) },
+    include: ENTRADA_DETAIL_INCLUDE,
+  });
 }
 
 export async function createEntradaMercanciaAction(
@@ -47,6 +57,14 @@ export async function createEntradaMercanciaAction(
 
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const bodega = await tenantDb.bodega.findFirst({
+    where: { id: parsed.data.bodegaId, ...scopeBodega(session.user.sedeActivaId) },
+    select: { id: true },
+  });
+  if (!bodega) {
+    return { error: BODEGA_AJENA, success: false };
+  }
 
   try {
     await tenantDb.entradaMercancia.create({
@@ -83,8 +101,14 @@ export async function addEntradaItemAction(
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const [entrada, repuesto] = await Promise.all([
-    tenantDb.entradaMercancia.findUnique({ where: { id: entradaId }, select: { bodegaId: true } }),
-    tenantDb.repuesto.findUnique({ where: { id: parsed.data.repuestoId }, select: { bodegaId: true } }),
+    tenantDb.entradaMercancia.findFirst({
+      where: { id: entradaId, ...scopeEntrada(session.user.sedeActivaId) },
+      select: { bodegaId: true },
+    }),
+    tenantDb.repuesto.findFirst({
+      where: { id: parsed.data.repuestoId, ...scopeRepuesto(session.user.sedeActivaId) },
+      select: { bodegaId: true },
+    }),
   ]);
 
   if (!entrada) {

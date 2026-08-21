@@ -9,16 +9,18 @@ vi.mock("@/lib/auth/guards", () => ({
 
 const mockEntradaCreate = vi.fn();
 const mockEntradaFindMany = vi.fn();
-const mockEntradaFindUnique = vi.fn();
+const mockEntradaFindFirst = vi.fn();
 const mockItemCreate = vi.fn();
 const mockRepuestoUpdate = vi.fn();
-const mockRepuestoFindUnique = vi.fn();
+const mockRepuestoFindFirst = vi.fn();
+const mockBodegaFindFirst = vi.fn();
 const mockTransaction = vi.fn((ops: unknown[]) => Promise.all(ops));
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
-    entradaMercancia: { create: mockEntradaCreate, findMany: mockEntradaFindMany, findUnique: mockEntradaFindUnique },
+    entradaMercancia: { create: mockEntradaCreate, findMany: mockEntradaFindMany, findFirst: mockEntradaFindFirst },
     entradaMercanciaItem: { create: mockItemCreate },
-    repuesto: { update: mockRepuestoUpdate, findUnique: mockRepuestoFindUnique },
+    repuesto: { update: mockRepuestoUpdate, findFirst: mockRepuestoFindFirst },
+    bodega: { findFirst: mockBodegaFindFirst },
     $transaction: mockTransaction,
   }),
 }));
@@ -33,11 +35,14 @@ import {
 } from "./entrada-mercancia-actions";
 
 const initialState: EntradaFormState = { error: null, success: false };
+const SESSION_ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION_TECNICO = { user: { role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 describe("createEntradaMercanciaAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockEntradaCreate.mockReset();
+    mockBodegaFindFirst.mockReset().mockResolvedValue({ id: "b1" });
   });
 
   it("returns a validation error when proveedorId is missing", async () => {
@@ -64,16 +69,31 @@ describe("createEntradaMercanciaAction", () => {
       data: { proveedorId: "p1", bodegaId: "b1", creadoPorId: "u1" },
     });
   });
+
+  it("refuses to create an entrada against a bodega from another sede", async () => {
+    mockBodegaFindFirst.mockReset().mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("proveedorId", "p1");
+    formData.set("bodegaId", "b-otra-sede");
+
+    const result = await createEntradaMercanciaAction(initialState, formData);
+
+    expect(result).toEqual({
+      error: "La bodega seleccionada no pertenece a tu sede activa.",
+      success: false,
+    });
+    expect(mockEntradaCreate).not.toHaveBeenCalled();
+  });
 });
 
 describe("addEntradaItemAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockItemCreate.mockReset();
     mockRepuestoUpdate.mockReset();
     mockTransaction.mockClear();
-    mockEntradaFindUnique.mockReset().mockResolvedValue({ bodegaId: "b1" });
-    mockRepuestoFindUnique.mockReset().mockResolvedValue({ bodegaId: "b1" });
+    mockEntradaFindFirst.mockReset().mockResolvedValue({ bodegaId: "b1" });
+    mockRepuestoFindFirst.mockReset().mockResolvedValue({ bodegaId: "b1" });
   });
 
   it("returns a validation error when cantidad is less than 1", async () => {
@@ -135,7 +155,7 @@ describe("addEntradaItemAction", () => {
   });
 
   it("rejects when the entrada does not exist", async () => {
-    mockEntradaFindUnique.mockResolvedValue(null);
+    mockEntradaFindFirst.mockResolvedValue(null);
     const formData = new FormData();
     formData.set("repuestoId", "r1");
     formData.set("cantidad", "20");
@@ -148,7 +168,7 @@ describe("addEntradaItemAction", () => {
   });
 
   it("rejects when the repuesto does not exist", async () => {
-    mockRepuestoFindUnique.mockResolvedValue(null);
+    mockRepuestoFindFirst.mockResolvedValue(null);
     const formData = new FormData();
     formData.set("repuestoId", "r1");
     formData.set("cantidad", "20");
@@ -161,8 +181,8 @@ describe("addEntradaItemAction", () => {
   });
 
   it("rejects when the repuesto belongs to a different bodega than the entrada", async () => {
-    mockEntradaFindUnique.mockResolvedValue({ bodegaId: "b1" });
-    mockRepuestoFindUnique.mockResolvedValue({ bodegaId: "b2" });
+    mockEntradaFindFirst.mockResolvedValue({ bodegaId: "b1" });
+    mockRepuestoFindFirst.mockResolvedValue({ bodegaId: "b2" });
     const formData = new FormData();
     formData.set("repuestoId", "r1");
     formData.set("cantidad", "20");
@@ -176,18 +196,32 @@ describe("addEntradaItemAction", () => {
     });
     expect(mockTransaction).not.toHaveBeenCalled();
   });
+
+  it("refuses to add an item to an entrada from another sede", async () => {
+    mockEntradaFindFirst.mockReset().mockResolvedValue(null);
+    mockRepuestoFindFirst.mockReset().mockResolvedValue({ bodegaId: "b1" });
+    const formData = new FormData();
+    formData.set("repuestoId", "r1");
+    formData.set("cantidad", "20");
+    formData.set("precioCompraUnitario", "8");
+
+    const result = await addEntradaItemAction("e-otra-sede", initialState, formData);
+
+    expect(result).toEqual({ error: "Entrada no encontrada", success: false });
+  });
 });
 
 describe("listEntradas", () => {
-  it("lists entradas ordered by most recent first, with proveedor/bodega/items included", async () => {
-    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
-    mockEntradaFindMany.mockReset().mockResolvedValue([{ id: "e1" }]);
+  it("lists only entradas whose bodega is in the sede activa", async () => {
+    mockRequireSession.mockReset().mockResolvedValue(SESSION_TECNICO);
+    mockEntradaFindMany.mockReset().mockResolvedValue([]);
 
-    const result = await listEntradas();
+    await listEntradas();
 
-    expect(result).toEqual([{ id: "e1" }]);
-    expect(mockEntradaFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: { createdAt: "desc" } }),
-    );
+    expect(mockEntradaFindMany).toHaveBeenCalledWith({
+      where: { bodega: { sedeId: "sede-1" } },
+      include: expect.anything(),
+      orderBy: { createdAt: "desc" },
+    });
   });
 });

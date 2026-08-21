@@ -8,12 +8,14 @@ vi.mock("@/lib/auth/guards", () => ({
 }));
 
 const mockCreate = vi.fn();
-const mockUpdate = vi.fn();
-const mockDelete = vi.fn();
+const mockUpdateMany = vi.fn();
+const mockDeleteMany = vi.fn();
 const mockFindMany = vi.fn();
+const mockBodegaFindFirst = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
-    repuesto: { create: mockCreate, update: mockUpdate, delete: mockDelete, findMany: mockFindMany },
+    repuesto: { create: mockCreate, updateMany: mockUpdateMany, deleteMany: mockDeleteMany, findMany: mockFindMany },
+    bodega: { findFirst: mockBodegaFindFirst },
   }),
 }));
 
@@ -29,6 +31,9 @@ import {
 } from "./repuesto-actions";
 
 const initialState: RepuestoFormState = { error: null, success: false };
+const SESSION_ADMIN = { user: { role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION_RECEPCION = { user: { role: "RECEPCION", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION_TECNICO = { user: { role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 function baseFormData(): FormData {
   const formData = new FormData();
@@ -43,8 +48,9 @@ function baseFormData(): FormData {
 
 describe("createRepuestoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockCreate.mockReset();
+    mockBodegaFindFirst.mockReset().mockResolvedValue({ id: "b1" });
   });
 
   it("returns a validation error when codigo is missing", async () => {
@@ -115,22 +121,51 @@ describe("createRepuestoAction", () => {
       expect.objectContaining({ data: expect.objectContaining({ proveedorId: null }) }),
     );
   });
+
+  it("refuses to create a repuesto in a bodega from another sede", async () => {
+    mockBodegaFindFirst.mockReset().mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("codigo", "FRN-001");
+    formData.set("nombre", "Filtro de aceite");
+    formData.set("precioCompra", "8");
+    formData.set("precioVenta", "18.9");
+    formData.set("stockActual", "0");
+    formData.set("stockMinimo", "5");
+    formData.set("bodegaId", "b-otra-sede");
+
+    const result = await createRepuestoAction(initialState, formData);
+
+    expect(result).toEqual({
+      error: "La bodega seleccionada no pertenece a tu sede activa.",
+      success: false,
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(mockBodegaFindFirst).toHaveBeenCalledWith({
+      where: { id: "b-otra-sede", sedeId: "sede-1" },
+      select: { id: true },
+    });
+  });
 });
 
 describe("updateRepuestoAction", () => {
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockResolvedValue(SESSION_RECEPCION);
+    mockUpdateMany.mockReset();
+    mockBodegaFindFirst.mockReset().mockResolvedValue({ id: "b1" });
+  });
+
   it("updates the repuesto WITHOUT touching stockActual, even if the form somehow includes it", async () => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "RECEPCION", tenantSchema: "taller_perez" } });
-    mockUpdate.mockReset().mockResolvedValue({ id: "r1" });
+    mockUpdateMany.mockResolvedValue({ count: 1 });
     const formData = baseFormData();
     formData.set("stockActual", "9999");
 
     const result = await updateRepuestoAction("r1", initialState, formData);
 
     expect(result).toEqual({ error: null, success: true });
-    const callArg = mockUpdate.mock.calls[0][0];
+    const callArg = mockUpdateMany.mock.calls[0][0];
     expect(callArg.data).not.toHaveProperty("stockActual");
     expect(callArg).toEqual({
-      where: { id: "r1" },
+      where: { id: "r1", bodega: { sedeId: "sede-1" } },
       data: {
         codigo: "FRN-001",
         nombre: "Filtro de aceite",
@@ -146,54 +181,67 @@ describe("updateRepuestoAction", () => {
 });
 
 describe("deleteRepuestoAction", () => {
-  it("requires ADMIN/RECEPCION and deletes by id", async () => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
-    mockDelete.mockReset();
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockDeleteMany.mockReset();
+  });
+
+  it("requires ADMIN/RECEPCION and deletes a repuesto of the sede activa", async () => {
+    mockDeleteMany.mockResolvedValue({ count: 1 });
 
     await deleteRepuestoAction("r1");
 
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
-    expect(mockDelete).toHaveBeenCalledWith({ where: { id: "r1" } });
+    expect(mockDeleteMany).toHaveBeenCalledWith({ where: { id: "r1", bodega: { sedeId: "sede-1" } } });
   });
-});
 
-describe("listRepuestos", () => {
-  it("lists repuestos with bodega/proveedor included, ordered by nombre", async () => {
-    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
-    mockFindMany.mockReset().mockResolvedValue([{ id: "r1", nombre: "Filtro de aceite" }]);
+  it("refuses to delete a repuesto from another sede", async () => {
+    mockDeleteMany.mockReset().mockResolvedValue({ count: 0 });
 
-    const result = await listRepuestos();
-
-    expect(result).toEqual([{ id: "r1", nombre: "Filtro de aceite" }]);
-    expect(mockFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: { nombre: "asc" } }),
+    await expect(deleteRepuestoAction("r-otra-sede")).rejects.toThrow(
+      "Repuesto no encontrado en tu sede activa.",
     );
   });
 });
 
-describe("listRepuestoOptions", () => {
-  it("selects only id/codigo/nombre, never Decimal price fields, with no bodega filter by default", async () => {
-    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
-    mockFindMany.mockReset().mockResolvedValue([{ id: "r1", codigo: "FRN-001", nombre: "Filtro de aceite" }]);
+describe("listRepuestos", () => {
+  it("lists only repuestos whose bodega is in the sede activa", async () => {
+    mockRequireSession.mockReset().mockResolvedValue(SESSION_TECNICO);
+    mockFindMany.mockReset().mockResolvedValue([]);
 
-    const result = await listRepuestoOptions();
+    await listRepuestos();
 
-    expect(result).toEqual([{ id: "r1", codigo: "FRN-001", nombre: "Filtro de aceite" }]);
     expect(mockFindMany).toHaveBeenCalledWith({
-      where: undefined,
+      where: { bodega: { sedeId: "sede-1" } },
+      include: expect.anything(),
+      orderBy: { nombre: "asc" },
+    });
+  });
+});
+
+describe("listRepuestoOptions", () => {
+  beforeEach(() => {
+    mockRequireSession.mockReset().mockResolvedValue(SESSION_TECNICO);
+    mockFindMany.mockReset().mockResolvedValue([]);
+  });
+
+  it("combines an explicit bodegaId with the sede filter in listRepuestoOptions", async () => {
+    await listRepuestoOptions("b1");
+
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: { bodegaId: "b1", bodega: { sedeId: "sede-1" } },
       select: { id: true, codigo: true, nombre: true },
       orderBy: { nombre: "asc" },
     });
   });
 
-  it("filters by bodegaId when given, for entrada-de-mercancia's warehouse-scoped picker", async () => {
-    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
-    mockFindMany.mockReset().mockResolvedValue([]);
+  it("still applies the sede filter when no bodegaId is given", async () => {
+    await listRepuestoOptions();
 
-    await listRepuestoOptions("b1");
-
-    expect(mockFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { bodegaId: "b1" } }),
-    );
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: { bodega: { sedeId: "sede-1" } },
+      select: { id: true, codigo: true, nombre: true },
+      orderBy: { nombre: "asc" },
+    });
   });
 });

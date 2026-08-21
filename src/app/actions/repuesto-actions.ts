@@ -6,6 +6,7 @@ import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { repuestoInputSchema } from "@/lib/validation/inventario";
+import { scopeBodega, scopeRepuesto } from "@/lib/sede/scope";
 import type { Prisma } from "@/generated/prisma-tenant";
 
 export interface RepuestoFormState {
@@ -28,6 +29,9 @@ export interface RepuestoOption {
 
 const stockInicialSchema = z.coerce.number().int().min(0, "El stock inicial no puede ser negativo");
 
+const BODEGA_AJENA = "La bodega seleccionada no pertenece a tu sede activa.";
+const REPUESTO_NO_ENCONTRADO = "Repuesto no encontrado en tu sede activa.";
+
 function parseRepuestoFormData(formData: FormData) {
   return repuestoInputSchema.safeParse({
     codigo: formData.get("codigo") ?? "",
@@ -44,14 +48,21 @@ function parseRepuestoFormData(formData: FormData) {
 export async function listRepuestos(): Promise<RepuestoWithDetalle[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  return tenantDb.repuesto.findMany({ include: REPUESTO_DETAIL_INCLUDE, orderBy: { nombre: "asc" } });
+  return tenantDb.repuesto.findMany({
+    where: { ...scopeRepuesto(session.user.sedeActivaId) },
+    include: REPUESTO_DETAIL_INCLUDE,
+    orderBy: { nombre: "asc" },
+  });
 }
 
 export async function listRepuestoOptions(bodegaId?: string): Promise<RepuestoOption[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.repuesto.findMany({
-    where: bodegaId ? { bodegaId } : undefined,
+    where: {
+      ...(bodegaId ? { bodegaId } : {}),
+      ...scopeRepuesto(session.user.sedeActivaId),
+    },
     select: { id: true, codigo: true, nombre: true },
     orderBy: { nombre: "asc" },
   });
@@ -60,7 +71,10 @@ export async function listRepuestoOptions(bodegaId?: string): Promise<RepuestoOp
 export async function getRepuesto(id: string): Promise<RepuestoWithDetalle | null> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  return tenantDb.repuesto.findUnique({ where: { id }, include: REPUESTO_DETAIL_INCLUDE });
+  return tenantDb.repuesto.findFirst({
+    where: { id, ...scopeRepuesto(session.user.sedeActivaId) },
+    include: REPUESTO_DETAIL_INCLUDE,
+  });
 }
 
 export async function createRepuestoAction(
@@ -79,6 +93,14 @@ export async function createRepuestoAction(
 
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const bodega = await tenantDb.bodega.findFirst({
+    where: { id: parsed.data.bodegaId, ...scopeBodega(session.user.sedeActivaId) },
+    select: { id: true },
+  });
+  if (!bodega) {
+    return { error: BODEGA_AJENA, success: false };
+  }
 
   try {
     await tenantDb.repuesto.create({
@@ -115,9 +137,17 @@ export async function updateRepuestoAction(
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
+  const bodega = await tenantDb.bodega.findFirst({
+    where: { id: parsed.data.bodegaId, ...scopeBodega(session.user.sedeActivaId) },
+    select: { id: true },
+  });
+  if (!bodega) {
+    return { error: BODEGA_AJENA, success: false };
+  }
+
   try {
-    await tenantDb.repuesto.update({
-      where: { id },
+    const { count } = await tenantDb.repuesto.updateMany({
+      where: { id, ...scopeRepuesto(session.user.sedeActivaId) },
       data: {
         codigo: parsed.data.codigo,
         nombre: parsed.data.nombre,
@@ -129,6 +159,9 @@ export async function updateRepuestoAction(
         proveedorId: parsed.data.proveedorId || null,
       },
     });
+    if (count === 0) {
+      return { error: REPUESTO_NO_ENCONTRADO, success: false };
+    }
   } catch (err) {
     return { error: friendlyPrismaErrorMessage(err, "Error al actualizar el repuesto"), success: false };
   }
@@ -140,10 +173,16 @@ export async function updateRepuestoAction(
 export async function deleteRepuestoAction(id: string): Promise<void> {
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
+  let count: number;
   try {
-    await tenantDb.repuesto.delete({ where: { id } });
+    ({ count } = await tenantDb.repuesto.deleteMany({
+      where: { id, ...scopeRepuesto(session.user.sedeActivaId) },
+    }));
   } catch (err) {
     throw new Error(friendlyPrismaErrorMessage(err, "Error al eliminar el repuesto"));
+  }
+  if (count === 0) {
+    throw new Error(REPUESTO_NO_ENCONTRADO);
   }
   revalidatePath("/repuestos");
 }
