@@ -26,11 +26,22 @@ export const reporteFiltrosSchema = z
   .object({
     desde: fechaSchema,
     hasta: fechaSchema,
-    sedeId: z.string().optional().or(z.literal("")),
+    sedeId: z.string().optional(),
   })
-  .refine((filtros) => filtros.desde <= filtros.hasta, {
-    message: "La fecha inicial no puede ser posterior a la final",
-    path: ["desde"],
+  .superRefine((filtros, ctx) => {
+    const desdeEsValida = fechaSchema.safeParse(filtros.desde).success;
+    const hastaEsValida = fechaSchema.safeParse(filtros.hasta).success;
+
+    // Only compare the range once both ends are independently valid dates —
+    // otherwise an already-reported per-field error (format or calendar) would
+    // be joined by a spurious, contradictory ordering issue.
+    if (desdeEsValida && hastaEsValida && filtros.desde > filtros.hasta) {
+      ctx.addIssue({
+        code: "custom",
+        message: "La fecha inicial no puede ser posterior a la final",
+        path: ["desde"],
+      });
+    }
   });
 
 export type ReporteFiltrosInput = z.infer<typeof reporteFiltrosSchema>;

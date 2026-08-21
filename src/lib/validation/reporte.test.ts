@@ -57,4 +57,12 @@ describe("reporteFiltrosSchema", () => {
 
     expect(result.success).toBe(true);
   });
+
+  it("does not raise a spurious ordering issue when the invalid desde is lexicographically after hasta", () => {
+    const result = reporteFiltrosSchema.safeParse({ desde: "9999-99-99", hasta: "2026-01-01" });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toHaveLength(1);
+    expect(result.error?.issues[0]?.message).toBe("La fecha no existe en el calendario");
+  });
 });
