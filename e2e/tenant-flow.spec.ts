@@ -203,6 +203,9 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   await expect(page.getByText("Mano de obra facturada: 30")).toBeVisible();
 
   const filaTecnico = page.getByRole("row").filter({ hasText: "Tec E2E" });
+  // Cell-scoped: "1" alone would ambiguously match inside "1.5", so this
+  // targets the "Órdenes entregadas" <td> (column index 1) directly.
+  await expect(filaTecnico.locator("td").nth(1)).toHaveText("1");
   await expect(filaTecnico).toContainText("1.5");
   await expect(filaTecnico).toContainText("30");
 
