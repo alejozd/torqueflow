@@ -8,14 +8,20 @@ vi.mock("@/lib/auth/guards", () => ({
 }));
 
 const mockCreate = vi.fn();
-const mockUpdate = vi.fn();
-const mockDelete = vi.fn();
+const mockUpdateMany = vi.fn();
+const mockDeleteMany = vi.fn();
 const mockFindMany = vi.fn();
-const mockFindUnique = vi.fn();
+const mockBodegaFindFirst = vi.fn();
 const mockSedeFindFirst = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
-    bodega: { create: mockCreate, update: mockUpdate, delete: mockDelete, findMany: mockFindMany, findUnique: mockFindUnique },
+    bodega: {
+      create: mockCreate,
+      updateMany: mockUpdateMany,
+      deleteMany: mockDeleteMany,
+      findMany: mockFindMany,
+      findFirst: mockBodegaFindFirst,
+    },
     sede: { findFirst: mockSedeFindFirst },
   }),
 }));
@@ -27,16 +33,19 @@ import {
   updateBodegaAction,
   deleteBodegaAction,
   listBodegas,
+  getBodega,
   type BodegaFormState,
 } from "./bodega-actions";
 
 const initialState: BodegaFormState = { error: null, success: false };
+const SESSION_ADMIN = { user: { role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION_RECEPCION = { user: { role: "RECEPCION", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 describe("createBodegaAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockCreate.mockReset();
-    mockSedeFindFirst.mockReset().mockResolvedValue({ id: "s1" });
+    mockSedeFindFirst.mockReset();
   });
 
   it("returns a validation error when nombre is missing", async () => {
@@ -49,7 +58,7 @@ describe("createBodegaAction", () => {
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
-  it("creates the bodega attached to the tenant's default Sede on valid input", async () => {
+  it("creates the bodega in the session's sede activa, never looking up a default sede", async () => {
     mockCreate.mockResolvedValue({ id: "b1" });
     const formData = new FormData();
     formData.set("nombre", "Bodega norte");
@@ -57,7 +66,8 @@ describe("createBodegaAction", () => {
     const result = await createBodegaAction(initialState, formData);
 
     expect(result).toEqual({ error: null, success: true });
-    expect(mockCreate).toHaveBeenCalledWith({ data: { nombre: "Bodega norte", sedeId: "s1" } });
+    expect(mockSedeFindFirst).not.toHaveBeenCalled();
+    expect(mockCreate).toHaveBeenCalledWith({ data: { nombre: "Bodega norte", sedeId: "sede-1" } });
   });
 
   it("propagates the redirect rejection and never touches the database when requireRole rejects (unauthorized)", async () => {
@@ -72,42 +82,84 @@ describe("createBodegaAction", () => {
 
 describe("updateBodegaAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "RECEPCION", tenantSchema: "taller_perez" } });
-    mockUpdate.mockReset();
+    mockRequireRole.mockReset().mockResolvedValue(SESSION_RECEPCION);
+    mockUpdateMany.mockReset();
   });
 
-  it("updates the bodega's nombre on valid input", async () => {
-    mockUpdate.mockResolvedValue({ id: "b1" });
+  it("updates a bodega of the sede activa", async () => {
+    mockUpdateMany.mockResolvedValue({ count: 1 });
     const formData = new FormData();
     formData.set("nombre", "Bodega renombrada");
 
     const result = await updateBodegaAction("b1", initialState, formData);
 
     expect(result).toEqual({ error: null, success: true });
-    expect(mockUpdate).toHaveBeenCalledWith({ where: { id: "b1" }, data: { nombre: "Bodega renombrada" } });
+    expect(mockUpdateMany).toHaveBeenCalledWith({
+      where: { id: "b1", sedeId: "sede-1" },
+      data: { nombre: "Bodega renombrada" },
+    });
+  });
+
+  it("refuses to update a bodega from another sede", async () => {
+    mockUpdateMany.mockResolvedValue({ count: 0 });
+    const formData = new FormData();
+    formData.set("nombre", "Bodega ajena");
+
+    const result = await updateBodegaAction("b-otra-sede", initialState, formData);
+
+    expect(result).toEqual({ error: "Bodega no encontrada en tu sede activa.", success: false });
   });
 });
 
 describe("deleteBodegaAction", () => {
-  it("requires ADMIN/RECEPCION and deletes by id", async () => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
-    mockDelete.mockReset();
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockDeleteMany.mockReset();
+  });
+
+  it("deletes a bodega of the sede activa", async () => {
+    mockDeleteMany.mockResolvedValue({ count: 1 });
 
     await deleteBodegaAction("b1");
 
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
-    expect(mockDelete).toHaveBeenCalledWith({ where: { id: "b1" } });
+    expect(mockDeleteMany).toHaveBeenCalledWith({ where: { id: "b1", sedeId: "sede-1" } });
+  });
+
+  it("refuses to delete a bodega from another sede", async () => {
+    mockDeleteMany.mockResolvedValue({ count: 0 });
+
+    await expect(deleteBodegaAction("b-otra-sede")).rejects.toThrow(
+      "Bodega no encontrada en tu sede activa.",
+    );
   });
 });
 
 describe("listBodegas", () => {
-  it("lists bodegas ordered by nombre", async () => {
-    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
+  it("lists only the bodegas of the sede activa, ordered by nombre", async () => {
+    mockRequireSession.mockReset().mockResolvedValue({
+      user: { id: "u1", role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+    });
     mockFindMany.mockReset().mockResolvedValue([{ id: "b1", nombre: "Bodega norte" }]);
 
     const result = await listBodegas();
 
     expect(result).toEqual([{ id: "b1", nombre: "Bodega norte" }]);
-    expect(mockFindMany).toHaveBeenCalledWith({ orderBy: { nombre: "asc" } });
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: { sedeId: "sede-1" },
+      orderBy: { nombre: "asc" },
+    });
+  });
+});
+
+describe("getBodega", () => {
+  it("returns null for a bodega id belonging to another sede", async () => {
+    mockRequireSession.mockReset().mockResolvedValue({
+      user: { id: "u1", role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+    });
+    mockBodegaFindFirst.mockReset().mockResolvedValue(null);
+
+    await expect(getBodega("b-otra-sede")).resolves.toBeNull();
+    expect(mockBodegaFindFirst).toHaveBeenCalledWith({ where: { id: "b-otra-sede", sedeId: "sede-1" } });
   });
 });

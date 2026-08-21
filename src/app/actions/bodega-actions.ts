@@ -5,6 +5,7 @@ import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { bodegaInputSchema } from "@/lib/validation/inventario";
+import { scopeBodega } from "@/lib/sede/scope";
 import type { Bodega } from "@/generated/prisma-tenant";
 
 export interface BodegaFormState {
@@ -12,16 +13,21 @@ export interface BodegaFormState {
   success: boolean;
 }
 
+const NO_ENCONTRADA = "Bodega no encontrada en tu sede activa.";
+
 export async function listBodegas(): Promise<Bodega[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  return tenantDb.bodega.findMany({ orderBy: { nombre: "asc" } });
+  return tenantDb.bodega.findMany({
+    where: { ...scopeBodega(session.user.sedeActivaId) },
+    orderBy: { nombre: "asc" },
+  });
 }
 
 export async function getBodega(id: string): Promise<Bodega | null> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  return tenantDb.bodega.findUnique({ where: { id } });
+  return tenantDb.bodega.findFirst({ where: { id, ...scopeBodega(session.user.sedeActivaId) } });
 }
 
 export async function createBodegaAction(
@@ -37,13 +43,10 @@ export async function createBodegaAction(
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  const sede = await tenantDb.sede.findFirst({ orderBy: { createdAt: "asc" } });
-  if (!sede) {
-    return { error: "No hay una sede configurada para este taller.", success: false };
-  }
-
   try {
-    await tenantDb.bodega.create({ data: { nombre: parsed.data.nombre, sedeId: sede.id } });
+    await tenantDb.bodega.create({
+      data: { nombre: parsed.data.nombre, sedeId: session.user.sedeActivaId },
+    });
   } catch (err) {
     return { error: friendlyPrismaErrorMessage(err, "Error al crear la bodega"), success: false };
   }
@@ -52,6 +55,13 @@ export async function createBodegaAction(
   return { error: null, success: true };
 }
 
+/**
+ * updateMany/deleteMany rather than update/delete by id: only those accept a
+ * non-unique column in the where, which is how the sede filter gets in. A
+ * count of 0 means the id exists in another sede (or not at all) -- one
+ * message for both, so this cannot be used to probe other sedes' ids. Same
+ * shape as deleteItemOrdenAction's { id, ordenId } guard from Fase 2.
+ */
 export async function updateBodegaAction(
   id: string,
   prevState: BodegaFormState,
@@ -67,7 +77,13 @@ export async function updateBodegaAction(
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   try {
-    await tenantDb.bodega.update({ where: { id }, data: { nombre: parsed.data.nombre } });
+    const { count } = await tenantDb.bodega.updateMany({
+      where: { id, ...scopeBodega(session.user.sedeActivaId) },
+      data: { nombre: parsed.data.nombre },
+    });
+    if (count === 0) {
+      return { error: NO_ENCONTRADA, success: false };
+    }
   } catch (err) {
     return { error: friendlyPrismaErrorMessage(err, "Error al actualizar la bodega"), success: false };
   }
@@ -79,10 +95,16 @@ export async function updateBodegaAction(
 export async function deleteBodegaAction(id: string): Promise<void> {
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
+  let count: number;
   try {
-    await tenantDb.bodega.delete({ where: { id } });
+    ({ count } = await tenantDb.bodega.deleteMany({
+      where: { id, ...scopeBodega(session.user.sedeActivaId) },
+    }));
   } catch (err) {
     throw new Error(friendlyPrismaErrorMessage(err, "Error al eliminar la bodega"));
+  }
+  if (count === 0) {
+    throw new Error(NO_ENCONTRADA);
   }
   revalidatePath("/bodegas");
 }
