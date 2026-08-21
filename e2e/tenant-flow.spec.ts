@@ -1,5 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD, E2E_TECNICO_EMAIL, E2E_TECNICO_PASSWORD } from "./global-setup";
+import {
+  E2E_ADMIN_EMAIL,
+  E2E_ADMIN_PASSWORD,
+  E2E_TECNICO_EMAIL,
+  E2E_TECNICO_PASSWORD,
+  E2E_TECNICO_NOMBRE,
+} from "./global-setup";
 
 test.use({ baseURL: "http://taller-e2e-smoke.localhost:3000" });
 
@@ -12,6 +18,7 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   await page.goto("/login");
   await page.getByLabel("Correo").fill(E2E_ADMIN_EMAIL);
   await page.getByLabel("Contraseña").fill(E2E_ADMIN_PASSWORD);
+  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
   await page.getByRole("button", { name: "Ingresar" }).click();
 
   await expect(page).toHaveURL(/\/clientes$/);
@@ -243,6 +250,7 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
 
   await page.getByLabel("Correo").fill(E2E_TECNICO_EMAIL);
   await page.getByLabel("Contraseña").fill(E2E_TECNICO_PASSWORD);
+  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
   await page.getByRole("button", { name: "Ingresar" }).click();
   await expect(page).toHaveURL(/\/clientes$/);
 
@@ -255,6 +263,128 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   // Next.js's __next-route-announcer__, which also gets populated for a11y.
   // Scope to the app's element by its known text, same pattern as the
   // getByRole("status") ambiguity fixed in Fase 2 Task 14.
+  await expect(page.getByRole("alert").filter({ hasText: "No tienes permiso" })).toHaveText(
+    "No tienes permiso para acceder a esa sección.",
+  );
+
+  // --- Fase 6: gestión de sedes y aislamiento por sede activa ---
+
+  // Already on /login (the previous forbidden-role redirect landed here) --
+  // no explicit sign-out needed, signIn() overwrites the TECNICO session.
+  // Back in as ADMIN, in Sede principal, to create a second sede.
+  await page.getByLabel("Correo").fill(E2E_ADMIN_EMAIL);
+  await page.getByLabel("Contraseña").fill(E2E_ADMIN_PASSWORD);
+  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
+  await page.getByRole("button", { name: "Ingresar" }).click();
+  await expect(page).toHaveURL(/\/clientes$/);
+
+  // The header states which sede scopes everything below it.
+  await expect(page.getByText("Sede: Sede principal")).toBeVisible();
+
+  await page.getByRole("link", { name: "Sedes" }).click();
+  await expect(page.getByRole("heading", { name: "Sedes", level: 1 })).toBeVisible();
+
+  await page.getByLabel("Nombre", { exact: true }).fill("Sede norte");
+  await page.getByLabel("Dirección", { exact: true }).fill("Calle 80 #10-20");
+  await page.getByRole("button", { name: "Crear sede" }).click();
+  await expect(page.getByRole("status")).toHaveText("Sede creada");
+  await expect(page.getByRole("heading", { name: "Sede norte", level: 2 })).toBeVisible();
+
+  // A sede with órdenes and bodegas cannot be deleted -- the RESTRICT guard.
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page.getByRole("button", { name: "Eliminar Sede principal" }).click();
+  await expect(page.getByRole("heading", { name: "Sede principal", level: 2 })).toBeVisible();
+
+  // Assign the técnico to the new sede as well as the original one.
+  await page.getByRole("link", { name: "Usuarios" }).click();
+  await expect(page.getByRole("heading", { name: "Usuarios", level: 1 })).toBeVisible();
+
+  await page.getByLabel(`Sede norte para ${E2E_TECNICO_NOMBRE}`).check();
+  await page.getByRole("button", { name: `Guardar sedes de ${E2E_TECNICO_NOMBRE}` }).click();
+  await expect(page.getByRole("status")).toHaveText("Sedes actualizadas");
+
+  // --- The isolation proof: the same técnico, in the other sede, sees nothing ---
+
+  await page.getByRole("button", { name: "Cambiar de sede" }).click();
+  await expect(page).toHaveURL(/\/login/);
+
+  await page.getByLabel("Correo").fill(E2E_TECNICO_EMAIL);
+  await page.getByLabel("Contraseña").fill(E2E_TECNICO_PASSWORD);
+  await page.getByLabel("Sede").selectOption({ label: "Sede norte" });
+  await page.getByRole("button", { name: "Ingresar" }).click();
+  await expect(page).toHaveURL(/\/clientes$/);
+  await expect(page.getByText("Sede: Sede norte")).toBeVisible();
+
+  // Clientes stay tenant-wide by design -- Juan Pérez is still here.
+  await expect(page.getByRole("link", { name: "Juan Pérez" })).toBeVisible();
+
+  // Everything sede-scoped is empty: the ABC123 orden, its factura, the
+  // bodegas and FRN-001 all live in Sede principal.
+  await page.goto("/ordenes");
+  await expect(page.getByRole("link", { name: /ABC123/ })).toHaveCount(0);
+
+  await page.goto("/bodegas");
+  await expect(page.getByText("Bodega principal")).toHaveCount(0);
+  await expect(page.getByText("Bodega norte")).toHaveCount(0);
+
+  await page.goto("/repuestos");
+  await expect(page.getByText(/FRN-001/)).toHaveCount(0);
+
+  await page.goto("/facturas");
+  await expect(page.getByText(/Factura #1/)).toHaveCount(0);
+
+  // Back in Sede principal, the same técnico sees all of it again -- proof the
+  // rows were filtered by sede, not deleted or hidden by some other accident.
+  await page.getByRole("button", { name: "Cambiar de sede" }).click();
+  await page.getByLabel("Correo").fill(E2E_TECNICO_EMAIL);
+  await page.getByLabel("Contraseña").fill(E2E_TECNICO_PASSWORD);
+  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
+  await page.getByRole("button", { name: "Ingresar" }).click();
+  await expect(page).toHaveURL(/\/clientes$/);
+
+  await page.goto("/ordenes");
+  await expect(page.getByRole("link", { name: /ABC123/ })).toBeVisible();
+
+  await page.goto("/repuestos");
+  await expect(page.getByText(/FRN-001.*stock: 18/)).toBeVisible();
+
+  // --- ADMIN: bypasses UsuarioSede, y compara sedes en /reportes ---
+
+  await page.getByRole("button", { name: "Cambiar de sede" }).click();
+  await page.getByLabel("Correo").fill(E2E_ADMIN_EMAIL);
+  await page.getByLabel("Contraseña").fill(E2E_ADMIN_PASSWORD);
+  // The ADMIN was never assigned to Sede norte on /usuarios, and gets in anyway.
+  await page.getByLabel("Sede").selectOption({ label: "Sede norte" });
+  await page.getByRole("button", { name: "Ingresar" }).click();
+  await expect(page).toHaveURL(/\/clientes$/);
+  await expect(page.getByText("Sede: Sede norte")).toBeVisible();
+
+  await page.getByRole("link", { name: "Reportes" }).click();
+  await expect(page.getByText("Facturas emitidas: 0")).toBeVisible();
+  await expect(page.getByText("Total facturado: 0")).toBeVisible();
+
+  // Switching the report's sede selector reaches the other sede's numbers --
+  // read-only cross-sede comparison, without changing the sede activa.
+  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
+  await page.getByRole("button", { name: "Aplicar" }).click();
+  await expect(page.getByText("Facturas emitidas: 1")).toBeVisible();
+  await expect(page.getByText("Total facturado: 140.18")).toBeVisible();
+  await expect(page.getByText("Sede: Sede norte")).toBeVisible();
+
+  // --- A técnico still cannot reach the sede admin surfaces ---
+
+  await page.getByRole("button", { name: "Cerrar sesión" }).click();
+  await page.getByLabel("Correo").fill(E2E_TECNICO_EMAIL);
+  await page.getByLabel("Contraseña").fill(E2E_TECNICO_PASSWORD);
+  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
+  await page.getByRole("button", { name: "Ingresar" }).click();
+  await expect(page).toHaveURL(/\/clientes$/);
+
+  await expect(page.getByRole("link", { name: "Sedes" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Usuarios" })).toHaveCount(0);
+
+  await page.goto("/sedes");
+  await expect(page).toHaveURL(/\/login\?error=forbidden/);
   await expect(page.getByRole("alert").filter({ hasText: "No tienes permiso" })).toHaveText(
     "No tienes permiso para acceder a esa sección.",
   );
