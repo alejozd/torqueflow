@@ -20,11 +20,12 @@ vi.mock("@/lib/db/tenant-client", () => ({
 import { getReporteRentabilidad, getReporteProductividad } from "./reporte-actions";
 
 const FILTROS_VALIDOS = { desde: "2026-08-01", hasta: "2026-08-21" };
+const SESSION = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-activa" } };
 
 describe("getReporteRentabilidad", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez" } });
-    mockSedeFindFirst.mockReset().mockResolvedValue({ id: "sede-default" });
+    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockSedeFindFirst.mockReset();
     mockFacturaFindMany.mockReset().mockResolvedValue([]);
   });
 
@@ -38,52 +39,35 @@ describe("getReporteRentabilidad", () => {
     const result = await getReporteRentabilidad({ desde: "2026-08-22", hasta: "2026-08-21" });
 
     expect(result.error).toBe("La fecha inicial no puede ser posterior a la final");
+    expect(result.filtros.sedeId).toBe("sede-activa");
     expect(result.totales.totalFacturado).toBe(0);
     expect(mockFacturaFindMany).not.toHaveBeenCalled();
   });
 
-  it("falls back to the tenant's oldest sede when no sedeId is supplied", async () => {
+  it("defaults to the session's sede activa without any sede lookup", async () => {
+    mockFacturaFindMany.mockReset().mockResolvedValue([]);
+
     const result = await getReporteRentabilidad(FILTROS_VALIDOS);
 
-    expect(mockSedeFindFirst).toHaveBeenCalledWith({ orderBy: { createdAt: "asc" }, select: { id: true } });
-    expect(result.filtros.sedeId).toBe("sede-default");
+    expect(mockSedeFindFirst).not.toHaveBeenCalled();
+    expect(result.filtros.sedeId).toBe("sede-activa");
     expect(mockFacturaFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
-          createdAt: { gte: new Date("2026-08-01T00:00:00.000Z"), lt: new Date("2026-08-22T00:00:00.000Z") },
-          orden: { sedeId: "sede-default" },
-        },
+        where: expect.objectContaining({ orden: { sedeId: "sede-activa" } }),
       }),
     );
   });
 
-  it("uses the explicit sedeId when supplied and does not look up a default", async () => {
-    await getReporteRentabilidad({ ...FILTROS_VALIDOS, sedeId: "sede-norte" });
+  it("uses an explicit sedeId when supplied, so an ADMIN can compare sedes", async () => {
+    mockFacturaFindMany.mockReset().mockResolvedValue([]);
 
+    const result = await getReporteRentabilidad({ ...FILTROS_VALIDOS, sedeId: "sede-norte" });
+
+    expect(result.filtros.sedeId).toBe("sede-norte");
     expect(mockSedeFindFirst).not.toHaveBeenCalled();
     expect(mockFacturaFindMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ orden: { sedeId: "sede-norte" } }) }),
     );
-  });
-
-  it("returns zeroed totals without querying facturas when the tenant has no sede", async () => {
-    mockSedeFindFirst.mockResolvedValue(null);
-
-    const result = await getReporteRentabilidad(FILTROS_VALIDOS);
-
-    expect(result).toEqual({
-      filtros: { desde: "2026-08-01", hasta: "2026-08-21", sedeId: null },
-      error: null,
-      totales: {
-        facturasCount: 0,
-        totalFacturado: 0,
-        costoRepuestos: 0,
-        margen: 0,
-        margenPorcentaje: 0,
-        manoDeObraFacturada: 0,
-      },
-    });
-    expect(mockFacturaFindMany).not.toHaveBeenCalled();
   });
 
   it("converts Prisma Decimals to numbers and aggregates them", async () => {
@@ -137,8 +121,8 @@ describe("getReporteRentabilidad", () => {
 
 describe("getReporteProductividad", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez" } });
-    mockSedeFindFirst.mockReset().mockResolvedValue({ id: "sede-default" });
+    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockSedeFindFirst.mockReset();
     mockOrdenFindMany.mockReset().mockResolvedValue([]);
   });
 
@@ -152,6 +136,7 @@ describe("getReporteProductividad", () => {
     const result = await getReporteProductividad({ desde: "2026-13-01", hasta: "2026-08-21" });
 
     expect(result.error).toBe("La fecha no existe en el calendario");
+    expect(result.filtros.sedeId).toBe("sede-activa");
     expect(result.filas).toEqual([]);
     expect(mockOrdenFindMany).not.toHaveBeenCalled();
   });
@@ -161,7 +146,7 @@ describe("getReporteProductividad", () => {
 
     expect(mockOrdenFindMany).toHaveBeenCalledWith({
       where: {
-        sedeId: "sede-default",
+        sedeId: "sede-activa",
         estado: "ENTREGADA",
         entregadaAt: { gte: new Date("2026-08-01T00:00:00.000Z"), lt: new Date("2026-08-22T00:00:00.000Z") },
       },
@@ -182,17 +167,26 @@ describe("getReporteProductividad", () => {
     );
   });
 
-  it("returns an empty list without querying órdenes when the tenant has no sede", async () => {
-    mockSedeFindFirst.mockResolvedValue(null);
+  it("productividad defaults to the session's sede activa too", async () => {
+    mockOrdenFindMany.mockReset().mockResolvedValue([]);
 
     const result = await getReporteProductividad(FILTROS_VALIDOS);
 
-    expect(result).toEqual({
-      filtros: { desde: "2026-08-01", hasta: "2026-08-21", sedeId: null },
-      error: null,
-      filas: [],
-    });
-    expect(mockOrdenFindMany).not.toHaveBeenCalled();
+    expect(mockSedeFindFirst).not.toHaveBeenCalled();
+    expect(result.filtros.sedeId).toBe("sede-activa");
+    expect(mockOrdenFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ sedeId: "sede-activa" }) }),
+    );
+  });
+
+  it("productividad honours an explicit sedeId", async () => {
+    mockOrdenFindMany.mockReset().mockResolvedValue([]);
+
+    await getReporteProductividad({ ...FILTROS_VALIDOS, sedeId: "sede-norte" });
+
+    expect(mockOrdenFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ sedeId: "sede-norte" }) }),
+    );
   });
 
   it("converts Decimals to numbers and groups by técnico, keeping unassigned work visible", async () => {

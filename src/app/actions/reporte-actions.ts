@@ -2,7 +2,6 @@
 
 import { requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
-import type { TenantPrismaClient } from "@/lib/db/tenant-client";
 import { reporteFiltrosSchema } from "@/lib/validation/reporte";
 import { buildRangoFechas } from "@/lib/reportes/rango-fechas";
 import { computeRentabilidad, type RentabilidadTotales } from "@/lib/reportes/rentabilidad";
@@ -15,28 +14,17 @@ export interface ReporteFiltros {
   sedeId?: string;
 }
 
-/** Filters actually applied, with the default sede already resolved. */
+/** Filters actually applied, with the sede activa already substituted in. */
 export interface ReporteFiltrosAplicados {
   desde: string;
   hasta: string;
-  sedeId: string | null;
+  sedeId: string;
 }
 
 export interface ReporteRentabilidadResult {
   filtros: ReporteFiltrosAplicados;
   error: string | null;
   totales: RentabilidadTotales;
-}
-
-/**
- * Fase 5 ships with a single Sede per tenant, but every report query applies
- * an explicit sedeId so Fase 6 can activate the multi-sede selector without
- * touching this module. Same default-sede rule as createOrdenAction.
- */
-async function resolveSedeId(tenantDb: TenantPrismaClient, sedeId?: string): Promise<string | null> {
-  if (sedeId) return sedeId;
-  const sede = await tenantDb.sede.findFirst({ orderBy: { createdAt: "asc" }, select: { id: true } });
-  return sede?.id ?? null;
 }
 
 export async function getReporteRentabilidad(filtros: ReporteFiltros): Promise<ReporteRentabilidadResult> {
@@ -51,25 +39,27 @@ export async function getReporteRentabilidad(filtros: ReporteFiltros): Promise<R
   });
   if (!parsed.success) {
     return {
-      filtros: { desde: filtros.desde, hasta: filtros.hasta, sedeId: filtros.sedeId ?? null },
+      filtros: {
+        desde: filtros.desde,
+        hasta: filtros.hasta,
+        sedeId: filtros.sedeId || session.user.sedeActivaId,
+      },
       error: parsed.error.issues[0]?.message ?? "Filtros inválidos",
       totales: computeRentabilidad([]),
     };
   }
 
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  const sedeId = await resolveSedeId(tenantDb, parsed.data.sedeId || undefined);
+  // No lookup: the sede activa comes from the validated session (Fase 1
+  // backlog #21's rule, applied to sede state). An explicit sedeId lets an
+  // ADMIN compare against another sede -- the design doc's "sede como
+  // dimensión de filtro/comparación" (§5 módulo 12).
+  const sedeId = parsed.data.sedeId || session.user.sedeActivaId;
   const aplicados: ReporteFiltrosAplicados = {
     desde: parsed.data.desde,
     hasta: parsed.data.hasta,
     sedeId,
   };
-
-  // No sede means the tenant has no órdenes at all (OrdenTrabajo.sedeId is
-  // required), so zeroes are the correct answer, not an error.
-  if (!sedeId) {
-    return { filtros: aplicados, error: null, totales: computeRentabilidad([]) };
-  }
 
   const rango = buildRangoFechas(parsed.data.desde, parsed.data.hasta);
   const facturas = await tenantDb.factura.findMany({
@@ -131,23 +121,23 @@ export async function getReporteProductividad(filtros: ReporteFiltros): Promise<
   });
   if (!parsed.success) {
     return {
-      filtros: { desde: filtros.desde, hasta: filtros.hasta, sedeId: filtros.sedeId ?? null },
+      filtros: {
+        desde: filtros.desde,
+        hasta: filtros.hasta,
+        sedeId: filtros.sedeId || session.user.sedeActivaId,
+      },
       error: parsed.error.issues[0]?.message ?? "Filtros inválidos",
       filas: [],
     };
   }
 
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  const sedeId = await resolveSedeId(tenantDb, parsed.data.sedeId || undefined);
+  const sedeId = parsed.data.sedeId || session.user.sedeActivaId;
   const aplicados: ReporteFiltrosAplicados = {
     desde: parsed.data.desde,
     hasta: parsed.data.hasta,
     sedeId,
   };
-
-  if (!sedeId) {
-    return { filtros: aplicados, error: null, filas: [] };
-  }
 
   const rango = buildRangoFechas(parsed.data.desde, parsed.data.hasta);
   const ordenes = await tenantDb.ordenTrabajo.findMany({

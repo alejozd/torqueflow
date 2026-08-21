@@ -3,6 +3,7 @@ import {
   getReporteRentabilidad,
   type ReporteFiltros,
 } from "@/app/actions/reporte-actions";
+import { listSedes } from "@/app/actions/sede-actions";
 import { rangoMesActual } from "@/lib/reportes/rango-fechas";
 
 export default async function ReportesPage({
@@ -18,8 +19,11 @@ export default async function ReportesPage({
     sedeId: sedeId || undefined,
   };
 
+  // Sequential, never Promise.all: all three go through requireRole, which
+  // redirect()s by throwing (Fase 5 Task 9's deliberate choice).
   const rentabilidad = await getReporteRentabilidad(filtros);
   const productividad = await getReporteProductividad(filtros);
+  const sedes = await listSedes();
 
   return (
     <main>
@@ -33,11 +37,20 @@ export default async function ReportesPage({
         <input id="hasta" name="hasta" type="date" defaultValue={filtros.hasta} required />
 
         {/*
-          Fase 5 has no sede selector on purpose (that is Fase 6). The hidden
-          input keeps an explicit sedeId in the URL round-tripping through the
-          form so the query-param plumbing is already complete end to end.
+          Fase 6: a real selector replaces Fase 5's hidden input. It defaults to
+          whatever the actions resolved (the sede activa when the URL carries
+          none), so an ADMIN can compare any sede without re-logging-in --
+          reading another sede's numbers is safe in a way that operating in it
+          is not.
         */}
-        {filtros.sedeId ? <input type="hidden" name="sedeId" value={filtros.sedeId} /> : null}
+        <label htmlFor="sedeId">Sede</label>
+        <select id="sedeId" name="sedeId" defaultValue={rentabilidad.filtros.sedeId}>
+          {sedes.map((sede) => (
+            <option key={sede.id} value={sede.id}>
+              {sede.nombre}
+            </option>
+          ))}
+        </select>
 
         <button type="submit">Aplicar</button>
       </form>
