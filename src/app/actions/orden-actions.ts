@@ -6,6 +6,7 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { ordenTrabajoInputSchema, estadoOrdenSchema } from "@/lib/validation/orden";
 import { isValidEstadoTransition } from "@/lib/orden/estado-transitions";
+import { scopeOrden } from "@/lib/sede/scope";
 import type { EstadoOrden, OrdenTrabajo, Prisma } from "@/generated/prisma-tenant";
 
 export interface OrdenFormState {
@@ -35,7 +36,7 @@ export async function listOrdenes(estado?: EstadoOrden): Promise<OrdenWithDetall
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.ordenTrabajo.findMany({
-    where: estado ? { estado } : undefined,
+    where: { ...scopeOrden(session.user.sedeActivaId), ...(estado ? { estado } : {}) },
     include: ORDEN_DETAIL_INCLUDE,
     orderBy: { createdAt: "desc" },
   });
@@ -44,20 +45,31 @@ export async function listOrdenes(estado?: EstadoOrden): Promise<OrdenWithDetall
 export async function listOrdenesByVehiculo(vehiculoId: string): Promise<OrdenTrabajo[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  return tenantDb.ordenTrabajo.findMany({ where: { vehiculoId }, orderBy: { createdAt: "desc" } });
+  // The Vehiculo is tenant-wide on purpose (a client may bring the same car to
+  // any sede), but its órdenes belong to whichever sede opened them.
+  return tenantDb.ordenTrabajo.findMany({
+    where: { vehiculoId, ...scopeOrden(session.user.sedeActivaId) },
+    orderBy: { createdAt: "desc" },
+  });
 }
 
 export async function getOrden(id: string): Promise<OrdenWithDetalle | null> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  return tenantDb.ordenTrabajo.findUnique({ where: { id }, include: ORDEN_DETAIL_INCLUDE });
+  // findFirst, not findUnique: findUnique cannot carry the sede filter, so an
+  // id from another sede would resolve. This is the IDOR boundary.
+  return tenantDb.ordenTrabajo.findFirst({
+    where: { id, ...scopeOrden(session.user.sedeActivaId) },
+    include: ORDEN_DETAIL_INCLUDE,
+  });
 }
 
 export async function listTecnicos(): Promise<TecnicoOption[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
+  // Only técnicos who actually work in this sede can be assigned an orden here.
   return tenantDb.usuario.findMany({
-    where: { role: "TECNICO" },
+    where: { role: "TECNICO", sedes: { some: { sedeId: session.user.sedeActivaId } } },
     select: { id: true, nombre: true },
     orderBy: { nombre: "asc" },
   });
@@ -82,17 +94,12 @@ export async function createOrdenAction(
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  const sede = await tenantDb.sede.findFirst({ orderBy: { createdAt: "asc" } });
-  if (!sede) {
-    return { error: "No hay una sede configurada para este taller.", success: false };
-  }
-
   try {
     await tenantDb.ordenTrabajo.create({
       data: {
         clienteId,
         vehiculoId,
-        sedeId: sede.id,
+        sedeId: session.user.sedeActivaId,
         creadoPorId: session.user.id,
         mecanicoId: parsed.data.mecanicoId || null,
         kilometrajeIngreso: parsed.data.kilometrajeIngreso,
@@ -124,7 +131,9 @@ export async function updateEstadoOrdenAction(
   const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  const orden = await tenantDb.ordenTrabajo.findUnique({ where: { id } });
+  const orden = await tenantDb.ordenTrabajo.findFirst({
+    where: { id, ...scopeOrden(session.user.sedeActivaId) },
+  });
   if (!orden) {
     return { error: "Orden no encontrada" };
   }
