@@ -16,6 +16,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           <Link href="/repuestos">Repuestos</Link>
           <Link href="/entradas-mercancia">Entradas</Link>
           <Link href="/facturas">Facturas</Link>
+          {session.user.role === "ADMIN" ? <Link href="/reportes">Reportes</Link> : null}
         </nav>
         <span>
           Sesión: {session.user.email} — {session.user.tenantSlug}
