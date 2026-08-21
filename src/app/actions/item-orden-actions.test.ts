@@ -7,13 +7,13 @@ vi.mock("@/lib/auth/guards", () => ({
 
 const mockCreate = vi.fn();
 const mockDeleteMany = vi.fn();
-const mockOrdenFindUnique = vi.fn();
-const mockRepuestoFindUnique = vi.fn();
+const mockOrdenFindFirst = vi.fn();
+const mockRepuestoFindFirst = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     itemOrden: { create: mockCreate, deleteMany: mockDeleteMany },
-    ordenTrabajo: { findUnique: mockOrdenFindUnique },
-    repuesto: { findUnique: mockRepuestoFindUnique },
+    ordenTrabajo: { findFirst: mockOrdenFindFirst },
+    repuesto: { findFirst: mockRepuestoFindFirst },
   }),
 }));
 
@@ -22,13 +22,15 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import { addItemOrdenAction, deleteItemOrdenAction, type ItemOrdenFormState } from "./item-orden-actions";
 
 const initialState: ItemOrdenFormState = { error: null, success: false };
+const SESSION = { user: { role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION_ADMIN = { user: { role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 describe("addItemOrdenAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
+    mockRequireRole.mockReset().mockResolvedValue(SESSION);
     mockCreate.mockReset();
-    mockRepuestoFindUnique.mockReset();
-    mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
+    mockRepuestoFindFirst.mockReset();
+    mockOrdenFindFirst.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
   });
 
   it("returns a validation error when cantidad is less than 1", async () => {
@@ -65,14 +67,14 @@ describe("addItemOrdenAction", () => {
     const result = await addItemOrdenAction("o1", initialState, formData);
 
     expect(result).toEqual({ error: null, success: true });
-    expect(mockRepuestoFindUnique).not.toHaveBeenCalled();
+    expect(mockRepuestoFindFirst).not.toHaveBeenCalled();
     expect(mockCreate).toHaveBeenCalledWith({
       data: { ordenId: "o1", repuestoId: null, descripcion: "Filtro de aceite", cantidad: 2, precioUnitario: 15.5 },
     });
   });
 
   it("creates a catalog-linked item, deriving descripcion/precioUnitario from the Repuesto and ignoring manual fields", async () => {
-    mockRepuestoFindUnique.mockResolvedValue({ id: "r1", nombre: "Filtro de aceite Bosch", precioVenta: 18.9 });
+    mockRepuestoFindFirst.mockResolvedValue({ id: "r1", nombre: "Filtro de aceite Bosch", precioVenta: 18.9 });
     mockCreate.mockResolvedValue({ id: "i1" });
     const formData = new FormData();
     formData.set("repuestoId", "r1");
@@ -81,7 +83,9 @@ describe("addItemOrdenAction", () => {
     const result = await addItemOrdenAction("o1", initialState, formData);
 
     expect(result).toEqual({ error: null, success: true });
-    expect(mockRepuestoFindUnique).toHaveBeenCalledWith({ where: { id: "r1" } });
+    expect(mockRepuestoFindFirst).toHaveBeenCalledWith({
+      where: { id: "r1", bodega: { sedeId: "sede-1" } },
+    });
     expect(mockCreate).toHaveBeenCalledWith({
       data: {
         ordenId: "o1",
@@ -94,7 +98,7 @@ describe("addItemOrdenAction", () => {
   });
 
   it("returns an error when repuestoId references a repuesto that doesn't exist", async () => {
-    mockRepuestoFindUnique.mockResolvedValue(null);
+    mockRepuestoFindFirst.mockResolvedValue(null);
     const formData = new FormData();
     formData.set("repuestoId", "r-missing");
     formData.set("cantidad", "1");
@@ -104,6 +108,21 @@ describe("addItemOrdenAction", () => {
     expect(result.success).toBe(false);
     expect(result.error).toBe("Repuesto no encontrado");
     expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("refuses a repuesto that lives in another sede's bodega", async () => {
+    mockOrdenFindFirst.mockResolvedValue({ estado: "BORRADOR", factura: null });
+    mockRepuestoFindFirst.mockReset().mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("repuestoId", "repuesto-de-otra-sede");
+    formData.set("cantidad", "2");
+
+    const result = await addItemOrdenAction("o1", initialState, formData);
+
+    expect(result).toEqual({ error: "Repuesto no encontrado", success: false });
+    expect(mockRepuestoFindFirst).toHaveBeenCalledWith({
+      where: { id: "repuesto-de-otra-sede", bodega: { sedeId: "sede-1" } },
+    });
   });
 
   it("allows TECNICO to add items (not just ADMIN/RECEPCION)", async () => {
@@ -119,7 +138,7 @@ describe("addItemOrdenAction", () => {
   });
 
   it("blocks adding an item when the order is in a terminal state (ENTREGADA)", async () => {
-    mockOrdenFindUnique.mockResolvedValue({ estado: "ENTREGADA", factura: null });
+    mockOrdenFindFirst.mockResolvedValue({ estado: "ENTREGADA", factura: null });
     const formData = new FormData();
     formData.set("descripcion", "Filtro de aceite");
     formData.set("cantidad", "1");
@@ -133,7 +152,7 @@ describe("addItemOrdenAction", () => {
   });
 
   it("blocks adding an item when the order already has a factura", async () => {
-    mockOrdenFindUnique.mockResolvedValue({ estado: "TERMINADA", factura: { id: "f1" } });
+    mockOrdenFindFirst.mockResolvedValue({ estado: "TERMINADA", factura: { id: "f1" } });
     const formData = new FormData();
     formData.set("descripcion", "Filtro de aceite");
     formData.set("cantidad", "1");
@@ -145,13 +164,29 @@ describe("addItemOrdenAction", () => {
     expect(result.error).toBe("No se puede modificar una orden que ya tiene una factura generada.");
     expect(mockCreate).not.toHaveBeenCalled();
   });
+
+  it("refuses to touch an orden from another sede", async () => {
+    mockOrdenFindFirst.mockReset().mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("descripcion", "Pastillas de freno");
+    formData.set("cantidad", "4");
+    formData.set("precioUnitario", "15");
+
+    const result = await addItemOrdenAction("orden-de-otra-sede", initialState, formData);
+
+    expect(result).toEqual({ error: "Orden no encontrada", success: false });
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith({
+      where: { id: "orden-de-otra-sede", sedeId: "sede-1" },
+      select: { estado: true, factura: { select: { id: true } } },
+    });
+  });
 });
 
 describe("deleteItemOrdenAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockDeleteMany.mockReset();
-    mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
+    mockOrdenFindFirst.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
   });
 
   it("requires ADMIN/RECEPCION (not TECNICO) to delete an item", async () => {
@@ -164,7 +199,7 @@ describe("deleteItemOrdenAction", () => {
   });
 
   it("blocks deleting an item when the order is in a terminal state (ENTREGADA)", async () => {
-    mockOrdenFindUnique.mockResolvedValue({ estado: "ENTREGADA", factura: null });
+    mockOrdenFindFirst.mockResolvedValue({ estado: "ENTREGADA", factura: null });
 
     await expect(deleteItemOrdenAction("i1", "o1")).rejects.toThrow(
       "No se puede modificar una orden en estado ENTREGADA.",
@@ -173,7 +208,7 @@ describe("deleteItemOrdenAction", () => {
   });
 
   it("blocks deleting an item when the order already has a factura", async () => {
-    mockOrdenFindUnique.mockResolvedValue({ estado: "TERMINADA", factura: { id: "f1" } });
+    mockOrdenFindFirst.mockResolvedValue({ estado: "TERMINADA", factura: { id: "f1" } });
 
     await expect(deleteItemOrdenAction("i1", "o1")).rejects.toThrow(
       "No se puede modificar una orden que ya tiene una factura generada.",
@@ -185,5 +220,15 @@ describe("deleteItemOrdenAction", () => {
     mockDeleteMany.mockResolvedValue({ count: 0 });
 
     await expect(deleteItemOrdenAction("i1", "o1")).rejects.toThrow("Ítem no encontrado en esta orden");
+  });
+
+  it("refuses to touch an orden from another sede", async () => {
+    mockOrdenFindFirst.mockReset().mockResolvedValue(null);
+
+    await expect(deleteItemOrdenAction("i1", "orden-de-otra-sede")).rejects.toThrow("Orden no encontrada");
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith({
+      where: { id: "orden-de-otra-sede", sedeId: "sede-1" },
+      select: { estado: true, factura: { select: { id: true } } },
+    });
   });
 });

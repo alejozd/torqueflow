@@ -9,12 +9,12 @@ const mockUpsert = vi.fn();
 const mockDviFindUnique = vi.fn();
 const mockFotoCreate = vi.fn();
 const mockFotoDeleteMany = vi.fn();
-const mockOrdenFindUnique = vi.fn();
+const mockOrdenFindFirst = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     dvi: { upsert: mockUpsert, findUnique: mockDviFindUnique },
     dviFoto: { create: mockFotoCreate, deleteMany: mockFotoDeleteMany },
-    ordenTrabajo: { findUnique: mockOrdenFindUnique },
+    ordenTrabajo: { findFirst: mockOrdenFindFirst },
   }),
 }));
 
@@ -33,12 +33,14 @@ import {
 } from "./dvi-actions";
 
 const initialState: DviFormState = { error: null, success: false };
+const SESSION = { user: { id: "u1", role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION_ADMIN = { user: { role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 describe("updateDviChecklistAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { id: "u1", role: "TECNICO", tenantSchema: "taller_perez" } });
+    mockRequireRole.mockReset().mockResolvedValue(SESSION);
     mockUpsert.mockReset();
-    mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
+    mockOrdenFindFirst.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
   });
 
   it("upserts only the recognized checklist keys with valid statuses", async () => {
@@ -60,7 +62,7 @@ describe("updateDviChecklistAction", () => {
   });
 
   it("blocks updating the checklist when the order is in a terminal state (ENTREGADA)", async () => {
-    mockOrdenFindUnique.mockResolvedValue({ estado: "ENTREGADA", factura: null });
+    mockOrdenFindFirst.mockResolvedValue({ estado: "ENTREGADA", factura: null });
     const formData = new FormData();
     formData.set("frenos", "OK");
 
@@ -72,7 +74,7 @@ describe("updateDviChecklistAction", () => {
   });
 
   it("blocks updating the checklist when the order already has a factura", async () => {
-    mockOrdenFindUnique.mockResolvedValue({ estado: "TERMINADA", factura: { id: "f1" } });
+    mockOrdenFindFirst.mockResolvedValue({ estado: "TERMINADA", factura: { id: "f1" } });
     const formData = new FormData();
     formData.set("frenos", "OK");
 
@@ -82,15 +84,29 @@ describe("updateDviChecklistAction", () => {
     expect(result.error).toBe("No se puede modificar una orden que ya tiene una factura generada.");
     expect(mockUpsert).not.toHaveBeenCalled();
   });
+
+  it("refuses to touch an orden from another sede", async () => {
+    mockOrdenFindFirst.mockReset().mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("frenos", "OK");
+
+    const result = await updateDviChecklistAction("orden-de-otra-sede", initialState, formData);
+
+    expect(result).toEqual({ error: "Orden no encontrada", success: false });
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith({
+      where: { id: "orden-de-otra-sede", sedeId: "sede-1" },
+      select: { estado: true, factura: { select: { id: true } } },
+    });
+  });
 });
 
 describe("addDviFotoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { id: "u1", role: "TECNICO", tenantSchema: "taller_perez" } });
+    mockRequireRole.mockReset().mockResolvedValue(SESSION);
     mockDviFindUnique.mockReset();
     mockFotoCreate.mockReset();
     mockSaveDviFoto.mockReset();
-    mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
+    mockOrdenFindFirst.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
   });
 
   it("returns an error when no checklist (Dvi record) exists yet", async () => {
@@ -137,7 +153,7 @@ describe("addDviFotoAction", () => {
   });
 
   it("blocks adding a foto when the order is in a terminal state (ENTREGADA)", async () => {
-    mockOrdenFindUnique.mockResolvedValue({ estado: "ENTREGADA", factura: null });
+    mockOrdenFindFirst.mockResolvedValue({ estado: "ENTREGADA", factura: null });
     const formData = new FormData();
     formData.set("momento", "ANTES");
     formData.set("foto", new File(["x"], "foto.jpg", { type: "image/jpeg" }));
@@ -150,7 +166,7 @@ describe("addDviFotoAction", () => {
   });
 
   it("blocks adding a foto when the order already has a factura", async () => {
-    mockOrdenFindUnique.mockResolvedValue({ estado: "TERMINADA", factura: { id: "f1" } });
+    mockOrdenFindFirst.mockResolvedValue({ estado: "TERMINADA", factura: { id: "f1" } });
     const formData = new FormData();
     formData.set("momento", "ANTES");
     formData.set("foto", new File(["x"], "foto.jpg", { type: "image/jpeg" }));
@@ -161,13 +177,28 @@ describe("addDviFotoAction", () => {
     expect(result.error).toBe("No se puede modificar una orden que ya tiene una factura generada.");
     expect(mockSaveDviFoto).not.toHaveBeenCalled();
   });
+
+  it("refuses to touch an orden from another sede", async () => {
+    mockOrdenFindFirst.mockReset().mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("momento", "ANTES");
+    formData.set("foto", new File(["x"], "foto.jpg", { type: "image/jpeg" }));
+
+    const result = await addDviFotoAction("orden-de-otra-sede", initialState, formData);
+
+    expect(result).toEqual({ error: "Orden no encontrada", success: false });
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith({
+      where: { id: "orden-de-otra-sede", sedeId: "sede-1" },
+      select: { estado: true, factura: { select: { id: true } } },
+    });
+  });
 });
 
 describe("deleteDviFotoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockFotoDeleteMany.mockReset();
-    mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
+    mockOrdenFindFirst.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
   });
 
   it("requires ADMIN/RECEPCION (not TECNICO) to delete a foto", async () => {
@@ -180,7 +211,7 @@ describe("deleteDviFotoAction", () => {
   });
 
   it("blocks deleting a foto when the order is in a terminal state (ENTREGADA)", async () => {
-    mockOrdenFindUnique.mockResolvedValue({ estado: "ENTREGADA", factura: null });
+    mockOrdenFindFirst.mockResolvedValue({ estado: "ENTREGADA", factura: null });
 
     await expect(deleteDviFotoAction("f1", "o1")).rejects.toThrow(
       "No se puede modificar una orden en estado ENTREGADA.",
@@ -189,7 +220,7 @@ describe("deleteDviFotoAction", () => {
   });
 
   it("blocks deleting a foto when the order already has a factura", async () => {
-    mockOrdenFindUnique.mockResolvedValue({ estado: "TERMINADA", factura: { id: "f1" } });
+    mockOrdenFindFirst.mockResolvedValue({ estado: "TERMINADA", factura: { id: "f1" } });
 
     await expect(deleteDviFotoAction("f1", "o1")).rejects.toThrow(
       "No se puede modificar una orden que ya tiene una factura generada.",
@@ -201,5 +232,15 @@ describe("deleteDviFotoAction", () => {
     mockFotoDeleteMany.mockResolvedValue({ count: 0 });
 
     await expect(deleteDviFotoAction("f1", "o1")).rejects.toThrow("Foto no encontrada en esta orden");
+  });
+
+  it("refuses to touch an orden from another sede", async () => {
+    mockOrdenFindFirst.mockReset().mockResolvedValue(null);
+
+    await expect(deleteDviFotoAction("f1", "orden-de-otra-sede")).rejects.toThrow("Orden no encontrada");
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith({
+      where: { id: "orden-de-otra-sede", sedeId: "sede-1" },
+      select: { estado: true, factura: { select: { id: true } } },
+    });
   });
 });

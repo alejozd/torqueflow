@@ -6,6 +6,7 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { itemOrdenInputSchema } from "@/lib/validation/orden";
 import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
+import { scopeOrden, scopeRepuesto } from "@/lib/sede/scope";
 
 export interface ItemOrdenFormState {
   error: string | null;
@@ -31,8 +32,8 @@ export async function addItemOrdenAction(
   const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  const orden = await tenantDb.ordenTrabajo.findUnique({
-    where: { id: ordenId },
+  const orden = await tenantDb.ordenTrabajo.findFirst({
+    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
     select: { estado: true, factura: { select: { id: true } } },
   });
   if (!orden) {
@@ -48,7 +49,9 @@ export async function addItemOrdenAction(
   let precioUnitario: number;
 
   if (parsed.data.repuestoId) {
-    const repuesto = await tenantDb.repuesto.findUnique({ where: { id: parsed.data.repuestoId } });
+    const repuesto = await tenantDb.repuesto.findFirst({
+      where: { id: parsed.data.repuestoId, ...scopeRepuesto(session.user.sedeActivaId) },
+    });
     if (!repuesto) {
       return { error: "Repuesto no encontrado", success: false };
     }
@@ -81,8 +84,8 @@ export async function deleteItemOrdenAction(id: string, ordenId: string): Promis
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  const orden = await tenantDb.ordenTrabajo.findUnique({
-    where: { id: ordenId },
+  const orden = await tenantDb.ordenTrabajo.findFirst({
+    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
     select: { estado: true, factura: { select: { id: true } } },
   });
   if (!orden) {

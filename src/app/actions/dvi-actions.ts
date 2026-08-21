@@ -8,6 +8,7 @@ import { saveDviFoto } from "@/lib/storage/local-file-storage";
 import { DVI_CHECKLIST_ITEMS, type DviChecklist } from "@/lib/dvi/checklist-items";
 import { dviChecklistStatusSchema, dviFotoMomentoSchema } from "@/lib/validation/dvi";
 import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
+import { scopeOrden } from "@/lib/sede/scope";
 
 export interface DviFormState {
   error: string | null;
@@ -30,8 +31,8 @@ export async function updateDviChecklistAction(
   const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  const orden = await tenantDb.ordenTrabajo.findUnique({
-    where: { id: ordenId },
+  const orden = await tenantDb.ordenTrabajo.findFirst({
+    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
     select: { estado: true, factura: { select: { id: true } } },
   });
   if (!orden) {
@@ -75,8 +76,8 @@ export async function addDviFotoAction(
   const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  const orden = await tenantDb.ordenTrabajo.findUnique({
-    where: { id: ordenId },
+  const orden = await tenantDb.ordenTrabajo.findFirst({
+    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
     select: { estado: true, factura: { select: { id: true } } },
   });
   if (!orden) {
@@ -116,8 +117,8 @@ export async function deleteDviFotoAction(id: string, ordenId: string): Promise<
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  const orden = await tenantDb.ordenTrabajo.findUnique({
-    where: { id: ordenId },
+  const orden = await tenantDb.ordenTrabajo.findFirst({
+    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
     select: { estado: true, factura: { select: { id: true } } },
   });
   if (!orden) {

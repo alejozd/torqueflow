@@ -6,6 +6,7 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { manoDeObraInputSchema } from "@/lib/validation/orden";
 import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
+import { scopeOrden } from "@/lib/sede/scope";
 
 export interface ManoDeObraFormState {
   error: string | null;
@@ -30,8 +31,8 @@ export async function addManoDeObraAction(
   const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  const orden = await tenantDb.ordenTrabajo.findUnique({
-    where: { id: ordenId },
+  const orden = await tenantDb.ordenTrabajo.findFirst({
+    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
     select: { estado: true, factura: { select: { id: true } } },
   });
   if (!orden) {
@@ -64,8 +65,8 @@ export async function deleteManoDeObraAction(id: string, ordenId: string): Promi
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  const orden = await tenantDb.ordenTrabajo.findUnique({
-    where: { id: ordenId },
+  const orden = await tenantDb.ordenTrabajo.findFirst({
+    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
     select: { estado: true, factura: { select: { id: true } } },
   });
   if (!orden) {
