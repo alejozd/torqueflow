@@ -17,7 +17,7 @@ vi.mock("@/lib/db/tenant-client", () => ({
   }),
 }));
 
-import { getReporteRentabilidad } from "./reporte-actions";
+import { getReporteRentabilidad, getReporteProductividad } from "./reporte-actions";
 
 const FILTROS_VALIDOS = { desde: "2026-08-01", hasta: "2026-08-21" };
 
@@ -128,5 +128,94 @@ describe("getReporteRentabilidad", () => {
         },
       },
     });
+  });
+});
+
+describe("getReporteProductividad", () => {
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockResolvedValue({ user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockSedeFindFirst.mockReset().mockResolvedValue({ id: "sede-default" });
+    mockOrdenFindMany.mockReset().mockResolvedValue([]);
+  });
+
+  it("is gated to ADMIN only", async () => {
+    await getReporteProductividad(FILTROS_VALIDOS);
+
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+  });
+
+  it("rejects an invalid range before touching the database", async () => {
+    const result = await getReporteProductividad({ desde: "2026-13-01", hasta: "2026-08-21" });
+
+    expect(result.error).toBe("La fecha no existe en el calendario");
+    expect(result.filas).toEqual([]);
+    expect(mockOrdenFindMany).not.toHaveBeenCalled();
+  });
+
+  it("queries only ENTREGADA órdenes delivered inside the range for the resolved sede", async () => {
+    await getReporteProductividad(FILTROS_VALIDOS);
+
+    expect(mockOrdenFindMany).toHaveBeenCalledWith({
+      where: {
+        sedeId: "sede-default",
+        estado: "ENTREGADA",
+        entregadaAt: { gte: new Date("2026-08-01T00:00:00.000Z"), lt: new Date("2026-08-22T00:00:00.000Z") },
+      },
+      select: {
+        mecanicoId: true,
+        mecanico: { select: { nombre: true } },
+        manoDeObra: { select: { horas: true, precioHora: true } },
+      },
+    });
+  });
+
+  it("uses the explicit sedeId when supplied", async () => {
+    await getReporteProductividad({ ...FILTROS_VALIDOS, sedeId: "sede-norte" });
+
+    expect(mockSedeFindFirst).not.toHaveBeenCalled();
+    expect(mockOrdenFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ sedeId: "sede-norte" }) }),
+    );
+  });
+
+  it("returns an empty list without querying órdenes when the tenant has no sede", async () => {
+    mockSedeFindFirst.mockResolvedValue(null);
+
+    const result = await getReporteProductividad(FILTROS_VALIDOS);
+
+    expect(result).toEqual({
+      filtros: { desde: "2026-08-01", hasta: "2026-08-21", sedeId: null },
+      error: null,
+      filas: [],
+    });
+    expect(mockOrdenFindMany).not.toHaveBeenCalled();
+  });
+
+  it("converts Decimals to numbers and groups by técnico, keeping unassigned work visible", async () => {
+    mockOrdenFindMany.mockResolvedValue([
+      { mecanicoId: "t1", mecanico: { nombre: "Ana" }, manoDeObra: [{ horas: "1.5", precioHora: "20" }] },
+      { mecanicoId: "t1", mecanico: { nombre: "Ana" }, manoDeObra: [{ horas: "2", precioHora: "20" }] },
+      { mecanicoId: null, mecanico: null, manoDeObra: [] },
+    ]);
+
+    const result = await getReporteProductividad(FILTROS_VALIDOS);
+
+    expect(result.error).toBeNull();
+    expect(result.filas).toEqual([
+      {
+        mecanicoId: "t1",
+        mecanicoNombre: "Ana",
+        ordenesCompletadas: 2,
+        horasManoDeObra: 3.5,
+        montoManoDeObra: 70,
+      },
+      {
+        mecanicoId: null,
+        mecanicoNombre: "Sin asignar",
+        ordenesCompletadas: 1,
+        horasManoDeObra: 0,
+        montoManoDeObra: 0,
+      },
+    ]);
   });
 });
