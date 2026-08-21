@@ -327,3 +327,14 @@ All 8 tasks + 1 review-driven fix round (2 Critical + 2 Important) implemented, 
 - 2 Critical + 2 Important findings from the final whole-branch review, all fixed and independently re-verified: post-factura mutability gap (items/mano-de-obra/DVI could still change after invoicing), unguarded stock decrement (could go negative), payment-form unmount race, unclosable zero-total factura
 - Technical debt documented: DVI form visibility inconsistency post-factura (Minor), missing original-I3 finding text (documentation gap), provision-tenant.test.ts timeout flake, plus all backlog carried from Fases 1-3 (see their sections above)
 - Status: Fase 4 complete, ready for Fase 5
+
+======================================================================
+# TorqueFlow Fase 5 (Dashboard y Reportes básicos) -- Progress Ledger
+======================================================================
+Started 2026-08-21. Plan: docs/superpowers/plans/2026-08-21-torqueflow-phase5-dashboard.md (11 tasks). Executing via subagent-driven-development directly on main (explicit standing user consent, same as Fases 1-4 -- no worktree). Read-only phase over the Fases 2-4 schema, no migration, no new npm dependency. Reportes/dashboard actions requireRole(["ADMIN"]) only, deliberately -- rentabilidad exposes cost/margin, productividad exposes peer-comparison performance data.
+
+Task 1: complete (commits 2da468c..7534d26, review clean). roundMoney extracted from src/lib/factura/totales.ts into shared src/lib/money/round.ts, behavior-preserving (existing computeFacturaTotales tests unaffected). 253/253 tests.
+
+Task 2: complete (commits 7534d26..4bc74fa, review clean). src/lib/reportes/rango-fechas.ts: buildRangoFechas (half-open {gte,lt} UTC interval, hasta inclusive) + rangoMesActual (default current-month-to-date range). Reviewer confirmed boundary arithmetic is DST-immune epoch-ms addition, leap-year and year-rollover cases correctly tested. 259/259 tests.
+
+Task 3: complete (commits 4bc74fa..04f84b2 + fix 4f5090c, review clean after one fix loop). src/lib/validation/reporte.ts: reporteFiltrosSchema (mandatory desde/hasta, optional sedeId, three exact error strings later tasks assert verbatim). Fix loop closed a real Important finding: the cross-field desde<=hasta .refine() ran unconditionally even when a date already failed its own fechaSchema validation (Zod "dirty" status doesn't abort the parent), producing a spurious second error message for malformed-but-lexicographically-ordered inputs. Restructured with superRefine gated on both dates independently passing fechaSchema first; new regression test asserts exactly one issue for the repro case. Re-reviewer independently re-derived the Zod ParseStatus mechanics (not just trusted the test). 268/268 tests, tsc clean.
