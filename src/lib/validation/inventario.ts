@@ -1,10 +1,5 @@
 import { z } from "zod";
-
-const requiredMoney = (msg: string) =>
-  z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? undefined : v),
-    z.coerce.number({ error: msg }).min(0, msg),
-  );
+import { requiredMoney } from "./money";
 
 export const bodegaInputSchema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio"),
