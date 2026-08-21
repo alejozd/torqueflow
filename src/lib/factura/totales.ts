@@ -1,8 +1,6 @@
-export const IVA_RATE = 0.19;
+import { roundMoney } from "@/lib/money/round";
 
-function roundMoney(value: number): number {
-  return Math.round(value * 100) / 100;
-}
+export const IVA_RATE = 0.19;
 
 export interface FacturaTotalesInput {
   items: { cantidad: number; precioUnitario: number }[];
