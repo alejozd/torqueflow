@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { pagoInputSchema } from "@/lib/validation/factura";
+import { scopeFactura } from "@/lib/sede/scope";
 
 export interface PagoFormState {
   error: string | null;
@@ -31,7 +32,10 @@ export async function registrarPagoAction(
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  const factura = await tenantDb.factura.findUnique({ where: { id: facturaId }, select: { id: true } });
+  const factura = await tenantDb.factura.findFirst({
+    where: { id: facturaId, ...scopeFactura(session.user.sedeActivaId) },
+    select: { id: true },
+  });
   if (!factura) {
     return { error: "Factura no encontrada", success: false };
   }

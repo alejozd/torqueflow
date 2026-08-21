@@ -7,6 +7,7 @@ import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { facturarOrdenInputSchema } from "@/lib/validation/factura";
 import { assertOrdenFacturable } from "@/lib/factura/facturable-guard";
 import { computeFacturaTotales } from "@/lib/factura/totales";
+import { scopeFactura, scopeOrden } from "@/lib/sede/scope";
 import type { EstadoFactura, Prisma } from "@/generated/prisma-tenant";
 
 export interface FacturaFormState {
@@ -29,7 +30,7 @@ export async function listFacturas(estado?: EstadoFactura): Promise<FacturaWithD
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.factura.findMany({
-    where: estado ? { estado } : undefined,
+    where: { ...scopeFactura(session.user.sedeActivaId), ...(estado ? { estado } : {}) },
     include: FACTURA_DETAIL_INCLUDE,
     orderBy: { createdAt: "desc" },
   });
@@ -38,7 +39,10 @@ export async function listFacturas(estado?: EstadoFactura): Promise<FacturaWithD
 export async function getFactura(id: string): Promise<FacturaWithDetalle | null> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  return tenantDb.factura.findUnique({ where: { id }, include: FACTURA_DETAIL_INCLUDE });
+  return tenantDb.factura.findFirst({
+    where: { id, ...scopeFactura(session.user.sedeActivaId) },
+    include: FACTURA_DETAIL_INCLUDE,
+  });
 }
 
 export async function crearFacturaAction(
@@ -57,8 +61,8 @@ export async function crearFacturaAction(
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  const orden = await tenantDb.ordenTrabajo.findUnique({
-    where: { id: ordenId },
+  const orden = await tenantDb.ordenTrabajo.findFirst({
+    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
     include: { items: true, manoDeObra: true, factura: { select: { id: true } } },
   });
   if (!orden) {

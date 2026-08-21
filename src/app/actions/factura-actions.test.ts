@@ -7,9 +7,9 @@ vi.mock("@/lib/auth/guards", () => ({
   requireSession: () => mockRequireSession(),
 }));
 
-const mockOrdenFindUnique = vi.fn();
+const mockOrdenFindFirst = vi.fn();
 const mockFacturaFindMany = vi.fn();
-const mockFacturaFindUnique = vi.fn();
+const mockFacturaFindFirst = vi.fn();
 const mockFacturaCreate = vi.fn();
 const mockRepuestoUpdateMany = vi.fn();
 const mockTransaction = vi.fn((cb: (tx: unknown) => unknown) =>
@@ -17,8 +17,8 @@ const mockTransaction = vi.fn((cb: (tx: unknown) => unknown) =>
 );
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
-    ordenTrabajo: { findUnique: mockOrdenFindUnique },
-    factura: { findMany: mockFacturaFindMany, findUnique: mockFacturaFindUnique },
+    ordenTrabajo: { findFirst: mockOrdenFindFirst },
+    factura: { findMany: mockFacturaFindMany, findFirst: mockFacturaFindFirst },
     $transaction: mockTransaction,
   }),
 }));
@@ -28,6 +28,8 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import { crearFacturaAction, listFacturas, getFactura, type FacturaFormState } from "./factura-actions";
 
 const initialState: FacturaFormState = { error: null, success: false, facturaId: null };
+const SESSION_ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION_TECNICO = { user: { role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 function baseOrden(overrides: Record<string, unknown> = {}) {
   return {
@@ -46,15 +48,15 @@ function baseOrden(overrides: Record<string, unknown> = {}) {
 
 describe("crearFacturaAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez" } });
-    mockOrdenFindUnique.mockReset().mockResolvedValue(baseOrden());
+    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockOrdenFindFirst.mockReset().mockResolvedValue(baseOrden());
     mockFacturaCreate.mockReset().mockResolvedValue({ id: "f1" });
     mockRepuestoUpdateMany.mockReset().mockResolvedValue({ count: 1 });
     mockTransaction.mockClear();
   });
 
   it("returns an error when the orden does not exist", async () => {
-    mockOrdenFindUnique.mockResolvedValue(null);
+    mockOrdenFindFirst.mockResolvedValue(null);
 
     const result = await crearFacturaAction("o1", initialState, new FormData());
 
@@ -63,7 +65,7 @@ describe("crearFacturaAction", () => {
   });
 
   it("returns an error when the orden already has a factura", async () => {
-    mockOrdenFindUnique.mockResolvedValue(baseOrden({ factura: { id: "f0" } }));
+    mockOrdenFindFirst.mockResolvedValue(baseOrden({ factura: { id: "f0" } }));
 
     const result = await crearFacturaAction("o1", initialState, new FormData());
 
@@ -72,7 +74,7 @@ describe("crearFacturaAction", () => {
   });
 
   it("returns an error when the orden is not in an invoiceable estado", async () => {
-    mockOrdenFindUnique.mockResolvedValue(baseOrden({ estado: "EN_PROCESO" }));
+    mockOrdenFindFirst.mockResolvedValue(baseOrden({ estado: "EN_PROCESO" }));
 
     const result = await crearFacturaAction("o1", initialState, new FormData());
 
@@ -127,7 +129,7 @@ describe("crearFacturaAction", () => {
   });
 
   it("sums cantidad across multiple items linked to the same repuesto into a single decrement", async () => {
-    mockOrdenFindUnique.mockResolvedValue(
+    mockOrdenFindFirst.mockResolvedValue(
       baseOrden({
         items: [
           { id: "i1", repuestoId: "r1", cantidad: 2, precioUnitario: "18.9" },
@@ -179,30 +181,69 @@ describe("crearFacturaAction", () => {
       expect.objectContaining({ data: expect.objectContaining({ total: 0, estado: "PAGADA" }) }),
     );
   });
+
+  it("refuses to invoice an orden from another sede", async () => {
+    mockOrdenFindFirst.mockReset().mockResolvedValue(null);
+
+    const result = await crearFacturaAction("orden-de-otra-sede", initialState, new FormData());
+
+    expect(result).toEqual({ error: "Orden no encontrada", success: false, facturaId: null });
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith({
+      where: { id: "orden-de-otra-sede", sedeId: "sede-1" },
+      include: { items: true, manoDeObra: true, factura: { select: { id: true } } },
+    });
+  });
 });
 
 describe("listFacturas", () => {
-  it("lists facturas ordered by most recent first, optionally filtered by estado", async () => {
-    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
-    mockFacturaFindMany.mockReset().mockResolvedValue([{ id: "f1" }]);
+  it("lists only facturas whose orden belongs to the sede activa", async () => {
+    mockRequireSession.mockReset().mockResolvedValue(SESSION_TECNICO);
+    mockFacturaFindMany.mockReset().mockResolvedValue([]);
 
-    const result = await listFacturas("PENDIENTE");
+    await listFacturas();
 
-    expect(result).toEqual([{ id: "f1" }]);
-    expect(mockFacturaFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { estado: "PENDIENTE" }, orderBy: { createdAt: "desc" } }),
-    );
+    expect(mockFacturaFindMany).toHaveBeenCalledWith({
+      where: { orden: { sedeId: "sede-1" } },
+      include: expect.anything(),
+      orderBy: { createdAt: "desc" },
+    });
+  });
+
+  it("combines the estado filter with the sede filter", async () => {
+    mockRequireSession.mockReset().mockResolvedValue(SESSION_TECNICO);
+    mockFacturaFindMany.mockReset().mockResolvedValue([]);
+
+    await listFacturas("PENDIENTE");
+
+    expect(mockFacturaFindMany).toHaveBeenCalledWith({
+      where: { orden: { sedeId: "sede-1" }, estado: "PENDIENTE" },
+      include: expect.anything(),
+      orderBy: { createdAt: "desc" },
+    });
   });
 });
 
 describe("getFactura", () => {
-  it("fetches a single factura by id with full detail", async () => {
-    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
-    mockFacturaFindUnique.mockReset().mockResolvedValue({ id: "f1" });
+  it("fetches a single factura by id with full detail, scoped to the sede activa", async () => {
+    mockRequireSession.mockReset().mockResolvedValue(SESSION_TECNICO);
+    mockFacturaFindFirst.mockReset().mockResolvedValue({ id: "f1" });
 
     const result = await getFactura("f1");
 
     expect(result).toEqual({ id: "f1" });
-    expect(mockFacturaFindUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "f1" } }));
+    expect(mockFacturaFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "f1", orden: { sedeId: "sede-1" } } }),
+    );
+  });
+
+  it("returns null for a factura belonging to another sede", async () => {
+    mockRequireSession.mockReset().mockResolvedValue(SESSION_TECNICO);
+    mockFacturaFindFirst.mockReset().mockResolvedValue(null);
+
+    await expect(getFactura("f-otra-sede")).resolves.toBeNull();
+    expect(mockFacturaFindFirst).toHaveBeenCalledWith({
+      where: { id: "f-otra-sede", orden: { sedeId: "sede-1" } },
+      include: expect.anything(),
+    });
   });
 });

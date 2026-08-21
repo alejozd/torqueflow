@@ -5,7 +5,7 @@ vi.mock("@/lib/auth/guards", () => ({
   requireRole: (...args: unknown[]) => mockRequireRole(...args),
 }));
 
-const mockFacturaFindUnique = vi.fn();
+const mockFacturaFindFirst = vi.fn();
 const mockFacturaUpdateMany = vi.fn();
 const mockPagoCreate = vi.fn();
 const mockFacturaFindUniqueOrThrow = vi.fn();
@@ -22,7 +22,7 @@ const mockTransaction = vi.fn((cb: (tx: unknown) => unknown) =>
 );
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
-    factura: { findUnique: mockFacturaFindUnique },
+    factura: { findFirst: mockFacturaFindFirst },
     $transaction: mockTransaction,
   }),
 }));
@@ -32,11 +32,12 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import { registrarPagoAction, type PagoFormState } from "./pago-actions";
 
 const initialState: PagoFormState = { error: null, success: false };
+const SESSION_ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 describe("registrarPagoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez" } });
-    mockFacturaFindUnique.mockReset().mockResolvedValue({ id: "f1" });
+    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockFacturaFindFirst.mockReset().mockResolvedValue({ id: "f1" });
     mockFacturaUpdateMany.mockReset().mockResolvedValue({ count: 1 });
     mockPagoCreate.mockReset();
     mockFacturaFindUniqueOrThrow.mockReset().mockResolvedValue({ id: "f1", saldoPendiente: "40.18" });
@@ -66,7 +67,7 @@ describe("registrarPagoAction", () => {
   });
 
   it("returns an error when the factura does not exist", async () => {
-    mockFacturaFindUnique.mockResolvedValue(null);
+    mockFacturaFindFirst.mockResolvedValue(null);
     const formData = new FormData();
     formData.set("monto", "50");
     formData.set("metodoPago", "EFECTIVO");
@@ -75,6 +76,21 @@ describe("registrarPagoAction", () => {
 
     expect(result).toEqual({ error: "Factura no encontrada", success: false });
     expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it("refuses to register a payment against a factura from another sede", async () => {
+    mockFacturaFindFirst.mockReset().mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("monto", "100");
+    formData.set("metodoPago", "EFECTIVO");
+
+    const result = await registrarPagoAction("f-otra-sede", initialState, formData);
+
+    expect(result.error).toBe("Factura no encontrada");
+    expect(mockFacturaFindFirst).toHaveBeenCalledWith({
+      where: { id: "f-otra-sede", orden: { sedeId: "sede-1" } },
+      select: { id: true },
+    });
   });
 
   it("registers a partial payment: decrements saldoPendiente atomically and leaves the factura PENDIENTE", async () => {
