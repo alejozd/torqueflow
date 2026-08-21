@@ -35,4 +35,42 @@ describe("seedTenantUser", () => {
     const found = await tenantDb.usuario.findUnique({ where: { email: "admin@task6-fixture.test" } });
     expect(found?.id).toBe(usuario.id);
   });
+
+  it("assigns the seeded user to the tenant's oldest sede", async () => {
+    const usuario = await seedTenantUser({
+      schemaName: SCHEMA,
+      email: "sede-grant@example.test",
+      password: "SuperSecret123!",
+      nombre: "Con Sede",
+      role: "TECNICO",
+    });
+
+    const tenantDb = getTenantDb(SCHEMA);
+    const sedeMasAntigua = await tenantDb.sede.findFirst({ orderBy: { createdAt: "asc" } });
+    const grants = await tenantDb.usuarioSede.findMany({ where: { usuarioId: usuario.id } });
+
+    expect(grants).toHaveLength(1);
+    expect(grants[0].sedeId).toBe(sedeMasAntigua?.id);
+  });
+
+  it("is idempotent: re-seeding the same email does not duplicate the sede grant", async () => {
+    const first = await seedTenantUser({
+      schemaName: SCHEMA,
+      email: "sede-idempotente@example.test",
+      password: "SuperSecret123!",
+      nombre: "Repetido",
+    });
+    const second = await seedTenantUser({
+      schemaName: SCHEMA,
+      email: "sede-idempotente@example.test",
+      password: "OtraClave456!",
+      nombre: "Repetido",
+    });
+
+    expect(second.id).toBe(first.id);
+
+    const tenantDb = getTenantDb(SCHEMA);
+    const grants = await tenantDb.usuarioSede.findMany({ where: { usuarioId: first.id } });
+    expect(grants).toHaveLength(1);
+  });
 });
