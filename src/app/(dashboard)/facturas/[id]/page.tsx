@@ -51,7 +51,7 @@ export default async function FacturaDetailPage({ params }: { params: Promise<{ 
       <p>Saldo pendiente: {factura.saldoPendiente.toString()}</p>
 
       <h2>Pagos</h2>
-      {factura.estado === "PENDIENTE" ? <RegistrarPagoForm facturaId={factura.id} /> : null}
+      <RegistrarPagoForm facturaId={factura.id} estado={factura.estado} />
       <ul>
         {factura.pagos.map((pago) => (
           <li key={pago.id}>

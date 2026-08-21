@@ -2,12 +2,17 @@
 
 import { useActionState } from "react";
 import { registrarPagoAction, type PagoFormState } from "@/app/actions/pago-actions";
+import type { EstadoFactura } from "@/generated/prisma-tenant";
 
 const initialState: PagoFormState = { error: null, success: false };
 
-export function RegistrarPagoForm({ facturaId }: { facturaId: string }) {
+export function RegistrarPagoForm({ facturaId, estado }: { facturaId: string; estado: EstadoFactura }) {
   const registrarPago = registrarPagoAction.bind(null, facturaId);
   const [state, formAction, isPending] = useActionState(registrarPago, initialState);
+
+  if (estado === "PAGADA") {
+    return <p role="status">Factura pagada</p>;
+  }
 
   return (
     <form noValidate action={formAction}>

@@ -11,9 +11,9 @@ const mockOrdenFindUnique = vi.fn();
 const mockFacturaFindMany = vi.fn();
 const mockFacturaFindUnique = vi.fn();
 const mockFacturaCreate = vi.fn();
-const mockRepuestoUpdate = vi.fn();
+const mockRepuestoUpdateMany = vi.fn();
 const mockTransaction = vi.fn((cb: (tx: unknown) => unknown) =>
-  cb({ factura: { create: mockFacturaCreate }, repuesto: { update: mockRepuestoUpdate } }),
+  cb({ factura: { create: mockFacturaCreate }, repuesto: { updateMany: mockRepuestoUpdateMany } }),
 );
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
@@ -49,7 +49,7 @@ describe("crearFacturaAction", () => {
     mockRequireRole.mockReset().mockResolvedValue({ user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez" } });
     mockOrdenFindUnique.mockReset().mockResolvedValue(baseOrden());
     mockFacturaCreate.mockReset().mockResolvedValue({ id: "f1" });
-    mockRepuestoUpdate.mockReset();
+    mockRepuestoUpdateMany.mockReset().mockResolvedValue({ count: 1 });
     mockTransaction.mockClear();
   });
 
@@ -105,11 +105,12 @@ describe("crearFacturaAction", () => {
         total: 152.08,
         saldoPendiente: 152.08,
         emitidaPorId: "u1",
+        estado: "PENDIENTE",
       },
     });
-    expect(mockRepuestoUpdate).toHaveBeenCalledTimes(1);
-    expect(mockRepuestoUpdate).toHaveBeenCalledWith({
-      where: { id: "r1" },
+    expect(mockRepuestoUpdateMany).toHaveBeenCalledTimes(1);
+    expect(mockRepuestoUpdateMany).toHaveBeenCalledWith({
+      where: { id: "r1", stockActual: { gte: 2 } },
       data: { stockActual: { decrement: 2 } },
     });
   });
@@ -137,11 +138,46 @@ describe("crearFacturaAction", () => {
 
     await crearFacturaAction("o1", initialState, new FormData());
 
-    expect(mockRepuestoUpdate).toHaveBeenCalledTimes(1);
-    expect(mockRepuestoUpdate).toHaveBeenCalledWith({
-      where: { id: "r1" },
+    expect(mockRepuestoUpdateMany).toHaveBeenCalledTimes(1);
+    expect(mockRepuestoUpdateMany).toHaveBeenCalledWith({
+      where: { id: "r1", stockActual: { gte: 5 } },
       data: { stockActual: { decrement: 5 } },
     });
+  });
+
+  it("returns a friendly error and does not decrement stock further when there is insufficient stock for a repuesto", async () => {
+    mockRepuestoUpdateMany.mockResolvedValue({ count: 0 });
+
+    const result = await crearFacturaAction("o1", initialState, new FormData());
+
+    expect(result).toEqual({
+      error: "Stock insuficiente para uno de los repuestos de esta orden",
+      success: false,
+      facturaId: null,
+    });
+  });
+
+  it("returns the friendly duplicate-factura message when factura.create races on the unique ordenId constraint (P2002)", async () => {
+    mockFacturaCreate.mockReset().mockRejectedValue({ code: "P2002" });
+
+    const result = await crearFacturaAction("o1", initialState, new FormData());
+
+    expect(result).toEqual({
+      error: "Ya existe un registro con ese valor.",
+      success: false,
+      facturaId: null,
+    });
+  });
+
+  it("creates the factura as PAGADA (not PENDIENTE) when a 100% discount zeroes the total", async () => {
+    const formData = new FormData();
+    formData.set("descuento", "127.8");
+
+    await crearFacturaAction("o1", initialState, formData);
+
+    expect(mockFacturaCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ total: 0, estado: "PAGADA" }) }),
+    );
   });
 });
 

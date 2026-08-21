@@ -32,7 +32,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
       <CambiarEstadoForm ordenId={orden.id} estadoActual={orden.estado} />
 
       <h2>Ítems (repuestos)</h2>
-      <AgregarItemForm ordenId={orden.id} repuestos={repuestos} />
+      {!orden.factura && <AgregarItemForm ordenId={orden.id} repuestos={repuestos} />}
       <ul>
         {orden.items.map((item) => (
           <li key={item.id}>
@@ -42,7 +42,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
       </ul>
 
       <h2>Mano de obra</h2>
-      <AgregarManoObraForm ordenId={orden.id} />
+      {!orden.factura && <AgregarManoObraForm ordenId={orden.id} />}
       <ul>
         {orden.manoDeObra.map((linea) => (
           <li key={linea.id}>

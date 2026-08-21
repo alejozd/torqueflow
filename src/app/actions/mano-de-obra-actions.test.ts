@@ -25,7 +25,7 @@ describe("addManoDeObraAction", () => {
   beforeEach(() => {
     mockRequireRole.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
     mockCreate.mockReset();
-    mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO" });
+    mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
   });
 
   it("returns a validation error when horas is 0", async () => {
@@ -57,7 +57,7 @@ describe("addManoDeObraAction", () => {
   });
 
   it("blocks adding a labor line when the order is in a terminal state (ENTREGADA)", async () => {
-    mockOrdenFindUnique.mockResolvedValue({ estado: "ENTREGADA" });
+    mockOrdenFindUnique.mockResolvedValue({ estado: "ENTREGADA", factura: null });
     const formData = new FormData();
     formData.set("descripcion", "Cambio de pastillas de freno");
     formData.set("horas", "1");
@@ -69,13 +69,27 @@ describe("addManoDeObraAction", () => {
     expect(result.error).toBe("No se puede modificar una orden en estado ENTREGADA.");
     expect(mockCreate).not.toHaveBeenCalled();
   });
+
+  it("blocks adding a labor line when the order already has a factura", async () => {
+    mockOrdenFindUnique.mockResolvedValue({ estado: "TERMINADA", factura: { id: "f1" } });
+    const formData = new FormData();
+    formData.set("descripcion", "Cambio de pastillas de freno");
+    formData.set("horas", "1");
+    formData.set("precioHora", "20");
+
+    const result = await addManoDeObraAction("o1", initialState, formData);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("No se puede modificar una orden que ya tiene una factura generada.");
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
 });
 
 describe("deleteManoDeObraAction", () => {
   beforeEach(() => {
     mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockDeleteMany.mockReset();
-    mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO" });
+    mockOrdenFindUnique.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
   });
 
   it("requires ADMIN/RECEPCION (not TECNICO) to delete a labor line", async () => {
@@ -88,10 +102,19 @@ describe("deleteManoDeObraAction", () => {
   });
 
   it("blocks deleting a labor line when the order is in a terminal state (ENTREGADA)", async () => {
-    mockOrdenFindUnique.mockResolvedValue({ estado: "ENTREGADA" });
+    mockOrdenFindUnique.mockResolvedValue({ estado: "ENTREGADA", factura: null });
 
     await expect(deleteManoDeObraAction("m1", "o1")).rejects.toThrow(
       "No se puede modificar una orden en estado ENTREGADA.",
+    );
+    expect(mockDeleteMany).not.toHaveBeenCalled();
+  });
+
+  it("blocks deleting a labor line when the order already has a factura", async () => {
+    mockOrdenFindUnique.mockResolvedValue({ estado: "TERMINADA", factura: { id: "f1" } });
+
+    await expect(deleteManoDeObraAction("m1", "o1")).rejects.toThrow(
+      "No se puede modificar una orden que ya tiene una factura generada.",
     );
     expect(mockDeleteMany).not.toHaveBeenCalled();
   });

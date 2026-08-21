@@ -169,7 +169,7 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   await page.getByLabel("Monto").fill("40.18");
   await page.getByLabel("Método de pago").selectOption("TRANSFERENCIA");
   await page.getByRole("button", { name: "Registrar pago" }).click();
-  await expect(page.getByRole("status")).toHaveText("Pago registrado");
+  await expect(page.getByRole("status")).toHaveText("Factura pagada");
   await expect(page.getByText("Estado: Pagada")).toBeVisible();
   await expect(page.getByText("Saldo pendiente: 0")).toBeVisible();
 

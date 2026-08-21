@@ -30,7 +30,10 @@ export async function addManoDeObraAction(
   const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  const orden = await tenantDb.ordenTrabajo.findUnique({ where: { id: ordenId }, select: { estado: true } });
+  const orden = await tenantDb.ordenTrabajo.findUnique({
+    where: { id: ordenId },
+    select: { estado: true, factura: { select: { id: true } } },
+  });
   if (!orden) {
     return { error: "Orden no encontrada", success: false };
   }
@@ -61,7 +64,10 @@ export async function deleteManoDeObraAction(id: string, ordenId: string): Promi
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  const orden = await tenantDb.ordenTrabajo.findUnique({ where: { id: ordenId }, select: { estado: true } });
+  const orden = await tenantDb.ordenTrabajo.findUnique({
+    where: { id: ordenId },
+    select: { estado: true, factura: { select: { id: true } } },
+  });
   if (!orden) {
     throw new Error("Orden no encontrada");
   }

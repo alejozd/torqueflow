@@ -15,6 +15,8 @@ export interface FacturaFormState {
   facturaId: string | null;
 }
 
+const STOCK_INSUFICIENTE = "STOCK_INSUFICIENTE";
+
 const FACTURA_DETAIL_INCLUDE = {
   cliente: true,
   orden: { include: { vehiculo: true, items: true, manoDeObra: true } },
@@ -57,7 +59,7 @@ export async function crearFacturaAction(
 
   const orden = await tenantDb.ordenTrabajo.findUnique({
     where: { id: ordenId },
-    include: { items: true, manoDeObra: true, factura: true },
+    include: { items: true, manoDeObra: true, factura: { select: { id: true } } },
   });
   if (!orden) {
     return { error: "Orden no encontrada", success: false, facturaId: null };
@@ -105,15 +107,25 @@ export async function crearFacturaAction(
           total,
           saldoPendiente: total,
           emitidaPorId: session.user.id,
+          estado: total <= 0 ? "PAGADA" : "PENDIENTE",
         },
       });
       for (const [repuestoId, cantidad] of decrementosStock) {
-        await tx.repuesto.update({ where: { id: repuestoId }, data: { stockActual: { decrement: cantidad } } });
+        const { count } = await tx.repuesto.updateMany({
+          where: { id: repuestoId, stockActual: { gte: cantidad } },
+          data: { stockActual: { decrement: cantidad } },
+        });
+        if (count === 0) {
+          throw new Error(STOCK_INSUFICIENTE);
+        }
       }
       return creada;
     });
     facturaId = factura.id;
   } catch (err) {
+    if (err instanceof Error && err.message === STOCK_INSUFICIENTE) {
+      return { error: "Stock insuficiente para uno de los repuestos de esta orden", success: false, facturaId: null };
+    }
     return { error: friendlyPrismaErrorMessage(err, "Error al generar la factura"), success: false, facturaId: null };
   }
 
