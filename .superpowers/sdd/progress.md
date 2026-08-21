@@ -363,4 +363,36 @@ Task 11 (final task): BLOCKED then complete (commits e796eda + 23785e8 + 7518b99
 ======================================================================
 FASE 5 (DASHBOARD Y REPORTES BÁSICOS): ALL 11 TASKS COMPLETE, TASK-SCOPED REVIEWS ALL CLEAN (2026-08-21)
 ======================================================================
-All 11 planned tasks + 2 mid-flight bug fixes (sign-out tenant-subdomain redirect, e2e productividad-count coverage gap) implemented, task-scoped-reviewed (4 fix loops total across Tasks 3, 7's self-caught brief typo, and Task 11's two fixes), pushed to main. Final whole-branch review pending next.
+All 11 planned tasks + 2 mid-flight bug fixes (sign-out tenant-subdomain redirect, e2e productividad-count coverage gap) implemented, task-scoped-reviewed (4 fix loops total across Tasks 3, 7's self-caught brief typo, and Task 11's two fixes), pushed to main.
+
+## Final whole-branch review (2026-08-21)
+Dispatched final review (opus) over the full Fase 5 diff (3b1e41f..6adad8e, excluding the plan doc and progress.md). Six cross-cutting checks performed (report-action consistency, resolveRedirectUrl vs. other NextAuth flows, e2e coverage honesty, money-rounding double-application, cross-task interactions no single review could see, backward compatibility with Fases 1-4) -- all clean except one Critical:
+
+1. CRITICAL - `margen`/`margenPorcentaje` in `computeRentabilidad` subtracted `costoRepuestos` (net, IVA-exclusive cost) from `totalFacturado` (sum of `Factura.total`, IVA-INCLUSIVE) -- overstated gross margin by the full 19% IVA amount on every invoice. On the e2e's own fixture: page showed "Margen bruto: 124.18 (88.59%)" when the correct IVA-exclusive margin was 101.80 (86.42%). This was the plan's own literal arithmetic (Task 4's worked example), not an implementer deviation -- presented to the user as a plan-mandated design decision requiring their call, per this project's review protocol for plan-mandated findings.
+2. Important - `costoRepuestos` reads the CURRENT `Repuesto.precioCompra` (a Fase 3 write path `updateRepuestoAction` can edit any time, no cost snapshot on `ItemOrden`), so editing a part's catalog cost retroactively rewrites historical margin for every closed period that ever sold it. This is already an explicitly-documented, deliberately-accepted v1 limitation in the plan's own Global Constraints ("accepted v1 approximation... out of this phase's read-only scope") -- reviewer correctly re-surfaced it as a cross-cutting risk, but the plan already made this call with reasoning; no new action taken, stays documented backlog (needs a cost-snapshot column + migration in a future phase before any real production deploy with price-volatile catalogs).
+
+User chose to fix #1 (not accept-and-document). FIXED in commit 13f7c33 (pushed to main): `RentabilidadFactura` gained a `base: number` field (`Factura.subtotal - Factura.descuento`, the tax-exclusive base), `computeRentabilidad` now accumulates `baseTotal` separately from `totalFacturado` and computes `margen`/`margenPorcentaje` from `baseTotal`, not `totalFacturado` (which keeps its original IVA-inclusive meaning, reported unchanged as "Total facturado"). `RentabilidadTotales`'s six public field names unchanged -- no breaking change to the page. `getReporteRentabilidad`'s select gained `subtotal`/`descuento` (Number-converted, same discipline as `total`). Tests and e2e updated with internally-consistent, hand-verifiable fixture numbers. Independently re-reviewed: arithmetic hand-recomputed for the e2e case (101.80/86.42%) and a second multi-factura unit test case (190/79.17%), both confirmed exactly correct, no leftover references to the old formula. 299/299 unit tests, 2/2 e2e, tsc clean.
+
+**Ready to merge: Yes.**
+
+Minor findings from the review NOT addressed (deferred to backlog, none blocking):
+- `/reportes` page awaits the two report actions sequentially and each independently re-runs the identical default-sede lookup -- two redundant queries + a narrow window where a Sede created between the two calls could scope the tables inconsistently. `Promise.all` + a shared resolved sede would fix both.
+- `productividad.error` is never rendered on the page (only `rentabilidad.error` is) -- on a validation error the productividad section still shows "No hay órdenes entregadas..." instead of the real error.
+- `BASE_DOMAIN ?? "zdevs.uk"` default duplicated in both `auth.ts` and `middleware.ts` with no shared constant -- only middleware fails fast if unset in production; low risk today, will drift if either default ever changes without updating the other.
+- `round.test.ts`'s test name ("rounds negative values away from zero") contradicts its own correct assertion (JS actually rounds toward +Infinity at the exact half) -- misleading name, not a code defect.
+- The `sedeId` GET-form round-trip (hidden input + explicit-sede path in both actions) is claimed "end to end" in a page comment but is only unit-tested, never exercised by e2e (no e2e ever supplies an explicit sedeId).
+- `resolveRedirectUrl` preserves the incoming URL's scheme verbatim on the trusted-host branch (doesn't force https) -- low impact behind Cloudflare, but worth noting since this function is now the app's redirect-trust authority.
+
+======================================================================
+FASE 5 (DASHBOARD Y REPORTES BÁSICOS): COMPLETE, REVIEWED, READY TO MERGE (2026-08-21)
+======================================================================
+All 11 tasks + 3 fix rounds (Task 3's date-ordering short-circuit, Task 11's sign-out-redirect + locator + productividad-count fixes, and the final review's margin-IVA fix) implemented, reviewed, independently re-reviewed, and pushed to main. Final state: 299/299 unit tests passing, 2/2 e2e, tsc --noEmit clean. No branch/PR (direct-to-main per established project convention). Next: Fase 6 (Gestión de Sedes) per the design doc's roadmap.
+
+## FASE 5 SUMMARY
+- 11 tasks completed (final task-11 commit 7518b99) + 3 fix commits (Task 3 date-ordering, Task 11's sign-out redirect e796eda + locator/count fixes, final-review margin-IVA 13f7c33)
+- 299/299 unit tests passing, 2/2 e2e, tsc clean
+- Read-only phase, no migration, no new npm dependency -- pure aggregation over the existing Fases 2-4 schema
+- 1 Critical (margen mixing IVA-inclusive revenue with net cost) + 1 Important (catalog cost mutability, already an accepted documented v1 limitation) found by the final whole-branch review; Critical fixed and independently re-verified, Important confirmed as already-deliberate plan scope
+- A real, previously-hypothetical Fase 1 backlog item (R5: local .env's AUTH_URL overriding trustHost) manifested as an actual bug during Task 11's e2e (first path ever to exercise sign-out+re-login) -- fixed with a pure, unit-tested, security-reviewed `resolveRedirectUrl` that trusts only same-BASE_DOMAIN subdomains, never an arbitrary host
+- Technical debt documented: sequential/redundant sede lookups on the reportes page (Minor), productividad.error not rendered (Minor), BASE_DOMAIN default duplication (Minor), unexercised sedeId e2e path (Minor), catalog-cost snapshot still missing (Important, deferred with the plan's own reasoning), plus all backlog carried from Fases 1-4
+- Status: Fase 5 complete, ready for Fase 6
