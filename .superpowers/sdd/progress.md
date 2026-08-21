@@ -290,4 +290,40 @@ Task 8: complete (commits 66604d4 + ccc960e, pushed to main, review APPROVED aft
 ======================================================================
 FASE 4 (FACTURACION Y PAGOS): ALL 8 TASKS COMPLETE (2026-08-20)
 ======================================================================
-All 8 tasks implemented via subagent-driven-development, task-scoped-reviewed (1 real fix loop: Task 8's navigation race, diagnosed and fixed by the controller directly against a live dev server after the task's own implementer got stuck). 239/239 unit tests + 2/2 e2e passing, tsc clean. Final whole-branch review pending next.
+All 8 tasks implemented via subagent-driven-development, task-scoped-reviewed (1 real fix loop: Task 8's navigation race, diagnosed and fixed by the controller directly against a live dev server after the task's own implementer got stuck). 239/239 unit tests + 2/2 e2e passing, tsc clean.
+
+## Final whole-branch review (2026-08-20)
+Dispatched final review (opus) over the full Fase 4 diff (56bf295..0548b84, commits 4667778..0548b84). Found 2 Critical + 2 Important (a 5th, cosmetic finding folded into one of the Critical fixes):
+1. CRITICAL (C1) - `assertOrdenMutable` only checked `orden.estado`, not whether the orden already had a `Factura`. `TERMINADA` was the only estado simultaneously facturable and mutable -- items/mano-de-obra/DVI could still be added or deleted on an already-invoiced orden, letting the factura's stored totals silently diverge from the orden's live state with no stock reconciliation.
+2. CRITICAL (C2) - the stock decrement inside `crearFacturaAction`'s `$transaction` was an unguarded plain `update` (no floor check) -- `stockActual` could go negative.
+3. Important (I1) - `RegistrarPagoForm` was conditionally mounted/unmounted by the parent Server Component based on `estado`, racing the final balance-zeroing payment's own confirmation -- same bug class as Task 8's navigation race.
+4. Important (I2) - a 100%-discount or zero-line-item factura was created as an unclosable `PENDIENTE` with `saldoPendiente: 0` instead of `PAGADA`.
+
+FIXED in commit d515b52 (pushed to main):
+- C1: `assertOrdenMutable` (src/lib/orden/mutable-guard.ts) now also rejects when `orden.factura` is truthy. All three consumers (item-orden-actions.ts, mano-de-obra-actions.ts, and dvi-actions.ts -- a third consumer the implementer identified themselves, not originally called out, needed the same signature widening to keep tsc clean) updated to `select: { estado: true, factura: { select: { id: true } } }`.
+- C2: stock decrement now an atomic `updateMany` + `count === 0` guard (mirrors `registrarPagoAction`'s existing overpayment guard), inside the same `$transaction` callback so a triggered guard rolls back the whole transaction (including the already-created factura row).
+- I1: `RegistrarPagoForm` now always mounted, branches PENDIENTE/PAGADA internally.
+- I2: `estado: total <= 0 ? "PAGADA" : "PENDIENTE"`.
+- Folded in: duplicate-factura pre-check's orden lookup narrowed from `factura: true` to `factura: { select: { id: true } }` (only truthiness needed, avoids a Decimal-bearing full-row fetch).
+- 250/250 unit tests, 2/2 e2e, tsc clean (implementer's own verification run).
+
+Independently re-reviewed (opus, adversarial -- re-traced all four fixes against the actual call sites rather than trusting the implementer's report, ran tsc/vitest itself instead of the reported numbers). Verdict: all 4 findings Resolved, no regressions to legitimate non-invoiced mutation flows. Re-review's own tsc run clean; own vitest run 249/250 (1 failure: `scripts/provision-tenant.test.ts`'s live-Postgres integration test timed out at 20s -- confirmed pre-existing/unrelated, touches no file in d515b52's diff, not retried per RULES.md #1). e2e not re-run by the reviewer (requires a live Postgres-backed dev server, RULES.md #2 forbids waiting on it) -- implementer's 2/2 Playwright claim stands unverified by the re-review, not contradicted.
+
+**Ready to merge: Yes.**
+
+New Minor/backlog items surfaced by the re-review (not fixed, deferred per RULES.md #7):
+- `ordenes/[id]/page.tsx` hides `AgregarItemForm`/`AgregarManoObraForm` behind `!orden.factura` but still renders `DviChecklistForm`/`DviFotoForm` unconditionally, even though `dvi-actions.ts` now rejects them post-factura too -- guard holds (submit fails with the correct error), but the form is visibly present when it shouldn't be. Narrow window: TERMINADA + factura already generated (ENTREGADA was already fully immutable before this fix).
+- This session's original Fase-4-review "I3" finding has no recorded text anywhere in the repo (fix report explicitly scoped it out; no other artifact captured it) -- a documentation gap in this ledger, not a known code defect. If it resurfaces, treat as unknown/needs re-review rather than assuming it was fixed.
+- `provision-tenant.test.ts`'s live-Postgres schema-creation test has a recurring 20s-timeout flake under load (also seen in earlier phases) -- candidate for a hookTimeout bump, not investigated further this pass.
+
+======================================================================
+FASE 4 (FACTURACION Y PAGOS): COMPLETE, REVIEWED, READY TO MERGE (2026-08-21)
+======================================================================
+All 8 tasks + 1 review-driven fix round (2 Critical + 2 Important) implemented, reviewed, independently re-reviewed, and pushed to main (final commit d515b52). Final state: 250/250 unit tests passing (249/250 on the re-reviewer's own independent run, 1 pre-existing unrelated flake), 2/2 e2e (per implementer, not independently re-run), tsc --noEmit clean. No branch/PR (direct-to-main per established project convention). Next: Fase 5 (Dashboard y Reportes básicos) per the design doc's roadmap.
+
+## FASE 4 SUMMARY
+- 8 tasks completed (final feature commit ccc960e/0548b84) + 1 review-fix commit (d515b52)
+- 250/250 unit tests passing, 2/2 e2e, tsc clean
+- 2 Critical + 2 Important findings from the final whole-branch review, all fixed and independently re-verified: post-factura mutability gap (items/mano-de-obra/DVI could still change after invoicing), unguarded stock decrement (could go negative), payment-form unmount race, unclosable zero-total factura
+- Technical debt documented: DVI form visibility inconsistency post-factura (Minor), missing original-I3 finding text (documentation gap), provision-tenant.test.ts timeout flake, plus all backlog carried from Fases 1-3 (see their sections above)
+- Status: Fase 4 complete, ready for Fase 5
