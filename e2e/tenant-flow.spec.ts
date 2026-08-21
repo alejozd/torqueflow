@@ -149,10 +149,41 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   await page.getByRole("button", { name: "Cambiar estado" }).click();
   await expect(page.getByRole("heading", { name: "Estado: TERMINADA" })).toBeVisible();
 
+  // --- Fase 4: Facturación y pagos ---
+
+  await page.getByLabel("Descuento").fill("10");
+  await page.getByRole("button", { name: "Generar factura" }).click();
+  await expect(page.getByRole("heading", { name: /Factura #1/ })).toBeVisible();
+  await expect(page.getByText("Subtotal: 127.8")).toBeVisible();
+  await expect(page.getByText("IVA (19%): 22.38")).toBeVisible();
+  await expect(page.getByText("Total: 140.18")).toBeVisible();
+  await expect(page.getByText("Saldo pendiente: 140.18")).toBeVisible();
+
+  await page.getByLabel("Monto").fill("100");
+  await page.getByLabel("Método de pago").selectOption("EFECTIVO");
+  await page.getByRole("button", { name: "Registrar pago" }).click();
+  await expect(page.getByRole("status")).toHaveText("Pago registrado");
+  await expect(page.getByText("Saldo pendiente: 40.18")).toBeVisible();
+  await expect(page.getByText("Estado: Pendiente")).toBeVisible();
+
+  await page.getByLabel("Monto").fill("40.18");
+  await page.getByLabel("Método de pago").selectOption("TRANSFERENCIA");
+  await page.getByRole("button", { name: "Registrar pago" }).click();
+  await expect(page.getByRole("status")).toHaveText("Pago registrado");
+  await expect(page.getByText("Estado: Pagada")).toBeVisible();
+  await expect(page.getByText("Saldo pendiente: 0")).toBeVisible();
+
+  await page.goto("/repuestos");
+  await expect(page.getByText(/FRN-001.*stock: 18/)).toBeVisible();
+
+  await page.goto("/ordenes");
+  await page.getByRole("link", { name: /ABC123/ }).click();
+  await expect(page.getByRole("link", { name: /Ver factura #1/ })).toBeVisible();
+
   await page.getByLabel("Cambiar estado a").selectOption("ENTREGADA");
   await page.getByRole("button", { name: "Cambiar estado" }).click();
   await expect(page.getByText(/Estado actual: Entregada/)).toBeVisible();
 
   await page.goto("/repuestos");
-  await expect(page.getByText(/FRN-001.*stock: 20/)).toBeVisible();
+  await expect(page.getByText(/FRN-001.*stock: 18/)).toBeVisible();
 });
