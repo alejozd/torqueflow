@@ -414,6 +414,8 @@ All 11 tasks + 3 fix rounds (Task 3's date-ordering short-circuit, Task 11's sig
 
 Cuando se planifique Fase 8 (después de Fase 7, agendamiento de citas), usar esta sección como el alcance vinculante en lugar de re-derivarlo del design doc, que aún no refleja esta decisión de reducción de alcance.
 
+**ACTUALIZACIÓN (2026-08-21, al planificar Fase 7):** el usuario decidió adelantar el envío real de recordatorios por email a Fase 7, en lugar de dejarlo pendiente para esta Fase 8. Fase 7 construye ahora la infraestructura SMTP/Nodemailer descrita arriba (config SMTP por tenant, password encriptado con `crypto` + clave maestra en `.env`, plantillas de texto plano/HTML básico) para enviar los recordatorios de mantenimiento preventivo. El resto de esta sección (alcance de Fase 8, exclusiones de WhatsApp/SMS) sigue vigente sin cambios: Fase 8 pasa a ser "notificaciones automáticas al cliente sobre el estado de la orden" (módulo 6 §5) **reutilizando** la infraestructura SMTP ya construida en Fase 7, en vez de construirla desde cero.
+
 ======================================================================
 # TorqueFlow Fase 6 (Gestión de Sedes) -- Progress Ledger
 ======================================================================
