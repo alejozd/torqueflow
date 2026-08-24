@@ -11,6 +11,7 @@ import {
   CONFIGURACION_SMTP_ID,
   descifrarConfiguracionSmtp,
   type ConfiguracionSmtpAlmacenada,
+  type SmtpConfigDescifrada,
 } from "@/lib/email/smtp-config";
 import { enviarEmail } from "@/lib/email/enviar-email";
 import { esEstadoNotificable, type EstadoNotificable } from "@/lib/notificaciones/plantilla";
@@ -152,11 +153,17 @@ async function notificarCambioEstadoOrden(
     estado: EstadoNotificable;
   },
 ): Promise<string | null> {
-  const filaSmtp = await tenantDb.configuracionSmtp.findUnique({ where: { id: CONFIGURACION_SMTP_ID } });
-  const smtp =
-    filaSmtp && filaSmtp.activo
-      ? descifrarConfiguracionSmtp(filaSmtp as ConfiguracionSmtpAlmacenada)
-      : null;
+  let smtp: SmtpConfigDescifrada | null = null;
+  try {
+    const filaSmtp = await tenantDb.configuracionSmtp.findUnique({ where: { id: CONFIGURACION_SMTP_ID } });
+    smtp = filaSmtp && filaSmtp.activo ? descifrarConfiguracionSmtp(filaSmtp as ConfiguracionSmtpAlmacenada) : null;
+  } catch {
+    // descifrarConfiguracionSmtp throws on a rotated/missing SMTP_ENCRYPTION_KEY
+    // or a corrupted envelope. The estado change already committed by the time
+    // this runs -- nothing was attempted, so no audit row, just the same
+    // FALLO_ENVIO advertencia a send failure would produce.
+    return ADVERTENCIA_POR_RESULTADO.FALLO_ENVIO ?? null;
+  }
 
   const resultado = await enviarNotificacionEstadoOrden(
     { smtp, enviarEmail },

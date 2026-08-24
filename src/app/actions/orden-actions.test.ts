@@ -400,4 +400,21 @@ describe("updateEstadoOrdenAction", () => {
 
     expect(result).toEqual({ error: null, advertencia: null });
   });
+
+  it("does not fail the estado change when decrypting the SMTP config throws (rotated/corrupted key)", async () => {
+    mockOrdenFindFirst.mockResolvedValue({ ...ORDEN_BASE, estado: "BORRADOR" });
+    mockUpdate.mockResolvedValue({ id: "o1", estado: "EN_PROCESO" });
+    mockConfiguracionSmtpFindUnique.mockResolvedValue({ ...configSmtpActiva(), passwordCifrado: "basura" });
+    const formData = new FormData();
+    formData.set("estado", "EN_PROCESO");
+
+    const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
+
+    expect(result.error).toBeNull();
+    expect(result.advertencia).toBe(
+      "Estado actualizado, pero no se pudo enviar la notificación por correo al cliente.",
+    );
+    expect(mockEnviarEmail).not.toHaveBeenCalled();
+    expect(mockNotificacionCreate).not.toHaveBeenCalled();
+  });
 });
