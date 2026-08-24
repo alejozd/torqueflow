@@ -1,5 +1,6 @@
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { CONFIGURACION_SMTP_ID, type ConfiguracionSmtpAlmacenada } from "@/lib/email/smtp-config";
+import { COOLDOWN_RECORDATORIO_DIAS } from "./mantenimiento";
 import type {
   RecordatoriosGateway,
   RegistroRecordatorio,
@@ -36,7 +37,20 @@ export const prismaRecordatoriosGateway: RecordatoriosGateway = {
   async listarVehiculosParaRecordatorio(schemaName: string): Promise<VehiculoParaRecordatorio[]> {
     const tenantDb = getTenantDb(schemaName);
 
+    // Coarse, NECESSARY-but-not-SUFFICIENT pre-filter, deliberately simple (no
+    // pagination): a vehicle with zero delivered service history can never be
+    // due, and one already inside the 90-day cooldown is already
+    // known-skippable. evaluarMantenimiento's actual km/6-month "whichever
+    // first" logic still makes the real due-date decision on whatever this
+    // query returns -- this where clause does not (and must not try to)
+    // replicate that logic in SQL.
+    const cortesCooldown = new Date(Date.now() - COOLDOWN_RECORDATORIO_DIAS * 24 * 60 * 60 * 1000);
+
     const vehiculos = await tenantDb.vehiculo.findMany({
+      where: {
+        ordenes: { some: { estado: "ENTREGADA", entregadaAt: { not: null } } },
+        recordatorios: { none: { enviadoAt: { gte: cortesCooldown } } },
+      },
       select: {
         id: true,
         placa: true,

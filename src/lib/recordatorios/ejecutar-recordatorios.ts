@@ -61,6 +61,11 @@ export interface ResumenRecordatorios {
   tenantsSinSmtp: number;
   vehiculosEvaluados: number;
   enviados: number;
+  /** Of `enviados`: the email genuinely went out, but the de-dup/audit write
+   *  (registrarRecordatorio) failed twice in a row (see RIESGO_DUPLICADO
+   *  below). These vehicles are NOT protected by the 90-day cooldown on the
+   *  next sweep and may be re-emailed. */
+  enviadosNoRegistrados: number;
   omitidosPorCooldown: number;
   omitidosSinEmail: number;
   fallidos: number;
@@ -88,17 +93,28 @@ export async function ejecutarRecordatorios(
     tenantsSinSmtp: 0,
     vehiculosEvaluados: 0,
     enviados: 0,
+    enviadosNoRegistrados: 0,
     omitidosPorCooldown: 0,
     omitidosSinEmail: 0,
     fallidos: 0,
     errores: [],
   };
 
-  function anotarError(descripcion: string): void {
-    resumen.fallidos += 1;
+  // Single chokepoint for surfacing a failure string: pushed into the summary
+  // (capped) and printed server-side so it isn't lost even when the summary
+  // itself never reaches a log (e.g. the caller only reads the HTTP body).
+  // The description is already safe here -- see describirError -- so this
+  // never prints a raw error object or its .message.
+  function registrarError(descripcion: string): void {
+    console.error(`[recordatorios] ${descripcion}`);
     if (resumen.errores.length < MAX_ERRORES_REPORTADOS) {
       resumen.errores.push(descripcion);
     }
+  }
+
+  function anotarError(descripcion: string): void {
+    resumen.fallidos += 1;
+    registrarError(descripcion);
   }
 
   const tenants = await deps.listarTenants();
@@ -133,6 +149,7 @@ export async function ejecutarRecordatorios(
           continue;
         }
 
+        let mensajeEnviado = false;
         try {
           const mensaje = construirMensajeRecordatorio(vehiculo.clienteEmail, {
             clienteNombre: vehiculo.clienteNombre,
@@ -144,18 +161,43 @@ export async function ejecutarRecordatorios(
           });
 
           await deps.enviarEmail(smtp, mensaje);
-          // Logged only after a successful send: a failed send must stay
-          // retryable on the next run.
-          await deps.gateway.registrarRecordatorio(tenant.schemaName, {
+          mensajeEnviado = true;
+
+          const registro: RegistroRecordatorio = {
             vehiculoId: vehiculo.vehiculoId,
             clienteId: vehiculo.clienteId,
             emailDestino: vehiculo.clienteEmail,
             motivo: evaluacion.motivo,
             enviadoAt: deps.ahora,
-          });
+          };
+
+          // Logged only after a successful send: a failed send must stay
+          // retryable on the next run. A failed *log write*, though, is a
+          // different risk: without a bound here, a deterministically broken
+          // write (schema drift, FK violation, permissions) would re-send this
+          // vehicle's email on every future sweep, forever. One immediate
+          // in-process retry absorbs the common transient case for free; if it
+          // fails too, that's the distinguishable "sent but could not record"
+          // case handled below.
+          try {
+            await deps.gateway.registrarRecordatorio(tenant.schemaName, registro);
+          } catch {
+            await deps.gateway.registrarRecordatorio(tenant.schemaName, registro);
+          }
           resumen.enviados += 1;
         } catch (err) {
-          anotarError(`[${tenant.schemaName}] ${vehiculo.placa}: ${describirError(err)}`);
+          if (mensajeEnviado) {
+            // The email genuinely went out; this is not a send failure, so it
+            // must not be counted in `fallidos` or made indistinguishable from
+            // one -- it is a distinct, bounded dedup-risk case.
+            resumen.enviados += 1;
+            resumen.enviadosNoRegistrados += 1;
+            registrarError(
+              `[${tenant.schemaName}] ${vehiculo.placa}: RIESGO_DUPLICADO — enviado pero no registrado (${describirError(err)})`,
+            );
+          } else {
+            anotarError(`[${tenant.schemaName}] ${vehiculo.placa}: ${describirError(err)}`);
+          }
         }
       }
     } catch (err) {

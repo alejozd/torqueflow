@@ -2,7 +2,11 @@ import { notFound } from "next/navigation";
 import { getCita } from "@/app/actions/cita-actions";
 import { CambiarEstadoCitaForm } from "./cambiar-estado-cita-form";
 
-const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "full", timeStyle: "short" });
+const formatoFecha = new Intl.DateTimeFormat("es-CO", {
+  dateStyle: "full",
+  timeStyle: "short",
+  timeZone: "America/Bogota",
+});
 
 export default async function CitaDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

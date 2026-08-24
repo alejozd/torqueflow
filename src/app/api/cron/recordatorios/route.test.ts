@@ -25,6 +25,7 @@ const RESUMEN = {
   tenantsSinSmtp: 1,
   vehiculosEvaluados: 9,
   enviados: 3,
+  enviadosNoRegistrados: 0,
   omitidosPorCooldown: 1,
   omitidosSinEmail: 2,
   fallidos: 0,
@@ -109,6 +110,7 @@ describe("GET /api/cron/recordatorios", () => {
   });
 
   it("returns 500 with a generic message when the sweep itself throws, leaking no internals", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockEjecutar.mockRejectedValue(new Error("connect ECONNREFUSED 10.0.0.7:5432"));
 
     const response = await GET(pedido(`Bearer ${SECRETO}`));
@@ -117,6 +119,9 @@ describe("GET /api/cron/recordatorios", () => {
     const cuerpo = await response.json();
     expect(cuerpo).toEqual({ error: "Error al ejecutar los recordatorios" });
     expect(JSON.stringify(cuerpo)).not.toContain("10.0.0.7");
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    expect(JSON.stringify(consoleErrorSpy.mock.calls)).not.toContain("10.0.0.7");
+    consoleErrorSpy.mockRestore();
   });
 
   it("marks the response uncacheable", async () => {

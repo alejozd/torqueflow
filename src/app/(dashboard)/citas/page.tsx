@@ -2,7 +2,11 @@ import Link from "next/link";
 import { listCitas, listVehiculosParaCita } from "@/app/actions/cita-actions";
 import { NuevaCitaForm } from "./nueva-cita-form";
 
-const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" });
+const formatoFecha = new Intl.DateTimeFormat("es-CO", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "America/Bogota",
+});
 
 export default async function CitasPage() {
   // Both reads go through the actions module, so the guard and the sede filter

@@ -170,6 +170,7 @@ describe("ejecutarRecordatorios", () => {
   });
 
   it("keeps going to the next tenant when one tenant throws", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockObtenerConfig.mockImplementation(async (schema: string) => {
       if (schema === "taller_roto") throw new Error("schema no existe");
       return CONFIG_ALMACENADA;
@@ -182,9 +183,12 @@ describe("ejecutarRecordatorios", () => {
     expect(resumen.enviados).toBe(1);
     expect(resumen.fallidos).toBe(1);
     expect(resumen.errores[0]).toContain("taller_roto");
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
   });
 
   it("keeps going to the next vehicle when one email fails", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockListarVehiculos.mockResolvedValue([
       vehiculoVencido({ vehiculoId: "veh-a", placa: "AAA111" }),
       vehiculoVencido({ vehiculoId: "veh-b", placa: "BBB222" }),
@@ -197,6 +201,34 @@ describe("ejecutarRecordatorios", () => {
     expect(resumen.enviados).toBe(1);
     expect(resumen.fallidos).toBe(1);
     expect(resumen.errores[0]).toContain("AAA111");
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("retries the audit write once on a transient failure and still counts the send", async () => {
+    mockRegistrar.mockRejectedValueOnce(new Error("connection reset")).mockResolvedValueOnce(undefined);
+
+    const resumen = await ejecutarRecordatorios(construirDeps());
+
+    expect(mockRegistrar).toHaveBeenCalledTimes(2);
+    expect(resumen.enviados).toBe(1);
+    expect(resumen.enviadosNoRegistrados).toBe(0);
+    expect(resumen.fallidos).toBe(0);
+  });
+
+  it("bounds the duplicate-send risk when the audit write fails twice in a row", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockRegistrar.mockRejectedValue(new Error("FK violation"));
+
+    const resumen = await ejecutarRecordatorios(construirDeps());
+
+    expect(mockRegistrar).toHaveBeenCalledTimes(2);
+    expect(resumen.enviados).toBe(1);
+    expect(resumen.enviadosNoRegistrados).toBe(1);
+    expect(resumen.fallidos).toBe(0);
+    expect(resumen.errores).toHaveLength(1);
+    expect(resumen.errores[0]).toContain("RIESGO_DUPLICADO");
+    consoleErrorSpy.mockRestore();
   });
 
   it("does not log a reminder that failed to send, so the next run retries it", async () => {
@@ -235,6 +267,7 @@ describe("ejecutarRecordatorios", () => {
       tenantsSinSmtp: 0,
       vehiculosEvaluados: 0,
       enviados: 0,
+      enviadosNoRegistrados: 0,
       omitidosPorCooldown: 0,
       omitidosSinEmail: 0,
       fallidos: 0,

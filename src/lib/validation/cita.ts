@@ -12,13 +12,21 @@ import { z } from "zod";
  * the chosen vehículo, so a caller cannot post a vehículo belonging to one
  * cliente together with a different cliente's id.
  */
+/**
+ * datetime-local carries no UTC offset, so `new Date(valor)` alone would be
+ * resolved against the SERVER's local timezone, not the workshop's. Colombia
+ * is a fixed UTC-5 offset with no daylight saving time, so appending it makes
+ * every parse an unambiguous instant regardless of where the server runs.
+ */
+const OFFSET_TALLER = "-05:00"; // America/Bogota, sin horario de verano
+
 export const citaInputSchema = z.object({
   vehiculoId: z.string().min(1, "Selecciona un vehículo"),
   fechaHora: z
     .string()
     .min(1, "La fecha y hora son obligatorias")
     .refine((valor) => !Number.isNaN(Date.parse(valor)), "La fecha y hora no son válidas")
-    .transform((valor) => new Date(valor)),
+    .transform((valor) => new Date(`${valor}${OFFSET_TALLER}`)),
   motivo: z.string().min(1, "El motivo es obligatorio"),
   notas: z.string().optional().or(z.literal("")),
 });

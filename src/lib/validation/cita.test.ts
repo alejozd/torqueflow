@@ -18,6 +18,21 @@ describe("citaInputSchema", () => {
     }
   });
 
+  it("parses the datetime-local value against the workshop's fixed Colombia offset, not the server's local timezone", () => {
+    const resultado = citaInputSchema.safeParse({
+      vehiculoId: "veh-1",
+      fechaHora: "2026-09-01T10:30",
+      motivo: "Cambio de aceite",
+      notas: "",
+    });
+
+    expect(resultado.success).toBe(true);
+    if (resultado.success) {
+      // 10:30 America/Bogota (UTC-5, no DST) is 15:30 UTC.
+      expect(resultado.data.fechaHora.toISOString()).toBe("2026-09-01T15:30:00.000Z");
+    }
+  });
+
   it("rejects a missing vehiculoId with the Spanish message", () => {
     const resultado = citaInputSchema.safeParse({
       vehiculoId: "",

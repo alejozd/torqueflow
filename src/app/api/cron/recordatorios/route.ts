@@ -57,10 +57,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
 
     return NextResponse.json(resumen, { headers: { "Cache-Control": "no-store" } });
-  } catch {
+  } catch (err) {
     // ejecutarRecordatorios already absorbs per-tenant and per-vehicle failures,
     // so reaching here means the sweep could not start at all (e.g. the public
-    // database is unreachable). The raw error can carry hosts and credentials.
+    // database is unreachable). The raw error can carry hosts and credentials,
+    // so only its constructor name is logged -- mirrors describirError's exact
+    // logic (kept inline here rather than imported, since ejecutar-recordatorios
+    // is mocked wholesale in this route's tests).
+    const nombreError = err instanceof Error ? err.constructor.name : "Error desconocido";
+    console.error(`[cron/recordatorios] La barrida no pudo iniciar: ${nombreError}`);
     return NextResponse.json(
       { error: "Error al ejecutar los recordatorios" },
       { status: 500, headers: { "Cache-Control": "no-store" } },
