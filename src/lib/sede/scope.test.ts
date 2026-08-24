@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scopeBodega, scopeEntrada, scopeFactura, scopeOrden, scopeRepuesto } from "./scope";
+import { scopeBodega, scopeCita, scopeEntrada, scopeFactura, scopeOrden, scopeRepuesto } from "./scope";
 
 describe("sede scope filters", () => {
   it("scopes órdenes on their own sedeId column", () => {
@@ -8,6 +8,14 @@ describe("sede scope filters", () => {
 
   it("scopes bodegas on their own sedeId column", () => {
     expect(scopeBodega("sede-1")).toEqual({ sedeId: "sede-1" });
+  });
+
+  it("scopes citas on their own sedeId column, like órdenes", () => {
+    expect(scopeCita("sede-1")).toEqual({ sedeId: "sede-1" });
+  });
+
+  it("returns a fresh scopeCita object each call so callers can safely spread and mutate", () => {
+    expect(scopeCita("sede-1")).not.toBe(scopeCita("sede-1"));
   });
 
   it("scopes repuestos through their bodega, which owns the sedeId", () => {

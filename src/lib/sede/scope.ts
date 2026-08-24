@@ -20,6 +20,11 @@ export function scopeOrden(sedeActivaId: string): { sedeId: string } {
   return { sedeId: sedeActivaId };
 }
 
+/** Cita.sedeId is a required, indexed column -- an appointment is made *at* a sede. */
+export function scopeCita(sedeActivaId: string): { sedeId: string } {
+  return { sedeId: sedeActivaId };
+}
+
 /** Bodega.sedeId is a required, indexed column. */
 export function scopeBodega(sedeActivaId: string): { sedeId: string } {
   return { sedeId: sedeActivaId };
