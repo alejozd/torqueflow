@@ -5,6 +5,10 @@ import { requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { usuarioSedesInputSchema } from "@/lib/validation/sede";
+import bcrypt from "bcryptjs";
+import { usuarioCreateInputSchema, usuarioUpdateInputSchema } from "@/lib/validation/usuario";
+import { obtenerLimitesPlan } from "@/lib/planes/limites";
+import type { Prisma } from "@/generated/prisma-tenant";
 
 export interface UsuarioConSedes {
   id: string;
@@ -103,4 +107,144 @@ export async function setUsuarioSedesAction(
 
   revalidatePath("/usuarios");
   return { error: null, success: true };
+}
+
+export interface UsuarioFormState {
+  error: string | null;
+  success: boolean;
+}
+
+export async function createUsuarioAction(
+  prevState: UsuarioFormState,
+  formData: FormData,
+): Promise<UsuarioFormState> {
+  const parsed = usuarioCreateInputSchema.safeParse({
+    nombre: formData.get("nombre") ?? "",
+    email: formData.get("email") ?? "",
+    password: formData.get("password") ?? "",
+    role: formData.get("role") ?? "",
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
+  }
+
+  const session = await requireRole(["ADMIN"]);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const { maxUsuarios } = await obtenerLimitesPlan(session.user.tenantSchema);
+  if (maxUsuarios !== null) {
+    const actuales = await tenantDb.usuario.count();
+    if (actuales >= maxUsuarios) {
+      return {
+        error: `Tu plan permite hasta ${maxUsuarios} usuario(s). Actualiza tu plan para agregar más.`,
+        success: false,
+      };
+    }
+  }
+
+  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+
+  try {
+    await tenantDb.usuario.create({
+      data: {
+        nombre: parsed.data.nombre,
+        email: parsed.data.email,
+        passwordHash,
+        role: parsed.data.role,
+      },
+    });
+  } catch (err) {
+    return { error: friendlyPrismaErrorMessage(err, "Error al crear el usuario"), success: false };
+  }
+
+  revalidatePath("/usuarios");
+  return { error: null, success: true };
+}
+
+export async function updateUsuarioAction(
+  usuarioId: string,
+  prevState: UsuarioFormState,
+  formData: FormData,
+): Promise<UsuarioFormState> {
+  const parsed = usuarioUpdateInputSchema.safeParse({
+    nombre: formData.get("nombre") ?? "",
+    email: formData.get("email") ?? "",
+    password: formData.get("password") ?? "",
+    role: formData.get("role") ?? "",
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
+  }
+
+  const session = await requireRole(["ADMIN"]);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  if (parsed.data.role !== "ADMIN") {
+    const usuarioActual = await tenantDb.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { role: true },
+    });
+    if (usuarioActual?.role === "ADMIN") {
+      const totalAdmins = await tenantDb.usuario.count({ where: { role: "ADMIN" } });
+      if (totalAdmins <= 1) {
+        return {
+          error: "No puedes quitar el rol de ADMIN al único administrador del taller.",
+          success: false,
+        };
+      }
+    }
+  }
+
+  const datos: Prisma.UsuarioUpdateInput = {
+    nombre: parsed.data.nombre,
+    email: parsed.data.email,
+    role: parsed.data.role,
+  };
+  if (parsed.data.password) {
+    datos.passwordHash = await bcrypt.hash(parsed.data.password, 12);
+  }
+
+  try {
+    await tenantDb.usuario.update({ where: { id: usuarioId }, data: datos });
+  } catch (err) {
+    return { error: friendlyPrismaErrorMessage(err, "Error al actualizar el usuario"), success: false };
+  }
+
+  revalidatePath("/usuarios");
+  return { error: null, success: true };
+}
+
+/**
+ * Does NOT pre-check every one of Usuario's eight onDelete:Restrict
+ * relations (órdenes, DVIs, facturas, pagos, historial, entradas, citas,
+ * mecánico) -- friendlyPrismaErrorMessage's existing P2003 branch already
+ * gives one honest, generic Spanish message for all of them. Only the
+ * last-ADMIN rule gets its own check, because it is not a foreign key.
+ */
+export async function deleteUsuarioAction(usuarioId: string): Promise<void> {
+  const session = await requireRole(["ADMIN"]);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const usuario = await tenantDb.usuario.findUnique({
+    where: { id: usuarioId },
+    select: { role: true },
+  });
+  if (!usuario) {
+    throw new Error("Usuario no encontrado");
+  }
+
+  if (usuario.role === "ADMIN") {
+    const totalAdmins = await tenantDb.usuario.count({ where: { role: "ADMIN" } });
+    if (totalAdmins <= 1) {
+      throw new Error("No puedes eliminar al único administrador del taller.");
+    }
+  }
+
+  try {
+    await tenantDb.usuario.delete({ where: { id: usuarioId } });
+  } catch (err) {
+    throw new Error(friendlyPrismaErrorMessage(err, "Error al eliminar el usuario"));
+  }
+
+  revalidatePath("/usuarios");
 }
