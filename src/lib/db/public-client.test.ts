@@ -7,8 +7,9 @@ describe("publicDb (Tenant model, public schema)", () => {
   });
 
   it("creates and reads back a Tenant row", async () => {
+    const planBasico = await publicDb.plan.findUniqueOrThrow({ where: { nombre: "Básico" } });
     const created = await publicDb.tenant.create({
-      data: { slug: "test-task4-fixture", schemaName: "test_task4_fixture" },
+      data: { slug: "test-task4-fixture", schemaName: "test_task4_fixture", planId: planBasico.id },
     });
 
     const found = await publicDb.tenant.findUnique({ where: { slug: "test-task4-fixture" } });

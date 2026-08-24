@@ -8,12 +8,34 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum EstadoTenant {
+  ACTIVO
+  SUSPENDIDO
+}
+
+model Plan {
+  id          String   @id @default(cuid())
+  nombre      String   @unique
+  precio      Decimal? @db.Decimal(10, 2)
+  maxUsuarios Int?     @map("max_usuarios")
+  maxSedes    Int?     @map("max_sedes")
+  tenants     Tenant[]
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("planes")
+}
+
 model Tenant {
-  id         String   @id @default(cuid())
-  slug       String   @unique
-  schemaName String   @unique @map("schema_name")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id         String       @id @default(cuid())
+  slug       String       @unique
+  schemaName String       @unique @map("schema_name")
+  estado     EstadoTenant @default(ACTIVO)
+  planId     String       @map("plan_id")
+  plan       Plan         @relation(fields: [planId], references: [id], onDelete: Restrict)
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
 
   @@map("tenants")
+  @@index([planId])
 }

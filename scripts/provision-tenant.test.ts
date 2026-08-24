@@ -243,6 +243,23 @@ describe("provisionTenant", () => {
     expect(await tenantDb.notificacionOrdenEnviada.count()).toBe(0);
   });
 
+  it("assigns the Básico plan and ACTIVO estado to a newly provisioned tenant", async () => {
+    const tenant = await provisionTenant({ slug: SLUG, schemaName: SCHEMA });
+
+    const planBasico = await publicDb.plan.findUniqueOrThrow({ where: { nombre: "Básico" } });
+    expect(tenant.planId).toBe(planBasico.id);
+    expect(tenant.estado).toBe("ACTIVO");
+  });
+
+  it("backfilled every pre-existing tenant row to the Avanzado plan", async () => {
+    const planAvanzado = await publicDb.plan.findUniqueOrThrow({ where: { nombre: "Avanzado" } });
+    const otrosTenants = await publicDb.tenant.findMany({ where: { schemaName: { not: SCHEMA } } });
+
+    for (const otro of otrosTenants) {
+      expect(otro.planId).toBe(planAvanzado.id);
+    }
+  });
+
   it("refuses a second configuracion_smtp row: the singleton is a database invariant", async () => {
     await provisionTenant({ slug: SLUG, schemaName: SCHEMA });
 

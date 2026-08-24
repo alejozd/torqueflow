@@ -42,7 +42,8 @@ export async function provisionTenant({ slug, schemaName }: ProvisionTenantInput
       stdio: "inherit",
     });
 
-    const tenant = await publicDb.tenant.create({ data: { slug, schemaName } });
+    const planBasico = await publicDb.plan.findUniqueOrThrow({ where: { nombre: "Básico" } });
+    const tenant = await publicDb.tenant.create({ data: { slug, schemaName, planId: planBasico.id } });
 
     try {
       const tenantDb = getTenantDb(schemaName);
