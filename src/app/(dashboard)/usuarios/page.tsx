@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { listUsuariosConSedes } from "@/app/actions/usuario-actions";
 import { listSedes } from "@/app/actions/sede-actions";
 import { AsignarSedesForm } from "./asignar-sedes-form";
@@ -19,9 +20,9 @@ export default async function UsuariosPage() {
     <main>
       <h1>Usuarios</h1>
       <p>
-        Los usuarios se crean con <code>npm run tenant:seed-user</code>. Aquí solo se asignan sus
-        sedes. Un administrador puede trabajar en cualquier sede aunque no esté asignado.
+        Un administrador puede trabajar en cualquier sede aunque no esté asignado a ella.
       </p>
+      <Link href="/usuarios/nuevo">Crear usuario</Link>
       <ul>
         {usuarios.map((usuario) => (
           <li key={usuario.id}>
@@ -29,6 +30,7 @@ export default async function UsuariosPage() {
             <p>
               {usuario.email} — {ROLE_LABELS[usuario.role]}
             </p>
+            <Link href={`/usuarios/${usuario.id}`}>Editar</Link>
             <AsignarSedesForm
               usuario={usuario}
               sedes={sedes.map((sede) => ({ id: sede.id, nombre: sede.nombre }))}
