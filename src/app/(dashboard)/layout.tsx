@@ -14,6 +14,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         <nav style={{ display: "flex", gap: "1rem" }}>
           <Link href="/clientes">Clientes</Link>
           <Link href="/ordenes">Órdenes</Link>
+          <Link href="/citas">Citas</Link>
           <Link href="/bodegas">Bodegas</Link>
           <Link href="/proveedores">Proveedores</Link>
           <Link href="/repuestos">Repuestos</Link>
