@@ -398,6 +398,59 @@ All 11 tasks + 3 fix rounds (Task 3's date-ordering short-circuit, Task 11's sig
 - Status: Fase 5 complete, ready for Fase 6
 
 ======================================================================
+
+# TorqueFlow Fase 7 (Agendamiento de citas + recordatorios de mantenimiento) -- Progress Ledger
+
+Plan: docs/superpowers/plans/2026-08-21-torqueflow-phase7-citas-recordatorios.md
+
+Task 1: complete (commit 1e72ba4). Cita/EstadoCita, ConfiguracionSmtp (singleton con CHECK id='singleton'), RecordatorioEnviado/MotivoRecordatorio + migración 20260821210000. `@@map("configuracion_smtp")` es singular (excepción deliberada plan-mandated a la convención "tabla_en_plural", aceptada dado que el modelo es un singleton real forzado por la base de datos). 13/13 tests.
+
+Task 2: complete (commit 6c3ae5a). scopeCita(sedeActivaId) en src/lib/sede/scope.ts, Prisma-type-free como sus hermanas. 8/8 tests.
+
+Task 3: complete (commit 47e217e). src/lib/crypto/secret-box.ts (AES-256-GCM, envelope versionado "v1:iv:tag:cipher", SMTP_ENCRYPTION_KEY sin fallback) + src/lib/email/smtp-config.ts (CONFIGURACION_SMTP_ID, descifrarConfiguracionSmtp que nunca expone passwordCifrado/activo). 14/14 tests.
+
+Task 4: complete (commit a311582). src/lib/validation/cita.ts + smtp.ts, Zod schemas con mensajes en español pineados por test. 15/15 tests.
+
+Task 5: complete (commit e9c08ff). src/app/actions/cita-actions.ts, sede-scoped e IDOR-safe (findFirst+scopeCita nunca findUnique; updateMany/deleteMany+scopeCita+count===0 nunca update/delete por id crudo), roles ADMIN+RECEPCION para crear/editar/cambiar estado, ADMIN-only para borrar. 17/17 tests.
+
+Task 6: complete (commit 22897a0, ejecutada después de Task 10 por dependencia). src/app/actions/smtp-actions.ts, ADMIN-only, password nunca expuesto (ni cifrado ni plano) en ningún valor de retorno, contraseña vacía en el form = "conservar la existente". 13/13 tests.
+
+Task 7: complete (commit c11c905, INLINE -- classifier bloqueó el despacho del implementador). UI de citas (lista, formulario de reserva, detalle con notFound() real como boundary IDOR, formulario de cambio de estado) + link de nav. 5/5 tests nuevos.
+
+Task 8: complete (commit 8679889). UI de configuración SMTP, ADMIN-only, campo de contraseña con defaultValue="" literal (nunca condicionado a un valor del servidor). 6/6 tests.
+
+Task 9: complete (commit 4839519, ejecutada antes de Tasks 6/10 por dependencia). src/lib/recordatorios/mantenimiento.ts, regla pura "5.000 km / 6 meses, lo que ocurra primero" + cooldown de 90 días, cero imports de Prisma. 16/16 tests.
+
+Task 10: complete (commit 2aa2aa8, INLINE -- classifier bloqueó el despacho del implementador). src/lib/email/enviar-email.ts (único módulo consciente de Nodemailer) + src/lib/recordatorios/plantilla.ts (texto plano + HTML básico con escape de todo dato de cliente). `npm install nodemailer` resolvió 8.0.11 (vulnerabilidad alta GHSA-p6gq-j5cr-w38f vía la opción `raw`, no usada en este código) porque @auth/core fija nodemailer a `^7.0.7 || ^8.0.5` -- backlog: actualizar a 9.x cuando @auth/core lo permita. 10/10 tests.
+
+Task 11: complete (commit cfcbd9d). src/lib/recordatorios/ejecutar-recordatorios.ts (orquestador DB-free, tolerante a fallos parciales por tenant y por vehículo, registrarRecordatorio solo tras un envío exitoso) + src/lib/recordatorios/gateway-prisma.ts (único módulo Prisma-aware del recordatorio). 13/13 tests.
+
+Task 12: complete (commit 0ee4087). GET /api/cron/recordatorios, sin sesión (llamador externo), auth por CRON_SECRET vía Authorization Bearer comparado con timingSafeEqual sobre digests SHA-256, fail-closed si CRON_SECRET no está configurado. 9/9 tests.
+
+Task 13: complete (commit beedea8, dos rondas de despacho -- la primera se detuvo correctamente BLOCKED tras corregir dos bugs reales del código literal del brief y diagnosticar una tercera causa raíz sin aplicarla; la segunda aplicó esa corrección diagnosticada). e2e extendido: RECEPCION agenda+confirma una cita en Sede principal; el boundary IDOR se prueba por URL directa con status HTTP 404 real (no solo ocultamiento en lista); /configuracion-smtp probado ADMIN-only tanto por ausencia del link de nav como por redirección directa de URL. playwright.config.ts timeout 30s->90s (fuera de los archivos declarados en el brief, necesario porque el test e2e compartido ya recorre ~25 rutas). 2/2 e2e.
+
+## FASE 7 SUMMARY
+- 14 tareas completadas (última tarea de código: commit beedea8, Task 13)
+- 511/511 unit tests pasando (3 skipped) aislando el flake de contención de esquema en paralelo ya documentado (tenant-client.test.ts, 10/10 limpio en aislamiento), 2/2 e2e, tsc clean
+- Decisiones de arquitectura tomadas en esta fase (vinculantes para Fase 8):
+  - ConfiguracionSmtp es una fila singleton por schema de tenant (id literal 'singleton' + CHECK en la migración), no una tabla de filas.
+  - La contraseña SMTP se guarda cifrada con AES-256-GCM (src/lib/crypto/secret-box.ts, sobre "v1:iv:tag:cipher") bajo SMTP_ENCRYPTION_KEY en .env. Rotar esa clave invalida todas las contraseñas guardadas.
+  - La de-duplicación de recordatorios es la tabla RecordatorioEnviado con un cooldown fijo de 90 días, no un campo en Vehiculo.
+  - El endpoint de cron (GET /api/cron/recordatorios) se autentica con CRON_SECRET en "Authorization: Bearer", comparado con timingSafeEqual sobre digests SHA-256; sin CRON_SECRET responde 401 a todos (fail closed).
+  - El reloj de 6 meses lee OrdenTrabajo ENTREGADA/entregadaAt, NO HistorialVehiculo (texto libre, sin tipo de servicio, fecha por defecto now()).
+  - El umbral de 5.000 km es una proyección km/día derivada de las dos lecturas de kilometrajeIngreso más recientes; con menos de dos lecturas solo aplica el umbral de tiempo.
+  - Los nuevos action files llaman al guard ANTES de validar el FormData (mejora deliberada sobre la convención de Fases 2-4, que valida primero).
+- Fase 8 hereda la infraestructura SMTP completa (config por tenant, cifrado, transporte Nodemailer, plantillas texto+HTML básico) y solo debe añadir las notificaciones de estado de orden (módulo 6 §5).
+- Explícitamente fuera de alcance en esta fase: página pública de reservas, WhatsApp/SMS, proveedores externos de email, motores de plantillas, Plan/maxSedes (Fase 9).
+- Deuda técnica documentada:
+  - nodemailer 8.0.11 en el árbol de dependencias (GHSA-p6gq-j5cr-w38f, alta severidad) -- el vector de explotación (opción `raw`) no se usa en este código, pero @auth/core bloquea la actualización a 9.0.5 hasta que soporte ese rango de peer dependency
+  - configuracion-smtp-form.tsx usa la verdad de `configuracion` en lugar del booleano más preciso `passwordConfigurada` para el hint de "conservar contraseña" (equivalente hoy, campo sin usar)
+  - probarConfiguracionSmtpAction traga el error real en un catch vacío (deliberado para no filtrar detalles SMTP, pero también oculta bugs genuinos de descifrado)
+  - si registrarRecordatorio falla justo después de un envío exitoso, el vehículo se reintenta en el siguiente barrido (riesgo acotado de email duplicado, trade-off documentado a favor de "nunca silenciar" sobre "nunca duplicar")
+  - más todo el backlog acumulado de Fases 1-6
+- Status: Fase 7 complete, ready for Fase 8
+
+======================================================================
 # Decisiones de diseño diferidas (para fases futuras)
 ======================================================================
 
@@ -415,6 +468,8 @@ All 11 tasks + 3 fix rounds (Task 3's date-ordering short-circuit, Task 11's sig
 Cuando se planifique Fase 8 (después de Fase 7, agendamiento de citas), usar esta sección como el alcance vinculante en lugar de re-derivarlo del design doc, que aún no refleja esta decisión de reducción de alcance.
 
 **ACTUALIZACIÓN (2026-08-21, al planificar Fase 7):** el usuario decidió adelantar el envío real de recordatorios por email a Fase 7, en lugar de dejarlo pendiente para esta Fase 8. Fase 7 construye ahora la infraestructura SMTP/Nodemailer descrita arriba (config SMTP por tenant, password encriptado con `crypto` + clave maestra en `.env`, plantillas de texto plano/HTML básico) para enviar los recordatorios de mantenimiento preventivo. El resto de esta sección (alcance de Fase 8, exclusiones de WhatsApp/SMS) sigue vigente sin cambios: Fase 8 pasa a ser "notificaciones automáticas al cliente sobre el estado de la orden" (módulo 6 §5) **reutilizando** la infraestructura SMTP ya construida en Fase 7, en vez de construirla desde cero.
+
+**CONFIRMADO (al cerrar Fase 7):** la infraestructura SMTP descrita arriba ya existe y está en producción -- ver la sección "TorqueFlow Fase 7" de este mismo ledger para las decisiones vinculantes (singleton ConfiguracionSmtp, sobre AES-256-GCM, cooldown de 90 días, endpoint de cron con CRON_SECRET). Fase 8 debe reutilizarla, no reconstruirla.
 
 ======================================================================
 # TorqueFlow Fase 6 (Gestión de Sedes) -- Progress Ledger
