@@ -225,6 +225,40 @@ describe("provisionTenant", () => {
     await expect(tenantDb.usuarioSede.count()).resolves.toBe(0);
   });
 
+  it("exposes the citas, configuracion_smtp and recordatorios_enviados tables on a freshly provisioned tenant", async () => {
+    await provisionTenant({ slug: SLUG, schemaName: SCHEMA });
+
+    const tenantDb = getTenantDb(SCHEMA);
+
+    expect(await tenantDb.cita.count()).toBe(0);
+    expect(await tenantDb.configuracionSmtp.count()).toBe(0);
+    expect(await tenantDb.recordatorioEnviado.count()).toBe(0);
+  });
+
+  it("refuses a second configuracion_smtp row: the singleton is a database invariant", async () => {
+    await provisionTenant({ slug: SLUG, schemaName: SCHEMA });
+
+    const tenantDb = getTenantDb(SCHEMA);
+    await tenantDb.configuracionSmtp.create({
+      data: {
+        host: "smtp.taller.test",
+        puerto: 587,
+        usuario: "avisos@taller.test",
+        passwordCifrado: "v1:aaa:bbb:ccc",
+        fromEmail: "avisos@taller.test",
+        fromNombre: "Taller",
+      },
+    });
+
+    await expect(
+      tenantDb.$executeRawUnsafe(
+        `INSERT INTO "configuracion_smtp"
+           ("id", "host", "puerto", "usuario", "password_cifrado", "from_email", "from_nombre", "updated_at")
+         VALUES ('otra', 'x', 25, 'u', 'v1:a:b:c', 'e@t.test', 'T', CURRENT_TIMESTAMP)`,
+      ),
+    ).rejects.toThrow();
+  });
+
   it("backfills every pre-existing Usuario onto the tenant's OLDEST Sede when the usuario_sede migration runs (regression guard for 20260821173618_add_usuario_sede)", async () => {
     // Two full `prisma migrate deploy` runs (holdout + real schema) against a
     // real Postgres schema, on top of everything else the test does -- give it

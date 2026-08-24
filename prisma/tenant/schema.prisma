@@ -22,6 +22,18 @@ enum EstadoOrden {
   ANULADA
 }
 
+enum EstadoCita {
+  PROGRAMADA
+  CONFIRMADA
+  CANCELADA
+  COMPLETADA
+}
+
+enum MotivoRecordatorio {
+  KILOMETRAJE
+  TIEMPO
+}
+
 model Usuario {
   id                String              @id @default(cuid())
   email             String              @unique
@@ -35,6 +47,7 @@ model Usuario {
   entradasCreadas   EntradaMercancia[]
   facturasEmitidas  Factura[]
   pagosRegistrados  Pago[]
+  citasCreadas      Cita[]              @relation("CitaCreadoPor")
   sedes             UsuarioSede[]
   createdAt         DateTime            @default(now()) @map("created_at")
   updatedAt         DateTime            @updatedAt @map("updated_at")
@@ -51,6 +64,8 @@ model Cliente {
   vehiculos Vehiculo[]
   ordenes   OrdenTrabajo[]
   facturas  Factura[]
+  citas         Cita[]
+  recordatorios RecordatorioEnviado[]
   createdAt DateTime       @default(now()) @map("created_at")
   updatedAt DateTime       @updatedAt @map("updated_at")
 
@@ -67,6 +82,8 @@ model Vehiculo {
   cliente   Cliente             @relation(fields: [clienteId], references: [id], onDelete: Restrict)
   historial HistorialVehiculo[]
   ordenes   OrdenTrabajo[]
+  citas         Cita[]
+  recordatorios RecordatorioEnviado[]
   createdAt DateTime            @default(now()) @map("created_at")
   updatedAt DateTime            @updatedAt @map("updated_at")
 
@@ -95,6 +112,7 @@ model Sede {
   ordenes   OrdenTrabajo[]
   bodegas   Bodega[]
   usuarios  UsuarioSede[]
+  citas     Cita[]
   createdAt DateTime       @default(now()) @map("created_at")
   updatedAt DateTime       @updatedAt @map("updated_at")
 
@@ -339,4 +357,75 @@ model Pago {
 
   @@map("pagos")
   @@index([facturaId])
+}
+
+/// A booked appointment. Staff-only in v1: RECEPCION/ADMIN book on behalf of a
+/// customer who called or walked in — there is no public booking surface.
+/// Carries its own sede_id (like OrdenTrabajo, unlike Repuesto) because an
+/// appointment is made *at* a location; scopeCita() in src/lib/sede/scope.ts is
+/// the single definition of that boundary.
+model Cita {
+  id          String     @id @default(cuid())
+  clienteId   String     @map("cliente_id")
+  cliente     Cliente    @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  vehiculoId  String     @map("vehiculo_id")
+  vehiculo    Vehiculo   @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  sedeId      String     @map("sede_id")
+  sede        Sede       @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  fechaHora   DateTime   @map("fecha_hora")
+  estado      EstadoCita @default(PROGRAMADA)
+  motivo      String
+  notas       String?
+  creadoPorId String     @map("creado_por_id")
+  creadoPor   Usuario    @relation("CitaCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  @@map("citas")
+  @@index([sedeId])
+  @@index([clienteId])
+  @@index([vehiculoId])
+  @@index([fechaHora])
+}
+
+/// The tenant's own SMTP server. Exactly one row per tenant schema: the schema
+/// IS the tenant boundary, so the id is a literal constant and the migration
+/// adds a CHECK constraint enforcing it, making "at most one row" a database
+/// invariant rather than an application convention.
+///
+/// password_cifrado is never plaintext: it is an AES-256-GCM envelope produced
+/// by src/lib/crypto/secret-box.ts under the SMTP_ENCRYPTION_KEY master key.
+model ConfiguracionSmtp {
+  id              String   @id @default("singleton")
+  host            String
+  puerto          Int
+  usuario         String
+  passwordCifrado String   @map("password_cifrado")
+  fromEmail       String   @map("from_email")
+  fromNombre      String   @map("from_nombre")
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("configuracion_smtp")
+}
+
+/// One row per reminder email actually delivered. Doubles as the de-duplication
+/// ledger: the reminder job skips any vehicle whose newest row here is younger
+/// than COOLDOWN_RECORDATORIO_DIAS. A field on Vehiculo would answer only
+/// "when"; this also records which address was mailed and which threshold
+/// fired, and Fase 8's order-status notifications can reuse the same shape.
+model RecordatorioEnviado {
+  id           String             @id @default(cuid())
+  vehiculoId   String             @map("vehiculo_id")
+  vehiculo     Vehiculo           @relation(fields: [vehiculoId], references: [id], onDelete: Cascade)
+  clienteId    String             @map("cliente_id")
+  cliente      Cliente            @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  emailDestino String             @map("email_destino")
+  motivo       MotivoRecordatorio
+  enviadoAt    DateTime           @default(now()) @map("enviado_at")
+
+  @@map("recordatorios_enviados")
+  @@index([vehiculoId, enviadoAt])
+  @@index([clienteId])
 }
