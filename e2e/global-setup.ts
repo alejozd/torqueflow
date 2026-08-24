@@ -10,6 +10,9 @@ export const E2E_ADMIN_PASSWORD = "SmokeTest123!";
 export const E2E_TECNICO_EMAIL = "tecnico@e2e-smoke.test";
 export const E2E_TECNICO_PASSWORD = "SmokeTest123!";
 export const E2E_TECNICO_NOMBRE = "Tec E2E";
+export const E2E_RECEPCION_EMAIL = "recepcion@e2e-smoke.test";
+export const E2E_RECEPCION_PASSWORD = "SmokeTest123!";
+export const E2E_RECEPCION_NOMBRE = "Recep E2E";
 
 export default async function globalSetup() {
   await publicDb.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${E2E_SCHEMA}" CASCADE`);
@@ -29,5 +32,15 @@ export default async function globalSetup() {
     password: E2E_TECNICO_PASSWORD,
     nombre: E2E_TECNICO_NOMBRE,
     role: "TECNICO",
+  });
+  // seedTenantUser grants the tenant's oldest sede ("Sede principal"), which is
+  // exactly what the cita isolation assertions below need: this user works in
+  // Sede principal only.
+  await seedTenantUser({
+    schemaName: E2E_SCHEMA,
+    email: E2E_RECEPCION_EMAIL,
+    password: E2E_RECEPCION_PASSWORD,
+    nombre: E2E_RECEPCION_NOMBRE,
+    role: "RECEPCION",
   });
 }

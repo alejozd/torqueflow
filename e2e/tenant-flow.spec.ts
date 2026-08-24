@@ -2,6 +2,8 @@ import { test, expect } from "@playwright/test";
 import {
   E2E_ADMIN_EMAIL,
   E2E_ADMIN_PASSWORD,
+  E2E_RECEPCION_EMAIL,
+  E2E_RECEPCION_PASSWORD,
   E2E_TECNICO_EMAIL,
   E2E_TECNICO_PASSWORD,
   E2E_TECNICO_NOMBRE,
@@ -396,4 +398,110 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   await expect(page.getByRole("alert").filter({ hasText: "No tienes permiso" })).toHaveText(
     "No tienes permiso para acceder a esa sección.",
   );
+
+  // --- Fase 7: agendamiento de citas y aislamiento por sede ---
+
+  // A RECEPCION user books on behalf of a customer who called. This user was
+  // seeded into Sede principal only, which is where vehículo ABC123's orden and
+  // factura already live.
+  // Already on /login (the previous forbidden-role redirect landed here) --
+  // no explicit sign-out needed, signIn() overwrites the TECNICO session.
+  await page.getByLabel("Correo").fill(E2E_RECEPCION_EMAIL);
+  await page.getByLabel("Contraseña").fill(E2E_RECEPCION_PASSWORD);
+  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
+  await page.getByRole("button", { name: "Ingresar" }).click();
+  await expect(page).toHaveURL(/\/clientes$/);
+
+  await page.getByRole("link", { name: "Citas" }).click();
+  await expect(page.getByRole("heading", { name: "Citas", level: 1 })).toBeVisible();
+  await expect(page.getByText("No hay citas agendadas en esta sede.")).toBeVisible();
+
+  // selectOption's `label` matcher is typed as string, not RegExp -- the exact
+  // label is deterministic from this spec's own fixtures (ABC123 / Toyota
+  // Corolla / Juan Pérez, seeded earlier in this same test).
+  await page.getByLabel("Vehículo").selectOption({ label: "ABC123 — Toyota Corolla (Juan Pérez)" });
+  await page.getByLabel("Fecha y hora").fill("2026-09-01T10:30");
+  await page.getByLabel("Motivo").fill("Mantenimiento preventivo");
+  await page.getByLabel("Notas").fill("El cliente llamó para agendar");
+  await page.getByRole("button", { name: "Agendar cita" }).click();
+  await expect(page.getByRole("status")).toHaveText("Cita agendada");
+
+  const enlaceCita = page.getByRole("link", { name: /ABC123 — Mantenimiento preventivo/ });
+  await expect(enlaceCita).toBeVisible();
+  await enlaceCita.click();
+  await expect(page.getByRole("heading", { name: "Cita ABC123", level: 1 })).toBeVisible();
+  await expect(page.getByText("Estado actual: PROGRAMADA")).toBeVisible();
+
+  // Capture the detail URL while it legitimately resolves -- this exact URL is
+  // the IDOR probe below.
+  const citaUrl = page.url();
+  expect(citaUrl).toMatch(/\/citas\/[a-z0-9]+$/);
+
+  // RECEPCION may confirm the appointment.
+  await page.getByLabel("Estado").selectOption("CONFIRMADA");
+  await page.getByRole("button", { name: "Actualizar estado" }).click();
+  await expect(page.getByRole("status")).toHaveText("Estado actualizado");
+  await expect(page.getByText("Estado actual: CONFIRMADA")).toBeVisible();
+
+  // --- The isolation proof: the same cita is unreachable from the other sede ---
+
+  // ADMIN in Sede norte. ADMIN bypasses the UsuarioSede assignment check, but
+  // NOT the sede scoping -- which is exactly what makes this a real boundary
+  // test rather than a permissions test.
+  await page.getByRole("button", { name: "Cambiar de sede" }).click();
+  await page.getByLabel("Correo").fill(E2E_ADMIN_EMAIL);
+  await page.getByLabel("Contraseña").fill(E2E_ADMIN_PASSWORD);
+  await page.getByLabel("Sede").selectOption({ label: "Sede norte" });
+  await page.getByRole("button", { name: "Ingresar" }).click();
+  await expect(page).toHaveURL(/\/clientes$/);
+  await expect(page.getByText("Sede: Sede norte")).toBeVisible();
+
+  await page.goto("/citas");
+  await expect(page.getByText("No hay citas agendadas en esta sede.")).toBeVisible();
+  await expect(page.getByText(/Mantenimiento preventivo/)).toHaveCount(0);
+
+  // Not just hidden from the list: pasting Sede principal's own cita URL while
+  // logged into Sede norte must 404. That is getCita's findFirst + scopeCita,
+  // and nothing else on this route can produce a 404.
+  const citaDirectaResponse = await page.goto(citaUrl);
+  expect(citaDirectaResponse?.status()).toBe(404);
+
+  // Back in Sede principal the same ADMIN sees it again -- proof the row was
+  // filtered by sede, not deleted or hidden by some other accident.
+  await page.getByRole("button", { name: "Cambiar de sede" }).click();
+  await page.getByLabel("Correo").fill(E2E_ADMIN_EMAIL);
+  await page.getByLabel("Contraseña").fill(E2E_ADMIN_PASSWORD);
+  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
+  await page.getByRole("button", { name: "Ingresar" }).click();
+  // Wait for the login navigation to settle before the next goto -- otherwise
+  // it races the in-flight redirect and can abort it (same pattern as every
+  // other login transition in this file).
+  await expect(page).toHaveURL(/\/clientes$/);
+  await page.goto("/citas");
+  await expect(page.getByRole("link", { name: /ABC123 — Mantenimiento preventivo/ })).toBeVisible();
+
+  // --- The SMTP settings page is ADMIN-only ---
+
+  await page.getByRole("link", { name: "SMTP" }).click();
+  await expect(page.getByRole("heading", { name: "Configuración SMTP", level: 1 })).toBeVisible();
+  // Nothing stored yet, so the password is required and the test button is absent.
+  await expect(page.getByLabel("Contraseña")).toHaveAttribute("required", "");
+  await expect(page.getByRole("button", { name: "Enviar correo de prueba" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Cerrar sesión" }).click();
+  // This sign-out fires from an authenticated ADMIN page, so it triggers a
+  // real navigation -- wait for it to settle before filling the login form,
+  // same pattern as the "Cambiar de sede" transition at line ~311.
+  await expect(page).toHaveURL(/\/login/);
+  await page.getByLabel("Correo").fill(E2E_RECEPCION_EMAIL);
+  await page.getByLabel("Contraseña").fill(E2E_RECEPCION_PASSWORD);
+  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
+  await page.getByRole("button", { name: "Ingresar" }).click();
+  await expect(page).toHaveURL(/\/clientes$/);
+
+  // The nav link is not even rendered for a non-ADMIN...
+  await expect(page.getByRole("link", { name: "SMTP" })).toHaveCount(0);
+  // ...and the URL itself is refused, not merely hidden.
+  await page.goto("/configuracion-smtp");
+  await expect(page).toHaveURL(/\/login\?error=forbidden$/);
 });
