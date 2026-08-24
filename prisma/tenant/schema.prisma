@@ -34,6 +34,11 @@ enum MotivoRecordatorio {
   TIEMPO
 }
 
+enum ResultadoNotificacionOrden {
+  ENVIADA
+  FALLO_ENVIO
+}
+
 model Usuario {
   id                String              @id @default(cuid())
   email             String              @unique
@@ -66,6 +71,7 @@ model Cliente {
   facturas  Factura[]
   citas         Cita[]
   recordatorios RecordatorioEnviado[]
+  notificacionesOrden NotificacionOrdenEnviada[]
   createdAt DateTime       @default(now()) @map("created_at")
   updatedAt DateTime       @updatedAt @map("updated_at")
 
@@ -154,6 +160,7 @@ model OrdenTrabajo {
   manoDeObra         ManoDeObra[]
   dvi                Dvi?
   factura            Factura?
+  notificaciones     NotificacionOrdenEnviada[]
   entregadaAt        DateTime?    @map("entregada_at")
   anuladaAt          DateTime?    @map("anulada_at")
   createdAt          DateTime     @default(now()) @map("created_at")
@@ -427,5 +434,29 @@ model RecordatorioEnviado {
 
   @@map("recordatorios_enviados")
   @@index([vehiculoId, enviadoAt])
+  @@index([clienteId])
+}
+
+/// One row per order-status notification actually attempted and resolved
+/// (sent or failed). Unlike RecordatorioEnviado there is no next cron sweep
+/// to retry a failed send on -- the estado transition that triggers a
+/// notification is a one-time event -- so the outcome must be recorded here
+/// to be visible at all. Outcomes where nothing was attempted (no SMTP
+/// configured, no client email on file) are surfaced immediately to the
+/// staff member who changed the estado and are never written here -- see
+/// the Fase 8 plan, Design decision 3.
+model NotificacionOrdenEnviada {
+  id           String                     @id @default(cuid())
+  ordenId      String                     @map("orden_id")
+  orden        OrdenTrabajo               @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  clienteId    String                     @map("cliente_id")
+  cliente      Cliente                    @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  estado       EstadoOrden
+  emailDestino String                     @map("email_destino")
+  resultado    ResultadoNotificacionOrden
+  enviadoAt    DateTime                   @default(now()) @map("enviado_at")
+
+  @@map("notificaciones_orden_enviadas")
+  @@index([ordenId, enviadoAt])
   @@index([clienteId])
 }

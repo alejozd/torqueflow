@@ -235,6 +235,14 @@ describe("provisionTenant", () => {
     expect(await tenantDb.recordatorioEnviado.count()).toBe(0);
   });
 
+  it("exposes the notificaciones_orden_enviadas table on a freshly provisioned tenant", async () => {
+    await provisionTenant({ slug: SLUG, schemaName: SCHEMA });
+
+    const tenantDb = getTenantDb(SCHEMA);
+
+    expect(await tenantDb.notificacionOrdenEnviada.count()).toBe(0);
+  });
+
   it("refuses a second configuracion_smtp row: the singleton is a database invariant", async () => {
     await provisionTenant({ slug: SLUG, schemaName: SCHEMA });
 
