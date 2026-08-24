@@ -23,6 +23,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           {esAdmin ? <Link href="/reportes">Reportes</Link> : null}
           {esAdmin ? <Link href="/sedes">Sedes</Link> : null}
           {esAdmin ? <Link href="/usuarios">Usuarios</Link> : null}
+          {esAdmin ? <Link href="/configuracion-smtp">SMTP</Link> : null}
         </nav>
         <span>
           Sesión: {session.user.email} — {session.user.tenantSlug}
