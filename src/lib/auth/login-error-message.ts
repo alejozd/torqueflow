@@ -8,5 +8,8 @@ export function getLoginErrorMessage(code: string | undefined): string | null {
   if (code === "sede-requerida") {
     return "Tu sesión no tiene una sede activa. Vuelve a iniciar sesión.";
   }
+  if (code === "tenant-suspendido") {
+    return "Tu taller está suspendido. Contacta al proveedor del servicio.";
+  }
   return null;
 }

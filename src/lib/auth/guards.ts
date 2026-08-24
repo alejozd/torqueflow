@@ -15,6 +15,9 @@ export async function requireSession(): Promise<Session> {
   if (!tenant || tenant.schemaName !== session.user.tenantSchema) {
     redirect("/login?error=tenant-mismatch");
   }
+  if (tenant.estado === "SUSPENDIDO") {
+    redirect("/login?error=tenant-suspendido");
+  }
 
   // A session minted before Fase 6 (or any token that somehow lost the
   // field) carries no sedeActivaId. Without this guard, scopeOrden/scopeBodega/

@@ -72,6 +72,16 @@ describe("requireSession", () => {
 
     await expect(requireSession()).resolves.toBe(session);
   });
+
+  it("redirects to /login?error=tenant-suspendido when the tenant has been suspended mid-session", async () => {
+    const session = {
+      user: { id: "1", role: "ADMIN", tenantSlug: "taller-a", tenantSchema: "taller_a", sedeActivaId: "sede-1" },
+    };
+    mockAuth.mockResolvedValue(session);
+    mockResolveTenant.mockResolvedValue({ slug: "taller-a", schemaName: "taller_a", estado: "SUSPENDIDO" });
+
+    await expect(requireSession()).rejects.toThrow("REDIRECT:/login?error=tenant-suspendido");
+  });
 });
 
 describe("requireRole", () => {

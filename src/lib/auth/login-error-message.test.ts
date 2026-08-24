@@ -20,6 +20,12 @@ describe("getLoginErrorMessage", () => {
     );
   });
 
+  it("returns the tenant-suspended message for 'tenant-suspendido'", () => {
+    expect(getLoginErrorMessage("tenant-suspendido")).toBe(
+      "Tu taller está suspendido. Contacta al proveedor del servicio.",
+    );
+  });
+
   it("returns null when no code is provided", () => {
     expect(getLoginErrorMessage(undefined)).toBeNull();
   });

@@ -84,6 +84,15 @@ describe("authorizeCredentials", () => {
     expect(mockVerifyCredentials).toHaveBeenCalledWith(tenantDb, "user@example.com", "wrong");
   });
 
+  it("returns null for a suspended tenant without ever checking credentials", async () => {
+    mockResolveTenant.mockResolvedValue({ slug: "taller-perez", schemaName: "taller_perez", estado: "SUSPENDIDO" });
+
+    const result = await authorizeCredentials({ email: "a@a.test", password: "x", sedeId: "s1" });
+
+    expect(result).toBeNull();
+    expect(mockVerifyCredentials).not.toHaveBeenCalled();
+  });
+
   it("returns null and never resolves a sede when sedeId is missing", async () => {
     const result = await authorizeCredentials({ email: "user@example.com", password: "correct" });
 

@@ -54,4 +54,15 @@ describe("resolveTenant", () => {
 
     expect(result).toEqual({ slug: "taller-perez", schemaName: "taller_perez" });
   });
+
+  it("includes the tenant's estado in the resolved value", async () => {
+    const h = new Headers();
+    h.set(TENANT_SLUG_HEADER, "taller-perez");
+    mockHeaders.mockReturnValue(h);
+    mockFindUnique.mockResolvedValue({ slug: "taller-perez", schemaName: "taller_perez", estado: "SUSPENDIDO" });
+
+    const tenant = await resolveTenant();
+
+    expect(tenant).toEqual({ slug: "taller-perez", schemaName: "taller_perez", estado: "SUSPENDIDO" });
+  });
 });

@@ -5,6 +5,7 @@ import { TENANT_SLUG_HEADER } from "./constants";
 export interface ResolvedTenant {
   slug: string;
   schemaName: string;
+  estado: "ACTIVO" | "SUSPENDIDO";
 }
 
 /**
@@ -20,5 +21,5 @@ export async function resolveTenant(): Promise<ResolvedTenant | null> {
   const tenant = await publicDb.tenant.findUnique({ where: { slug } });
   if (!tenant) return null;
 
-  return { slug: tenant.slug, schemaName: tenant.schemaName };
+  return { slug: tenant.slug, schemaName: tenant.schemaName, estado: tenant.estado };
 }

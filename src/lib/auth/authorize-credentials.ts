@@ -37,6 +37,10 @@ export async function authorizeCredentials(
 
   const tenant = await resolveTenant();
   if (!tenant) return null;
+  // A suspended tenant fails the same way a wrong password does -- no
+  // distinct message, consistent with this login flow already treating wrong
+  // password/unknown email/wrong sede as indistinguishable.
+  if (tenant.estado === "SUSPENDIDO") return null;
 
   const tenantDb = getTenantDb(tenant.schemaName);
   const usuario = await verifyCredentials(tenantDb, email, password);
