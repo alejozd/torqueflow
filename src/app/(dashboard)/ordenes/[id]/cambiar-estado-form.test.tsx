@@ -38,4 +38,18 @@ describe("CambiarEstadoForm", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("No se puede cambiar de BORRADOR a TERMINADA");
   });
+
+  it("shows the advertencia message when the action succeeds but flags a notification issue", async () => {
+    mockUpdateEstadoOrdenAction.mockResolvedValue({
+      error: null,
+      advertencia: "Estado actualizado. El correo del taller no está configurado, no se notificó al cliente.",
+    });
+    render(<CambiarEstadoForm ordenId="o1" estadoActual="BORRADOR" />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Cambiar estado" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "El correo del taller no está configurado, no se notificó al cliente.",
+    );
+  });
 });

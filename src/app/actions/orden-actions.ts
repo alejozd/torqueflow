@@ -2,11 +2,22 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth/guards";
-import { getTenantDb } from "@/lib/db/tenant-client";
+import { getTenantDb, type TenantPrismaClient } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { ordenTrabajoInputSchema, estadoOrdenSchema } from "@/lib/validation/orden";
 import { isValidEstadoTransition } from "@/lib/orden/estado-transitions";
 import { scopeOrden } from "@/lib/sede/scope";
+import {
+  CONFIGURACION_SMTP_ID,
+  descifrarConfiguracionSmtp,
+  type ConfiguracionSmtpAlmacenada,
+} from "@/lib/email/smtp-config";
+import { enviarEmail } from "@/lib/email/enviar-email";
+import { esEstadoNotificable, type EstadoNotificable } from "@/lib/notificaciones/plantilla";
+import {
+  enviarNotificacionEstadoOrden,
+  type ResultadoNotificacion,
+} from "@/lib/notificaciones/enviar-notificacion-estado";
 import type { EstadoOrden, OrdenTrabajo, Prisma } from "@/generated/prisma-tenant";
 
 export interface OrdenFormState {
@@ -116,6 +127,68 @@ export async function createOrdenAction(
 
 export interface EstadoFormState {
   error: string | null;
+  advertencia?: string | null;
+}
+
+const ADVERTENCIA_POR_RESULTADO: Partial<Record<ResultadoNotificacion, string>> = {
+  SIN_SMTP_ACTIVO:
+    "Estado actualizado. El correo del taller no está configurado, no se notificó al cliente.",
+  SIN_EMAIL_CLIENTE:
+    "Estado actualizado. El cliente no tiene un correo registrado, no se le notificó.",
+  FALLO_ENVIO:
+    "Estado actualizado, pero no se pudo enviar la notificación por correo al cliente.",
+};
+
+async function notificarCambioEstadoOrden(
+  tenantDb: TenantPrismaClient,
+  params: {
+    ordenId: string;
+    clienteId: string;
+    clienteNombre: string;
+    clienteEmail: string | null;
+    placa: string;
+    marca: string;
+    modelo: string;
+    estado: EstadoNotificable;
+  },
+): Promise<string | null> {
+  const filaSmtp = await tenantDb.configuracionSmtp.findUnique({ where: { id: CONFIGURACION_SMTP_ID } });
+  const smtp =
+    filaSmtp && filaSmtp.activo
+      ? descifrarConfiguracionSmtp(filaSmtp as ConfiguracionSmtpAlmacenada)
+      : null;
+
+  const resultado = await enviarNotificacionEstadoOrden(
+    { smtp, enviarEmail },
+    {
+      clienteNombre: params.clienteNombre,
+      clienteEmail: params.clienteEmail,
+      placa: params.placa,
+      marca: params.marca,
+      modelo: params.modelo,
+      estado: params.estado,
+    },
+  );
+
+  if (resultado === "ENVIADA" || resultado === "FALLO_ENVIO") {
+    try {
+      await tenantDb.notificacionOrdenEnviada.create({
+        data: {
+          ordenId: params.ordenId,
+          clienteId: params.clienteId,
+          estado: params.estado,
+          emailDestino: params.clienteEmail as string,
+          resultado,
+        },
+      });
+    } catch {
+      // Best-effort audit row: the email either went out or didn't, and the
+      // estado change already committed either way. A failed log write must
+      // not surface as an action error.
+    }
+  }
+
+  return ADVERTENCIA_POR_RESULTADO[resultado] ?? null;
 }
 
 export async function updateEstadoOrdenAction(
@@ -133,6 +206,7 @@ export async function updateEstadoOrdenAction(
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
     where: { id, ...scopeOrden(session.user.sedeActivaId) },
+    include: { cliente: true, vehiculo: true },
   });
   if (!orden) {
     return { error: "Orden no encontrada" };
@@ -156,5 +230,20 @@ export async function updateEstadoOrdenAction(
   }
 
   revalidatePath(`/ordenes/${id}`);
-  return { error: null };
+
+  const nuevoEstado = parsedEstado.data;
+  const advertencia = esEstadoNotificable(nuevoEstado)
+    ? await notificarCambioEstadoOrden(tenantDb, {
+        ordenId: id,
+        clienteId: orden.clienteId,
+        clienteNombre: orden.cliente.nombre,
+        clienteEmail: orden.cliente.email,
+        placa: orden.vehiculo.placa,
+        marca: orden.vehiculo.marca,
+        modelo: orden.vehiculo.modelo,
+        estado: nuevoEstado,
+      })
+    : null;
+
+  return { error: null, advertencia };
 }

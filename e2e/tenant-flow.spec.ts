@@ -157,6 +157,12 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   await page.getByRole("button", { name: "Cambiar estado" }).click();
   await expect(page.getByRole("heading", { name: "Estado: EN_PROCESO" })).toBeVisible();
 
+  // SMTP is not configured yet at this point in the flow, so the estado
+  // change must still succeed and surface a non-blocking advertencia.
+  await expect(
+    page.getByRole("status").filter({ hasText: "no se notificó al cliente" }),
+  ).toBeVisible();
+
   await page.getByLabel("Cambiar estado a").selectOption("TERMINADA");
   await page.getByRole("button", { name: "Cambiar estado" }).click();
   await expect(page.getByRole("heading", { name: "Estado: TERMINADA" })).toBeVisible();

@@ -5,7 +5,7 @@ import { updateEstadoOrdenAction, type EstadoFormState } from "@/app/actions/ord
 import { ESTADO_ORDEN_TRANSITIONS } from "@/lib/orden/estado-transitions";
 import type { EstadoOrden } from "@/generated/prisma-tenant";
 
-const initialState: EstadoFormState = { error: null };
+const initialState: EstadoFormState = { error: null, advertencia: null };
 
 const ESTADO_LABELS: Record<EstadoOrden, string> = {
   BORRADOR: "Borrador",
@@ -40,6 +40,7 @@ export function CambiarEstadoForm({ ordenId, estadoActual }: { ordenId: string; 
       </button>
 
       {state.error ? <p role="alert">{state.error}</p> : null}
+      {state.advertencia ? <p role="status">{state.advertencia}</p> : null}
     </form>
   );
 }
