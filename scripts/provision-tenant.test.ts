@@ -252,11 +252,27 @@ describe("provisionTenant", () => {
   });
 
   it("backfilled every pre-existing tenant row to the Avanzado plan", async () => {
-    const planAvanzado = await publicDb.plan.findUniqueOrThrow({ where: { nombre: "Avanzado" } });
-    const otrosTenants = await publicDb.tenant.findMany({ where: { schemaName: { not: SCHEMA } } });
+    // Snapshot which rows already existed BEFORE this test's own
+    // provisionTenant() call, and only assert against that snapshot -- not
+    // "everything else in the tenants table right now". Other test files
+    // (src/lib/db/tenant-client.test.ts, scripts/seed-tenant-user.test.ts) run
+    // concurrently against the same shared Postgres database (see
+    // vitest.config.ts) and provision their own fixture tenant in a
+    // file-scoped beforeAll, cleaning it up only in afterAll. A fixture
+    // tenant that starts existing DURING this test's execution is never in
+    // the snapshot and never checked -- this test only makes claims about
+    // rows that were already there when it started, which is what
+    // "backfill" means to verify.
+    const preExisting = await publicDb.tenant.findMany({ select: { id: true } });
+    const preExistingIds = preExisting.map((tenant) => tenant.id);
 
-    for (const otro of otrosTenants) {
-      expect(otro.planId).toBe(planAvanzado.id);
+    await provisionTenant({ slug: SLUG, schemaName: SCHEMA });
+
+    const planAvanzado = await publicDb.plan.findUniqueOrThrow({ where: { nombre: "Avanzado" } });
+    const backfilledTenants = await publicDb.tenant.findMany({ where: { id: { in: preExistingIds } } });
+
+    for (const tenant of backfilledTenants) {
+      expect(tenant.planId).toBe(planAvanzado.id);
     }
   });
 
