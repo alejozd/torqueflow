@@ -507,3 +507,9 @@ All 20 tasks + 1 review-driven fix round (1 Critical + 1 Important fixed, 1 Impo
 - Explicitly deferred by user decision, not gaps: Plan/maxSedes billing-tier enforcement (Fase 9), inventory transfers between sedes (blocked by the Repuesto.codigo constraint above), live sede-switching without re-login (would need this app's first SessionProvider)
 - Technical debt documented: 8 Minor findings from the final review (duplicate test, JWT/Session type-honesty gap, unvalidated usuarioId in setUsuarioSedesAction, self-sede-deletion by ADMIN, backfill tiebreaker, login-message UX note, dead e2e dialog handler, reporte-actions.ts's un-DRY scope filter), plus all backlog carried from Fases 1-5
 - Status: Fase 6 complete, ready for Fase 7
+
+======================================================================
+FASE 7 (CITAS + RECORDATORIOS DE MANTENIMIENTO PREVENTIVO): IN PROGRESS
+======================================================================
+
+Task 1: complete (commit 1e72ba4, subagent-driven, reviewed). prisma/tenant/schema.prisma gains EstadoCita/MotivoRecordatorio enums, back-relations on Usuario/Cliente/Vehiculo/Sede, and three new models -- Cita (own sedeId, matches OrdenTrabajo's pattern), ConfiguracionSmtp (singleton row, id literal "singleton", enforced by a DB CHECK constraint so "at most one row" is a database invariant not an app convention), RecordatorioEnviado (dedup/audit log, not a field on Vehiculo). Migration SQL hand-written to match. Reviewer: spec ✅, task quality Approved, 0 Critical, 1 Important flagged as plan-mandated (`configuracion_smtp` uses `@@map` singular instead of the phase's stated "tabla_en_plural" convention) -- accepted as a deliberate, defensible exception given the model is a true DB-enforced singleton (brief's own design decision #1); not a defect, no fix dispatched. 13/13 tests (11 pre-existing + 2 new), tsc clean.
