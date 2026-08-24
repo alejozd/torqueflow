@@ -1,0 +1,44 @@
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+
+const mockSignIn = vi.fn();
+const mockPush = vi.fn();
+vi.mock("next-auth/react", () => ({ signIn: (...args: unknown[]) => mockSignIn(...args) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush }) }));
+
+import { SuperAdminLoginForm } from "./superadmin-login-form";
+
+describe("SuperAdminLoginForm", () => {
+  beforeEach(() => {
+    mockSignIn.mockReset();
+    mockPush.mockReset();
+  });
+
+  it("redirects to /superadmin on a successful sign-in", async () => {
+    mockSignIn.mockResolvedValue({ ok: true });
+    render(<SuperAdminLoginForm />);
+
+    await userEvent.type(screen.getByLabelText("Correo"), "owner@torqueflow.test");
+    await userEvent.type(screen.getByLabelText("Contraseña"), "clave-larga-segura");
+    await userEvent.click(screen.getByRole("button", { name: "Ingresar" }));
+
+    expect(mockSignIn).toHaveBeenCalledWith("credentials", {
+      email: "owner@torqueflow.test",
+      password: "clave-larga-segura",
+      redirect: false,
+    });
+    expect(mockPush).toHaveBeenCalledWith("/superadmin");
+  });
+
+  it("shows one generic error on failure, never distinguishing wrong email from wrong password", async () => {
+    mockSignIn.mockResolvedValue({ ok: false });
+    render(<SuperAdminLoginForm />);
+
+    await userEvent.type(screen.getByLabelText("Correo"), "owner@torqueflow.test");
+    await userEvent.type(screen.getByLabelText("Contraseña"), "incorrecta");
+    await userEvent.click(screen.getByRole("button", { name: "Ingresar" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Correo o contraseña incorrectos");
+  });
+});
