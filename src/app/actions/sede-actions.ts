@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { sedeInputSchema } from "@/lib/validation/sede";
+import { obtenerLimitesPlan } from "@/lib/planes/limites";
 import type { Sede } from "@/generated/prisma-tenant";
 
 export interface SedeFormState {
@@ -52,6 +53,17 @@ export async function createSedeAction(
 
   const session = await requireRole(["ADMIN"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const { maxSedes } = await obtenerLimitesPlan(session.user.tenantSchema);
+  if (maxSedes !== null) {
+    const actuales = await tenantDb.sede.count();
+    if (actuales >= maxSedes) {
+      return {
+        error: `Tu plan permite hasta ${maxSedes} sede(s). Actualiza tu plan para agregar más.`,
+        success: false,
+      };
+    }
+  }
 
   try {
     await tenantDb.sede.create({

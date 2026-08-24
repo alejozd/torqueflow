@@ -34,6 +34,11 @@ vi.mock("@/lib/db/tenant-client", () => ({
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
+const mockObtenerLimitesPlan = vi.fn();
+vi.mock("@/lib/planes/limites", () => ({
+  obtenerLimitesPlan: (...args: unknown[]) => mockObtenerLimitesPlan(...args),
+}));
+
 import {
   createSedeAction,
   updateSedeAction,
@@ -49,6 +54,8 @@ describe("createSedeAction", () => {
   beforeEach(() => {
     mockRequireRole.mockReset().mockResolvedValue(ADMIN);
     mockCreate.mockReset();
+    mockObtenerLimitesPlan.mockReset().mockResolvedValue({ maxUsuarios: null, maxSedes: null });
+    mockSedeCount.mockReset();
   });
 
   it("is ADMIN-only", async () => {
@@ -87,6 +94,44 @@ describe("createSedeAction", () => {
 
     await expect(createSedeAction(initialState, formData)).rejects.toThrow("REDIRECT:/login?error=forbidden");
     expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("refuses to create a sede once the plan's maxSedes limit is reached", async () => {
+    mockObtenerLimitesPlan.mockResolvedValue({ maxUsuarios: null, maxSedes: 1 });
+    mockSedeCount.mockResolvedValue(1);
+    const formData = new FormData();
+    formData.set("nombre", "Sede norte");
+
+    const result = await createSedeAction(initialState, formData);
+
+    expect(result).toEqual({
+      error: "Tu plan permite hasta 1 sede(s). Actualiza tu plan para agregar más.",
+      success: false,
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("allows creating a sede when under the plan's maxSedes limit", async () => {
+    mockObtenerLimitesPlan.mockResolvedValue({ maxUsuarios: null, maxSedes: 2 });
+    mockSedeCount.mockResolvedValue(1);
+    mockCreate.mockResolvedValue({ id: "sede-2" });
+    const formData = new FormData();
+    formData.set("nombre", "Sede norte");
+
+    const result = await createSedeAction(initialState, formData);
+
+    expect(result).toEqual({ error: null, success: true });
+  });
+
+  it("skips the count query entirely when maxSedes is null (Avanzado)", async () => {
+    mockObtenerLimitesPlan.mockResolvedValue({ maxUsuarios: null, maxSedes: null });
+    mockCreate.mockResolvedValue({ id: "sede-2" });
+    const formData = new FormData();
+    formData.set("nombre", "Sede norte");
+
+    await createSedeAction(initialState, formData);
+
+    expect(mockSedeCount).not.toHaveBeenCalled();
   });
 });
 
