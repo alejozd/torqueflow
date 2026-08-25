@@ -757,6 +757,84 @@ Estado: cerrada.
   tests, `facturas` + `entradas-mercancia`) verde.
 - Commit: `23c9f01`.
 
+### Fase 14 / Tarea 33 — Formulario `nueva-cita`
+
+Estado: cerrada.
+
+- `nueva-cita-form.tsx`: primer caso con `.transform()` que CAMBIA de
+  tipo (no solo coerción numérica) — `fechaHora` va de `string`
+  (`datetime-local`) a `Date`. **Nuevo descubrimiento**: con un
+  `.transform()` de tipo real, `useForm<Input>` no basta — hay que usar
+  la forma de 3 genéricos `useForm<TInput, TContext, TOutput>` con
+  `TOutput = z.output<typeof schema>` (aquí `unknown` para `TContext`).
+  Sin esto, `tsc` rechaza el resolver: "Type 'Date' is not assignable to
+  type 'string'". Los casos anteriores con solo `z.coerce.number()`
+  (repuestos, orden, etc.) NUNCA necesitaron esto porque `z.input`
+  alcanzaba — el problema es específico de transforms que cambian de
+  TIPO, no de coerciones numéricas simples.
+- Ningún test tocado — los 3 existentes son solo de render estático, sin
+  ningún submit.
+- Verificación: `tsc --noEmit` limpio. `npx vitest run` (2 archivos/5
+  tests, incluye `cambiar-estado-cita-form`) verde.
+- Commit: `[pendiente]`.
+
+### Fase 14 / Tarea 34 — Formulario `configuracion-smtp`
+
+Estado: cerrada.
+
+- Formulario más complejo de los ~25: `puerto` (`z.coerce.number`),
+  `password` con regla condicional (obligatoria solo cuando
+  `configuracion` es `null`, igual que `required={!configuracion}` ya
+  hacía en el original), y `activo` (checkbox suelto, no en grupo como
+  `sedeIds`).
+- **`activo` necesitó override de tipo**: un checkbox suelto sin `name`
+  compartido reporta un booleano a RHF/zod (no el string "on"/"" que
+  `smtpConfigInputSchema.activo` espera de `FormData` cruda) —
+  `.extend({ activo: z.boolean().optional() })` solo para el tipo del
+  formulario; el `FormData` real que se envía al server sigue leyendo el
+  `checked` nativo del DOM vía `formRef`, sin pasar por el valor
+  tipado de RHF.
+- **Regla condicional (password obligatoria solo al crear) con
+  `.superRefine()`, no `.extend()`**: `.extend()` cambiaría el TIPO del
+  campo entre las dos ramas (`configuracion`/`!configuracion`), pero
+  `useForm` se llama incondicionalmente (regla de hooks) y necesita un
+  tipo estable. `.superRefine((data, ctx) => { if (!configuracion &&
+  !data.password) ctx.addIssue({code: "custom", path: ["password"],
+  message: "..."}) })` agrega el error condicional sin tocar el tipo —
+  mismo mecanismo de `path` que el `.refine()` de `itemOrdenInputSchema`
+  (tarea 25), pero con `path` explícito esta vez, así que aparece en
+  `errors.password` normal, no en `errors[""]`.
+- Ningún test tocado — los 6 existentes son de render/atributos
+  estáticos (incluye `toBeRequired()` en password y `toBeChecked()` en
+  el checkbox), ninguno ejercitaba submit.
+- Verificación: `tsc --noEmit` limpio. `npx vitest run` (1 archivo/6
+  tests) verde. `smtp-actions.test.ts` (13/13) verde sin tocarlo,
+  confirma que el server action no cambió.
+- Commit: `[pendiente]`.
+
+### Fase 14 / Tarea 35 — Formularios de un solo `<select>` de enum fijo: sin RHF (evaluado caso por caso)
+
+Estado: cerrada — evaluación, sin cambios de código.
+
+- `cambiar-estado-cita-form.tsx`, `cambiar-estado-form.tsx` (ordenes),
+  `dvi-checklist-form.tsx`, `dvi-foto-form.tsx`: los 4 son uno o más
+  `<select>` de un enum fijo (mas, en `dvi-foto-form`, un `<input
+  type="file">` obligatorio) sin ningún campo de texto/número libre.
+  Cada `<select>` siempre tiene un valor preseleccionado válido — no
+  existe un estado "inválido" que RHF+zod pueda bloquear que el HTML
+  nativo no bloquee ya (o que, en el caso del archivo, el propio server
+  ya rechaza con un mensaje claro). Mismo criterio que la Fase 13 aplicó
+  a listas anidadas ("no forzar semántica donde no aplica" —
+  documentado en la nota de patrón general de esta Fase).
+- Se dejan tal cual — ninguno de los 4 usa `noValidate`+RHF, siguen con
+  `useActionState` puro. Con esto, **los ~25 formularios de la Fase 14
+  quedan resueltos**: 21 migrados a RHF+zod, 4 evaluados y descartados a
+  propósito.
+- Commit: N/A (sin cambios de código, solo esta entrada del ledger).
+
+**Fase 14 completa — Fases 11 a 14 completas. Pendiente de aprobación
+final del usuario.**
+
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
 Estado: cerrada.
