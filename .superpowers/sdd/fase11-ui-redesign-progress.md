@@ -196,6 +196,28 @@ Estado: cerrada.
   también verde (sanity check, no debería verse afectado).
 - Commit: `cb8b899`.
 
+### Fase 13 / Tarea 6 — Módulo `ordenes`
+
+Estado: cerrada.
+
+- `ordenes/page.tsx`: lista migrada a `DataTable` (1 columna "Orden",
+  mismo `<Link>` combinado placa/cliente/estado-label). `emptyMessage`:
+  "No hay órdenes de trabajo en este estado." Los tabs de filtro por
+  estado (`<nav>` de `<Link>`) no se tocan — no son parte de la tabla.
+- `ordenes/[id]/page.tsx`: 3 listas anidadas migradas — "Ítems
+  (repuestos)", "Mano de obra" (ambas texto plano, sin link) y "DVI
+  fotos" (`<img>` con el mismo `alt` de antes). `emptyMessage` nuevo para
+  las 3 (ninguna tenía antes).
+- Mismo principio que el módulo `clientes`: texto/contenido de celda
+  idéntico al `<li>` original, cero columnas nuevas. Ningún test de
+  `tenant-flow.spec.ts` tocado — todas las aserciones relevantes
+  (`getByRole("link", {name: /ABC123/})`, `getByText(substring)`,
+  `getByRole("img", {name})`) matchean por contenido, no por estructura.
+- Verificación: `tsc --noEmit` limpio. `npx vitest run` (5 archivos/13
+  tests) verde sin tocar tests. `npx playwright test
+  e2e/tenant-flow.spec.ts` completo: verde.
+- Commit: `[pendiente]`.
+
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
 Estado: cerrada.

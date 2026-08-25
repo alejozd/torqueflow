@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listOrdenes } from "@/app/actions/orden-actions";
 import type { EstadoOrden } from "@/generated/prisma-tenant";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
 
 const ESTADOS_VALIDOS: EstadoOrden[] = ["BORRADOR", "EN_PROCESO", "TERMINADA", "ENTREGADA", "ANULADA"];
 
@@ -11,6 +12,19 @@ const ESTADO_LABELS: Record<EstadoOrden, string> = {
   ENTREGADA: "Entregada",
   ANULADA: "Anulada",
 };
+
+type OrdenRow = Awaited<ReturnType<typeof listOrdenes>>[number];
+
+const COLUMNS: DataTableColumn<OrdenRow>[] = [
+  {
+    header: "Orden",
+    cell: (orden) => (
+      <Link href={`/ordenes/${orden.id}`}>
+        {orden.vehiculo.placa} — {orden.cliente.nombre} — {ESTADO_LABELS[orden.estado]}
+      </Link>
+    ),
+  },
+];
 
 export default async function OrdenesPage({
   searchParams,
@@ -34,15 +48,12 @@ export default async function OrdenesPage({
         ))}
       </nav>
 
-      <ul>
-        {ordenes.map((orden) => (
-          <li key={orden.id}>
-            <Link href={`/ordenes/${orden.id}`}>
-              {orden.vehiculo.placa} — {orden.cliente.nombre} — {ESTADO_LABELS[orden.estado]}
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <DataTable
+        columns={COLUMNS}
+        rows={ordenes}
+        getRowKey={(orden) => orden.id}
+        emptyMessage="No hay órdenes de trabajo en este estado."
+      />
     </main>
   );
 }

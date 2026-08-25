@@ -9,6 +9,47 @@ import { DviChecklistForm } from "./dvi-checklist-form";
 import { DviFotoForm } from "./dvi-foto-form";
 import { GenerarFacturaForm } from "./generar-factura-form";
 import type { DviChecklist } from "@/lib/dvi/checklist-items";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
+
+type Orden = NonNullable<Awaited<ReturnType<typeof getOrden>>>;
+type ItemRow = Orden["items"][number];
+type ManoObraRow = Orden["manoDeObra"][number];
+type FotoRow = NonNullable<Orden["dvi"]>["fotos"][number];
+
+const ITEMS_COLUMNS: DataTableColumn<ItemRow>[] = [
+  {
+    header: "Ítem",
+    cell: (item) => (
+      <>
+        {item.descripcion} — {item.cantidad} x {item.precioUnitario.toString()}
+      </>
+    ),
+  },
+];
+
+const MANO_OBRA_COLUMNS: DataTableColumn<ManoObraRow>[] = [
+  {
+    header: "Mano de obra",
+    cell: (linea) => (
+      <>
+        {linea.descripcion} — {linea.horas.toString()}h x {linea.precioHora.toString()}
+      </>
+    ),
+  },
+];
+
+const FOTOS_COLUMNS: DataTableColumn<FotoRow>[] = [
+  {
+    header: "Foto",
+    cell: (foto) => (
+      <>
+        {foto.momento === "ANTES" ? "Antes" : "Después"}:{" "}
+        {/* eslint-disable-next-line @next/next/no-img-element -- auth-gated route, next/image's optimizer can't reach it */}
+        <img src={foto.url} alt={`Foto ${foto.momento.toLowerCase()} de la inspección`} width={200} />
+      </>
+    ),
+  },
+];
 
 export default async function OrdenDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -33,36 +74,31 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
 
       <h2>Ítems (repuestos)</h2>
       {!orden.factura && <AgregarItemForm ordenId={orden.id} repuestos={repuestos} />}
-      <ul>
-        {orden.items.map((item) => (
-          <li key={item.id}>
-            {item.descripcion} — {item.cantidad} x {item.precioUnitario.toString()}
-          </li>
-        ))}
-      </ul>
+      <DataTable
+        columns={ITEMS_COLUMNS}
+        rows={orden.items}
+        getRowKey={(item) => item.id}
+        emptyMessage="Esta orden no tiene ítems agregados."
+      />
 
       <h2>Mano de obra</h2>
       {!orden.factura && <AgregarManoObraForm ordenId={orden.id} />}
-      <ul>
-        {orden.manoDeObra.map((linea) => (
-          <li key={linea.id}>
-            {linea.descripcion} — {linea.horas.toString()}h x {linea.precioHora.toString()}
-          </li>
-        ))}
-      </ul>
+      <DataTable
+        columns={MANO_OBRA_COLUMNS}
+        rows={orden.manoDeObra}
+        getRowKey={(linea) => linea.id}
+        emptyMessage="Esta orden no tiene mano de obra registrada."
+      />
 
       <h2>Inspección vehicular digital (DVI)</h2>
       <DviChecklistForm ordenId={orden.id} checklist={(orden.dvi?.checklist as DviChecklist | undefined) ?? null} />
       <DviFotoForm ordenId={orden.id} />
-      <ul>
-        {orden.dvi?.fotos.map((foto) => (
-          <li key={foto.id}>
-            {foto.momento === "ANTES" ? "Antes" : "Después"}:{" "}
-            {/* eslint-disable-next-line @next/next/no-img-element -- auth-gated route, next/image's optimizer can't reach it */}
-            <img src={foto.url} alt={`Foto ${foto.momento.toLowerCase()} de la inspección`} width={200} />
-          </li>
-        ))}
-      </ul>
+      <DataTable
+        columns={FOTOS_COLUMNS}
+        rows={orden.dvi?.fotos ?? []}
+        getRowKey={(foto) => foto.id}
+        emptyMessage="Esta orden no tiene fotos de inspección."
+      />
 
       <h2>Facturación</h2>
       {orden.factura ? (
