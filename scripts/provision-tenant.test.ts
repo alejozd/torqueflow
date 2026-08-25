@@ -252,26 +252,24 @@ describe("provisionTenant", () => {
   });
 
   it("backfilled every pre-existing tenant row to the Avanzado plan", async () => {
-    // Snapshot which rows already existed BEFORE this test's own
-    // provisionTenant() call, and only assert against that snapshot -- not
-    // "everything else in the tenants table right now". Other test files
-    // (src/lib/db/tenant-client.test.ts, scripts/seed-tenant-user.test.ts) run
-    // concurrently against the same shared Postgres database (see
-    // vitest.config.ts) and provision their own fixture tenant in a
-    // file-scoped beforeAll, cleaning it up only in afterAll. A fixture
-    // tenant that starts existing DURING this test's execution is never in
-    // the snapshot and never checked -- this test only makes claims about
-    // rows that were already there when it started, which is what
-    // "backfill" means to verify.
-    const preExisting = await publicDb.tenant.findMany({ select: { id: true } });
-    const preExistingIds = preExisting.map((tenant) => tenant.id);
-
-    await provisionTenant({ slug: SLUG, schemaName: SCHEMA });
-
+    // "Pre-existing" means "created before this migration ran" -- not
+    // "existed when this test started". The earlier snapshot-at-test-start
+    // approach was still wrong: any tenant provisioned by ANOTHER process
+    // (a developer's own manual testing, a different test file's fixture)
+    // between the migration and this test run would be snapshotted too, and
+    // it correctly got the NEW default (Básico), not Avanzado -- asserting
+    // Avanzado against it was a false failure unrelated to backfill
+    // correctness. The `planes` table itself did not exist before this
+    // migration, so any Tenant row created before the Avanzado Plan row's
+    // own timestamp is provably a genuine pre-migration row that went
+    // through the backfill UPDATE, regardless of what else has been
+    // provisioned on this shared dev database since.
     const planAvanzado = await publicDb.plan.findUniqueOrThrow({ where: { nombre: "Avanzado" } });
-    const backfilledTenants = await publicDb.tenant.findMany({ where: { id: { in: preExistingIds } } });
+    const preMigrationTenants = await publicDb.tenant.findMany({
+      where: { createdAt: { lt: planAvanzado.createdAt } },
+    });
 
-    for (const tenant of backfilledTenants) {
+    for (const tenant of preMigrationTenants) {
       expect(tenant.planId).toBe(planAvanzado.id);
     }
   });

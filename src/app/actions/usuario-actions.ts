@@ -145,7 +145,7 @@ export async function createUsuarioAction(
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
 
   try {
-    await tenantDb.usuario.create({
+    const usuario = await tenantDb.usuario.create({
       data: {
         nombre: parsed.data.nombre,
         email: parsed.data.email,
@@ -153,6 +153,17 @@ export async function createUsuarioAction(
         role: parsed.data.role,
       },
     });
+
+    // Day-one login: a TECNICO/RECEPCION with no UsuarioSede row cannot pass
+    // the sede gate in authorizeCredentials, so every created user is granted
+    // the tenant's oldest sede -- the same day-one grant seedTenantUser makes.
+    // Without this, a freshly created user's login fails with the deliberately
+    // uniform "credenciales incorrectas" message, indistinguishable from a
+    // wrong password and impossible for the ADMIN to diagnose.
+    const sede = await tenantDb.sede.findFirst({ orderBy: { createdAt: "asc" }, select: { id: true } });
+    if (sede) {
+      await tenantDb.usuarioSede.create({ data: { usuarioId: usuario.id, sedeId: sede.id } });
+    }
   } catch (err) {
     return { error: friendlyPrismaErrorMessage(err, "Error al crear el usuario"), success: false };
   }

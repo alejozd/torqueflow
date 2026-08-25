@@ -46,6 +46,31 @@ describe("listTenantsConPlan", () => {
     expect(tenants).toHaveLength(1);
     expect(tenants[0].plan.nombre).toBe("Básico");
   });
+
+  it("propagates the redirect rejection and never queries the database when requireSuperAdmin rejects", async () => {
+    mockRequireSuperAdmin.mockReset().mockRejectedValue(new Error("REDIRECT:/superadmin/login"));
+
+    await expect(listTenantsConPlan()).rejects.toThrow("REDIRECT:/superadmin/login");
+    expect(mockTenantFindMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("listPlanes", () => {
+  it("requires a super-admin session and returns every plan", async () => {
+    mockPlanFindMany.mockResolvedValue([{ id: "plan_basico", nombre: "Básico" }]);
+
+    const planes = await listPlanes();
+
+    expect(mockRequireSuperAdmin).toHaveBeenCalled();
+    expect(planes).toHaveLength(1);
+  });
+
+  it("propagates the redirect rejection and never queries the database when requireSuperAdmin rejects", async () => {
+    mockRequireSuperAdmin.mockReset().mockRejectedValue(new Error("REDIRECT:/superadmin/login"));
+
+    await expect(listPlanes()).rejects.toThrow("REDIRECT:/superadmin/login");
+    expect(mockPlanFindMany).not.toHaveBeenCalled();
+  });
 });
 
 describe("cambiarEstadoTenantAction", () => {
@@ -69,6 +94,17 @@ describe("cambiarEstadoTenantAction", () => {
     expect(result.error).toBe("Estado inválido");
     expect(mockTenantUpdate).not.toHaveBeenCalled();
   });
+
+  it("propagates the redirect rejection and never writes when requireSuperAdmin rejects", async () => {
+    mockRequireSuperAdmin.mockReset().mockRejectedValue(new Error("REDIRECT:/superadmin/login"));
+    const formData = new FormData();
+    formData.set("estado", "SUSPENDIDO");
+
+    await expect(cambiarEstadoTenantAction("t1", initialState, formData)).rejects.toThrow(
+      "REDIRECT:/superadmin/login",
+    );
+    expect(mockTenantUpdate).not.toHaveBeenCalled();
+  });
 });
 
 describe("cambiarPlanTenantAction", () => {
@@ -81,5 +117,16 @@ describe("cambiarPlanTenantAction", () => {
 
     expect(result).toEqual({ error: null, success: true });
     expect(mockTenantUpdate).toHaveBeenCalledWith({ where: { id: "t1" }, data: { planId: "plan_estandar" } });
+  });
+
+  it("propagates the redirect rejection and never writes when requireSuperAdmin rejects", async () => {
+    mockRequireSuperAdmin.mockReset().mockRejectedValue(new Error("REDIRECT:/superadmin/login"));
+    const formData = new FormData();
+    formData.set("planId", "plan_estandar");
+
+    await expect(cambiarPlanTenantAction("t1", initialState, formData)).rejects.toThrow(
+      "REDIRECT:/superadmin/login",
+    );
+    expect(mockTenantUpdate).not.toHaveBeenCalled();
   });
 });

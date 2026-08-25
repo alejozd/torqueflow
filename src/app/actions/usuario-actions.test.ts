@@ -14,7 +14,9 @@ const mockUsuarioDelete = vi.fn();
 const mockUsuarioCount = vi.fn();
 const mockUsuarioSedeDeleteMany = vi.fn();
 const mockUsuarioSedeCreateMany = vi.fn();
+const mockUsuarioSedeCreate = vi.fn();
 const mockSedeFindMany = vi.fn();
+const mockSedeFindFirst = vi.fn();
 const mockTransaction = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
@@ -26,8 +28,12 @@ vi.mock("@/lib/db/tenant-client", () => ({
       delete: mockUsuarioDelete,
       count: mockUsuarioCount,
     },
-    sede: { findMany: mockSedeFindMany },
-    usuarioSede: { deleteMany: mockUsuarioSedeDeleteMany, createMany: mockUsuarioSedeCreateMany },
+    sede: { findMany: mockSedeFindMany, findFirst: mockSedeFindFirst },
+    usuarioSede: {
+      deleteMany: mockUsuarioSedeDeleteMany,
+      createMany: mockUsuarioSedeCreateMany,
+      create: mockUsuarioSedeCreate,
+    },
     $transaction: (...args: unknown[]) => mockTransaction(...args),
   }),
 }));
@@ -166,6 +172,8 @@ describe("createUsuarioAction", () => {
     mockObtenerLimitesPlan.mockReset().mockResolvedValue({ maxUsuarios: null, maxSedes: null });
     mockUsuarioCount.mockReset();
     mockUsuarioCreate.mockReset();
+    mockSedeFindFirst.mockReset().mockResolvedValue({ id: "sede-1" });
+    mockUsuarioSedeCreate.mockReset().mockResolvedValue({});
   });
 
   it("creates a usuario when under the plan's maxUsuarios limit", async () => {
@@ -189,6 +197,38 @@ describe("createUsuarioAction", () => {
         role: "TECNICO",
       },
     });
+  });
+
+  it("grants the tenant's oldest sede to the new usuario, so it can pass the login sede gate on day one", async () => {
+    mockUsuarioCreate.mockResolvedValue({ id: "u2" });
+    mockSedeFindFirst.mockResolvedValue({ id: "sede-vieja" });
+    const formData = new FormData();
+    formData.set("nombre", "Ana Pérez");
+    formData.set("email", "ana@taller.test");
+    formData.set("password", "contraseña-larga");
+    formData.set("role", "RECEPCION");
+
+    await createUsuarioAction(initialUsuarioState, formData);
+
+    expect(mockSedeFindFirst).toHaveBeenCalledWith({ orderBy: { createdAt: "asc" }, select: { id: true } });
+    expect(mockUsuarioSedeCreate).toHaveBeenCalledWith({
+      data: { usuarioId: "u2", sedeId: "sede-vieja" },
+    });
+  });
+
+  it("does not attempt a sede grant when the tenant has no sede at all", async () => {
+    mockUsuarioCreate.mockResolvedValue({ id: "u2" });
+    mockSedeFindFirst.mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("nombre", "Ana Pérez");
+    formData.set("email", "ana@taller.test");
+    formData.set("password", "contraseña-larga");
+    formData.set("role", "RECEPCION");
+
+    const result = await createUsuarioAction(initialUsuarioState, formData);
+
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockUsuarioSedeCreate).not.toHaveBeenCalled();
   });
 
   it("refuses to create a usuario once the plan's maxUsuarios limit is reached", async () => {
