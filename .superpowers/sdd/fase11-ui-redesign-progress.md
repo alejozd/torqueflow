@@ -15,6 +15,43 @@ vista queda sin modernizar al cierre de la Fase 14.
 
 Estado: en progreso.
 
+### Fase 11 / Tarea 2 — Shell del dashboard (sidebar)
+
+Estado: cerrada.
+
+- Agregado el componente compuesto `sidebar` de shadcn (+ `tooltip`, su
+  dependencia para el modo colapsado — no se usa el modo ícono, pero el
+  componente lo requiere igual).
+- Nuevo `src/app/(dashboard)/dashboard-sidebar.tsx` (cliente, usa
+  `usePathname()`): sidebar con los mismos 12 links, agrupados en
+  Operación / Inventario / Administración (esAdmin-only), ícono por link
+  (`lucide-react`), resaltado del link activo (`isActive` de
+  `SidebarMenuButton`, coincide con el pathname exacto o cualquier
+  subruta). `collapsible` se deja en su default (`offcanvas`) — nunca
+  colapsa a solo-íconos, así el texto de cada link siempre es visible
+  (necesario para `getByRole("link", {name})` del e2e).
+- `src/app/(dashboard)/layout.tsx` reescrito: `SidebarProvider` +
+  `DashboardSidebar` + `SidebarInset` con header (`SidebarTrigger` para
+  mobile, sesión/tenant, `Badge` para "Sede: X", y los botones). Sigue
+  siendo un server component — el `usePathname()` vive solo en el
+  componente cliente nuevo.
+- `sign-out-button.tsx`/`cambiar-sede-button.tsx`: mismo `onClick`/lógica,
+  ahora usan el `Button` de shadcn con ícono. Texto del botón sin cambios
+  ("Cerrar sesión"/"Cambiar de sede").
+- Nota técnica: shadcn (`@base-ui/react`) usa un prop `render` (no
+  `asChild` de Radix) para el patrón polimórfico —
+  `<SidebarMenuButton render={<Link href="..." />}>Texto</SidebarMenuButton>`.
+  El contenido va DENTRO de `SidebarMenuButton` (no en el `<Link>`), porque
+  `mergeProps` resuelve `children` con el objeto de la derecha ganando —
+  confirmado leyendo `node_modules/@base-ui/react/docs/react/utils/merge-props.md`
+  antes de escribir el componente, para no perder tiempo adivinando.
+- Verificación: `tsc --noEmit` limpio. `npm test`: 600 tests reales
+  pasando (mismo flake de siempre). **`npx playwright test` completo (los
+  3 specs) — los 3 pasan**, incluyendo el flujo completo de
+  `tenant-flow.spec.ts` (nav, badge de sede, botones) — única cobertura
+  real de este archivo, sin test unitario propio.
+- Commit: `[pendiente]`.
+
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
 Estado: cerrada.
@@ -43,4 +80,4 @@ Estado: cerrada.
   pasando (mismo flake de `migrate deploy` de siempre, sin relación).
   Ningún cambio de comportamiento todavía — solo fundación, ninguna página
   usa los componentes nuevos aún.
-- Commit: pendiente (se registra el hash tras el commit).
+- Commit: `ad8465a` (pusheado a main).

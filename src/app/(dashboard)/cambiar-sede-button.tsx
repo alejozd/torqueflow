@@ -1,6 +1,8 @@
 "use client";
 
 import { signOut } from "next-auth/react";
+import { MapPinned } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 /**
  * v1's way to change sede is to log in again: the sede lives in the JWT, and
@@ -15,11 +17,14 @@ import { signOut } from "next-auth/react";
  */
 export function CambiarSedeButton() {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="sm"
       onClick={() => signOut({ callbackUrl: `${window.location.origin}/login` })}
     >
+      <MapPinned />
       Cambiar de sede
-    </button>
+    </Button>
   );
 }
