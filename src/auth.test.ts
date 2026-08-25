@@ -60,12 +60,12 @@ describe("auth callbacks", () => {
     expect(token.sedeActivaNombre).toBe("Sede principal");
   });
 
-  it("merges sedeActivaId/sedeActivaNombre from an update() call (Fase 10 /seleccionar-sede)", async () => {
+  it("merges sedeActivaId/sedeActivaNombre from an update({ user }) call (Fase 10 /seleccionar-sede)", async () => {
     const token = await config().callbacks.jwt({
       token: { sedeActivaId: "", sedeActivaNombre: "" },
       user: undefined,
       trigger: "update",
-      session: { sedeActivaId: "sede-2", sedeActivaNombre: "Sede Norte" },
+      session: { user: { sedeActivaId: "sede-2", sedeActivaNombre: "Sede Norte" } },
     });
 
     expect(token.sedeActivaId).toBe("sede-2");

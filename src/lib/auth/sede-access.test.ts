@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { resolveSedeActiva, resolveSedeInicial } from "./sede-access";
+import { resolveSedeActiva, resolveSedeInicial, listSedesDisponibles } from "./sede-access";
 import type { TenantPrismaClient } from "@/lib/db/tenant-client";
 
 const mockSedeFindUnique = vi.fn();
@@ -139,5 +139,61 @@ describe("resolveSedeInicial", () => {
     const result = await resolveSedeInicial(tenantDbInicial, "u1", "RECEPCION");
 
     expect(result).toBeNull();
+  });
+});
+
+describe("listSedesDisponibles", () => {
+  const mockSedeFindMany = vi.fn();
+  const mockUsuarioSedeFindMany = vi.fn();
+  const tenantDbListado = {
+    sede: { findMany: mockSedeFindMany },
+    usuarioSede: { findMany: mockUsuarioSedeFindMany },
+  } as unknown as TenantPrismaClient;
+
+  beforeEach(() => {
+    mockSedeFindMany.mockReset();
+    mockUsuarioSedeFindMany.mockReset();
+  });
+
+  it("lists every sede in the tenant for an ADMIN", async () => {
+    mockSedeFindMany.mockResolvedValue([
+      { id: "sede-1", nombre: "Sede principal" },
+      { id: "sede-2", nombre: "Sede norte" },
+    ]);
+
+    const result = await listSedesDisponibles(tenantDbListado, "u1", "ADMIN");
+
+    expect(result).toEqual([
+      { id: "sede-1", nombre: "Sede principal" },
+      { id: "sede-2", nombre: "Sede norte" },
+    ]);
+    expect(mockUsuarioSedeFindMany).not.toHaveBeenCalled();
+  });
+
+  it("lists only a TECNICO's assigned sedes", async () => {
+    mockUsuarioSedeFindMany.mockResolvedValue([
+      { sede: { id: "sede-1", nombre: "Sede principal" } },
+      { sede: { id: "sede-2", nombre: "Sede norte" } },
+    ]);
+
+    const result = await listSedesDisponibles(tenantDbListado, "u1", "TECNICO");
+
+    expect(result).toEqual([
+      { id: "sede-1", nombre: "Sede principal" },
+      { id: "sede-2", nombre: "Sede norte" },
+    ]);
+    expect(mockUsuarioSedeFindMany).toHaveBeenCalledWith({
+      where: { usuarioId: "u1" },
+      select: { sede: { select: { id: true, nombre: true } } },
+    });
+    expect(mockSedeFindMany).not.toHaveBeenCalled();
+  });
+
+  it("returns an empty list for a RECEPCION with no assignments", async () => {
+    mockUsuarioSedeFindMany.mockResolvedValue([]);
+
+    const result = await listSedesDisponibles(tenantDbListado, "u1", "RECEPCION");
+
+    expect(result).toEqual([]);
   });
 });

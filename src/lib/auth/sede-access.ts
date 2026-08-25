@@ -48,28 +48,39 @@ export async function resolveSedeActiva(
 }
 
 /**
+ * The sedes `usuarioId` may pick as their active one: every sede in the
+ * tenant for an ADMIN (same bypass rule as resolveSedeActiva), or only their
+ * UsuarioSede assignments for a TECNICO/RECEPCION. Used both to auto-select
+ * on login (resolveSedeInicial) and to populate the /seleccionar-sede picker.
+ */
+export async function listSedesDisponibles(
+  tenantDb: TenantPrismaClient,
+  usuarioId: string,
+  role: Role,
+): Promise<SedeActiva[]> {
+  if (role === "ADMIN") {
+    return tenantDb.sede.findMany({ select: { id: true, nombre: true } });
+  }
+
+  const asignaciones = await tenantDb.usuarioSede.findMany({
+    where: { usuarioId },
+    select: { sede: { select: { id: true, nombre: true } } },
+  });
+  return asignaciones.map((asignacion) => asignacion.sede);
+}
+
+/**
  * Fase 10: with no pre-login sede dropdown, login only auto-picks a sede
- * when there is exactly one unambiguous candidate -- an ADMIN's candidates
- * are every sede in the tenant (same bypass rule as resolveSedeActiva), a
- * TECNICO/RECEPCION's are only their UsuarioSede assignments. Returns null
- * for zero or multiple candidates; the caller (authorizeCredentials) then
- * leaves sedeActivaId unset so the session is completed later at
- * /seleccionar-sede.
+ * when there is exactly one unambiguous candidate. Returns null for zero or
+ * multiple candidates; the caller (authorizeCredentials) then leaves
+ * sedeActivaId unset so the session is completed later at
+ * /seleccionar-sede, which lists every candidate via listSedesDisponibles.
  */
 export async function resolveSedeInicial(
   tenantDb: TenantPrismaClient,
   usuarioId: string,
   role: Role,
 ): Promise<SedeActiva | null> {
-  const sedes =
-    role === "ADMIN"
-      ? await tenantDb.sede.findMany({ select: { id: true, nombre: true } })
-      : (
-          await tenantDb.usuarioSede.findMany({
-            where: { usuarioId },
-            select: { sede: { select: { id: true, nombre: true } } },
-          })
-        ).map((asignacion) => asignacion.sede);
-
+  const sedes = await listSedesDisponibles(tenantDb, usuarioId, role);
   return sedes.length === 1 ? sedes[0] : null;
 }

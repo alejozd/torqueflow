@@ -3,7 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { authorizeCredentials } from "@/lib/auth/authorize-credentials";
 import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth/session-timing";
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
   trustHost: true,
   // Fase 9 debt I2: a demoted/deleted user's role is re-checked at most an
   // hour later instead of up to 30 days. src/app/(dashboard)/session-renewal-modal.tsx
@@ -32,11 +32,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.sedeActivaNombre = user.sedeActivaNombre;
       }
       // Fase 10: /seleccionar-sede completes a session that signed in with no
-      // auto-resolved sede by calling update({ sedeActivaId, sedeActivaNombre })
-      // -- merge that in without touching anything else on the token.
-      if (trigger === "update" && session?.sedeActivaId) {
-        token.sedeActivaId = session.sedeActivaId;
-        token.sedeActivaNombre = session.sedeActivaNombre;
+      // auto-resolved sede by calling unstable_update({ user: { sedeActivaId,
+      // sedeActivaNombre } }) -- merge that in without touching anything else
+      // on the token. `session` here is whatever was passed to update(), raw.
+      if (trigger === "update" && session?.user?.sedeActivaId) {
+        token.sedeActivaId = session.user.sedeActivaId;
+        token.sedeActivaNombre = session.user.sedeActivaNombre;
       }
       return token;
     },
