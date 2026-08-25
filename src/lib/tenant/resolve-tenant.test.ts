@@ -8,7 +8,7 @@ vi.mock("@/lib/db/public-client", () => ({
   publicDb: { tenant: { findUnique: (...args: unknown[]) => mockFindUnique(...args) } },
 }));
 
-import { resolveTenant } from "./resolve-tenant";
+import { resolveTenant, getTenantBySchema } from "./resolve-tenant";
 import { TENANT_SLUG_HEADER } from "./constants";
 
 describe("resolveTenant", () => {
@@ -64,5 +64,32 @@ describe("resolveTenant", () => {
     const tenant = await resolveTenant();
 
     expect(tenant).toEqual({ slug: "taller-perez", schemaName: "taller_perez", estado: "SUSPENDIDO" });
+  });
+});
+
+describe("getTenantBySchema", () => {
+  beforeEach(() => {
+    mockFindUnique.mockReset();
+  });
+
+  it("looks up the tenant by schemaName, not by any Host-derived slug", async () => {
+    mockFindUnique.mockResolvedValue({
+      slug: "taller-perez",
+      schemaName: "taller_perez",
+      estado: "ACTIVO",
+    });
+
+    const tenant = await getTenantBySchema("taller_perez");
+
+    expect(mockFindUnique).toHaveBeenCalledWith({ where: { schemaName: "taller_perez" } });
+    expect(tenant).toEqual({ slug: "taller-perez", schemaName: "taller_perez", estado: "ACTIVO" });
+  });
+
+  it("returns null when no Tenant row matches the schemaName", async () => {
+    mockFindUnique.mockResolvedValue(null);
+
+    const tenant = await getTenantBySchema("schema-borrado");
+
+    expect(tenant).toBeNull();
   });
 });

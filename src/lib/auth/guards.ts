@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Session } from "next-auth";
 import { auth } from "@/auth";
-import { resolveTenant } from "@/lib/tenant/resolve-tenant";
+import { getTenantBySchema } from "@/lib/tenant/resolve-tenant";
 
 export type Role = "ADMIN" | "TECNICO" | "RECEPCION";
 
@@ -11,22 +11,25 @@ export async function requireSession(): Promise<Session> {
     redirect("/login");
   }
 
-  const tenant = await resolveTenant();
-  if (!tenant || tenant.schemaName !== session.user.tenantSchema) {
+  // Fase 10: there is no Host header to cross-check anymore -- tenantSchema
+  // is fixed once, at login, from the email index. This re-check is only for
+  // state that can change AFTER login: the tenant row disappearing (a
+  // deleted tenant a stale session still points at) or being suspended.
+  const tenant = await getTenantBySchema(session.user.tenantSchema);
+  if (!tenant) {
     redirect("/login?error=tenant-mismatch");
   }
   if (tenant.estado === "SUSPENDIDO") {
     redirect("/login?error=tenant-suspendido");
   }
 
-  // A session minted before Fase 6 (or any token that somehow lost the
-  // field) carries no sedeActivaId. Without this guard, scopeOrden/scopeBodega/
-  // etc. would receive `undefined` and Prisma silently drops an undefined
-  // field from a where clause -- every sede filter in the app would vanish
-  // for that session, exposing the whole tenant instead of one sede. Forcing
-  // a fresh login is what mints a token with a real sedeActivaId (Task 6).
+  // No sedeActivaId means login couldn't auto-resolve one (ADMIN with >1
+  // sede, or TECNICO/RECEPCION with >1 assignment) -- sends the user to
+  // complete their own session instead of scopeOrden/scopeBodega/etc.
+  // silently dropping an undefined sede filter and exposing the whole
+  // tenant.
   if (!session.user.sedeActivaId) {
-    redirect("/login?error=sede-requerida");
+    redirect("/seleccionar-sede");
   }
 
   return session;
