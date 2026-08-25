@@ -3,9 +3,6 @@ import { render, screen, cleanup } from "@testing-library/react";
 
 vi.mock("next-auth/react", () => ({ signIn: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
-vi.mock("@/lib/sede/login-sedes", () => ({
-  listSedesDelTenant: () => Promise.resolve([{ id: "sede-1", nombre: "Sede principal" }]),
-}));
 
 import LoginPage from "./page";
 
@@ -40,5 +37,13 @@ describe("LoginPage", () => {
     render(await LoginPage({ searchParams: Promise.resolve({ error: "bogus" }) }));
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("renders only email and password fields (Fase 10: no pre-login sede)", async () => {
+    render(await LoginPage({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByLabelText("Correo")).toBeInTheDocument();
+    expect(screen.getByLabelText("Contraseña")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Sede")).not.toBeInTheDocument();
   });
 });
