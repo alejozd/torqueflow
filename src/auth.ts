@@ -1,10 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { authorizeCredentials } from "@/lib/auth/authorize-credentials";
-import { resolveRedirectUrl } from "@/lib/auth/resolve-redirect";
 import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth/session-timing";
-
-const BASE_DOMAIN = process.env.BASE_DOMAIN ?? "zdevs.uk";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
@@ -19,7 +16,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       credentials: {
         email: { label: "Correo", type: "email" },
         password: { label: "Contraseña", type: "password" },
-        sedeId: { label: "Sede", type: "text" },
       },
       async authorize(credentials) {
         return authorizeCredentials(credentials);
@@ -27,13 +23,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.role = user.role;
         token.tenantSlug = user.tenantSlug;
         token.tenantSchema = user.tenantSchema;
         token.sedeActivaId = user.sedeActivaId;
         token.sedeActivaNombre = user.sedeActivaNombre;
+      }
+      // Fase 10: /seleccionar-sede completes a session that signed in with no
+      // auto-resolved sede by calling update({ sedeActivaId, sedeActivaNombre })
+      // -- merge that in without touching anything else on the token.
+      if (trigger === "update" && session?.sedeActivaId) {
+        token.sedeActivaId = session.sedeActivaId;
+        token.sedeActivaNombre = session.sedeActivaNombre;
       }
       return token;
     },
@@ -45,9 +48,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       session.user.sedeActivaId = token.sedeActivaId as string;
       session.user.sedeActivaNombre = token.sedeActivaNombre as string;
       return session;
-    },
-    async redirect({ url, baseUrl }) {
-      return resolveRedirectUrl(url, baseUrl, BASE_DOMAIN);
     },
   },
 });

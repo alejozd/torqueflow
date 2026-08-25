@@ -24,10 +24,14 @@ function config(): any {
 }
 
 describe("auth callbacks", () => {
-  it("declares a sedeId credential alongside email and password", () => {
+  it("declares only email and password credentials (Fase 10: no pre-login sede)", () => {
     const provider = config().providers[0];
 
-    expect(Object.keys(provider.credentials)).toEqual(["email", "password", "sedeId"]);
+    expect(Object.keys(provider.credentials)).toEqual(["email", "password"]);
+  });
+
+  it("has no redirect callback (Fase 10: single URL, no cross-subdomain trust needed)", () => {
+    expect(config().callbacks.redirect).toBeUndefined();
   });
 
   it("copies sedeActivaId and sedeActivaNombre from the user onto the token on sign-in", async () => {
@@ -50,6 +54,30 @@ describe("auth callbacks", () => {
     const token = await config().callbacks.jwt({
       token: { sedeActivaId: "sede-1", sedeActivaNombre: "Sede principal" },
       user: undefined,
+    });
+
+    expect(token.sedeActivaId).toBe("sede-1");
+    expect(token.sedeActivaNombre).toBe("Sede principal");
+  });
+
+  it("merges sedeActivaId/sedeActivaNombre from an update() call (Fase 10 /seleccionar-sede)", async () => {
+    const token = await config().callbacks.jwt({
+      token: { sedeActivaId: "", sedeActivaNombre: "" },
+      user: undefined,
+      trigger: "update",
+      session: { sedeActivaId: "sede-2", sedeActivaNombre: "Sede Norte" },
+    });
+
+    expect(token.sedeActivaId).toBe("sede-2");
+    expect(token.sedeActivaNombre).toBe("Sede Norte");
+  });
+
+  it("ignores an update() call that carries no sede data", async () => {
+    const token = await config().callbacks.jwt({
+      token: { sedeActivaId: "sede-1", sedeActivaNombre: "Sede principal" },
+      user: undefined,
+      trigger: "update",
+      session: {},
     });
 
     expect(token.sedeActivaId).toBe("sede-1");
