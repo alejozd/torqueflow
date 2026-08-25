@@ -696,7 +696,7 @@ Fix round independently re-reviewed (opus, confirmation pass against the same di
 4. `deleteUsuarioAction` relies on `friendlyPrismaErrorMessage`'s generic P2003 message for all eight FK-Restrict relations rather than per-relation pre-checks -- plan's explicit proportionality decision, not a gap.
 5. Super-admin dashboard has no pagination or search over the tenant table -- acceptable at current scale, would need revisiting before a large tenant count.
 6. `Plan.precio` is a nullable placeholder with no UI to set or display it yet -- explicitly deferred per the confirmed design-decision answer ("precio placeholder nullable").
-7. I2 itself (see above) remains open technical debt, explicitly accepted rather than silently missed.
+7. I2 itself (see above) remains open technical debt, explicitly accepted rather than silently missed. **RESUELTA post-Fase 9, ver sección "DEUDA TÉCNICA POST-FASE 9: I2 RESUELTA" al final de este documento.**
 
 ## FASE 9 SUMMARY
 - 11 tareas completadas (commits 8e70847..d32457e) + 1 ronda de corrección post-revisión (201812c, resolviendo I1/I3/I4) + 1 fix aprobado de Fase 1 fuera de alcance (3164c9e, excepción puntual autorizada por el usuario)
@@ -705,5 +705,18 @@ Fix round independently re-reviewed (opus, confirmation pass against the same di
 - 579/582 tests unitarios pasando (3 skipped; el único fallo restante es el flake ya documentado de contención de `migrate deploy` sobre esquema compartido, limpio en aislamiento) + 2/2 e2e en aislamiento, tsc --noEmit limpio
 - Flake intermitente de concurrencia (Turbopack + 2 workers de Playwright) documentado como deuda técnica de infraestructura, no de lógica -- aceptado explícitamente por el usuario, sin más iteración
 - Módulo 10 (usuarios/roles CRUD), módulo 11 (panel super-admin: listar/suspender/reactivar tenants, asignar plan), y entidad `Plan` en `public` con enforcement solo numérico (maxUsuarios/maxSedes, sin feature flags) -- completos end to end
-- Revisión final (opus) + ronda de corrección: 0 Critical, 4 Important (3 corregidos, 1 documentado como deuda por decisión explícita del dueño del producto), 7 Minor documentados como backlog
+- Revisión final (opus) + ronda de corrección: 0 Critical, 4 Important (3 corregidos, 1 documentado como deuda por decisión explícita del dueño del producto -- **I2, resuelta post-Fase 9, ver sección al final de este documento**), 7 Minor documentados como backlog
 - Status: Fase 9 complete, ready to merge, ready for Fase 10
+
+======================================================================
+DEUDA TÉCNICA POST-FASE 9: I2 RESUELTA (2026-08-24)
+======================================================================
+
+**I2 (sesiones stale tras degradación/eliminación de usuario) -- RESUELTA.** Documentada como deuda aceptada en la revisión final de Fase 9 (ver arriba, "owner decision"). Resuelta fuera de una fase numerada, a solicitud explícita del usuario tras un reset de contexto: commit `e75bcbe`.
+
+- `session.maxAge` reducido de 30 días (default de NextAuth) a 3600 segundos (1 hora) en `src/auth.ts`, instancia tenant únicamente -- la instancia super-admin (`src/lib/super-admin/auth.ts`) queda fuera de alcance, sin cambios.
+- `DashboardSessionProvider` + `SessionRenewalModal` (nuevos, cableados en `src/app/(dashboard)/layout.tsx`): avisan 5 minutos antes de que expire el JWT ("Tu sesión está a punto de expirar. ¿Deseas continuar?"), renovación vía el mecanismo nativo `update()` de NextAuth (re-firma el JWT sin re-login, dispara el callback `jwt` con `trigger: "update"`), cierre de sesión automático si no hay respuesta en 60s, y cierre de sesión automático tras 15 minutos de inactividad del usuario (sin interacción de mouse/teclado/click/scroll), independiente del flujo de expiración.
+- 9 tests nuevos, `tsc --noEmit` limpio, suite completa 590/591 (el único fallo es el flake de contención de `migrate deploy` ya documentado arriba, no relacionado con este cambio).
+- Efecto: el rol de un usuario ahora se revalida como máximo cada hora (frente a hasta 30 días antes), sin agregar queries por request -- la staleness máxima queda acotada a la ventana de `maxAge`.
+
+Status: I2 cerrada. Sin deuda técnica de sesión abierta.
