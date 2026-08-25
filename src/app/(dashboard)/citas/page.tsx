@@ -1,12 +1,30 @@
 import Link from "next/link";
 import { listCitas, listVehiculosParaCita } from "@/app/actions/cita-actions";
 import { NuevaCitaForm } from "./nueva-cita-form";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
 
 const formatoFecha = new Intl.DateTimeFormat("es-CO", {
   dateStyle: "medium",
   timeStyle: "short",
   timeZone: "America/Bogota",
 });
+
+type CitaRow = Awaited<ReturnType<typeof listCitas>>[number];
+
+const COLUMNS: DataTableColumn<CitaRow>[] = [
+  {
+    header: "Cita",
+    cell: (cita) => (
+      <Link href={`/citas/${cita.id}`}>
+        {`${formatoFecha.format(cita.fechaHora)} — ${cita.vehiculo.placa} — ${cita.motivo}`}
+      </Link>
+    ),
+  },
+  {
+    header: "Estado",
+    cell: (cita) => cita.estado,
+  },
+];
 
 export default async function CitasPage() {
   // Both reads go through the actions module, so the guard and the sede filter
@@ -18,20 +36,12 @@ export default async function CitasPage() {
       <h1>Citas</h1>
       <NuevaCitaForm vehiculos={vehiculos} />
 
-      {citas.length === 0 ? (
-        <p>No hay citas agendadas en esta sede.</p>
-      ) : (
-        <ul>
-          {citas.map((cita) => (
-            <li key={cita.id}>
-              <Link href={`/citas/${cita.id}`}>
-                {`${formatoFecha.format(cita.fechaHora)} — ${cita.vehiculo.placa} — ${cita.motivo}`}
-              </Link>
-              <span>{` [${cita.estado}]`}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <DataTable
+        columns={COLUMNS}
+        rows={citas}
+        getRowKey={(cita) => cita.id}
+        emptyMessage="No hay citas agendadas en esta sede."
+      />
     </main>
   );
 }

@@ -255,6 +255,22 @@ Estado: cerrada.
   `npx playwright test e2e/tenant-flow.spec.ts` completo: verde.
 - Commit: `9a53b95`.
 
+### Fase 13 / Tarea 9 — Módulo `citas`
+
+Estado: cerrada.
+
+- `citas/page.tsx`: lista migrada a `DataTable` de 2 columnas: "Cita"
+  (mismo `<Link>` fecha/placa/motivo) y "Estado" (antes un `<span>
+  [ESTADO]</span>` pegado al link, ahora columna propia sin corchetes —
+  limpieza menor, ningún test dependía del formato con corchetes).
+  `emptyMessage` reusa **el mismo texto exacto** que ya tenía
+  (`"No hay citas agendadas en esta sede."`), el único módulo de los 10
+  que ya manejaba estado vacío antes de esta Fase.
+- Verificación: `tsc --noEmit` limpio. `npx vitest run` (2 archivos/5
+  tests) verde. `npx playwright test e2e/tenant-flow.spec.ts` completo:
+  verde (incluye la aserción de estado vacío tras eliminar sedes).
+- Commit: `[pendiente]`.
+
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
 Estado: cerrada.
