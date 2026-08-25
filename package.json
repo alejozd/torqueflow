@@ -12,6 +12,7 @@
     "test:e2e": "playwright test",
     "tenant:provision": "tsx scripts/cli/provision-tenant.ts",
     "tenant:seed-user": "tsx scripts/cli/seed-tenant-user.ts",
+    "tenant:check-duplicate-emails": "tsx scripts/cli/check-duplicate-emails.ts",
     "superadmin:seed": "tsx scripts/cli/seed-super-admin.ts"
   },
   "dependencies": {
