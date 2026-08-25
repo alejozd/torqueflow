@@ -253,7 +253,7 @@ Estado: cerrada.
   tocado (no hay `*.test.tsx` para estas páginas tampoco).
 - Verificación: `tsc --noEmit` limpio. Sin unit tests propios del módulo.
   `npx playwright test e2e/tenant-flow.spec.ts` completo: verde.
-- Commit: `[pendiente]`.
+- Commit: `9a53b95`.
 
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
