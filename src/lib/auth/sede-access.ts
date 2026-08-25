@@ -46,3 +46,30 @@ export async function resolveSedeActiva(
 
   return { id: sede.id, nombre: sede.nombre };
 }
+
+/**
+ * Fase 10: with no pre-login sede dropdown, login only auto-picks a sede
+ * when there is exactly one unambiguous candidate -- an ADMIN's candidates
+ * are every sede in the tenant (same bypass rule as resolveSedeActiva), a
+ * TECNICO/RECEPCION's are only their UsuarioSede assignments. Returns null
+ * for zero or multiple candidates; the caller (authorizeCredentials) then
+ * leaves sedeActivaId unset so the session is completed later at
+ * /seleccionar-sede.
+ */
+export async function resolveSedeInicial(
+  tenantDb: TenantPrismaClient,
+  usuarioId: string,
+  role: Role,
+): Promise<SedeActiva | null> {
+  const sedes =
+    role === "ADMIN"
+      ? await tenantDb.sede.findMany({ select: { id: true, nombre: true } })
+      : (
+          await tenantDb.usuarioSede.findMany({
+            where: { usuarioId },
+            select: { sede: { select: { id: true, nombre: true } } },
+          })
+        ).map((asignacion) => asignacion.sede);
+
+  return sedes.length === 1 ? sedes[0] : null;
+}
