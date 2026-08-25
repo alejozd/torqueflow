@@ -1,17 +1,36 @@
 "use client";
 
-import { useActionState } from "react";
+import { startTransition, useActionState, useRef } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { createBodegaAction, type BodegaFormState } from "@/app/actions/bodega-actions";
+import { bodegaInputSchema, type BodegaInput } from "@/lib/validation/inventario";
 
 const initialState: BodegaFormState = { error: null, success: false };
 
 export function NuevoBodegaForm() {
   const [state, formAction, isPending] = useActionState(createBodegaAction, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<BodegaInput>({ resolver: zodResolver(bodegaInputSchema), defaultValues: { nombre: "" } });
 
   return (
-    <form noValidate action={formAction}>
+    <form
+      noValidate
+      ref={formRef}
+      onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+    >
       <label htmlFor="nombre">Nombre</label>
-      <input id="nombre" name="nombre" required />
+      <input
+        id="nombre"
+        aria-invalid={errors.nombre ? true : undefined}
+        aria-describedby={errors.nombre ? "nombre-error" : undefined}
+        {...register("nombre")}
+      />
+      {errors.nombre ? <p id="nombre-error">{errors.nombre.message}</p> : null}
 
       <button type="submit" disabled={isPending}>
         {isPending ? "Guardando..." : "Crear bodega"}

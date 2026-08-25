@@ -24,12 +24,22 @@ describe("NuevoBodegaForm", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("Bodega creada");
   });
 
-  it("shows the error message when the action returns one", async () => {
-    mockCreateBodegaAction.mockResolvedValue({ error: "El nombre es obligatorio", success: false });
+  it("blocks submission and shows a field error when the name is empty, without calling the server", async () => {
     render(<NuevoBodegaForm />);
 
     await userEvent.click(screen.getByRole("button", { name: "Crear bodega" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("El nombre es obligatorio");
+    expect(await screen.findByText("El nombre es obligatorio")).toBeInTheDocument();
+    expect(mockCreateBodegaAction).not.toHaveBeenCalled();
+  });
+
+  it("shows the server error when the action refuses an otherwise valid submission", async () => {
+    mockCreateBodegaAction.mockResolvedValue({ error: "Ya existe una bodega con ese nombre.", success: false });
+    render(<NuevoBodegaForm />);
+
+    await userEvent.type(screen.getByLabelText("Nombre"), "Bodega norte");
+    await userEvent.click(screen.getByRole("button", { name: "Crear bodega" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Ya existe una bodega con ese nombre.");
   });
 });

@@ -351,6 +351,86 @@ Estado: cerrada — **cierra la Fase 13, los 10 módulos objetivo migrados**.
 **Fase 13 completa — 14 tareas cerradas (4 componente + 10 módulos).
 Pendiente de aprobación del usuario antes de empezar la Fase 14.**
 
+---
+
+## Fase 14 — Todos los formularios con validación visual
+
+Estado: en progreso.
+
+`react-hook-form@^7.86` + `@hookform/resolvers@^5.9` instalados (zod v4
+del proyecto ya soportado). Patrón validado con `bodegas` (tarea 15,
+formulario más simple posible) antes de escalar al resto:
+
+```tsx
+const [state, formAction, isPending] = useActionState(xxxAction, initialState);
+const formRef = useRef<HTMLFormElement>(null);
+const { register, handleSubmit, formState: { errors } } = useForm<XxxInput>({
+  resolver: zodResolver(xxxInputSchema),
+  defaultValues: { ... },
+});
+
+<form
+  noValidate
+  ref={formRef}
+  onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+>
+```
+
+- **`startTransition` es obligatorio**, no opcional: llamar `formAction(...)`
+  a mano desde el `onSubmit` de RHF (en vez de pasar `formAction` como el
+  `action` nativo del `<form>`) dispara la advertencia de React "An async
+  function with useActionState was called outside of a transition" y
+  `isPending` deja de actualizar bien. Detectado corriendo
+  `e2e/tenant-flow.spec.ts` (el warning aparece en el log del
+  `[WebServer]`) — no lo hubiera detectado con `tsc`/`vitest` solos.
+- Se arma el `FormData` leyendo `formRef.current` (no reconstruyendo a
+  mano desde los valores tipados de RHF) — evita cualquier
+  desalineamiento entre la coerción de zod (`z.coerce.number()`, etc.) y
+  lo que el server action espera leer de `formData.get(name)`.
+- Errores de campo (RHF/zod, client-side): texto plano con
+  `id="{campo}-error"` + `aria-describedby`/`aria-invalid` en el input —
+  **sin `role="alert"`**, reservado para el error del servidor
+  (`state.error`) tal como pide el plan ("límite de plan, conflictos,
+  etc."). Errores de refine a nivel de objeto (sin campo asociado, ver
+  `itemOrdenInputSchema`) se muestran igual, sin `role="alert"`.
+- **Impacto en tests existentes**: la validación client-side ahora
+  bloquea el submit con campos vacíos/inválidos ANTES de llegar al
+  server action — el patrón de test típico "click submit sin llenar
+  nada, el mock del action devuelve el mensaje de requerido, aparece en
+  `role=\"alert\"`" ya no ejercita el server action (nunca se llama). Se
+  actualiza cada test así: (a) un test nuevo/ajustado que confirma que el
+  campo vacío bloquea el submit SIN llamar al mock, mensaje de campo
+  visible; (b) un test que llena el campo válido y hace que el mock
+  devuelva un error de negocio (no de validación) para seguir cubriendo
+  el `role="alert"` real. Es el único tipo de cambio de test esperado en
+  esta Fase — a diferencia de 11-13, aquí el comportamiento SÍ cambia a
+  propósito.
+- No todos los ~25 formularios se benefician igual: los que son un único
+  `<select>` de un enum fijo sin texto libre (`cambiar-estado-form`,
+  `cambiar-estado-cita-form`, partes de `dvi-checklist-form`/
+  `dvi-foto-form`) no tienen estado inválido posible más allá de "no
+  elegido" — se evalúa caso por caso si amerita RHF+zod o si el
+  `required` nativo/lo que ya había es suficiente (mismo criterio de "no
+  forzar semántica donde no aplica" que la Fase 13 aplicó a listas
+  anidadas).
+
+### Fase 14 / Tarea 15 — Formulario `bodegas` (patrón de referencia)
+
+Estado: cerrada.
+
+- `nuevo-bodega-form.tsx`: único campo (`nombre`), primer caso real del
+  patrón de arriba. Ver la nota de `startTransition` — encontrado y
+  corregido en este mismo commit.
+- `nuevo-bodega-form.test.tsx` actualizado: caso de campo vacío ahora
+  verifica bloqueo client-side + `mockCreateBodegaAction` NO llamado;
+  caso nuevo con nombre válido + mock de error de negocio para seguir
+  cubriendo `role="alert"`.
+- Verificación: `tsc --noEmit` limpio. `npx vitest run` (1 archivo/3
+  tests) verde. `npx playwright test e2e/tenant-flow.spec.ts` completo:
+  verde (confirma que el warning de `startTransition` desapareció tras
+  el fix).
+- Commit: `[pendiente]`.
+
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
 Estado: cerrada.
