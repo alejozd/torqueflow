@@ -405,6 +405,11 @@ const { register, handleSubmit, formState: { errors } } = useForm<XxxInput>({
   el `role="alert"` real. Es el único tipo de cambio de test esperado en
   esta Fase — a diferencia de 11-13, aquí el comportamiento SÍ cambia a
   propósito.
+- **Schemas con `z.coerce`/`z.preprocess`** (dinero, números, `requiredMoney`):
+  tipar `useForm<T>` con `z.input<typeof schema>`, NO `z.infer`/`z.output`
+  — con `z.infer` `tsc` exige el tipo YA coercionado (`number`) para esos
+  campos pero el resolver recibe `unknown` en la entrada real y falla la
+  compilación. Descubierto en la tarea 17 (`repuestos`).
 - No todos los ~25 formularios se benefician igual: los que son un único
   `<select>` de un enum fijo sin texto libre (`cambiar-estado-form`,
   `cambiar-estado-cita-form`, partes de `dvi-checklist-form`/
@@ -430,6 +435,61 @@ Estado: cerrada.
   verde (confirma que el warning de `startTransition` desapareció tras
   el fix).
 - Commit: `c2449e9`.
+
+### Fase 14 / Tarea 16 — Formulario `proveedores`
+
+Estado: cerrada.
+
+- `nuevo-proveedor-form.tsx`: mismo patrón, con un campo `email` que
+  agrega validación real (`z.string().email(...)`), primer caso de
+  mensaje de campo que no es "obligatorio". `contacto`/`telefono` quedan
+  sin `register` de validación estricta (siguen siendo opcionales sin
+  regla propia en `proveedorInputSchema`, solo `register(...)` para que
+  RHF los incluya en el `FormData`).
+- Test: caso de campo vacío (nombre) + caso nuevo de email inválido
+  (bloquea sin llamar al server) + caso de error de servidor con datos
+  válidos.
+- Verificación: `tsc --noEmit` limpio, `npx vitest run` (1 archivo/5
+  tests) verde.
+- Commit: `[pendiente]`.
+
+### Fase 14 / Tarea 17 — Formulario `repuestos`
+
+Estado: cerrada.
+
+- **Descubrimiento de patrón nuevo**: cuando el schema usa
+  `z.coerce`/`z.preprocess` (como `requiredMoney` y los campos
+  numéricos), el genérico de `useForm<T>` debe tiparse con
+  `z.input<typeof schema>` (el tipo ANTES de la coerción), no
+  `z.infer`/`z.output` — con `z.infer` TypeScript exige `number` para
+  esos campos pero el resolver en realidad maneja `unknown` en la
+  entrada, y `tsc` lo rechaza. Documentado también arriba en la nota de
+  patrón general de la Fase 14.
+- `stockInicialSchema` (antes privado en `repuesto-actions.ts`, sin
+  exportar) se movió a `src/lib/validation/inventario.ts` como
+  `repuestoStockInicialSchema` — necesario para que el formulario lo
+  reutilice como pide el objetivo de la Fase 14 ("reutilizando los
+  schemas zod que ya existen"). `repuesto-actions.ts` ahora lo importa en
+  vez de definirlo inline; mismo texto de error, mismo comportamiento —
+  confirmado con `repuesto-actions.test.ts` (16/16 verde, sin tocar ese
+  archivo de test).
+  `nuevo-repuesto-form.tsx` usa `repuestoInputSchema.extend({stockActual:
+  repuestoStockInicialSchema})` para combinar ambos en un solo schema de
+  formulario.
+- `precioCompra`/`precioVenta` mantienen su comportamiento original: sin
+  `defaultValue` (input vacío al montar) — a diferencia de
+  `stockActual`/`stockMinimo`, que sí tenían `defaultValue="0"` en el
+  original y lo conservan vía `defaultValues` de RHF.
+- Test: colisión de texto detectada y resuelta — el placeholder
+  deshabilitado `<option>Selecciona una bodega</option>` tiene el mismo
+  texto que el mensaje de error del campo `bodegaId` (misma cadena
+  literal), así que `getByText` ambiguaba con 2 matches; el test usa
+  `document.getElementById("bodegaId-error")` para apuntar al mensaje de
+  error específicamente. Igual que los demás: caso de campos vacíos
+  bloqueados client-side, caso de error de servidor con datos válidos.
+- Verificación: `tsc --noEmit` limpio. `npx vitest run` (2 archivos/16
+  tests, incluye `repuesto-actions.test.ts`) verde.
+- Commit: `[pendiente]`.
 
 ### Fase 11 / Tarea 1 — Fundación de diseño
 

@@ -33,12 +33,33 @@ describe("NuevoProveedorForm", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("Proveedor creado");
   });
 
-  it("shows the error message when the action returns one", async () => {
-    mockCreateProveedorAction.mockResolvedValue({ error: "El nombre es obligatorio", success: false });
+  it("blocks submission and shows a field error when the name is empty, without calling the server", async () => {
     render(<NuevoProveedorForm />);
 
     await userEvent.click(screen.getByRole("button", { name: "Crear proveedor" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("El nombre es obligatorio");
+    expect(await screen.findByText("El nombre es obligatorio")).toBeInTheDocument();
+    expect(mockCreateProveedorAction).not.toHaveBeenCalled();
+  });
+
+  it("blocks submission and shows a field error for an invalid email", async () => {
+    render(<NuevoProveedorForm />);
+
+    await userEvent.type(screen.getByLabelText("Nombre"), "Repuestos El Motor");
+    await userEvent.type(screen.getByLabelText("Correo"), "no-es-un-correo");
+    await userEvent.click(screen.getByRole("button", { name: "Crear proveedor" }));
+
+    expect(await screen.findByText("Correo inválido")).toBeInTheDocument();
+    expect(mockCreateProveedorAction).not.toHaveBeenCalled();
+  });
+
+  it("shows the server error when the action refuses an otherwise valid submission", async () => {
+    mockCreateProveedorAction.mockResolvedValue({ error: "Ya existe un proveedor con ese nombre.", success: false });
+    render(<NuevoProveedorForm />);
+
+    await userEvent.type(screen.getByLabelText("Nombre"), "Repuestos El Motor");
+    await userEvent.click(screen.getByRole("button", { name: "Crear proveedor" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Ya existe un proveedor con ese nombre.");
   });
 });
