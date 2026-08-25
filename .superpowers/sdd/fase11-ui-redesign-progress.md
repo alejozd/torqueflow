@@ -621,6 +621,36 @@ Estado: cerrada.
   tests, incluye `nuevo-usuario-form` y `asignar-sedes-form`) verde.
 - Commit: `b7da190`.
 
+### Fase 14 / Tarea 25 — Formulario `agregar-item` (refine cross-field)
+
+Estado: cerrada.
+
+- **Dos descubrimientos nuevos de zod v4 + RHF, primer caso real de
+  `.refine()` a nivel de objeto** (`itemOrdenInputSchema`: repuesto del
+  inventario O descripción+precio manual):
+  1. En zod v4, `.refine()` sobre un `z.object()` sigue siendo un
+     `ZodObject` (no envuelve en `ZodEffects` como zod v3) — `.shape`
+     sigue disponible, PERO `.extend()` normal lanza en runtime
+     `"Cannot overwrite keys on object schemas containing refinements.
+     Use .safeExtend() instead."` Hay que usar `.safeExtend()` para
+     agregar el override de `precioUnitario` (mismo problema de `""` vs
+     `undefined` que `anio` en la tarea 20) sin perder el refine.
+  2. Un issue de zod sin `path` (el de `.refine()` a nivel de objeto)
+     zodResolver lo indexa bajo la clave `""` en `formState.errors` (no
+     `errors.root`) — `errors[""]?.message`, con cast a
+     `Record<string, {message?: string} | undefined>` porque
+     `FieldErrors<T>` solo tipa las claves de campos reales. Se muestra
+     sin `role="alert"` (mismo criterio que los demás errores de
+     validación de campo).
+- Test: caso nuevo de bloqueo (ni repuesto ni descripción+precio) +
+  caso de error de servidor con datos manuales válidos. El test de
+  "shows the error message when the action returns one" original
+  enviaba vacío a propósito (para forzar el error de cantidad del
+  server) — ya no aplica, reemplazado por los 2 de arriba.
+- Verificación: `tsc --noEmit` limpio. `npx vitest run` (1 archivo/4
+  tests) verde.
+- Commit: `[pendiente]`.
+
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
 Estado: cerrada.
