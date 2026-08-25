@@ -451,7 +451,7 @@ Estado: cerrada.
   válidos.
 - Verificación: `tsc --noEmit` limpio, `npx vitest run` (1 archivo/5
   tests) verde.
-- Commit: `[pendiente]`.
+- Commit: `f7800ad`.
 
 ### Fase 14 / Tarea 17 — Formulario `repuestos`
 
@@ -489,7 +489,7 @@ Estado: cerrada.
   bloqueados client-side, caso de error de servidor con datos válidos.
 - Verificación: `tsc --noEmit` limpio. `npx vitest run` (2 archivos/16
   tests, incluye `repuesto-actions.test.ts`) verde.
-- Commit: `[pendiente]`.
+- Commit: `761796a`.
 
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
