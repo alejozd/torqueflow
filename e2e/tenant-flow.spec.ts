@@ -336,7 +336,22 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   await page.getByRole("button", { name: "Guardar cambios" }).click();
   await expect(page.getByRole("status")).toHaveText("Usuario actualizado");
 
-  await page.getByRole("button", { name: "Eliminar usuario" }).click();
+  // deleteUsuarioAction is a plain form action (no useActionState, no
+  // visible success signal) -- click() only waits for the click event
+  // itself, not the underlying server-action fetch. waitForLoadState("networkidle")
+  // is not reliable here either: under this test's concurrent 2-worker load
+  // (racing super-admin-flow.spec.ts on the same dev server), it can resolve
+  // during a brief lull before the delete's own fetch has even started.
+  // Wait for that specific request's response instead -- deterministic
+  // regardless of load, matching this file's own established pattern for the
+  // DVI photo upload above.
+  const editarUsuarioUrl = page.url();
+  const [deleteResponse] = await Promise.all([
+    page.waitForResponse((resp) => resp.url() === editarUsuarioUrl && resp.request().method() === "POST"),
+    page.getByRole("button", { name: "Eliminar usuario" }).click(),
+  ]);
+  expect(deleteResponse.status()).toBe(200);
+
   await page.goto("/usuarios");
   await expect(page.getByRole("heading", { name: "Usuario E2E", level: 2 })).toHaveCount(0);
 

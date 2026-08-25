@@ -19,6 +19,15 @@ export default async function globalSetup() {
   await publicDb.tenant.deleteMany({ where: { slug: E2E_SLUG } });
 
   await provisionTenant({ slug: E2E_SLUG, schemaName: E2E_SCHEMA });
+
+  // provisionTenant defaults every new tenant to the Básico plan (Fase 9),
+  // whose maxSedes=1 would block this suite's own "Sede norte" creation
+  // further down -- this smoke test exercises multi-sede end to end, which
+  // is Avanzado-tier behavior, so it needs that plan explicitly, the same
+  // way a real customer would need to upgrade to test it.
+  const planAvanzado = await publicDb.plan.findUniqueOrThrow({ where: { nombre: "Avanzado" } });
+  await publicDb.tenant.update({ where: { slug: E2E_SLUG }, data: { planId: planAvanzado.id } });
+
   await seedTenantUser({
     schemaName: E2E_SCHEMA,
     email: E2E_ADMIN_EMAIL,

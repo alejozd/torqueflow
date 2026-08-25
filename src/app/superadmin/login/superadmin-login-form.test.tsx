@@ -16,7 +16,7 @@ describe("SuperAdminLoginForm", () => {
   });
 
   it("redirects to /superadmin on a successful sign-in", async () => {
-    mockSignIn.mockResolvedValue({ ok: true });
+    mockSignIn.mockResolvedValue({ ok: true, error: undefined });
     render(<SuperAdminLoginForm />);
 
     await userEvent.type(screen.getByLabelText("Correo"), "owner@torqueflow.test");
@@ -32,7 +32,10 @@ describe("SuperAdminLoginForm", () => {
   });
 
   it("shows one generic error on failure, never distinguishing wrong email from wrong password", async () => {
-    mockSignIn.mockResolvedValue({ ok: false });
+    // NextAuth's real credentials callback responds HTTP 200 (ok: true) even
+    // when the credentials are wrong -- `error` is what actually signals
+    // failure. This mock reflects that real shape, not a 4xx-style failure.
+    mockSignIn.mockResolvedValue({ ok: true, error: "CredentialsSignin" });
     render(<SuperAdminLoginForm />);
 
     await userEvent.type(screen.getByLabelText("Correo"), "owner@torqueflow.test");

@@ -24,6 +24,27 @@ test.beforeAll(async () => {
     role: "ADMIN",
   });
   await seedSuperAdmin({ email: SUPERADMIN_EMAIL, password: SUPERADMIN_PASSWORD, nombre: "E2E Owner" });
+
+  // Next.js dev mode (Turbopack) compiles each route on first hit. This spec
+  // runs concurrently with tenant-flow.spec.ts, which is compiling a much
+  // larger set of routes at the same time -- under that load, this login's
+  // very first /api/superadmin/auth/csrf request has been observed to race
+  // the still-compiling route and come back with an empty/stale CSRF token,
+  // producing a MissingCSRF error on the subsequent sign-in POST. Warming up
+  // both routes here, sequentially, before the real page navigation begins,
+  // moves that one-time compile cost off the timing-sensitive login flow.
+  await fetch("http://localhost:3000/superadmin/login");
+  await fetch("http://localhost:3000/api/superadmin/auth/csrf");
+
+  // Same compile-race risk applies to this tenant's own /login page and its
+  // (default, tenant-instance) csrf endpoint -- this spec is the only place
+  // in the whole e2e suite that hits this particular tenant subdomain, so
+  // nothing else warms it up first. Node's fetch (unlike a browser) does not
+  // resolve *.localhost as loopback on every OS/Node combination, so connect
+  // to localhost directly and override the Host header -- exactly what the
+  // middleware's tenant resolution actually reads.
+  await fetch("http://localhost:3000/login", { headers: { Host: `${SLUG}.localhost:3000` } });
+  await fetch("http://localhost:3000/api/auth/csrf", { headers: { Host: `${SLUG}.localhost:3000` } });
 });
 
 test.afterAll(async () => {
@@ -43,7 +64,7 @@ test("super-admin logs in, suspends a tenant, confirms the tenant's login is blo
 
   await expect(page.getByRole("heading", { name: "Talleres" })).toBeVisible();
   const row = page.getByRole("row").filter({ hasText: SLUG });
-  await expect(row.getByRole("cell", { name: "Básico" })).toBeVisible();
+  await expect(row.getByRole("cell", { name: "Básico", exact: true })).toBeVisible();
 
   await row.getByRole("button", { name: "Suspender" }).click();
   await expect(row.getByRole("button", { name: "Activar" })).toBeVisible();
@@ -55,7 +76,9 @@ test("super-admin logs in, suspends a tenant, confirms the tenant's login is blo
   await page.getByLabel("Contraseña").fill(TENANT_ADMIN_PASSWORD);
   await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
   await page.getByRole("button", { name: "Ingresar" }).click();
-  await expect(page.getByRole("alert")).toHaveText("Correo, contraseña o sede incorrectos");
+  await expect(page.getByRole("alert").filter({ hasText: "incorrectos" })).toHaveText(
+    "Correo, contraseña o sede incorrectos",
+  );
 
   await page.goto("http://localhost:3000/superadmin");
   await row.getByRole("button", { name: "Activar" }).click();
@@ -63,7 +86,7 @@ test("super-admin logs in, suspends a tenant, confirms the tenant's login is blo
 
   await row.getByLabel("Plan").selectOption({ label: "Estándar" });
   await row.getByRole("button", { name: "Guardar plan" }).click();
-  await expect(row.getByRole("cell", { name: "Estándar" })).toBeVisible();
+  await expect(row.getByRole("cell", { name: "Estándar", exact: true })).toBeVisible();
 
   // Reactivated: the tenant's own login must work again.
   await page.goto(`http://${SLUG}.localhost:3000/login`);

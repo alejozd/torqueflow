@@ -21,7 +21,12 @@ export function SuperAdminLoginForm() {
     const result = await signIn("credentials", { email, password, redirect: false });
     setIsPending(false);
 
-    if (!result?.ok) {
+    // NextAuth's credentials callback responds HTTP 200 even when the
+    // credentials are wrong (it redirects to an error page instead of
+    // returning a 4xx) -- `result.ok` reflects only the HTTP status, not
+    // whether authentication actually succeeded. `error` is the field that
+    // distinguishes a real failure.
+    if (result?.error) {
       setError("Correo o contraseña incorrectos");
       return;
     }
