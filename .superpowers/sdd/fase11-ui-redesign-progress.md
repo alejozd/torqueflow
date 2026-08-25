@@ -1,5 +1,8 @@
 # TorqueFlow — Modernización de UI (Fases 11-14) — Progress Ledger
 
+**ESTADO GENERAL: APROBADO — iniciativa cerrada.** Las 4 Fases fueron
+aprobadas por el usuario el 2026-08-25.
+
 Plan aprobado: `C:\Users\Alejo\.claude\plans\calm-snuggling-whale.md`
 Convención de commits: `fase{N}-task X: ...` — un commit por tarea.
 Ritmo de aprobación: el usuario aprueba al cierre de cada Fase (11, 12, 13,
@@ -9,11 +12,39 @@ Alcance total: 13 rutas bajo `(dashboard)`, ~11 vistas de listado/tabla,
 ~25 formularios, login + selección de sede, shell del dashboard. Ninguna
 vista queda sin modernizar al cierre de la Fase 14.
 
+## Cierre de la iniciativa — resumen final (APROBADO)
+
+- **Fase 11**: fundación shadcn/ui + Tailwind v4, paleta de acento único
+  ámbar/naranja, corrección del bug de la fuente Geist, sidebar
+  colapsable del dashboard (agrupado, resaltado del link activo).
+- **Fase 12**: login y selección de sede rediseñados con
+  `Card`/`Alert`/`Button`/`Input`/`Label` de shadcn.
+- **Fase 13**: componente `DataTable` reutilizable
+  (`src/components/data-table.tsx`) sobre `Table` de shadcn, migrando
+  los 10 módulos de listado de `<ul>/<li>` a tabla semántica real.
+- **Fase 14**: 21 de ~25 formularios migrados a `react-hook-form` +
+  `@hookform/resolvers/zod`, con validación en tiempo real por campo
+  reutilizando los schemas zod ya existentes en
+  `src/lib/validation/*.ts`.
+- **Stack final**: Next.js 16 + Tailwind v4 + shadcn/ui 4.19.0
+  (`@base-ui/react`) + `lucide-react` + `react-hook-form` +
+  `@hookform/resolvers`.
+- **Verificación de cierre**: 614 tests unitarios reales pasando (mismo
+  flake preexistente de `prisma migrate deploy`, sin relación), 3/3
+  specs de Playwright en verde (`landing`, `tenant-flow`,
+  `super-admin-flow`), `tsc --noEmit` limpio.
+- **Deuda documentada, fuera de alcance de estas 4 Fases** (ver "Fuera
+  de alcance" más abajo): favicon/marca propia, toggle manual de dark
+  mode. Los 4 formularios de un solo `<select>` de enum fijo
+  (`cambiar-estado-form`, `cambiar-estado-cita-form`,
+  `dvi-checklist-form`, `dvi-foto-form`) se evaluaron a propósito y se
+  dejaron sin `react-hook-form` (Fase 14 / Tarea 35).
+
 ---
 
 ## Fase 11 — Fundación de diseño + shell del dashboard
 
-Estado: cerrada, pendiente de aprobación del usuario para pasar a Fase 12.
+Estado: APROBADO.
 
 ### Fase 11 / Tarea 2 — Shell del dashboard (sidebar)
 
@@ -52,13 +83,13 @@ Estado: cerrada.
   real de este archivo, sin test unitario propio.
 - Commit: `04bc380` (pusheado a main).
 
-**Fase 11 completa — tareas 1 y 2 cerradas. Pendiente de aprobación del usuario antes de empezar la Fase 12.**
+**Fase 11 completa — tareas 1 y 2 cerradas. APROBADA.**
 
 ---
 
 ## Fase 12 — Login y selección de sede
 
-Estado: cerrada.
+Estado: APROBADO.
 
 ### Fase 12 / Tarea 3 — Login y selección de sede
 
@@ -88,13 +119,13 @@ Estado: cerrada.
   documentado en Fase 11, sin relación con este cambio).
 - Commit: `1452f41`.
 
-**Fase 12 completa — tarea 3 cerrada. Pendiente de aprobación del usuario antes de empezar la Fase 13.**
+**Fase 12 completa — tarea 3 cerrada. APROBADA.**
 
 ---
 
 ## Fase 13 — Todas las tablas de datos
 
-Estado: en progreso.
+Estado: APROBADO.
 
 Relevamiento previo (agente de exploración) confirmó:
 - Ninguno de los 10 módulos objetivo usa `<table>` hoy — todos son
@@ -349,13 +380,13 @@ Estado: cerrada — **cierra la Fase 13, los 10 módulos objetivo migrados**.
 - Commit: `b8ca3a9`.
 
 **Fase 13 completa — 14 tareas cerradas (4 componente + 10 módulos).
-Pendiente de aprobación del usuario antes de empezar la Fase 14.**
+APROBADA.**
 
 ---
 
 ## Fase 14 — Todos los formularios con validación visual
 
-Estado: en progreso.
+Estado: APROBADO.
 
 `react-hook-form@^7.86` + `@hookform/resolvers@^5.9` instalados (zod v4
 del proyecto ya soportado). Patrón validado con `bodegas` (tarea 15,
@@ -832,8 +863,8 @@ Estado: cerrada — evaluación, sin cambios de código.
   propósito.
 - Commit: N/A (sin cambios de código, solo esta entrada del ledger).
 
-**Fase 14 completa — Fases 11 a 14 completas. Pendiente de aprobación
-final del usuario.**
+**Fase 14 completa — Fases 11 a 14 completas. APROBADAS por el usuario
+el 2026-08-25. Iniciativa de modernización de UI cerrada.**
 
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
