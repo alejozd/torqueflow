@@ -559,6 +559,35 @@ Estado: cerrada.
   Fase 14 sin correrlo).
 - Commit: `ecf429d`.
 
+### Fase 14 / Tarea 21 — Formulario `nueva-sede`
+
+Estado: cerrada.
+
+- `nueva-sede-form.tsx`: mismo patrón. Se conserva el atributo `required`
+  nativo en `nombre` (inerte con `noValidate`, la validación real la
+  hace zod) porque `nueva-sede-form.test.tsx` ya tenía un test
+  `toBeRequired()`/`not.toBeRequired()` — más barato conservarlo que
+  tocar ese test.
+- Ningún test tocado (los 2 existentes son solo de render/atributos, no
+  ejercitan submit).
+- Verificación: compartida con la tarea 22.
+- Commit: `[pendiente]`.
+
+### Fase 14 / Tarea 22 — Formulario `editar-sede` (update + `.bind(null, id)`)
+
+Estado: cerrada.
+
+- `editar-sede-form.tsx`: primer caso de formulario de EDICIÓN
+  (`updateSedeAction.bind(null, sede.id)`), mismo patrón — `defaultValues`
+  toma los valores actuales de la sede (`sede.nombre`/`sede.direccion`)
+  en vez de cadenas vacías. El segundo `<form>` de este archivo
+  (`deleteFormAction`, agregado en el fix `0e2fc15` de Fase 13) queda
+  intacto, sin RHF — es un botón sin campos, no tiene nada que validar.
+- Sin test propio (no existía `editar-sede-form.test.tsx`).
+- Verificación: `tsc --noEmit` limpio. `npx vitest run` (junto con
+  `nueva-sede-form` y `sede-actions.test.ts`) 17/17 verde.
+- Commit: `[pendiente]`.
+
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
 Estado: cerrada.
