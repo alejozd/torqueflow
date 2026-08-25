@@ -194,7 +194,7 @@ Estado: cerrada.
   playwright test e2e/tenant-flow.spec.ts` completo: verde** (tras los 2
   fixes de arriba). `npx playwright test e2e/super-admin-flow.spec.ts`
   también verde (sanity check, no debería verse afectado).
-- Commit: `[pendiente]`.
+- Commit: `cb8b899`.
 
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
