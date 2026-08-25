@@ -310,7 +310,7 @@ Estado: cerrada.
 - Verificación: `tsc --noEmit` limpio (junto con `entradas-mercancia` y
   `sedes`, verificados en el mismo pase). `npx vitest run` 26/26 verde.
   `npx playwright test` completo (los 2 specs): verde.
-- Commit: `[pendiente]`.
+- Commit: `d022242`.
 
 ### Fase 13 / Tarea 13 — Módulo `entradas-mercancia`
 
@@ -324,7 +324,7 @@ Estado: cerrada.
   `emptyMessage`: "Esta entrada no tiene ítems registrados." (no existía
   antes).
 - Verificación: compartida con la tarea 12 (ver arriba).
-- Commit: `[pendiente]`.
+- Commit: `e24d5bd`.
 
 ### Fase 13 / Tarea 14 — Módulo `sedes`
 
@@ -346,7 +346,7 @@ Estado: cerrada — **cierra la Fase 13, los 10 módulos objetivo migrados**.
   citas, bodegas, proveedores, repuestos, entradas-mercancia, sedes) más
   sus listas anidadas relevantes (vehículos, ítems, mano de obra, DVI
   fotos, pagos, entradas recibidas).
-- Commit: `[pendiente]`.
+- Commit: `b8ca3a9`.
 
 **Fase 13 completa — 14 tareas cerradas (4 componente + 10 módulos).
 Pendiente de aprobación del usuario antes de empezar la Fase 14.**
