@@ -536,7 +536,7 @@ Estado: cerrada.
 - Test: campo vacío bloqueado + error de servidor con datos válidos.
 - Verificación: `tsc --noEmit` limpio (junto con la tarea 20, verificadas
   en el mismo pase). `npx vitest run` 7/7 verde.
-- Commit: `[pendiente]`.
+- Commit: `29fe12a`.
 
 ### Fase 14 / Tarea 20 — Formulario `nuevo-vehiculo` (cliente/[id])
 
@@ -557,7 +557,7 @@ Estado: cerrada.
 - Verificación: compartida con la tarea 19. `npx playwright test
   e2e/tenant-flow.spec.ts` completo: verde (checkpoint tras 5 tareas de
   Fase 14 sin correrlo).
-- Commit: `[pendiente]`.
+- Commit: `ecf429d`.
 
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
