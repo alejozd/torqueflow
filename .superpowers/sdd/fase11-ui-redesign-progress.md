@@ -679,6 +679,39 @@ Estado: cerrada.
   tests) verde.
 - Commit: `18757e9`.
 
+### Fase 14 / Tarea 28 — Formulario `agregar-mano-obra`
+
+Estado: cerrada.
+
+- `agregar-mano-obra-form.tsx`: 3 campos obligatorios sin casos
+  especiales (`manoDeObraInputSchema` no tiene `.optional()` en ningún
+  campo, no necesitó el fix de `""` → `undefined`).
+- Test: campos vacíos bloqueados client-side + error de servidor con
+  datos válidos (reemplaza el caso que enviaba vacío a propósito).
+- Verificación: compartida con la tarea 29.
+- Commit: `[pendiente]`.
+
+### Fase 14 / Tarea 29 — Formulario `generar-factura`
+
+Estado: cerrada.
+
+- `generar-factura-form.tsx`: único caso hasta ahora que NO usa
+  `useActionState` — usa `useState`+`useTransition` a mano porque
+  necesita `router.push` dentro de la misma transición que la llamada al
+  action (comentario ya existente en el código: `revalidatePath` puede
+  desmontar este componente antes de que un efecto reaccione al nuevo
+  estado). RHF se integra igual: `handleSubmit(onValid)` en el
+  `onSubmit`, y `onValid` arma el `FormData` desde el `formRef` como en
+  todos los demás — el patrón no depende de `useActionState`
+  específicamente, solo de tener un `<form ref>` y un punto donde llamar
+  al action con `FormData`.
+  Mismo fix de `""` → `undefined` para `descuento` (`factura-actions.ts`
+  ya hacía `|| undefined`).
+- Sin test propio.
+- Verificación: `tsc --noEmit` limpio. `npx vitest run` (5 archivos/15
+  tests, todo `ordenes/[id]`) verde.
+- Commit: `[pendiente]`.
+
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
 Estado: cerrada.
