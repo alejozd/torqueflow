@@ -90,6 +90,71 @@ Estado: cerrada.
 
 **Fase 12 completa — tarea 3 cerrada. Pendiente de aprobación del usuario antes de empezar la Fase 13.**
 
+---
+
+## Fase 13 — Todas las tablas de datos
+
+Estado: en progreso.
+
+Relevamiento previo (agente de exploración) confirmó:
+- Ninguno de los 10 módulos objetivo usa `<table>` hoy — todos son
+  `<ul>/<li>` bare. `/reportes` y el panel superadmin YA usan `<table>`
+  HTML crudo (no el `Table` de shadcn) con el patrón
+  `getByRole("row").filter({hasText})` en sus e2e — se reusa ese patrón.
+- Ningún `page.tsx` de listado tiene test unitario propio (`*.test.tsx`
+  en esos directorios cubre solo formularios aislados) — la única
+  cobertura de estas vistas es `e2e/tenant-flow.spec.ts`, hoy con
+  `getByText(substring)`/`getByRole("link", {name})` sobre el texto
+  concatenado del `<li>`. Migrar a `<Table>` real requiere actualizar esas
+  aserciones a queries por fila/celda (`getByRole("row").filter({hasText})`,
+  `getByRole("cell", {name})`) en el mismo commit de cada módulo — se
+  documenta explícitamente porque implica tocar `e2e/tenant-flow.spec.ts`,
+  algo que la Fase 12 evitó pero que aquí es inevitable (no hay otra red
+  de seguridad para estas vistas).
+- `vehiculos` NO es una ruta de listado propia (no hay
+  `vehiculos/page.tsx`, solo `vehiculos/[id]/page.tsx` con 2 listas
+  anidadas) — se saca de la lista de 10 módulos "top-level" y sus listas
+  anidadas se evalúan junto con `clientes`.
+- Dos formas de "acciones de fila" en la app hoy: (a) fila-completa-es-link
+  a detalle (clientes, ordenes, facturas, citas, entradas-mercancia) y
+  (b) formulario interactivo embebido por fila (usuarios ↔
+  `AsignarSedesForm`, sedes ↔ `EditarSedeForm`, superadmin ↔
+  `TenantRowActions`). El diseño de `DataTable` debe soportar ambas (una
+  celda puede renderizar cualquier `ReactNode`, no solo texto/link).
+- Solo `citas` tiene manejo de estado vacío hoy
+  (`"No hay citas agendadas en esta sede."`). Los otros 9 módulos y 5+
+  listas anidadas no tienen mensaje de vacío — se estandariza vía el prop
+  `emptyMessage` de `DataTable`, con un mensaje puntual por módulo.
+
+Estrategia de verificación por módulo: `tsc --noEmit` + `npm test`
+(rápidos) en cada commit; `npx playwright test e2e/tenant-flow.spec.ts`
+completo (es un único test que camina ~25 rutas en secuencia, no se
+puede correr por módulo aislado) se ejecuta en checkpoints — no tras cada
+uno de los 10 commits, para no pagar 10x el arranque del dev server —
+y obligatorio al cerrar la Fase 13.
+
+### Fase 13 / Tarea 4 — Componente `DataTable` reutilizable
+
+Estado: cerrada.
+
+- Nuevo `src/components/data-table.tsx`: `DataTable<T>({ columns, rows,
+  getRowKey, emptyMessage })` genérico sobre `Table`/`TableHeader`/
+  `TableBody`/`TableRow`/`TableHead`/`TableCell` de shadcn (`src/components/
+  ui/table.tsx`, sin uso previo en la app). `columns: {header, cell: (row)
+  => ReactNode, className?}[]` — `cell` retorna cualquier `ReactNode`
+  (texto, `<Link>`, `<Badge>`, o un formulario completo), cubriendo ambas
+  formas de acción de fila detectadas en el relevamiento. Si `rows.length
+  === 0` renderiza `<p className="text-sm text-muted-foreground">
+  {emptyMessage}</p>` en vez de una tabla vacía con headers huérfanos
+  (gap que tenía el panel superadmin hoy).
+- No se agregó `caption`/paginación/ordenamiento — ninguno de los 10
+  módulos los necesita hoy (listas cortas, sin ordenamiento en la data
+  actual); se agrega si una vista concreta lo necesita, no especulativo.
+- Verificación: `tsc --noEmit` limpio. Sin tests propios (componente de
+  presentación puro, sin lógica) — se verifica indirectamente vía los
+  tests/e2e de cada módulo que lo consuma.
+- Commit: `[pendiente]`.
+
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
 Estado: cerrada.
