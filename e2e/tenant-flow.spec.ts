@@ -313,6 +313,33 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   await page.getByRole("button", { name: `Guardar sedes de ${E2E_TECNICO_NOMBRE}` }).click();
   await expect(page.getByRole("status")).toHaveText("Sedes actualizadas");
 
+  // --- Módulo 10: usuario create/edit/delete, ADMIN-only ---
+
+  await page.getByRole("link", { name: "Crear usuario" }).click();
+  await page.getByLabel("Nombre").fill("Usuario E2E");
+  await page.getByLabel("Correo").fill("usuario-e2e@e2e-smoke.test");
+  await page.getByLabel("Contraseña").fill("SmokeTest123!");
+  await page.getByLabel("Rol").selectOption("RECEPCION");
+  await page.getByRole("button", { name: "Crear usuario" }).click();
+  await expect(page.getByRole("status")).toHaveText("Usuario creado");
+
+  await page.getByRole("link", { name: "Usuarios" }).click();
+  await expect(page.getByRole("heading", { name: "Usuario E2E", level: 2 })).toBeVisible();
+
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: "Usuario E2E" })
+    .getByRole("link", { name: "Editar" })
+    .click();
+  await expect(page.getByRole("heading", { name: "Editar usuario", level: 1 })).toBeVisible();
+  await page.getByLabel("Rol").selectOption("TECNICO");
+  await page.getByRole("button", { name: "Guardar cambios" }).click();
+  await expect(page.getByRole("status")).toHaveText("Usuario actualizado");
+
+  await page.getByRole("button", { name: "Eliminar usuario" }).click();
+  await page.goto("/usuarios");
+  await expect(page.getByRole("heading", { name: "Usuario E2E", level: 2 })).toHaveCount(0);
+
   // --- The isolation proof: the same técnico, in the other sede, sees nothing ---
 
   await page.getByRole("button", { name: "Cambiar de sede" }).click();

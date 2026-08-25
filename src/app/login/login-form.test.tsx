@@ -68,7 +68,10 @@ describe("LoginForm", () => {
   });
 
   it("shows one uniform error when signIn fails, without saying which field was wrong", async () => {
-    mockSignIn.mockResolvedValue({ ok: false, error: "CredentialsSignin" });
+    // NextAuth's real credentials callback responds HTTP 200 (ok: true) even
+    // when the credentials are wrong -- `error` is what actually signals
+    // failure. This mock reflects that real shape, not a 4xx-style failure.
+    mockSignIn.mockResolvedValue({ ok: true, error: "CredentialsSignin" });
     render(<LoginForm sedes={SEDES} />);
 
     await userEvent.type(screen.getByLabelText("Correo"), "admin@taller-perez.test");
