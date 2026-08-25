@@ -571,7 +571,7 @@ Estado: cerrada.
 - Ningún test tocado (los 2 existentes son solo de render/atributos, no
   ejercitan submit).
 - Verificación: compartida con la tarea 22.
-- Commit: `[pendiente]`.
+- Commit: `0ef0aed`.
 
 ### Fase 14 / Tarea 22 — Formulario `editar-sede` (update + `.bind(null, id)`)
 
@@ -586,7 +586,7 @@ Estado: cerrada.
 - Sin test propio (no existía `editar-sede-form.test.tsx`).
 - Verificación: `tsc --noEmit` limpio. `npx vitest run` (junto con
   `nueva-sede-form` y `sede-actions.test.ts`) 17/17 verde.
-- Commit: `[pendiente]`.
+- Commit: `d346ec8`.
 
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
