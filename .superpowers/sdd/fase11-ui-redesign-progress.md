@@ -721,7 +721,7 @@ Estado: cerrada.
   mano), `metodoPago` enum select, `referencia` libre opcional. Sin
   test propio.
 - Verificación: compartida con las tareas 31-32.
-- Commit: `[pendiente]`.
+- Commit: `1abf280`.
 
 ### Fase 14 / Tarea 31 — Formulario `agregar-entrada-item`
 
@@ -739,7 +739,7 @@ Estado: cerrada.
   "Selecciona un repuesto" == mensaje de error → se usa
   `document.getElementById("repuestoId-error")`.
 - Verificación: compartida con la tarea 32.
-- Commit: `[pendiente]`.
+- Commit: `cfcc640`.
 
 ### Fase 14 / Tarea 32 — Formulario `nueva-entrada-mercancia`
 
@@ -755,7 +755,7 @@ Estado: cerrada.
   texto ("Selecciona un proveedor"), mismo fix con `getElementById`.
 - Verificación: `tsc --noEmit` limpio. `npx vitest run` (2 archivos/8
   tests, `facturas` + `entradas-mercancia`) verde.
-- Commit: `[pendiente]`.
+- Commit: `23c9f01`.
 
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
