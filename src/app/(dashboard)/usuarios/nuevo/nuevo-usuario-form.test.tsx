@@ -23,13 +23,25 @@ describe("NuevoUsuarioForm", () => {
     expect(screen.getByRole("option", { name: "RECEPCION" })).toBeInTheDocument();
   });
 
-  it("shows the error returned by the action", async () => {
+  it("blocks submission and shows field errors when required fields are empty, without calling the server", async () => {
+    render(<NuevoUsuarioForm />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Crear usuario" }));
+
+    expect(await screen.findByText("El nombre es obligatorio")).toBeInTheDocument();
+    expect(mockCreateUsuarioAction).not.toHaveBeenCalled();
+  });
+
+  it("shows the error returned by the action when the plan limit is reached", async () => {
     mockCreateUsuarioAction.mockResolvedValue({
       error: "Tu plan permite hasta 3 usuario(s). Actualiza tu plan para agregar más.",
       success: false,
     });
     render(<NuevoUsuarioForm />);
 
+    await userEvent.type(screen.getByLabelText("Nombre"), "Usuario E2E");
+    await userEvent.type(screen.getByLabelText("Correo"), "usuario@taller.test");
+    await userEvent.type(screen.getByLabelText("Contraseña"), "SuperSecret123!");
     await userEvent.click(screen.getByRole("button", { name: "Crear usuario" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(

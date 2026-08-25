@@ -588,6 +588,39 @@ Estado: cerrada.
   `nueva-sede-form` y `sede-actions.test.ts`) 17/17 verde.
 - Commit: `d346ec8`.
 
+### Fase 14 / Tarea 23 — Formulario `nuevo-usuario`
+
+Estado: cerrada.
+
+- `nuevo-usuario-form.tsx`: nombre/email/password (min 8) + `role`
+  (`<select>` de 3 opciones fijas, con `register("role")` para incluirlo
+  en el `FormData`, sin validación de campo extra — el enum ya restringe
+  las opciones visibles).
+- Test: el caso "shows the error returned by the action" enviaba el
+  formulario vacío a propósito para simular el límite de plan —
+  actualizado a llenar nombre/email/password primero (ahora bloquea
+  client-side antes) y se agregó el caso nuevo de bloqueo por campos
+  vacíos.
+- Verificación: compartida con la tarea 24.
+- Commit: `[pendiente]`.
+
+### Fase 14 / Tarea 24 — Formulario `editar-usuario` (password opcional)
+
+Estado: cerrada.
+
+- `editar-usuario-form.tsx`: mismo patrón que `nuevo-usuario`, con
+  `usuarioUpdateInputSchema` — `password` es
+  `.optional().or(z.literal(""))` (dejarlo en blanco conserva la
+  contraseña actual), así que el campo vacío NO bloquea el submit, a
+  diferencia de `nuevo-usuario`. El segundo `<form>` de este archivo
+  (`deleteUsuarioAction`, sin campos) queda intacto, sin RHF.
+- Ningún test tocado: los 3 tests existentes (pre-llenado, error de
+  servidor, click en eliminar) ya enviaban con nombre/email pre-llenados
+  y password vacío (válido) — pasan sin cambios.
+- Verificación: `tsc --noEmit` limpio. `npx vitest run` (3 archivos/11
+  tests, incluye `nuevo-usuario-form` y `asignar-sedes-form`) verde.
+- Commit: `[pendiente]`.
+
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
 Estado: cerrada.
