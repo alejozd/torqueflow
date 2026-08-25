@@ -86,7 +86,7 @@ Estado: cerrada.
   17 tests, todos verdes sin modificar los tests. Suite completa: 597
   tests reales pasando (mismo flake de `prisma migrate deploy` ya
   documentado en Fase 11, sin relación con este cambio).
-- Commit: `[pendiente]`.
+- Commit: `1452f41`.
 
 **Fase 12 completa — tarea 3 cerrada. Pendiente de aprobación del usuario antes de empezar la Fase 13.**
 
