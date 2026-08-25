@@ -29,17 +29,32 @@ describe("AgregarEntradaItemForm", () => {
   it("shows a success message after a successful submit", async () => {
     render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
 
+    await userEvent.selectOptions(screen.getByLabelText("Repuesto"), "r1");
+    await userEvent.type(screen.getByLabelText("Cantidad"), "5");
+    await userEvent.type(screen.getByLabelText("Precio de compra unitario"), "8");
     await userEvent.click(screen.getByRole("button", { name: "Registrar ítem" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Ítem registrado, stock actualizado");
   });
 
-  it("shows the error message when the action returns one", async () => {
-    mockAddEntradaItemAction.mockResolvedValue({ error: "La cantidad debe ser al menos 1", success: false });
+  it("blocks submission and shows field errors when nothing is filled, without calling the server", async () => {
     render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Registrar ítem" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("La cantidad debe ser al menos 1");
+    expect(document.getElementById("repuestoId-error")).toHaveTextContent("Selecciona un repuesto");
+    expect(mockAddEntradaItemAction).not.toHaveBeenCalled();
+  });
+
+  it("shows the server error when the action refuses an otherwise valid submission", async () => {
+    mockAddEntradaItemAction.mockResolvedValue({ error: "No puedes agregar ítems a una entrada anulada.", success: false });
+    render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
+
+    await userEvent.selectOptions(screen.getByLabelText("Repuesto"), "r1");
+    await userEvent.type(screen.getByLabelText("Cantidad"), "5");
+    await userEvent.type(screen.getByLabelText("Precio de compra unitario"), "8");
+    await userEvent.click(screen.getByRole("button", { name: "Registrar ítem" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("No puedes agregar ítems a una entrada anulada.");
   });
 });
