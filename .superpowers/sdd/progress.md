@@ -754,3 +754,49 @@ Estos 4 puntos (y otros de severidad SUGGESTION observados en el mismo review pa
 - No se requirió ninguna corrección de código.
 
 **Status confirmado: Fase 9 cerrada, sin fallos reales pendientes. Lista para pruebas manuales.**
+
+======================================================================
+CIERRE FORMAL FASE 10 (2026-08-25)
+======================================================================
+
+Cambio arquitectónico solicitado por el usuario: reemplazar la resolución de
+tenant por subdominio (`<slug>.zdevs.uk`) por resolución por email del
+usuario, detrás de una única URL de entrada. Plan aprobado vía plan mode
+(15 tareas), guardado en `C:\Users\Alejo\.claude\plans\calm-snuggling-whale.md`.
+Detalle completo de cada tarea en Engram, topic_key
+`architecture/fase10-tenant-by-email`.
+
+**Tareas 1-13 (funcionales), todas en main:**
+1. Script de auditoría de emails duplicados entre tenants (0 duplicados encontrados).
+2. Modelo `TenantUserEmail` (schema `public`) + migración.
+3. Script de backfill del índice desde los tenants existentes (idempotente, sin sobrescribir en conflicto).
+4. Sincronización del índice en los 4 puntos de escritura reales de `Usuario` (`seedTenantUser` + `createUsuarioAction`/`updateUsuarioAction`/`deleteUsuarioAction` — alcance ampliado sobre el plan original al descubrir que `usuario-actions.ts` tiene sus propios flujos independientes del script CLI).
+5. `authorizeCredentials()` resuelve tenant por email; `resolveSedeInicial()` auto-selecciona sede solo si hay un único candidato inequívoco.
+6. `auth.ts`: sin callback `redirect` de subdominios; soporte de `session.update()`/`unstable_update()` para completar la sede post-login.
+7. Pantalla nueva `/seleccionar-sede` + server action.
+8. `requireSession()` re-verifica tenant por `schemaName` (no por Host); redirige a `/seleccionar-sede` en vez de `/login?error=sede-requerida`.
+9. Login reducido a email+password, sin selector de sede previo.
+10. Eliminación de código muerto: `middleware.ts`, `resolveTenant()` Host-based, `subdomain.ts` (parte), `resolve-redirect.ts`, `login-sedes.ts`, `constants.ts`.
+11. (subsumida en la 10) Validación de slug simplificada — ya no depende de subdominios reservados.
+12. Limpieza de config: `BASE_DOMAIN` fuera de `.env.example`; `allowedDevOrigins` fuera de `next.config.ts`.
+13. Reescritura completa de e2e (`tenant-flow.spec.ts`, `super-admin-flow.spec.ts`) sin subdominios, con un helper de login compartido (`e2e/login-helper.ts`).
+
+**Dos bugs reales encontrados y corregidos en la tarea 13** (no eran regresiones de tareas anteriores; solo la reescritura de e2e los llegó a ejercitar):
+- `LoginForm` no fijaba `callbackUrl` en `signIn()` — al reloguear desde una página con `?error=...` en la URL, NextAuth hacía eco de esa query string en su respuesta y el cliente la interpretaba como fallo aunque el login fuera exitoso. Fix: `callbackUrl: "/clientes"` explícito.
+- El helper de login de e2e (no la app) tenía una race condition: `page.waitForURL()` + `page.url()` inmediato caía en la ventana en que Next.js ya había actualizado la URL a `/clientes` de forma optimista, antes de que el redirect del servidor a `/seleccionar-sede` aplicara. Fix: esperar un elemento de DOM estable (`Promise.race` entre el heading de `/seleccionar-sede` y el botón "Cambiar de sede" del dashboard) en vez de la URL.
+
+**Tarea 14** (limpieza de tests): revisada, sin cambios necesarios — ya cubierta incrementalmente por las tareas 4/5/8/10. Grep completo del repo sin referencias obsoletas ni tests huérfanos.
+
+**Tarea 15** (documentación): nueva nota `docs/design/notes/2026-08-25-tenant-resolution-by-email.md`; `docs/design/notes/2026-08-09-tenant-resolution-edge-split.md` marcada como superseded (queda como registro histórico); actualizado §4/§4.1 y el roadmap (§11) de `docs/design/2026-08-02-taller-saas-multitenant-design.md`.
+
+**Verificación final:**
+- `tsc --noEmit` limpio en cada tarea.
+- Suite unitaria: 600 tests reales pasando de forma consistente a través de las tareas; el único ruido es el flake de contención de `migrate deploy` ya documentado en el cierre de Fase 9 (mismo síntoma, membresía de archivos afectados variable según qué tests corren en paralelo).
+- E2E: 3/3 specs pasando (`landing`, `super-admin-flow`, `tenant-flow` completo de ~25 pasos), incluyendo el flujo de selección de sede post-login end-to-end.
+
+**Backlog no bloqueante para una futura fase:**
+1. Mitigación de enumeración por timing en `authorizeCredentials()` (riesgo #4 del plan): el lookup de email ahora es global (antes estaba acotado a un tenant por subdominio); no se implementó una comparación de tiempo constante / hash dummy cuando el email no existe.
+2. Decomiso de infraestructura DNS/certificado wildcard `*.zdevs.uk` en Cloudflare — ítem de infraestructura, fuera de alcance del código.
+3. `check-duplicate-emails`/`backfill-tenant-user-index` quedan como scripts manuales (`npm run tenant:check-duplicate-emails` / `tenant:backfill-user-index`), sin programación periódica — no urgente mientras no exista alta de tenants self-serve.
+
+**Status: Fase 10 formalmente cerrada.**

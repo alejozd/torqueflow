@@ -3,6 +3,14 @@
 Date: 2026-08-09
 Related: docs/design/2026-08-02-taller-saas-multitenant-design.md §4, §4.1
 
+> **Superseded (Fase 10, 2026-08-25).** Subdomain-based tenant resolution —
+> and with it this Edge/Node split — was removed entirely. TorqueFlow now
+> resolves the tenant from the logged-in user's email instead, behind a
+> single URL. `src/middleware.ts` no longer exists. See
+> `docs/design/notes/2026-08-25-tenant-resolution-by-email.md` for the
+> current model. Kept below as a historical record of why the split existed
+> while subdomains were the resolution mechanism.
+
 ## Why this exists
 
 Next.js Middleware (`src/middleware.ts`) always runs in the Edge runtime.

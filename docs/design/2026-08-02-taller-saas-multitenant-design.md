@@ -47,12 +47,19 @@ Modelo elegido (de 3 evaluados: shared-schema+tenant_id, schema-per-tenant, data
 - Cada taller (`tenant`) tiene su propio schema dentro de esa base de datos (`taller_perez`, `taller_gomez`, ...) con las mismas tablas, más un schema `public` para las tablas globales (lista de tenants, planes, datos de super-admin).
 - Un *schema* es un namespace de tablas **dentro** de la base de datos, no una base de datos nueva ni una conexión nueva — más atómico que crear una BD por cliente.
 - Prisma corre las migraciones una vez por schema y selecciona el schema activo por conexión (parámetro `schema` en la connection string o `search_path`).
-- La app resuelve el tenant por subdominio de **primer nivel** bajo el dominio base del usuario (`taller-perez.zdevs.uk`, no `taller-perez.torqueflow.zdevs.uk`) y selecciona la conexión/schema correspondiente en cada request. Decisión de subdominio detallada en §4.1.
+- La app resuelve el tenant por el **email** del usuario que inicia sesión (índice `TenantUserEmail` en el schema `public`) y selecciona la conexión/schema correspondiente en cada request. **Nota (2026-08-25, Fase 10):** el modelo original resolvía el tenant por subdominio de primer nivel bajo el dominio base; se reemplazó por resolución por email para exponer una única URL de entrada (`torqueflow.zdevs.uk`) en vez de un subdominio por taller. La decisión de subdominio original queda documentada en §4.1 como registro histórico; el modelo actual se detalla en `docs/design/notes/2026-08-25-tenant-resolution-by-email.md`.
 - **Camino de "buyout" a on-premise**: si un cliente quiere privacidad total y dejar de depender del arriendo mensual, su schema se exporta con `pg_dump --schema=taller_x` y se despliega como instancia standalone (mismo `docker-compose`, un solo tenant) en su propia infraestructura — sin tocar los datos de otros talleres.
 - Se prefirió sobre `tenant_id` compartido porque el requisito de "poder entregarle sus datos a un cliente que se independiza" es explícito del usuario, y con un schema propio es una operación de un comando, no un filtrado fila por fila con riesgo de fuga de datos entre talleres.
 - Se prefirió sobre base de datos por tenant porque, a la escala inicial (unos pocos talleres, un servidor modesto), administrar N bases de datos separadas es más pesado operativamente que N schemas en una sola instancia.
 
 ### 4.1 Resolución de tenant: subdominio de un solo nivel
+
+> **Superseded (Fase 10, 2026-08-25).** El sistema ya no resuelve el tenant
+> por subdominio — ver la nota en §4 y
+> `docs/design/notes/2026-08-25-tenant-resolution-by-email.md`. Esta sección
+> queda como registro histórico de la decisión original (motivo: límite del
+> certificado Universal SSL gratuito de Cloudflare) y de por qué se
+> abandonó.
 
 Dominio base del usuario: `zdevs.uk` (Cloudflare), ya usado para otras apps (`conteosapp.zdevs.uk`, `exogena.zdevs.uk`, `custodiastock.zdevs.uk`).
 
@@ -160,6 +167,7 @@ Los valores sugeridos de `maxUsuarios` son defaults iniciales, ajustables sin ca
 - **Fase 7** — Agendamiento de citas + recordatorios de mantenimiento preventivo (módulos 7 y 8, §5).
 - **Fase 8** — Notificaciones automáticas al cliente vía WhatsApp/Email (módulo 6, §5).
 - **Fase 9** — Panel de super-admin + planes y niveles de suscripción (módulos 10 y 11, §5).
+- **Fase 10** (2026-08-25) — Cambio arquitectónico, no un módulo nuevo: resolución de tenant por email en vez de por subdominio, exponiendo una única URL de entrada en vez de un subdominio por taller. Ver `docs/design/notes/2026-08-25-tenant-resolution-by-email.md` y la nota en §4/§4.1.
 
 Precios exactos y valores finales de `maxUsuarios`/`maxSedes` (§10) siguen sin definir — deben resolverse antes de exponer el panel de super-admin a talleres reales (Fase 9), no bloquean el desarrollo de fases anteriores.
 
