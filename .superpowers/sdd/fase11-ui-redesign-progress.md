@@ -13,7 +13,7 @@ vista queda sin modernizar al cierre de la Fase 14.
 
 ## Fase 11 — Fundación de diseño + shell del dashboard
 
-Estado: en progreso.
+Estado: cerrada, pendiente de aprobación del usuario para pasar a Fase 12.
 
 ### Fase 11 / Tarea 2 — Shell del dashboard (sidebar)
 
@@ -50,7 +50,9 @@ Estado: cerrada.
   3 specs) — los 3 pasan**, incluyendo el flujo completo de
   `tenant-flow.spec.ts` (nav, badge de sede, botones) — única cobertura
   real de este archivo, sin test unitario propio.
-- Commit: `[pendiente]`.
+- Commit: `04bc380` (pusheado a main).
+
+**Fase 11 completa — tareas 1 y 2 cerradas. Pendiente de aprobación del usuario antes de empezar la Fase 12.**
 
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
