@@ -296,6 +296,61 @@ Estado: cerrada.
   commits).
 - Commit: `d092c3f`.
 
+### Fase 13 / Tarea 12 — Módulo `repuestos`
+
+Estado: cerrada.
+
+- `repuestos/page.tsx`: lista migrada a `DataTable` (1 columna, texto
+  combinado idéntico al `<li>` original: código/nombre/stock/bodega +
+  sufijo condicional "⚠ stock bajo"). Se mantiene en una sola celda a
+  propósito (no se separó en columnas Código/Nombre/Stock/Bodega) para
+  que el `<td>` conserve el substring exacto que matchea el regex e2e
+  `getByText(/FRN-001.*stock: 20/)` sin depender de la concatenación de
+  texto entre celdas. `emptyMessage`: "No hay repuestos registrados."
+- Verificación: `tsc --noEmit` limpio (junto con `entradas-mercancia` y
+  `sedes`, verificados en el mismo pase). `npx vitest run` 26/26 verde.
+  `npx playwright test` completo (los 2 specs): verde.
+- Commit: `[pendiente]`.
+
+### Fase 13 / Tarea 13 — Módulo `entradas-mercancia`
+
+Estado: cerrada.
+
+- `entradas-mercancia/page.tsx`: lista migrada a `DataTable` (1 columna,
+  mismo `<Link>` fecha/proveedor/bodega/cantidad-de-ítems).
+  `emptyMessage`: "No hay entradas de mercancía registradas."
+- `entradas-mercancia/[id]/page.tsx`: lista anidada "Ítems recibidos"
+  migrada igual (texto plano código/nombre/cantidad/precio).
+  `emptyMessage`: "Esta entrada no tiene ítems registrados." (no existía
+  antes).
+- Verificación: compartida con la tarea 12 (ver arriba).
+- Commit: `[pendiente]`.
+
+### Fase 13 / Tarea 14 — Módulo `sedes`
+
+Estado: cerrada — **cierra la Fase 13, los 10 módulos objetivo migrados**.
+
+- `sedes/page.tsx`: lista migrada a `DataTable` de 2 columnas: "Nombre"
+  (mismo `<h2>` + `<p>` de dirección opcional dentro de la celda —
+  preserva `getByRole("heading", {name, level: 2})`) y "Acciones"
+  (`EditarSedeForm` embebido completo — segundo caso real de "formulario
+  de fila" junto a `usuarios`). `emptyMessage`: "No hay sedes
+  registradas."
+- Este módulo ya había recibido el fix `deleteSedeFormAction` (commit
+  `0e2fc15`, fuera de la numeración de Fase 13) antes de esta migración —
+  la tabla real confirma que el flujo "Eliminar Sede principal" (refutado
+  por tener órdenes/bodegas) sigue mostrando el error inline sin romper
+  el resto de la fila.
+- Verificación: compartida con las tareas 12-13. **Con este módulo cierran
+  los 10 objetivo de la Fase 13** (clientes, ordenes, usuarios, facturas,
+  citas, bodegas, proveedores, repuestos, entradas-mercancia, sedes) más
+  sus listas anidadas relevantes (vehículos, ítems, mano de obra, DVI
+  fotos, pagos, entradas recibidas).
+- Commit: `[pendiente]`.
+
+**Fase 13 completa — 14 tareas cerradas (4 componente + 10 módulos).
+Pendiente de aprobación del usuario antes de empezar la Fase 14.**
+
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
 Estado: cerrada.
