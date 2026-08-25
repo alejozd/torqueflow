@@ -649,7 +649,7 @@ Estado: cerrada.
   server) — ya no aplica, reemplazado por los 2 de arriba.
 - Verificación: `tsc --noEmit` limpio. `npx vitest run` (1 archivo/4
   tests) verde.
-- Commit: `[pendiente]`.
+- Commit: `befa9ad`.
 
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
