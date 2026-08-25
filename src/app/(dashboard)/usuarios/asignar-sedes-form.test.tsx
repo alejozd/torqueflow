@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 const mockSetUsuarioSedesAction = vi.fn();
 vi.mock("@/app/actions/usuario-actions", () => ({
@@ -51,5 +52,14 @@ describe("AsignarSedesForm", () => {
     render(<AsignarSedesForm usuario={USUARIO} sedes={SEDES} />);
 
     expect(screen.getByRole("button", { name: "Guardar sedes de Tec E2E" })).toBeInTheDocument();
+  });
+
+  it("blocks submission and shows a field error when every checkbox is unchecked, without calling the server", async () => {
+    render(<AsignarSedesForm usuario={{ ...USUARIO, sedeIds: [] }} sedes={SEDES} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Guardar sedes de Tec E2E" }));
+
+    expect(await screen.findByText("Selecciona al menos una sede")).toBeInTheDocument();
+    expect(mockSetUsuarioSedesAction).not.toHaveBeenCalled();
   });
 });

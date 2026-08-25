@@ -491,6 +491,31 @@ Estado: cerrada.
   tests, incluye `repuesto-actions.test.ts`) verde.
 - Commit: `761796a`.
 
+### Fase 14 / Tarea 18 — Formulario `asignar-sedes` (checkbox array)
+
+Estado: cerrada.
+
+- `asignar-sedes-form.tsx`: primer caso de grupo de checkboxes bajo el
+  mismo `name` (`sedeIds`). RHF soporta esto de forma nativa: registrar
+  el mismo campo (`register("sedeIds")`) en cada `<input
+  type="checkbox">` con `value={sede.id}` distinto agrupa los valores
+  marcados en un array automáticamente; `defaultValues: {sedeIds:
+  usuario.sedeIds}` pre-marca los checkboxes correctos sin tocar
+  `defaultChecked` a mano. El `FormData` armado desde el `formRef` sigue
+  produciendo múltiples entradas `sedeIds` (una por checkbox marcado),
+  igual que antes — compatible con
+  `formData.getAll("sedeIds")` en `setUsuarioSedesAction`, sin tocar el
+  server action.
+  Valida `usuarioSedesInputSchema.sedeIds` (`min(1)` — "Selecciona al
+  menos una sede"), el mismo mensaje que ya usa el server.
+- Ningún test existente tocado — los 4 tests del archivo original solo
+  verifican render estático (labels, pre-marcado, atributo `name`, texto
+  del botón), ninguno ejercitaba el submit. Se agregó un test nuevo:
+  las 2 sedes desmarcadas bloquean el submit sin llamar al server.
+- Verificación: `tsc --noEmit` limpio. `npx vitest run` (1 archivo/5
+  tests) verde.
+- Commit: `[pendiente]`.
+
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
 Estado: cerrada.
