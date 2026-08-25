@@ -14,12 +14,6 @@ describe("getLoginErrorMessage", () => {
     );
   });
 
-  it("returns the sede-required message for 'sede-requerida'", () => {
-    expect(getLoginErrorMessage("sede-requerida")).toBe(
-      "Tu sesión no tiene una sede activa. Vuelve a iniciar sesión.",
-    );
-  });
-
   it("returns the tenant-suspended message for 'tenant-suspendido'", () => {
     expect(getLoginErrorMessage("tenant-suspendido")).toBe(
       "Tu taller está suspendido. Contacta al proveedor del servicio.",

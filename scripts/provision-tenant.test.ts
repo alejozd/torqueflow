@@ -119,17 +119,20 @@ describe("provisionTenant", () => {
     ).rejects.toThrow(/Invalid schema name/);
   });
 
-  it("rejects a reserved slug without creating any schema", async () => {
-    const RESERVED_SLUG = "www";
-    const RESERVED_SCHEMA = "test_task6_www_fixture";
+  it("rejects a malformed slug without creating any schema", async () => {
+    // Fase 10: slugs are just an internal identifier now (no subdomain
+    // routing), so a formerly-reserved word like "www" is valid -- only the
+    // format (lowercase alphanumeric-with-hyphens) is still checked.
+    const MALFORMED_SLUG = "Not Valid";
+    const MALFORMED_SCHEMA = "test_task10_malformed_fixture";
 
     await expect(
-      provisionTenant({ slug: RESERVED_SLUG, schemaName: RESERVED_SCHEMA }),
+      provisionTenant({ slug: MALFORMED_SLUG, schemaName: MALFORMED_SCHEMA }),
     ).rejects.toThrow(/Invalid slug/);
 
     const schemaRow = await publicDb.$queryRawUnsafe<{ schema_name: string }[]>(
       `SELECT schema_name FROM information_schema.schemata WHERE schema_name = $1`,
-      RESERVED_SCHEMA,
+      MALFORMED_SCHEMA,
     );
     expect(schemaRow).toHaveLength(0);
   });

@@ -13,9 +13,10 @@ export interface LimitesPlan {
  *
  * tenantSchema is guaranteed to resolve to a live Tenant+Plan for any caller
  * that reached this via requireRole()/requireSession() -- that already
- * proved the tenant exists (resolveTenant()) before minting the session, and
- * Tenant.planId is a required FK. A missing row here would mean the
- * session's own tenant vanished mid-request, not a normal input to validate.
+ * re-checked the tenant exists (getTenantBySchema()) before returning the
+ * session, and Tenant.planId is a required FK. A missing row here would
+ * mean the session's own tenant vanished mid-request, not a normal input to
+ * validate.
  */
 export async function obtenerLimitesPlan(tenantSchema: string): Promise<LimitesPlan> {
   const tenant = await publicDb.tenant.findUnique({
