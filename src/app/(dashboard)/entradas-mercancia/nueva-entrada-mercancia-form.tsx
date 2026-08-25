@@ -1,7 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { startTransition, useActionState, useRef } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { createEntradaMercanciaAction, type EntradaFormState } from "@/app/actions/entrada-mercancia-actions";
+import { entradaMercanciaInputSchema, type EntradaMercanciaInput } from "@/lib/validation/inventario";
 import type { Bodega, Proveedor } from "@/generated/prisma-tenant";
 
 const initialState: EntradaFormState = { error: null, success: false };
@@ -14,11 +17,30 @@ export function NuevaEntradaMercanciaForm({
   bodegas: Bodega[];
 }) {
   const [state, formAction, isPending] = useActionState(createEntradaMercanciaAction, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<EntradaMercanciaInput>({
+    resolver: zodResolver(entradaMercanciaInputSchema),
+    defaultValues: { proveedorId: "", bodegaId: "" },
+  });
 
   return (
-    <form noValidate action={formAction}>
+    <form
+      noValidate
+      ref={formRef}
+      onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+    >
       <label htmlFor="proveedorId">Proveedor</label>
-      <select id="proveedorId" name="proveedorId" defaultValue="" required>
+      <select
+        id="proveedorId"
+        required
+        aria-invalid={errors.proveedorId ? true : undefined}
+        aria-describedby={errors.proveedorId ? "proveedorId-error" : undefined}
+        {...register("proveedorId")}
+      >
         <option value="" disabled>
           Selecciona un proveedor
         </option>
@@ -28,9 +50,16 @@ export function NuevaEntradaMercanciaForm({
           </option>
         ))}
       </select>
+      {errors.proveedorId ? <p id="proveedorId-error">{errors.proveedorId.message}</p> : null}
 
       <label htmlFor="bodegaId">Bodega</label>
-      <select id="bodegaId" name="bodegaId" defaultValue="" required>
+      <select
+        id="bodegaId"
+        required
+        aria-invalid={errors.bodegaId ? true : undefined}
+        aria-describedby={errors.bodegaId ? "bodegaId-error" : undefined}
+        {...register("bodegaId")}
+      >
         <option value="" disabled>
           Selecciona una bodega
         </option>
@@ -40,6 +69,7 @@ export function NuevaEntradaMercanciaForm({
           </option>
         ))}
       </select>
+      {errors.bodegaId ? <p id="bodegaId-error">{errors.bodegaId.message}</p> : null}
 
       <button type="submit" disabled={isPending}>
         {isPending ? "Creando..." : "Crear entrada"}

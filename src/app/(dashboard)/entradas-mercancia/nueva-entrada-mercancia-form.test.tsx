@@ -30,17 +30,30 @@ describe("NuevaEntradaMercanciaForm", () => {
   it("shows a success message after a successful submit", async () => {
     render(<NuevaEntradaMercanciaForm proveedores={proveedores} bodegas={bodegas} />);
 
+    await userEvent.selectOptions(screen.getByLabelText("Proveedor"), "p1");
+    await userEvent.selectOptions(screen.getByLabelText("Bodega"), "b1");
     await userEvent.click(screen.getByRole("button", { name: "Crear entrada" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Entrada creada");
   });
 
-  it("shows the error message when the action returns one", async () => {
-    mockCreateEntradaMercanciaAction.mockResolvedValue({ error: "Selecciona un proveedor", success: false });
+  it("blocks submission and shows a field error when nothing is selected, without calling the server", async () => {
     render(<NuevaEntradaMercanciaForm proveedores={proveedores} bodegas={bodegas} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Crear entrada" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Selecciona un proveedor");
+    expect(document.getElementById("proveedorId-error")).toHaveTextContent("Selecciona un proveedor");
+    expect(mockCreateEntradaMercanciaAction).not.toHaveBeenCalled();
+  });
+
+  it("shows the server error when the action refuses an otherwise valid submission", async () => {
+    mockCreateEntradaMercanciaAction.mockResolvedValue({ error: "Tu plan no permite más bodegas.", success: false });
+    render(<NuevaEntradaMercanciaForm proveedores={proveedores} bodegas={bodegas} />);
+
+    await userEvent.selectOptions(screen.getByLabelText("Proveedor"), "p1");
+    await userEvent.selectOptions(screen.getByLabelText("Bodega"), "b1");
+    await userEvent.click(screen.getByRole("button", { name: "Crear entrada" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Tu plan no permite más bodegas.");
   });
 });
