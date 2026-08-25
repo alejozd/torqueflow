@@ -720,3 +720,25 @@ DEUDA TÉCNICA POST-FASE 9: I2 RESUELTA (2026-08-24)
 - Efecto: el rol de un usuario ahora se revalida como máximo cada hora (frente a hasta 30 días antes), sin agregar queries por request -- la staleness máxima queda acotada a la ventana de `maxAge`.
 
 Status: I2 cerrada. Sin deuda técnica de sesión abierta.
+
+======================================================================
+CIERRE FORMAL FASE 9 (2026-08-25)
+======================================================================
+
+Verificación final tras la resolución de I2:
+- 11/11 tareas de Fase 9 implementadas y en main.
+- Suite unitaria: 590/591 (583/591 en la corrida completa de esta sesión, con 2 fallos en `provision-tenant.test.ts`; confirmado en aislamiento 16/16 -- es el mismo flake de contención de `migrate deploy` sobre esquema compartido ya documentado arriba, no una regresión).
+- E2E: 2/2 en aislamiento (último resultado confirmado; en esta sesión `npx playwright test` no llegó a levantar el webServer en 60s por lentitud de filesystem -- instancia adicional del flake de infraestructura Turbopack/Playwright ya documentado en el resumen de Fase 9, aceptado por el usuario sin más iteración).
+- Tenant permanente `taller-dev` (ADMIN `admin@dev.test` / `Admin123!`) verificado activo.
+- JWT tenant de 1 hora con renovación silenciosa (I2) implementado y verificado -- ver sección anterior.
+
+Una revisión multi-lente final (4 subagentes) iniciada en una sesión previa quedó interrumpida sin completar el flujo formal (`gentle-ai review finalize`/`validate`). Los hallazgos parciales capturados fueron de severidad WARNING/SUGGESTION únicamente (0 Critical/Blocker), y se documentan aquí como backlog no bloqueante en lugar de relanzar la revisión:
+
+1. `src/lib/super-admin/auth.ts` -- la instancia NextAuth de super-admin no define `session.maxAge` (default de 30 días de `@auth/core`), y no existe control de cierre de sesión ni renovación bajo `/superadmin`, a diferencia de la sesión tenant ya endurecida a 1h. Candidato a una futura tarea que extienda el mismo patrón de `SESSION_MAX_AGE_SECONDS`/`SessionRenewalModal` a la instancia super-admin.
+2. `src/app/(dashboard)/dashboard-session-provider.tsx` -- el comentario que documenta por qué se desactiva `refetchOnWindowFocus` sobreestima la garantía: `SessionProvider` igual dispara un fetch a `/api/auth/session` al montar, que re-firma el JWT con una nueva expiración de 1h, por lo que la sesión también se re-extiende en cada carga de página, no solo al confirmar la renovación explícita. Ajustar el comentario o el comportamiento en una futura pasada.
+3. `src/app/(dashboard)/session-renewal-modal.tsx` -- `handleContinue()` llama `await update()` sin try/catch ni estado de espera; una renovación fallida o lenta no se distingue de una exitosa para el usuario.
+4. `src/app/api/cron/recordatorios/route.ts` -- `listarTenants` no filtra por `estado: "ACTIVO"`, por lo que un tenant `SUSPENDIDO` sigue recibiendo el envío de recordatorios por cron pese a tener el acceso interactivo bloqueado.
+
+Estos 4 puntos (y otros de severidad SUGGESTION observados en el mismo review parcial) quedan en backlog para priorización explícita del usuario en una futura fase; no bloquean el cierre de Fase 9.
+
+**Status: Fase 9 formalmente cerrada. Lista para Fase 10.**
