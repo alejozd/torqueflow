@@ -281,7 +281,7 @@ Estado: cerrada.
 - Verificación: `tsc --noEmit` limpio, `npx vitest run` (junto con
   `proveedores`, verificados en el mismo pase) 5/5 verde, `npx playwright
   test e2e/tenant-flow.spec.ts` completo verde.
-- Commit: `[pendiente]`.
+- Commit: `72f7726`.
 
 ### Fase 13 / Tarea 11 — Módulo `proveedores`
 
@@ -294,7 +294,7 @@ Estado: cerrada.
 - Verificación: misma corrida que la tarea 10 (`tsc`/`vitest`/e2e
   compartidos, ambos módulos cambiados juntos antes de separarlos en
   commits).
-- Commit: `[pendiente]`.
+- Commit: `d092c3f`.
 
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
