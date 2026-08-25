@@ -39,17 +39,35 @@ describe("NuevoRepuestoForm", () => {
 
     await userEvent.type(screen.getByLabelText("Código"), "FRN-001");
     await userEvent.type(screen.getByLabelText("Nombre"), "Filtro de aceite");
+    await userEvent.type(screen.getByLabelText("Precio de compra"), "8");
+    await userEvent.type(screen.getByLabelText("Precio de venta"), "18.9");
+    await userEvent.selectOptions(screen.getByLabelText("Bodega"), "b1");
     await userEvent.click(screen.getByRole("button", { name: "Crear repuesto" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Repuesto creado");
   });
 
-  it("shows the error message when the action returns one", async () => {
-    mockCreateRepuestoAction.mockResolvedValue({ error: "El código es obligatorio", success: false });
+  it("blocks submission and shows field errors when required fields are empty, without calling the server", async () => {
     render(<NuevoRepuestoForm bodegas={bodegas} proveedores={proveedores} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Crear repuesto" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("El código es obligatorio");
+    expect(await screen.findByText("El código es obligatorio")).toBeInTheDocument();
+    expect(document.getElementById("bodegaId-error")).toHaveTextContent("Selecciona una bodega");
+    expect(mockCreateRepuestoAction).not.toHaveBeenCalled();
+  });
+
+  it("shows the server error when the action refuses an otherwise valid submission", async () => {
+    mockCreateRepuestoAction.mockResolvedValue({ error: "Ya existe un repuesto con ese código.", success: false });
+    render(<NuevoRepuestoForm bodegas={bodegas} proveedores={proveedores} />);
+
+    await userEvent.type(screen.getByLabelText("Código"), "FRN-001");
+    await userEvent.type(screen.getByLabelText("Nombre"), "Filtro de aceite");
+    await userEvent.type(screen.getByLabelText("Precio de compra"), "8");
+    await userEvent.type(screen.getByLabelText("Precio de venta"), "18.9");
+    await userEvent.selectOptions(screen.getByLabelText("Bodega"), "b1");
+    await userEvent.click(screen.getByRole("button", { name: "Crear repuesto" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Ya existe un repuesto con ese código.");
   });
 });

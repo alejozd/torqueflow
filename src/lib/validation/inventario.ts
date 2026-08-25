@@ -29,6 +29,11 @@ export const repuestoInputSchema = z.object({
 
 export type RepuestoInput = z.infer<typeof repuestoInputSchema>;
 
+export const repuestoStockInicialSchema = z.coerce
+  .number()
+  .int()
+  .min(0, "El stock inicial no puede ser negativo");
+
 export const entradaMercanciaInputSchema = z.object({
   proveedorId: z.string().min(1, "Selecciona un proveedor"),
   bodegaId: z.string().min(1, "Selecciona una bodega"),

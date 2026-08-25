@@ -1,11 +1,10 @@
 "use server";
 
-import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
-import { repuestoInputSchema } from "@/lib/validation/inventario";
+import { repuestoInputSchema, repuestoStockInicialSchema as stockInicialSchema } from "@/lib/validation/inventario";
 import { scopeBodega, scopeRepuesto } from "@/lib/sede/scope";
 import type { Prisma } from "@/generated/prisma-tenant";
 
@@ -26,8 +25,6 @@ export interface RepuestoOption {
   codigo: string;
   nombre: string;
 }
-
-const stockInicialSchema = z.coerce.number().int().min(0, "El stock inicial no puede ser negativo");
 
 const BODEGA_AJENA = "La bodega seleccionada no pertenece a tu sede activa.";
 const REPUESTO_NO_ENCONTRADO = "Repuesto no encontrado en tu sede activa.";
