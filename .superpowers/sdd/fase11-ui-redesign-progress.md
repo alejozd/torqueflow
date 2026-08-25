@@ -216,7 +216,7 @@ Estado: cerrada.
 - Verificación: `tsc --noEmit` limpio. `npx vitest run` (5 archivos/13
   tests) verde sin tocar tests. `npx playwright test
   e2e/tenant-flow.spec.ts` completo: verde.
-- Commit: `[pendiente]`.
+- Commit: `1b9dd26`.
 
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
