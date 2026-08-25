@@ -271,6 +271,31 @@ Estado: cerrada.
   verde (incluye la aserción de estado vacío tras eliminar sedes).
 - Commit: `8125150`.
 
+### Fase 13 / Tarea 10 — Módulo `bodegas`
+
+Estado: cerrada.
+
+- `bodegas/page.tsx`: lista migrada a `DataTable` (1 columna "Nombre",
+  texto plano — este módulo no tenía link ni ruta de detalle, cero
+  acciones de fila hoy). `emptyMessage`: "No hay bodegas registradas."
+- Verificación: `tsc --noEmit` limpio, `npx vitest run` (junto con
+  `proveedores`, verificados en el mismo pase) 5/5 verde, `npx playwright
+  test e2e/tenant-flow.spec.ts` completo verde.
+- Commit: `[pendiente]`.
+
+### Fase 13 / Tarea 11 — Módulo `proveedores`
+
+Estado: cerrada.
+
+- `proveedores/page.tsx`: lista migrada a `DataTable` (1 columna, mismo
+  texto combinado nombre/teléfono/email con fallback `—`). Sin link ni
+  ruta de detalle, igual que `bodegas`. `emptyMessage`: "No hay
+  proveedores registrados."
+- Verificación: misma corrida que la tarea 10 (`tsc`/`vitest`/e2e
+  compartidos, ambos módulos cambiados juntos antes de separarlos en
+  commits).
+- Commit: `[pendiente]`.
+
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
 Estado: cerrada.
