@@ -742,3 +742,15 @@ Una revisión multi-lente final (4 subagentes) iniciada en una sesión previa qu
 Estos 4 puntos (y otros de severidad SUGGESTION observados en el mismo review parcial) quedan en backlog para priorización explícita del usuario en una futura fase; no bloquean el cierre de Fase 9.
 
 **Status: Fase 9 formalmente cerrada. Lista para Fase 10.**
+
+---
+
+**Re-verificación de tests (2026-08-25, misma fecha, sesión posterior):** el usuario detectó una discrepancia entre el conteo reportado en el cierre anterior (583/591) y el baseline previo (590/591) y pidió verificación explícita antes de dar el proyecto por cerrado.
+
+- Corrida completa: 587/591 pasando, 1 fallo (3 skipped) -- `provision-tenant.test.ts` ("creates the Postgres schema...") timeout en 20s, más `tenant-client.test.ts` con su `beforeAll` (que también llama `provisionTenant`) igualmente timeouteado en 20s, contados como suite fallida.
+- Ambos archivos comparten la misma causa: contención de `migrate deploy` contra Postgres compartido cuando corren en paralelo con otros archivos de la suite.
+- Verificado en aislamiento: `provision-tenant.test.ts` + `tenant-client.test.ts` juntos -- **26/26 tests limpios**, sin ningún timeout.
+- Conclusión: no es una regresión. Es el mismo flake de contención de esquema compartido documentado en fases anteriores (ver referencias arriba), simplemente con un conteo variable de tests afectados según qué otros archivos compiten por el mismo Postgres en cada corrida (590, 583, 587 son todas variantes observadas del mismo flake, no distintos defectos).
+- No se requirió ninguna corrección de código.
+
+**Status confirmado: Fase 9 cerrada, sin fallos reales pendientes. Lista para pruebas manuales.**
