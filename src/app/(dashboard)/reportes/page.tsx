@@ -5,6 +5,20 @@ import {
 } from "@/app/actions/reporte-actions";
 import { listSedes } from "@/app/actions/sede-actions";
 import { rangoMesActual } from "@/lib/reportes/rango-fechas";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
+
+type FilaProductividad = Awaited<ReturnType<typeof getReporteProductividad>>["filas"][number];
+
+const COLUMNS: DataTableColumn<FilaProductividad>[] = [
+  { header: "Técnico", cell: (fila) => fila.mecanicoNombre },
+  { header: "Órdenes entregadas", cell: (fila) => fila.ordenesCompletadas },
+  { header: "Horas", cell: (fila) => fila.horasManoDeObra },
+  { header: "Mano de obra", cell: (fila) => fila.montoManoDeObra },
+];
 
 export default async function ReportesPage({
   searchParams,
@@ -29,12 +43,16 @@ export default async function ReportesPage({
     <main>
       <h1>Reportes</h1>
 
-      <form method="get" action="/reportes">
-        <label htmlFor="desde">Desde</label>
-        <input id="desde" name="desde" type="date" defaultValue={filtros.desde} required />
+      <form method="get" action="/reportes" className="flex flex-wrap items-end gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="desde">Desde</Label>
+          <Input id="desde" name="desde" type="date" defaultValue={filtros.desde} required />
+        </div>
 
-        <label htmlFor="hasta">Hasta</label>
-        <input id="hasta" name="hasta" type="date" defaultValue={filtros.hasta} required />
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="hasta">Hasta</Label>
+          <Input id="hasta" name="hasta" type="date" defaultValue={filtros.hasta} required />
+        </div>
 
         {/*
           Fase 6: a real selector replaces Fase 5's hidden input. It defaults to
@@ -42,20 +60,36 @@ export default async function ReportesPage({
           none), so an ADMIN can compare any sede without re-logging-in --
           reading another sede's numbers is safe in a way that operating in it
           is not.
-        */}
-        <label htmlFor="sedeId">Sede</label>
-        <select id="sedeId" name="sedeId" defaultValue={rentabilidad.filtros.sedeId}>
-          {sedes.map((sede) => (
-            <option key={sede.id} value={sede.id}>
-              {sede.nombre}
-            </option>
-          ))}
-        </select>
 
-        <button type="submit">Aplicar</button>
+          Native <select>, not shadcn's Select (Base UI, no DOM <option>s
+          while closed) -- kept native for consistency with the rest of this
+          migration. Styled by hand to match the shadcn select trigger look
+          (see seleccionar-sede-form.tsx).
+        */}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="sedeId">Sede</Label>
+          <select
+            id="sedeId"
+            name="sedeId"
+            defaultValue={rentabilidad.filtros.sedeId}
+            className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+          >
+            {sedes.map((sede) => (
+              <option key={sede.id} value={sede.id}>
+                {sede.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <Button type="submit">Aplicar</Button>
       </form>
 
-      {rentabilidad.error ? <p role="alert">{rentabilidad.error}</p> : null}
+      {rentabilidad.error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{rentabilidad.error}</AlertDescription>
+        </Alert>
+      ) : null}
 
       <h2>Rentabilidad</h2>
       <p>
@@ -69,30 +103,12 @@ export default async function ReportesPage({
       <p>Mano de obra facturada: {rentabilidad.totales.manoDeObraFacturada}</p>
 
       <h2>Productividad por técnico</h2>
-      {productividad.filas.length === 0 ? (
-        <p>No hay órdenes entregadas en este rango.</p>
-      ) : (
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Técnico</th>
-              <th scope="col">Órdenes entregadas</th>
-              <th scope="col">Horas</th>
-              <th scope="col">Mano de obra</th>
-            </tr>
-          </thead>
-          <tbody>
-            {productividad.filas.map((fila) => (
-              <tr key={fila.mecanicoId ?? "sin-asignar"}>
-                <td>{fila.mecanicoNombre}</td>
-                <td>{fila.ordenesCompletadas}</td>
-                <td>{fila.horasManoDeObra}</td>
-                <td>{fila.montoManoDeObra}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <DataTable
+        columns={COLUMNS}
+        rows={productividad.filas}
+        getRowKey={(fila) => fila.mecanicoId ?? "sin-asignar"}
+        emptyMessage="No hay órdenes entregadas en este rango."
+      />
     </main>
   );
 }
