@@ -239,6 +239,22 @@ Estado: cerrada.
   verde.
 - Commit: `d9f4c78`.
 
+### Fase 13 / Tarea 8 — Módulo `facturas`
+
+Estado: cerrada.
+
+- `facturas/page.tsx`: lista migrada a `DataTable` (1 columna, mismo
+  `<Link>` combinado con número/cliente/placa/estado/total/saldo).
+  `emptyMessage`: "No hay facturas en este estado."
+- `facturas/[id]/page.tsx`: 3 listas anidadas migradas — "Ítems", "Mano
+  de obra" (mismo patrón que `ordenes`) y "Pagos" (fecha — método — monto,
+  texto plano). `emptyMessage` nuevo para las 3.
+- Mismo principio de preservar contenido exacto. Ningún test de e2e
+  tocado (no hay `*.test.tsx` para estas páginas tampoco).
+- Verificación: `tsc --noEmit` limpio. Sin unit tests propios del módulo.
+  `npx playwright test e2e/tenant-flow.spec.ts` completo: verde.
+- Commit: `[pendiente]`.
+
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
 Estado: cerrada.
