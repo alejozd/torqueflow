@@ -1,7 +1,7 @@
 import { LoginForm } from "./login-form";
 import { getLoginErrorMessage } from "@/lib/auth/login-error-message";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 
 export default async function LoginPage({
   searchParams,
@@ -16,7 +16,7 @@ export default async function LoginPage({
     <main className="flex min-h-svh items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">Ingresar a TorqueFlow</CardTitle>
+          <h1 className="font-heading text-xl leading-snug font-medium">Ingresar a TorqueFlow</h1>
           <CardDescription>Ingresa tus credenciales para continuar</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
