@@ -712,6 +712,51 @@ Estado: cerrada.
   tests, todo `ordenes/[id]`) verde.
 - Commit: `98dfc32`.
 
+### Fase 14 / Tarea 30 — Formulario `registrar-pago`
+
+Estado: cerrada.
+
+- `registrar-pago-form.tsx`: `monto` usa `requiredMoney` (ya maneja `""`
+  → `undefined` internamente, sin necesitar el fix de preprocess a
+  mano), `metodoPago` enum select, `referencia` libre opcional. Sin
+  test propio.
+- Verificación: compartida con las tareas 31-32.
+- Commit: `[pendiente]`.
+
+### Fase 14 / Tarea 31 — Formulario `agregar-entrada-item`
+
+Estado: cerrada.
+
+- `agregar-entrada-item-form.tsx`: `repuestoId` select obligatorio +
+  `cantidad`/`precioCompraUnitario`. Mismo patrón que `agregar-item`
+  (Fase 14/25) pero sin refine cross-field — aquí `repuestoId` es
+  siempre obligatorio.
+- Test: ambos casos "success" y "error" del archivo original enviaban
+  el submit SIN seleccionar el repuesto (el mock ignoraba el contenido
+  real) — con validación client-side esto ahora bloquea. Se reescriben
+  los 2 y se agrega un tercero (bloqueo sin datos). Misma colisión de
+  texto que repuestos (tarea 17): el placeholder deshabilitado
+  "Selecciona un repuesto" == mensaje de error → se usa
+  `document.getElementById("repuestoId-error")`.
+- Verificación: compartida con la tarea 32.
+- Commit: `[pendiente]`.
+
+### Fase 14 / Tarea 32 — Formulario `nueva-entrada-mercancia`
+
+Estado: cerrada.
+
+- `nueva-entrada-mercancia-form.tsx`: único caso hasta ahora con SOLO
+  selects obligatorios, cero texto libre (`proveedorId`/`bodegaId`).
+  `entradaMercanciaInputSchema` no tiene campos `coerce` — el tipo
+  exportado `EntradaMercanciaInput` (`z.infer`) sirve directo para
+  `useForm`, sin necesitar `z.input`.
+- Test: mismo caso que la tarea 31 — los 2 tests originales enviaban sin
+  seleccionar nada, reescritos + 1 nuevo de bloqueo. Misma colisión de
+  texto ("Selecciona un proveedor"), mismo fix con `getElementById`.
+- Verificación: `tsc --noEmit` limpio. `npx vitest run` (2 archivos/8
+  tests, `facturas` + `entradas-mercancia`) verde.
+- Commit: `[pendiente]`.
+
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
 Estado: cerrada.
