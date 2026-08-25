@@ -6,6 +6,9 @@ import {
   cambiarPlanTenantAction,
   type SuperAdminFormState,
 } from "@/app/actions/super-admin-actions";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 
 const initialState: SuperAdminFormState = { error: null, success: false };
 
@@ -28,29 +31,48 @@ export function TenantRowActions({
   const nuevoEstado = estadoActual === "ACTIVO" ? "SUSPENDIDO" : "ACTIVO";
 
   return (
-    <>
-      <form action={estadoFormAction}>
+    <div className="flex flex-col gap-2">
+      <form action={estadoFormAction} className="flex flex-col gap-1.5">
         <input type="hidden" name="estado" value={nuevoEstado} />
-        <button type="submit" disabled={estadoPending}>
+        <Button type="submit" variant="outline" size="sm" disabled={estadoPending}>
           {estadoActual === "ACTIVO" ? "Suspender" : "Activar"}
-        </button>
-        {estadoState.error ? <p role="alert">{estadoState.error}</p> : null}
+        </Button>
+        {estadoState.error ? (
+          <Alert variant="destructive">
+            <AlertDescription>{estadoState.error}</AlertDescription>
+          </Alert>
+        ) : null}
       </form>
 
-      <form action={planFormAction}>
-        <label htmlFor={`plan-${tenantId}`}>Plan</label>
-        <select id={`plan-${tenantId}`} name="planId" defaultValue={planIdActual}>
+      <form action={planFormAction} className="flex flex-col gap-1.5">
+        <Label htmlFor={`plan-${tenantId}`}>Plan</Label>
+        {/*
+          Native <select>, not shadcn's Select (Base UI, no DOM <option>s
+          while closed) -- userEvent.selectOptions() in the existing test
+          needs a real <select>/<option> element. Styled by hand to match
+          the shadcn select trigger look (see seleccionar-sede-form.tsx).
+        */}
+        <select
+          id={`plan-${tenantId}`}
+          name="planId"
+          defaultValue={planIdActual}
+          className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+        >
           {planes.map((plan) => (
             <option key={plan.id} value={plan.id}>
               {plan.nombre}
             </option>
           ))}
         </select>
-        <button type="submit" disabled={planPending}>
+        <Button type="submit" variant="outline" size="sm" disabled={planPending}>
           Guardar plan
-        </button>
-        {planState.error ? <p role="alert">{planState.error}</p> : null}
+        </Button>
+        {planState.error ? (
+          <Alert variant="destructive">
+            <AlertDescription>{planState.error}</AlertDescription>
+          </Alert>
+        ) : null}
       </form>
-    </>
+    </div>
   );
 }
