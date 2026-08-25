@@ -651,6 +651,34 @@ Estado: cerrada.
   tests) verde.
 - Commit: `befa9ad`.
 
+### Fase 14 / Tarea 26 — Formulario `nueva-orden` (vehiculos/[id])
+
+Estado: cerrada.
+
+- `nueva-orden-form.tsx`: los 3 campos (`kilometrajeIngreso`, `sintomas`,
+  `mecanicoId`) son opcionales en `ordenTrabajoInputSchema` — ningún
+  campo bloquea un submit vacío, igual que el original. Mismo fix de
+  `""` → `undefined` para `kilometrajeIngreso` (ver nota de patrón,
+  `orden-actions.ts` ya hacía `|| undefined` antes de parsear). Se agrega
+  `noValidate` (no lo tenía).
+- Ningún test tocado: los 3 existentes (render, éxito, error de
+  servidor con submit vacío) siguen pasando tal cual — no hay ningún
+  campo obligatorio que el client bloquee.
+- Verificación: compartida con la tarea 27.
+- Commit: `[pendiente]`.
+
+### Fase 14 / Tarea 27 — Formulario `nueva-entrada` (historial, vehiculos/[id])
+
+Estado: cerrada.
+
+- `nueva-entrada-form.tsx`: campo único `descripcion` obligatorio, mismo
+  patrón que `bodegas`. Se agrega `noValidate` (no lo tenía).
+- Ningún test tocado (no había caso de error de servidor que
+  reescribir).
+- Verificación: `tsc --noEmit` limpio. `npx vitest run` (2 archivos/5
+  tests) verde.
+- Commit: `[pendiente]`.
+
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
 Estado: cerrada.
