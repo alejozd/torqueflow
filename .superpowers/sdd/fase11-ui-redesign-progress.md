@@ -429,7 +429,7 @@ Estado: cerrada.
   tests) verde. `npx playwright test e2e/tenant-flow.spec.ts` completo:
   verde (confirma que el warning de `startTransition` desapareció tras
   el fix).
-- Commit: `[pendiente]`.
+- Commit: `c2449e9`.
 
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
