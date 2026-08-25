@@ -689,7 +689,7 @@ Estado: cerrada.
 - Test: campos vacíos bloqueados client-side + error de servidor con
   datos válidos (reemplaza el caso que enviaba vacío a propósito).
 - Verificación: compartida con la tarea 29.
-- Commit: `[pendiente]`.
+- Commit: `09223dc`.
 
 ### Fase 14 / Tarea 29 — Formulario `generar-factura`
 
@@ -710,7 +710,7 @@ Estado: cerrada.
 - Sin test propio.
 - Verificación: `tsc --noEmit` limpio. `npx vitest run` (5 archivos/15
   tests, todo `ordenes/[id]`) verde.
-- Commit: `[pendiente]`.
+- Commit: `98dfc32`.
 
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
