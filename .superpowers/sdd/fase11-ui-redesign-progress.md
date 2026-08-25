@@ -54,6 +54,42 @@ Estado: cerrada.
 
 **Fase 11 completa — tareas 1 y 2 cerradas. Pendiente de aprobación del usuario antes de empezar la Fase 12.**
 
+---
+
+## Fase 12 — Login y selección de sede
+
+Estado: cerrada.
+
+### Fase 12 / Tarea 3 — Login y selección de sede
+
+Estado: cerrada.
+
+- `src/app/login/page.tsx` y `src/app/seleccionar-sede/page.tsx`: tarjeta
+  centrada (`Card`/`CardHeader`/`CardTitle`/`CardDescription`/`CardContent`
+  de shadcn) sobre `<main>` con fondo `bg-muted/30` y centrado flex. El
+  mensaje de error de nivel página en login pasa de `<p role="alert">` a
+  `Alert variant="destructive"` + `AlertDescription` (el componente
+  `Alert` ya fija `role="alert"` internamente).
+- `login-form.tsx`: campos migrados a `Label`/`Input`/`Button` de shadcn,
+  mismo `id`/`htmlFor`/texto de botón. Error de submit envuelto en
+  `Alert variant="destructive"`. Lógica de `handleSubmit`/`signIn` sin
+  cambios.
+- `seleccionar-sede-form.tsx`: mismo patrón `Label`/`Button`/`Alert`. El
+  campo `Sede` se queda en un `<select>` nativo (no el `Select` de shadcn)
+  estilado a mano para calzar con `SelectTrigger` — el `Select` de shadcn
+  (Base UI) no renderiza `<option>` reales en el DOM mientras está cerrado,
+  lo que rompería `userEvent.selectOptions(...)` y
+  `getByRole("option", {name})` de los tests existentes. Se evaluó y
+  descartó a propósito para no tocar los 2 archivos de test.
+- Ningún archivo de test tocado. Verificación: `tsc --noEmit` limpio;
+  `npx vitest run src/app/login src/app/seleccionar-sede` — 4 archivos /
+  17 tests, todos verdes sin modificar los tests. Suite completa: 597
+  tests reales pasando (mismo flake de `prisma migrate deploy` ya
+  documentado en Fase 11, sin relación con este cambio).
+- Commit: `[pendiente]`.
+
+**Fase 12 completa — tarea 3 cerrada. Pendiente de aprobación del usuario antes de empezar la Fase 13.**
+
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
 Estado: cerrada.

@@ -3,6 +3,10 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export function LoginForm() {
   const router = useRouter();
@@ -45,18 +49,26 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <label htmlFor="email">Correo</label>
-      <input id="email" name="email" type="email" required />
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="email">Correo</Label>
+        <Input id="email" name="email" type="email" required />
+      </div>
 
-      <label htmlFor="password">Contraseña</label>
-      <input id="password" name="password" type="password" required />
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="password">Contraseña</Label>
+        <Input id="password" name="password" type="password" required />
+      </div>
 
-      <button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} className="w-full">
         {isPending ? "Ingresando..." : "Ingresar"}
-      </button>
+      </Button>
 
-      {error ? <p role="alert">{error}</p> : null}
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
     </form>
   );
 }
