@@ -410,6 +410,17 @@ const { register, handleSubmit, formState: { errors } } = useForm<XxxInput>({
   — con `z.infer` `tsc` exige el tipo YA coercionado (`number`) para esos
   campos pero el resolver recibe `unknown` en la entrada real y falla la
   compilación. Descubierto en la tarea 17 (`repuestos`).
+- **`z.coerce.number().optional()` NO trata `""` como ausente** —
+  `.optional()` solo cubre `undefined`. Varios server actions ya
+  resuelven esto en el propio call site
+  (`formData.get("anio") || undefined` antes de llamar al schema, ver
+  `vehiculo-actions.ts`) en vez de en el schema. El formulario RHF no
+  pasa por ese call site — hay que revisar CADA action antes de asumir
+  que el schema sirve tal cual, y replicar el mismo preprocesamiento con
+  `z.preprocess((v) => (v === "" ? undefined : v), schema.shape.campo)`
+  cuando el action lo hace. Descubierto en la tarea 20 (`vehiculos`,
+  campo `anio`) — sin el fix, un campo numérico opcional vacío mostraba
+  el mensaje genérico de zod en inglés en vez de dejar pasar el formulario.
 - No todos los ~25 formularios se benefician igual: los que son un único
   `<select>` de un enum fijo sin texto libre (`cambiar-estado-form`,
   `cambiar-estado-cita-form`, partes de `dvi-checklist-form`/
@@ -514,6 +525,38 @@ Estado: cerrada.
   las 2 sedes desmarcadas bloquean el submit sin llamar al server.
 - Verificación: `tsc --noEmit` limpio. `npx vitest run` (1 archivo/5
   tests) verde.
+- Commit: `4345605`.
+
+### Fase 14 / Tarea 19 — Formulario `clientes`
+
+Estado: cerrada.
+
+- `nuevo-cliente-form.tsx`: mismo patrón de `proveedores` (nombre
+  obligatorio, teléfono/documento libres, email con validación real).
+- Test: campo vacío bloqueado + error de servidor con datos válidos.
+- Verificación: `tsc --noEmit` limpio (junto con la tarea 20, verificadas
+  en el mismo pase). `npx vitest run` 7/7 verde.
+- Commit: `[pendiente]`.
+
+### Fase 14 / Tarea 20 — Formulario `nuevo-vehiculo` (cliente/[id])
+
+Estado: cerrada.
+
+- `nuevo-vehiculo-form.tsx`: placa/marca/modelo obligatorios, `anio`
+  numérico opcional. Se agrega `noValidate` al `<form>` (no lo tenía en
+  el original — único de los ~25 sin él; con RHF+zod a cargo, dejar la
+  validación nativa del navegador activa en paralelo hubiera duplicado
+  mensajes/comportamiento, igual que el resto de los formularios ya
+  migrados).
+- Ver la nota de patrón de arriba: `anio` necesitó
+  `z.preprocess((v) => (v === "" ? undefined : v), vehiculoInputSchema.shape.anio)`
+  para no bloquear un año vacío — descubierto corriendo el test de esta
+  misma tarea.
+- Test: nuevo caso de bloqueo client-side (placa vacía) agregado; los 2
+  tests originales (render, éxito) no necesitaron cambios.
+- Verificación: compartida con la tarea 19. `npx playwright test
+  e2e/tenant-flow.spec.ts` completo: verde (checkpoint tras 5 tareas de
+  Fase 14 sin correrlo).
 - Commit: `[pendiente]`.
 
 ### Fase 11 / Tarea 1 — Fundación de diseño

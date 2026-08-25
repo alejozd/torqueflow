@@ -33,12 +33,22 @@ describe("NuevoClienteForm", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("Cliente creado");
   });
 
-  it("shows the error message when the action returns one", async () => {
-    mockCreateClienteAction.mockResolvedValue({ error: "El nombre es obligatorio", success: false });
+  it("blocks submission and shows a field error when the name is empty, without calling the server", async () => {
     render(<NuevoClienteForm />);
 
     await userEvent.click(screen.getByRole("button", { name: "Crear cliente" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("El nombre es obligatorio");
+    expect(await screen.findByText("El nombre es obligatorio")).toBeInTheDocument();
+    expect(mockCreateClienteAction).not.toHaveBeenCalled();
+  });
+
+  it("shows the server error when the action refuses an otherwise valid submission", async () => {
+    mockCreateClienteAction.mockResolvedValue({ error: "Ya existe un cliente con ese documento.", success: false });
+    render(<NuevoClienteForm />);
+
+    await userEvent.type(screen.getByLabelText("Nombre"), "Juan Pérez");
+    await userEvent.click(screen.getByRole("button", { name: "Crear cliente" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Ya existe un cliente con ese documento.");
   });
 });
