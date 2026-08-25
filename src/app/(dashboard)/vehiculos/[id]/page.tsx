@@ -1,10 +1,36 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getVehiculo } from "@/app/actions/vehiculo-actions";
-import { listHistorial } from "@/app/actions/historial-actions";
+import { listHistorial, type HistorialEntryWithAutor } from "@/app/actions/historial-actions";
 import { listOrdenesByVehiculo, listTecnicos } from "@/app/actions/orden-actions";
 import { NuevaEntradaForm } from "./nueva-entrada-form";
 import { NuevaOrdenForm } from "./nueva-orden-form";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
+
+type OrdenRow = Awaited<ReturnType<typeof listOrdenesByVehiculo>>[number];
+
+const ORDENES_COLUMNS: DataTableColumn<OrdenRow>[] = [
+  {
+    header: "Orden",
+    cell: (orden) => (
+      <Link href={`/ordenes/${orden.id}`}>
+        {new Date(orden.createdAt).toLocaleDateString()} — {orden.estado}
+      </Link>
+    ),
+  },
+];
+
+const HISTORIAL_COLUMNS: DataTableColumn<HistorialEntryWithAutor>[] = [
+  {
+    header: "Historial",
+    cell: (entrada) => (
+      <>
+        {new Date(entrada.fecha).toLocaleDateString()} — {entrada.descripcion} —{" "}
+        {entrada.autor?.nombre ?? "Desconocido"}
+      </>
+    ),
+  },
+];
 
 export default async function VehiculoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -29,26 +55,21 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
 
       <h2>Órdenes de trabajo</h2>
       <NuevaOrdenForm clienteId={vehiculo.clienteId} vehiculoId={vehiculo.id} tecnicos={tecnicos} />
-      <ul>
-        {ordenes.map((orden) => (
-          <li key={orden.id}>
-            <Link href={`/ordenes/${orden.id}`}>
-              {new Date(orden.createdAt).toLocaleDateString()} — {orden.estado}
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <DataTable
+        columns={ORDENES_COLUMNS}
+        rows={ordenes}
+        getRowKey={(orden) => orden.id}
+        emptyMessage="Este vehículo no tiene órdenes de trabajo."
+      />
 
       <h2>Historial</h2>
       <NuevaEntradaForm vehiculoId={vehiculo.id} />
-      <ul>
-        {historial.map((entrada) => (
-          <li key={entrada.id}>
-            {new Date(entrada.fecha).toLocaleDateString()} — {entrada.descripcion} —{" "}
-            {entrada.autor?.nombre ?? "Desconocido"}
-          </li>
-        ))}
-      </ul>
+      <DataTable
+        columns={HISTORIAL_COLUMNS}
+        rows={historial}
+        getRowKey={(entrada) => entrada.id}
+        emptyMessage="Este vehículo no tiene historial registrado."
+      />
     </main>
   );
 }

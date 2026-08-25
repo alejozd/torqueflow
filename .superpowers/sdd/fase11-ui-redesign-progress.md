@@ -153,6 +153,47 @@ Estado: cerrada.
 - Verificación: `tsc --noEmit` limpio. Sin tests propios (componente de
   presentación puro, sin lógica) — se verifica indirectamente vía los
   tests/e2e de cada módulo que lo consuma.
+- Commit: `9f8497e`.
+
+### Fase 13 / Tarea 5 — Módulo `clientes` (+ nested `vehiculos`)
+
+Estado: cerrada.
+
+- `clientes/page.tsx`: lista de clientes migrada a `DataTable` (1 columna
+  "Nombre" con el mismo `<Link>` de antes). Nuevo `emptyMessage`: "No hay
+  clientes registrados." (no existía antes).
+- `clientes/[id]/page.tsx`: lista anidada "Vehículos" migrada igual (1
+  columna, mismo `<Link>` combinado placa/marca/modelo). `emptyMessage`:
+  "Este cliente no tiene vehículos registrados."
+- `vehiculos/[id]/page.tsx` (detalle, no listado top-level — ver nota del
+  relevamiento arriba): sus 2 listas anidadas también migradas —
+  "Órdenes de trabajo" (`Link` con fecha — estado combinados, igual que
+  antes) y "Historial" (texto plano fecha — descripción — autor, sin
+  link). `emptyMessage` para ambas (ninguna tenía antes).
+- Principio aplicado en las 4 migraciones: preservar el texto EXACTO
+  dentro de cada `<Link>`/celda tal cual estaba en el `<li>` original —
+  cero recorte de columnas nuevas, solo cambio de `<ul>/<li>` a
+  `<table>/<tr>/<td>` real. Minimiza riesgo de e2e: ningún test de
+  `tenant-flow.spec.ts` tuvo que tocarse para este módulo (todos usan
+  `getByRole("link", {name})`/`getByText(substring)`, que no dependen de
+  la estructura del contenedor).
+- **2 bugs encontrados y arreglados por separado durante la verificación
+  e2e de este módulo** (no forman parte de esta tarea, commits propios
+  fuera de la numeración `fase13-task`):
+  - `fix: eliminar sede con órdenes/bodegas ya no rompe la UI` (commit
+    `0e2fc15`) — preexistente, confirmado con `git stash` antes de
+    tocarlo, no relacionado con esta Fase.
+  - `fase12-fix: título de página real (h1), no CardTitle` (commit
+    `a563f4e`) — regresión real de la Fase 12: `CardTitle` de shadcn es
+    un `<div>`, no un heading; rompía `getByRole("heading", {name:
+    "Selecciona tu sede"})` para el flujo del técnico con 2 sedes.
+    Ningún test unitario de Fase 12 lo cubría (solo `alert`/`label`), por
+    eso pasó inadvertido hasta este checkpoint de e2e.
+- Verificación: `tsc --noEmit` limpio. `npx vitest run` en los 4 archivos
+  tocados: 10/10 tests verdes, sin modificar ningún test. **`npx
+  playwright test e2e/tenant-flow.spec.ts` completo: verde** (tras los 2
+  fixes de arriba). `npx playwright test e2e/super-admin-flow.spec.ts`
+  también verde (sanity check, no debería verse afectado).
 - Commit: `[pendiente]`.
 
 ### Fase 11 / Tarea 1 — Fundación de diseño
