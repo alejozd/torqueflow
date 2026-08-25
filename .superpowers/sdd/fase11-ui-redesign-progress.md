@@ -602,7 +602,7 @@ Estado: cerrada.
   client-side antes) y se agregó el caso nuevo de bloqueo por campos
   vacíos.
 - Verificación: compartida con la tarea 24.
-- Commit: `[pendiente]`.
+- Commit: `dafe511`.
 
 ### Fase 14 / Tarea 24 — Formulario `editar-usuario` (password opcional)
 
@@ -619,7 +619,7 @@ Estado: cerrada.
   y password vacío (válido) — pasan sin cambios.
 - Verificación: `tsc --noEmit` limpio. `npx vitest run` (3 archivos/11
   tests, incluye `nuevo-usuario-form` y `asignar-sedes-form`) verde.
-- Commit: `[pendiente]`.
+- Commit: `b7da190`.
 
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
