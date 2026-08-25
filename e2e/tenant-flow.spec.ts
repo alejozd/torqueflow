@@ -313,7 +313,7 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   await expect(page.getByRole("heading", { name: "Usuario E2E", level: 2 })).toBeVisible();
 
   await page
-    .getByRole("listitem")
+    .getByRole("row")
     .filter({ hasText: "Usuario E2E" })
     .getByRole("link", { name: "Editar" })
     .click();

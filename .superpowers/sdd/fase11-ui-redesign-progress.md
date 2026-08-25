@@ -218,6 +218,27 @@ Estado: cerrada.
   e2e/tenant-flow.spec.ts` completo: verde.
 - Commit: `1b9dd26`.
 
+### Fase 13 / Tarea 7 — Módulo `usuarios`
+
+Estado: cerrada.
+
+- `usuarios/page.tsx`: lista migrada a `DataTable` de 3 columnas: "Nombre"
+  (mismo `<h2>` de antes, ahora dentro de la celda — preserva
+  `getByRole("heading", {name, level: 2})`), "Correo / Rol" (texto plano
+  igual que antes), "Acciones" (link "Editar" + `AsignarSedesForm`
+  embebido — el caso (b) del relevamiento: acción de fila = formulario
+  interactivo completo, no solo un link).
+- Única aserción e2e que dependía de la estructura (no del contenido):
+  `e2e/tenant-flow.spec.ts` usaba `getByRole("listitem")` para scopear la
+  fila de "Usuario E2E" antes de buscar el link "Editar" — se cambió a
+  `getByRole("row")`, mismo patrón que `/reportes` y superadmin. Es el
+  único cambio de e2e necesario en todo el módulo.
+- `emptyMessage`: "No hay usuarios registrados." (no existía antes).
+- Verificación: `tsc --noEmit` limpio. `npx vitest run` (3 archivos/9
+  tests) verde. `npx playwright test e2e/tenant-flow.spec.ts` completo:
+  verde.
+- Commit: `[pendiente]`.
+
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
 Estado: cerrada.
