@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { updateSedeAction, deleteSedeAction, type SedeFormState } from "@/app/actions/sede-actions";
+import { updateSedeAction, deleteSedeFormAction, type SedeFormState } from "@/app/actions/sede-actions";
 import type { Sede } from "@/generated/prisma-tenant";
 
 const initialState: SedeFormState = { error: null, success: false };
@@ -9,6 +9,10 @@ const initialState: SedeFormState = { error: null, success: false };
 export function EditarSedeForm({ sede }: { sede: Sede }) {
   const [state, formAction, isPending] = useActionState(
     updateSedeAction.bind(null, sede.id),
+    initialState,
+  );
+  const [deleteState, deleteFormAction, isDeletePending] = useActionState(
+    deleteSedeFormAction.bind(null, sede.id),
     initialState,
   );
 
@@ -29,8 +33,11 @@ export function EditarSedeForm({ sede }: { sede: Sede }) {
         {state.success ? <p role="status">Sede actualizada</p> : null}
       </form>
 
-      <form action={deleteSedeAction.bind(null, sede.id)}>
-        <button type="submit">Eliminar {sede.nombre}</button>
+      <form action={deleteFormAction}>
+        <button type="submit" disabled={isDeletePending}>
+          Eliminar {sede.nombre}
+        </button>
+        {deleteState.error ? <p role="alert">{deleteState.error}</p> : null}
       </form>
     </>
   );

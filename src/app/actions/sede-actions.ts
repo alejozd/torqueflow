@@ -145,3 +145,24 @@ export async function deleteSedeAction(id: string): Promise<void> {
 
   revalidatePath("/sedes");
 }
+
+/**
+ * `deleteSedeAction` throws on every refusal reason (tested directly via
+ * `.rejects.toThrow` above) -- correct as a plain async function, but a
+ * `<form action={deleteSedeAction.bind(null, id)}>` with no useActionState
+ * has nothing to catch that throw, so a refused delete crashes to the
+ * nearest error boundary instead of showing an inline message next to the
+ * still-listed sede. This adapter is the useActionState-compatible wrapper
+ * for that form; deleteSedeAction itself is unchanged.
+ */
+export async function deleteSedeFormAction(
+  id: string,
+  prevState: SedeFormState,
+): Promise<SedeFormState> {
+  try {
+    await deleteSedeAction(id);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Error al eliminar la sede", success: false };
+  }
+  return { error: null, success: true };
+}
