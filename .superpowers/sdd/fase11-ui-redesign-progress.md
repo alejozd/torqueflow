@@ -776,7 +776,7 @@ Estado: cerrada.
   ningún submit.
 - Verificación: `tsc --noEmit` limpio. `npx vitest run` (2 archivos/5
   tests, incluye `cambiar-estado-cita-form`) verde.
-- Commit: `[pendiente]`.
+- Commit: `12cabc2`.
 
 ### Fase 14 / Tarea 34 — Formulario `configuracion-smtp`
 
@@ -810,7 +810,7 @@ Estado: cerrada.
 - Verificación: `tsc --noEmit` limpio. `npx vitest run` (1 archivo/6
   tests) verde. `smtp-actions.test.ts` (13/13) verde sin tocarlo,
   confirma que el server action no cambió.
-- Commit: `[pendiente]`.
+- Commit: `95ff443`.
 
 ### Fase 14 / Tarea 35 — Formularios de un solo `<select>` de enum fijo: sin RHF (evaluado caso por caso)
 
