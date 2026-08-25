@@ -18,7 +18,12 @@ export function LoginForm() {
     const email = String(formData.get("email") ?? "");
     const password = String(formData.get("password") ?? "");
 
-    const result = await signIn("credentials", { email, password, redirect: false });
+    // callbackUrl is pinned to a clean, fixed value -- next-auth's implicit
+    // default (window.location.href) would echo back through the response
+    // whatever query string happens to be on the current page, and any
+    // leftover "?error=..." from a previous redirect gets misread by
+    // next-auth/react's signIn() as a fresh failure.
+    const result = await signIn("credentials", { email, password, redirect: false, callbackUrl: "/clientes" });
     setIsPending(false);
 
     // NextAuth's credentials callback responds HTTP 200 even when the

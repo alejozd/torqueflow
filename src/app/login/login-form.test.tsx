@@ -28,10 +28,18 @@ describe("LoginForm", () => {
     await userEvent.type(screen.getByLabelText("Contraseña"), "SuperSecret123!");
     await userEvent.click(screen.getByRole("button", { name: "Ingresar" }));
 
+    // callbackUrl is pinned to a clean, fixed value -- NOT left to next-auth's
+    // implicit default of window.location.href. Without this, re-submitting
+    // the form from a page still showing "?error=..." (e.g. after a
+    // forbidden-role redirect back to /login?error=forbidden) makes the
+    // server echo that same query string back in its response url, and
+    // next-auth/react's signIn() reads that echoed "error" param as a fresh
+    // failure -- misreporting a login that actually succeeded.
     expect(mockSignIn).toHaveBeenCalledWith("credentials", {
       email: "admin@taller-perez.test",
       password: "SuperSecret123!",
       redirect: false,
+      callbackUrl: "/clientes",
     });
   });
 

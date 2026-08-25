@@ -28,7 +28,13 @@ export function SeleccionarSedeForm({ sedes }: { sedes: SedeActiva[] }) {
       return;
     }
 
+    // /clientes was already visited once this navigation cycle --
+    // requireSession() redirected here because sedeActivaId was still empty
+    // at that point. router.refresh() forces Next.js to re-fetch it instead
+    // of serving that earlier redirect from the client Router Cache, now
+    // that the session cookie carries the chosen sede.
     router.push("/clientes");
+    router.refresh();
   }
 
   return (

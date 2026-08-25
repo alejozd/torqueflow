@@ -8,8 +8,7 @@ import {
   E2E_TECNICO_PASSWORD,
   E2E_TECNICO_NOMBRE,
 } from "./global-setup";
-
-test.use({ baseURL: "http://taller-e2e-smoke.localhost:3000" });
+import { login } from "./login-helper";
 
 // A minimal valid 1x1 transparent PNG, used to exercise the DVI foto upload
 // without committing a binary fixture file to the repo.
@@ -18,12 +17,7 @@ const TINY_PNG_BASE64 =
 
 test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({ page }) => {
   await page.goto("/login");
-  await page.getByLabel("Correo").fill(E2E_ADMIN_EMAIL);
-  await page.getByLabel("Contraseña").fill(E2E_ADMIN_PASSWORD);
-  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
-  await page.getByRole("button", { name: "Ingresar" }).click();
-
-  await expect(page).toHaveURL(/\/clientes$/);
+  await login(page, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD, "Sede principal");
 
   // --- Fase 3: Inventario, repuestos y proveedores ---
 
@@ -258,11 +252,7 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
   await expect(page).toHaveURL(/\/login/);
 
-  await page.getByLabel("Correo").fill(E2E_TECNICO_EMAIL);
-  await page.getByLabel("Contraseña").fill(E2E_TECNICO_PASSWORD);
-  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
-  await page.getByRole("button", { name: "Ingresar" }).click();
-  await expect(page).toHaveURL(/\/clientes$/);
+  await login(page, E2E_TECNICO_EMAIL, E2E_TECNICO_PASSWORD, "Sede principal");
 
   await expect(page.getByRole("link", { name: "Reportes" })).toHaveCount(0);
 
@@ -282,11 +272,7 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   // Already on /login (the previous forbidden-role redirect landed here) --
   // no explicit sign-out needed, signIn() overwrites the TECNICO session.
   // Back in as ADMIN, in Sede principal, to create a second sede.
-  await page.getByLabel("Correo").fill(E2E_ADMIN_EMAIL);
-  await page.getByLabel("Contraseña").fill(E2E_ADMIN_PASSWORD);
-  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
-  await page.getByRole("button", { name: "Ingresar" }).click();
-  await expect(page).toHaveURL(/\/clientes$/);
+  await login(page, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD, "Sede principal");
 
   // The header states which sede scopes everything below it.
   await expect(page.getByText("Sede: Sede principal")).toBeVisible();
@@ -360,11 +346,7 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   await page.getByRole("button", { name: "Cambiar de sede" }).click();
   await expect(page).toHaveURL(/\/login/);
 
-  await page.getByLabel("Correo").fill(E2E_TECNICO_EMAIL);
-  await page.getByLabel("Contraseña").fill(E2E_TECNICO_PASSWORD);
-  await page.getByLabel("Sede").selectOption({ label: "Sede norte" });
-  await page.getByRole("button", { name: "Ingresar" }).click();
-  await expect(page).toHaveURL(/\/clientes$/);
+  await login(page, E2E_TECNICO_EMAIL, E2E_TECNICO_PASSWORD, "Sede norte");
   await expect(page.getByText("Sede: Sede norte")).toBeVisible();
 
   // Clientes stay tenant-wide by design -- Juan Pérez is still here.
@@ -394,11 +376,7 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   // Back in Sede principal, the same técnico sees all of it again -- proof the
   // rows were filtered by sede, not deleted or hidden by some other accident.
   await page.getByRole("button", { name: "Cambiar de sede" }).click();
-  await page.getByLabel("Correo").fill(E2E_TECNICO_EMAIL);
-  await page.getByLabel("Contraseña").fill(E2E_TECNICO_PASSWORD);
-  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
-  await page.getByRole("button", { name: "Ingresar" }).click();
-  await expect(page).toHaveURL(/\/clientes$/);
+  await login(page, E2E_TECNICO_EMAIL, E2E_TECNICO_PASSWORD, "Sede principal");
 
   await page.goto("/ordenes");
   await expect(page.getByRole("link", { name: /ABC123/ })).toBeVisible();
@@ -409,12 +387,8 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   // --- ADMIN: bypasses UsuarioSede, y compara sedes en /reportes ---
 
   await page.getByRole("button", { name: "Cambiar de sede" }).click();
-  await page.getByLabel("Correo").fill(E2E_ADMIN_EMAIL);
-  await page.getByLabel("Contraseña").fill(E2E_ADMIN_PASSWORD);
   // The ADMIN was never assigned to Sede norte on /usuarios, and gets in anyway.
-  await page.getByLabel("Sede").selectOption({ label: "Sede norte" });
-  await page.getByRole("button", { name: "Ingresar" }).click();
-  await expect(page).toHaveURL(/\/clientes$/);
+  await login(page, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD, "Sede norte");
   await expect(page.getByText("Sede: Sede norte")).toBeVisible();
 
   await page.getByRole("link", { name: "Reportes" }).click();
@@ -432,11 +406,7 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   // --- A técnico still cannot reach the sede admin surfaces ---
 
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
-  await page.getByLabel("Correo").fill(E2E_TECNICO_EMAIL);
-  await page.getByLabel("Contraseña").fill(E2E_TECNICO_PASSWORD);
-  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
-  await page.getByRole("button", { name: "Ingresar" }).click();
-  await expect(page).toHaveURL(/\/clientes$/);
+  await login(page, E2E_TECNICO_EMAIL, E2E_TECNICO_PASSWORD, "Sede principal");
 
   await expect(page.getByRole("link", { name: "Sedes" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Usuarios" })).toHaveCount(0);
@@ -450,15 +420,11 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   // --- Fase 7: agendamiento de citas y aislamiento por sede ---
 
   // A RECEPCION user books on behalf of a customer who called. This user was
-  // seeded into Sede principal only, which is where vehículo ABC123's orden and
+  // seeded into Sede principal only, which is where vehículo ABC123's orden y
   // factura already live.
   // Already on /login (the previous forbidden-role redirect landed here) --
   // no explicit sign-out needed, signIn() overwrites the TECNICO session.
-  await page.getByLabel("Correo").fill(E2E_RECEPCION_EMAIL);
-  await page.getByLabel("Contraseña").fill(E2E_RECEPCION_PASSWORD);
-  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
-  await page.getByRole("button", { name: "Ingresar" }).click();
-  await expect(page).toHaveURL(/\/clientes$/);
+  await login(page, E2E_RECEPCION_EMAIL, E2E_RECEPCION_PASSWORD, "Sede principal");
 
   await page.getByRole("link", { name: "Citas" }).click();
   await expect(page.getByRole("heading", { name: "Citas", level: 1 })).toBeVisible();
@@ -497,11 +463,7 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   // NOT the sede scoping -- which is exactly what makes this a real boundary
   // test rather than a permissions test.
   await page.getByRole("button", { name: "Cambiar de sede" }).click();
-  await page.getByLabel("Correo").fill(E2E_ADMIN_EMAIL);
-  await page.getByLabel("Contraseña").fill(E2E_ADMIN_PASSWORD);
-  await page.getByLabel("Sede").selectOption({ label: "Sede norte" });
-  await page.getByRole("button", { name: "Ingresar" }).click();
-  await expect(page).toHaveURL(/\/clientes$/);
+  await login(page, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD, "Sede norte");
   await expect(page.getByText("Sede: Sede norte")).toBeVisible();
 
   await page.goto("/citas");
@@ -517,14 +479,7 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   // Back in Sede principal the same ADMIN sees it again -- proof the row was
   // filtered by sede, not deleted or hidden by some other accident.
   await page.getByRole("button", { name: "Cambiar de sede" }).click();
-  await page.getByLabel("Correo").fill(E2E_ADMIN_EMAIL);
-  await page.getByLabel("Contraseña").fill(E2E_ADMIN_PASSWORD);
-  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
-  await page.getByRole("button", { name: "Ingresar" }).click();
-  // Wait for the login navigation to settle before the next goto -- otherwise
-  // it races the in-flight redirect and can abort it (same pattern as every
-  // other login transition in this file).
-  await expect(page).toHaveURL(/\/clientes$/);
+  await login(page, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD, "Sede principal");
   await page.goto("/citas");
   await expect(page.getByRole("link", { name: /ABC123 — Mantenimiento preventivo/ })).toBeVisible();
 
@@ -541,11 +496,7 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   // real navigation -- wait for it to settle before filling the login form,
   // same pattern as the "Cambiar de sede" transition at line ~311.
   await expect(page).toHaveURL(/\/login/);
-  await page.getByLabel("Correo").fill(E2E_RECEPCION_EMAIL);
-  await page.getByLabel("Contraseña").fill(E2E_RECEPCION_PASSWORD);
-  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
-  await page.getByRole("button", { name: "Ingresar" }).click();
-  await expect(page).toHaveURL(/\/clientes$/);
+  await login(page, E2E_RECEPCION_EMAIL, E2E_RECEPCION_PASSWORD, "Sede principal");
 
   // The nav link is not even rendered for a non-ADMIN...
   await expect(page.getByRole("link", { name: "SMTP" })).toHaveCount(0);

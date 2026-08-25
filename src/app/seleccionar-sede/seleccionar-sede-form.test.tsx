@@ -4,11 +4,12 @@ import userEvent from "@testing-library/user-event";
 
 const mockSeleccionarSedeAction = vi.fn();
 const mockPush = vi.fn();
+const mockRefresh = vi.fn();
 
 vi.mock("@/app/actions/seleccionar-sede-actions", () => ({
   seleccionarSedeAction: (...args: unknown[]) => mockSeleccionarSedeAction(...args),
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush, refresh: mockRefresh }) }));
 
 import { SeleccionarSedeForm } from "./seleccionar-sede-form";
 
@@ -21,6 +22,7 @@ describe("SeleccionarSedeForm", () => {
   beforeEach(() => {
     mockSeleccionarSedeAction.mockReset();
     mockPush.mockReset();
+    mockRefresh.mockReset();
   });
 
   afterEach(() => {
@@ -46,13 +48,19 @@ describe("SeleccionarSedeForm", () => {
     expect(mockSeleccionarSedeAction).toHaveBeenCalledWith("sede-1");
   });
 
-  it("redirects to /clientes after a successful selection", async () => {
+  it("redirects to /clientes and refreshes the router cache after a successful selection", async () => {
     mockSeleccionarSedeAction.mockResolvedValue({ error: null });
     render(<SeleccionarSedeForm sedes={SEDES} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Continuar" }));
 
+    // router.refresh() matters here: /clientes was already visited once by
+    // this same navigation cycle (requireSession() redirected here from
+    // /clientes because sedeActivaId was still empty) -- without it, the
+    // client Router Cache can serve that earlier redirect instead of
+    // re-fetching with the now-updated session cookie.
     expect(mockPush).toHaveBeenCalledWith("/clientes");
+    expect(mockRefresh).toHaveBeenCalled();
   });
 
   it("shows the returned error and does not navigate", async () => {

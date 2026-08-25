@@ -3,6 +3,7 @@ import { provisionTenant } from "../scripts/provision-tenant";
 import { seedTenantUser } from "../scripts/seed-tenant-user";
 import { seedSuperAdmin } from "../scripts/seed-super-admin";
 import { publicDb } from "../src/lib/db/public-client";
+import { login } from "./login-helper";
 
 const SLUG = "taller-e2e-superadmin";
 const SCHEMA = "taller_e2e_superadmin";
@@ -28,23 +29,17 @@ test.beforeAll(async () => {
   // Next.js dev mode (Turbopack) compiles each route on first hit. This spec
   // runs concurrently with tenant-flow.spec.ts, which is compiling a much
   // larger set of routes at the same time -- under that load, this login's
-  // very first /api/superadmin/auth/csrf request has been observed to race
-  // the still-compiling route and come back with an empty/stale CSRF token,
-  // producing a MissingCSRF error on the subsequent sign-in POST. Warming up
-  // both routes here, sequentially, before the real page navigation begins,
-  // moves that one-time compile cost off the timing-sensitive login flow.
+  // very first /api/superadmin/auth/csrf (or /api/auth/csrf) request has been
+  // observed to race the still-compiling route and come back with an
+  // empty/stale CSRF token, producing a MissingCSRF error on the subsequent
+  // sign-in POST. Warming up both auth systems here, sequentially, before the
+  // real page navigation begins, moves that one-time compile cost off the
+  // timing-sensitive login flow. Fase 10: both routes are host-agnostic now
+  // (one URL, no tenant subdomain), so no Host-header spoofing is needed.
   await fetch("http://localhost:3000/superadmin/login");
   await fetch("http://localhost:3000/api/superadmin/auth/csrf");
-
-  // Same compile-race risk applies to this tenant's own /login page and its
-  // (default, tenant-instance) csrf endpoint -- this spec is the only place
-  // in the whole e2e suite that hits this particular tenant subdomain, so
-  // nothing else warms it up first. Node's fetch (unlike a browser) does not
-  // resolve *.localhost as loopback on every OS/Node combination, so connect
-  // to localhost directly and override the Host header -- exactly what the
-  // middleware's tenant resolution actually reads.
-  await fetch("http://localhost:3000/login", { headers: { Host: `${SLUG}.localhost:3000` } });
-  await fetch("http://localhost:3000/api/auth/csrf", { headers: { Host: `${SLUG}.localhost:3000` } });
+  await fetch("http://localhost:3000/login");
+  await fetch("http://localhost:3000/api/auth/csrf");
 });
 
 test.afterAll(async () => {
@@ -70,14 +65,15 @@ test("super-admin logs in, suspends a tenant, confirms the tenant's login is blo
   await expect(row.getByRole("button", { name: "Activar" })).toBeVisible();
 
   // A suspended tenant's own login must fail the same way wrong credentials
-  // would -- this phase's design decision 7, no distinct message.
-  await page.goto(`http://${SLUG}.localhost:3000/login`);
+  // would -- this phase's design decision 7, no distinct message. Not using
+  // the login() helper here: this login is expected to FAIL, so it must
+  // never reach /clientes or /seleccionar-sede.
+  await page.goto("/login");
   await page.getByLabel("Correo").fill(TENANT_ADMIN_EMAIL);
   await page.getByLabel("Contraseña").fill(TENANT_ADMIN_PASSWORD);
-  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
   await page.getByRole("button", { name: "Ingresar" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "incorrectos" })).toHaveText(
-    "Correo, contraseña o sede incorrectos",
+    "Correo o contraseña incorrectos",
   );
 
   await page.goto("http://localhost:3000/superadmin");
@@ -89,10 +85,6 @@ test("super-admin logs in, suspends a tenant, confirms the tenant's login is blo
   await expect(row.getByRole("cell", { name: "Estándar", exact: true })).toBeVisible();
 
   // Reactivated: the tenant's own login must work again.
-  await page.goto(`http://${SLUG}.localhost:3000/login`);
-  await page.getByLabel("Correo").fill(TENANT_ADMIN_EMAIL);
-  await page.getByLabel("Contraseña").fill(TENANT_ADMIN_PASSWORD);
-  await page.getByLabel("Sede").selectOption({ label: "Sede principal" });
-  await page.getByRole("button", { name: "Ingresar" }).click();
-  await expect(page).toHaveURL(/\/clientes$/);
+  await page.goto("/login");
+  await login(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD, "Sede principal");
 });
