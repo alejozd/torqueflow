@@ -1,18 +1,41 @@
 "use client";
 
-import { useActionState } from "react";
+import { startTransition, useActionState, useRef } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { addHistorialEntryAction, type HistorialFormState } from "@/app/actions/historial-actions";
+import { historialInputSchema, type HistorialInput } from "@/lib/validation/historial";
 
 const initialState: HistorialFormState = { error: null, success: false };
 
 export function NuevaEntradaForm({ vehiculoId }: { vehiculoId: string }) {
   const addEntryForVehiculo = addHistorialEntryAction.bind(null, vehiculoId);
   const [state, formAction, isPending] = useActionState(addEntryForVehiculo, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<HistorialInput>({
+    resolver: zodResolver(historialInputSchema),
+    defaultValues: { descripcion: "" },
+  });
 
   return (
-    <form action={formAction}>
+    <form
+      noValidate
+      ref={formRef}
+      onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+    >
       <label htmlFor="descripcion">Descripción</label>
-      <textarea id="descripcion" name="descripcion" required />
+      <textarea
+        id="descripcion"
+        required
+        aria-invalid={errors.descripcion ? true : undefined}
+        aria-describedby={errors.descripcion ? "descripcion-error" : undefined}
+        {...register("descripcion")}
+      />
+      {errors.descripcion ? <p id="descripcion-error">{errors.descripcion.message}</p> : null}
 
       <button type="submit" disabled={isPending}>
         {isPending ? "Guardando..." : "Registrar"}
