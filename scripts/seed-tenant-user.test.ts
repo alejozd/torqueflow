@@ -53,6 +53,19 @@ describe("seedTenantUser", () => {
     expect(grants[0].sedeId).toBe(sedeMasAntigua?.id);
   });
 
+  it("registers the email in the public tenant_user_emails index", async () => {
+    const usuario = await seedTenantUser({
+      schemaName: SCHEMA,
+      email: "indexed@task6-fixture.test",
+      password: "SuperSecret123!",
+      nombre: "Indexado",
+    });
+
+    const tenant = await publicDb.tenant.findUniqueOrThrow({ where: { slug: SLUG } });
+    const row = await publicDb.tenantUserEmail.findUnique({ where: { email: usuario.email } });
+    expect(row?.tenantId).toBe(tenant.id);
+  });
+
   it("is idempotent: re-seeding the same email does not duplicate the sede grant", async () => {
     const first = await seedTenantUser({
       schemaName: SCHEMA,

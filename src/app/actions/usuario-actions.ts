@@ -8,7 +8,14 @@ import { usuarioSedesInputSchema } from "@/lib/validation/sede";
 import bcrypt from "bcryptjs";
 import { usuarioCreateInputSchema, usuarioUpdateInputSchema } from "@/lib/validation/usuario";
 import { obtenerLimitesPlan } from "@/lib/planes/limites";
+import {
+  claimTenantUserEmail,
+  releaseTenantUserEmail,
+  TenantUserEmailConflictError,
+} from "@/lib/tenant/tenant-user-email";
 import type { Prisma } from "@/generated/prisma-tenant";
+
+const EMAIL_EN_OTRO_TALLER = "Este correo ya está registrado en otro taller.";
 
 export interface UsuarioConSedes {
   id: string;
@@ -144,8 +151,9 @@ export async function createUsuarioAction(
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
 
+  let usuario: { id: string };
   try {
-    const usuario = await tenantDb.usuario.create({
+    usuario = await tenantDb.usuario.create({
       data: {
         nombre: parsed.data.nombre,
         email: parsed.data.email,
@@ -166,6 +174,20 @@ export async function createUsuarioAction(
     }
   } catch (err) {
     return { error: friendlyPrismaErrorMessage(err, "Error al crear el usuario"), success: false };
+  }
+
+  try {
+    await claimTenantUserEmail(session.user.tenantSchema, parsed.data.email);
+  } catch (err) {
+    // The public email->tenant index is what authorizeCredentials() trusts to
+    // resolve a tenant by email (Fase 10) -- a Usuario this index can't reach
+    // could never log in, so a claim conflict rolls back the just-created row
+    // rather than leaving a permanently locked-out account.
+    await tenantDb.usuario.delete({ where: { id: usuario.id } }).catch(() => {});
+    if (err instanceof TenantUserEmailConflictError) {
+      return { error: EMAIL_EN_OTRO_TALLER, success: false };
+    }
+    throw err;
   }
 
   revalidatePath("/usuarios");
@@ -190,19 +212,21 @@ export async function updateUsuarioAction(
   const session = await requireRole(["ADMIN"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  if (parsed.data.role !== "ADMIN") {
-    const usuarioActual = await tenantDb.usuario.findUnique({
-      where: { id: usuarioId },
-      select: { role: true },
-    });
-    if (usuarioActual?.role === "ADMIN") {
-      const totalAdmins = await tenantDb.usuario.count({ where: { role: "ADMIN" } });
-      if (totalAdmins <= 1) {
-        return {
-          error: "No puedes quitar el rol de ADMIN al único administrador del taller.",
-          success: false,
-        };
-      }
+  const usuarioActual = await tenantDb.usuario.findUnique({
+    where: { id: usuarioId },
+    select: { role: true, email: true },
+  });
+  if (!usuarioActual) {
+    return { error: "Usuario no encontrado", success: false };
+  }
+
+  if (parsed.data.role !== "ADMIN" && usuarioActual.role === "ADMIN") {
+    const totalAdmins = await tenantDb.usuario.count({ where: { role: "ADMIN" } });
+    if (totalAdmins <= 1) {
+      return {
+        error: "No puedes quitar el rol de ADMIN al único administrador del taller.",
+        success: false,
+      };
     }
   }
 
@@ -215,10 +239,29 @@ export async function updateUsuarioAction(
     datos.passwordHash = await bcrypt.hash(parsed.data.password, 12);
   }
 
+  // Claiming the new email happens BEFORE writing to the tenant schema: a
+  // conflict must never leave a usuario mid-update in tenantDb, and Usuario's
+  // own @unique(email) already blocks a same-tenant collision.
+  const emailCambio = usuarioActual.email !== parsed.data.email;
+  if (emailCambio) {
+    try {
+      await claimTenantUserEmail(session.user.tenantSchema, parsed.data.email);
+    } catch (err) {
+      if (err instanceof TenantUserEmailConflictError) {
+        return { error: EMAIL_EN_OTRO_TALLER, success: false };
+      }
+      throw err;
+    }
+  }
+
   try {
     await tenantDb.usuario.update({ where: { id: usuarioId }, data: datos });
   } catch (err) {
     return { error: friendlyPrismaErrorMessage(err, "Error al actualizar el usuario"), success: false };
+  }
+
+  if (emailCambio) {
+    await releaseTenantUserEmail(usuarioActual.email);
   }
 
   revalidatePath("/usuarios");
@@ -238,7 +281,7 @@ export async function deleteUsuarioAction(usuarioId: string): Promise<void> {
 
   const usuario = await tenantDb.usuario.findUnique({
     where: { id: usuarioId },
-    select: { role: true },
+    select: { role: true, email: true },
   });
   if (!usuario) {
     throw new Error("Usuario no encontrado");
@@ -256,6 +299,8 @@ export async function deleteUsuarioAction(usuarioId: string): Promise<void> {
   } catch (err) {
     throw new Error(friendlyPrismaErrorMessage(err, "Error al eliminar el usuario"));
   }
+
+  await releaseTenantUserEmail(usuario.email);
 
   revalidatePath("/usuarios");
 }

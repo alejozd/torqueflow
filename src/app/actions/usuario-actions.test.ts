@@ -45,6 +45,18 @@ vi.mock("@/lib/planes/limites", () => ({
   obtenerLimitesPlan: (...args: unknown[]) => mockObtenerLimitesPlan(...args),
 }));
 
+const mockClaimTenantUserEmail = vi.fn();
+const mockReleaseTenantUserEmail = vi.fn();
+vi.mock("@/lib/tenant/tenant-user-email", () => {
+  class TenantUserEmailConflictError extends Error {}
+  return {
+    claimTenantUserEmail: (...args: unknown[]) => mockClaimTenantUserEmail(...args),
+    releaseTenantUserEmail: (...args: unknown[]) => mockReleaseTenantUserEmail(...args),
+    TenantUserEmailConflictError,
+  };
+});
+
+import { TenantUserEmailConflictError } from "@/lib/tenant/tenant-user-email";
 import {
   listUsuariosConSedes,
   setUsuarioSedesAction,
@@ -172,8 +184,10 @@ describe("createUsuarioAction", () => {
     mockObtenerLimitesPlan.mockReset().mockResolvedValue({ maxUsuarios: null, maxSedes: null });
     mockUsuarioCount.mockReset();
     mockUsuarioCreate.mockReset();
+    mockUsuarioDelete.mockReset().mockResolvedValue({});
     mockSedeFindFirst.mockReset().mockResolvedValue({ id: "sede-1" });
     mockUsuarioSedeCreate.mockReset().mockResolvedValue({});
+    mockClaimTenantUserEmail.mockReset().mockResolvedValue(undefined);
   });
 
   it("creates a usuario when under the plan's maxUsuarios limit", async () => {
@@ -261,14 +275,44 @@ describe("createUsuarioAction", () => {
     expect(result.error).toBe("La contraseña debe tener al menos 8 caracteres");
     expect(mockUsuarioCreate).not.toHaveBeenCalled();
   });
+
+  it("registers the new email in the public tenant_user_emails index", async () => {
+    mockUsuarioCreate.mockResolvedValue({ id: "u2" });
+    const formData = new FormData();
+    formData.set("nombre", "Ana Pérez");
+    formData.set("email", "ana@taller.test");
+    formData.set("password", "contraseña-larga");
+    formData.set("role", "TECNICO");
+
+    await createUsuarioAction(initialUsuarioState, formData);
+
+    expect(mockClaimTenantUserEmail).toHaveBeenCalledWith("taller_perez", "ana@taller.test");
+  });
+
+  it("rolls back the just-created usuario and returns a Spanish error when the email belongs to another tenant", async () => {
+    mockUsuarioCreate.mockResolvedValue({ id: "u2" });
+    mockClaimTenantUserEmail.mockRejectedValue(new TenantUserEmailConflictError("ana@taller.test"));
+    const formData = new FormData();
+    formData.set("nombre", "Ana Pérez");
+    formData.set("email", "ana@taller.test");
+    formData.set("password", "contraseña-larga");
+    formData.set("role", "TECNICO");
+
+    const result = await createUsuarioAction(initialUsuarioState, formData);
+
+    expect(result).toEqual({ error: "Este correo ya está registrado en otro taller.", success: false });
+    expect(mockUsuarioDelete).toHaveBeenCalledWith({ where: { id: "u2" } });
+  });
 });
 
 describe("updateUsuarioAction", () => {
   beforeEach(() => {
     mockRequireRole.mockReset().mockResolvedValue(ADMIN);
-    mockUsuarioFindUnique.mockReset();
+    mockUsuarioFindUnique.mockReset().mockResolvedValue({ role: "RECEPCION", email: "ana@taller.test" });
     mockUsuarioCount.mockReset();
     mockUsuarioUpdate.mockReset();
+    mockClaimTenantUserEmail.mockReset().mockResolvedValue(undefined);
+    mockReleaseTenantUserEmail.mockReset().mockResolvedValue(undefined);
   });
 
   it("updates nombre/email/role without touching the password when the field is blank", async () => {
@@ -305,7 +349,7 @@ describe("updateUsuarioAction", () => {
   });
 
   it("refuses to demote the last ADMIN", async () => {
-    mockUsuarioFindUnique.mockResolvedValue({ role: "ADMIN" });
+    mockUsuarioFindUnique.mockResolvedValue({ role: "ADMIN", email: "ana@taller.test" });
     mockUsuarioCount.mockResolvedValue(1);
     const formData = new FormData();
     formData.set("nombre", "Ana P.");
@@ -323,7 +367,7 @@ describe("updateUsuarioAction", () => {
   });
 
   it("allows demoting an ADMIN when a second ADMIN still exists", async () => {
-    mockUsuarioFindUnique.mockResolvedValue({ role: "ADMIN" });
+    mockUsuarioFindUnique.mockResolvedValue({ role: "ADMIN", email: "ana@taller.test" });
     mockUsuarioCount.mockResolvedValue(2);
     mockUsuarioUpdate.mockResolvedValue({ id: "u1" });
     const formData = new FormData();
@@ -336,6 +380,67 @@ describe("updateUsuarioAction", () => {
 
     expect(result).toEqual({ error: null, success: true });
   });
+
+  it("returns 'Usuario no encontrado' and writes nothing when the usuario does not exist", async () => {
+    mockUsuarioFindUnique.mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("nombre", "Ana P.");
+    formData.set("email", "ana@taller.test");
+    formData.set("password", "");
+    formData.set("role", "TECNICO");
+
+    const result = await updateUsuarioAction("u-inexistente", initialUsuarioState, formData);
+
+    expect(result).toEqual({ error: "Usuario no encontrado", success: false });
+    expect(mockUsuarioUpdate).not.toHaveBeenCalled();
+  });
+
+  it("claims the new email and releases the old one in the public index when the email changes", async () => {
+    mockUsuarioFindUnique.mockResolvedValue({ role: "RECEPCION", email: "ana@taller.test" });
+    mockUsuarioUpdate.mockResolvedValue({ id: "u2" });
+    const formData = new FormData();
+    formData.set("nombre", "Ana P.");
+    formData.set("email", "ana2@taller.test");
+    formData.set("password", "");
+    formData.set("role", "RECEPCION");
+
+    await updateUsuarioAction("u2", initialUsuarioState, formData);
+
+    expect(mockClaimTenantUserEmail).toHaveBeenCalledWith("taller_perez", "ana2@taller.test");
+    expect(mockReleaseTenantUserEmail).toHaveBeenCalledWith("ana@taller.test");
+  });
+
+  it("does not touch the email index when the email is unchanged", async () => {
+    mockUsuarioFindUnique.mockResolvedValue({ role: "RECEPCION", email: "ana@taller.test" });
+    mockUsuarioUpdate.mockResolvedValue({ id: "u2" });
+    const formData = new FormData();
+    formData.set("nombre", "Ana P.");
+    formData.set("email", "ana@taller.test");
+    formData.set("password", "");
+    formData.set("role", "RECEPCION");
+
+    await updateUsuarioAction("u2", initialUsuarioState, formData);
+
+    expect(mockClaimTenantUserEmail).not.toHaveBeenCalled();
+    expect(mockReleaseTenantUserEmail).not.toHaveBeenCalled();
+    expect(mockUsuarioUpdate).toHaveBeenCalled();
+  });
+
+  it("returns a Spanish error and writes nothing when the new email belongs to another tenant", async () => {
+    mockUsuarioFindUnique.mockResolvedValue({ role: "RECEPCION", email: "ana@taller.test" });
+    mockClaimTenantUserEmail.mockRejectedValue(new TenantUserEmailConflictError("tomado@otro.test"));
+    const formData = new FormData();
+    formData.set("nombre", "Ana P.");
+    formData.set("email", "tomado@otro.test");
+    formData.set("password", "");
+    formData.set("role", "RECEPCION");
+
+    const result = await updateUsuarioAction("u2", initialUsuarioState, formData);
+
+    expect(result).toEqual({ error: "Este correo ya está registrado en otro taller.", success: false });
+    expect(mockUsuarioUpdate).not.toHaveBeenCalled();
+    expect(mockReleaseTenantUserEmail).not.toHaveBeenCalled();
+  });
 });
 
 describe("deleteUsuarioAction", () => {
@@ -344,34 +449,38 @@ describe("deleteUsuarioAction", () => {
     mockUsuarioFindUnique.mockReset();
     mockUsuarioCount.mockReset();
     mockUsuarioDelete.mockReset();
+    mockReleaseTenantUserEmail.mockReset().mockResolvedValue(undefined);
   });
 
   it("refuses to delete the last ADMIN", async () => {
-    mockUsuarioFindUnique.mockResolvedValue({ role: "ADMIN" });
+    mockUsuarioFindUnique.mockResolvedValue({ role: "ADMIN", email: "admin@taller.test" });
     mockUsuarioCount.mockResolvedValue(1);
 
     await expect(deleteUsuarioAction("u1")).rejects.toThrow(
       "No puedes eliminar al único administrador del taller.",
     );
     expect(mockUsuarioDelete).not.toHaveBeenCalled();
+    expect(mockReleaseTenantUserEmail).not.toHaveBeenCalled();
   });
 
-  it("deletes a non-ADMIN usuario without checking the ADMIN count", async () => {
-    mockUsuarioFindUnique.mockResolvedValue({ role: "TECNICO" });
+  it("deletes a non-ADMIN usuario without checking the ADMIN count, and releases its email from the index", async () => {
+    mockUsuarioFindUnique.mockResolvedValue({ role: "TECNICO", email: "tec@taller.test" });
     mockUsuarioDelete.mockResolvedValue({ id: "u2" });
 
     await deleteUsuarioAction("u2");
 
     expect(mockUsuarioCount).not.toHaveBeenCalled();
     expect(mockUsuarioDelete).toHaveBeenCalledWith({ where: { id: "u2" } });
+    expect(mockReleaseTenantUserEmail).toHaveBeenCalledWith("tec@taller.test");
   });
 
-  it("translates a foreign-key-protected delete into the generic Spanish message", async () => {
-    mockUsuarioFindUnique.mockResolvedValue({ role: "TECNICO" });
+  it("translates a foreign-key-protected delete into the generic Spanish message, without releasing the email", async () => {
+    mockUsuarioFindUnique.mockResolvedValue({ role: "TECNICO", email: "tec@taller.test" });
     mockUsuarioDelete.mockRejectedValue({ code: "P2003" });
 
     await expect(deleteUsuarioAction("u2")).rejects.toThrow(
       "No se puede completar la operación porque hay registros relacionados.",
     );
+    expect(mockReleaseTenantUserEmail).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { getTenantDb } from "@/lib/db/tenant-client";
+import { claimTenantUserEmail } from "@/lib/tenant/tenant-user-email";
 import type { Usuario, Role } from "@/generated/prisma-tenant";
 
 export interface SeedTenantUserInput {
@@ -25,6 +26,8 @@ export async function seedTenantUser({
     update: { passwordHash, nombre, role },
     create: { email, passwordHash, nombre, role },
   });
+
+  await claimTenantUserEmail(schemaName, email);
 
   // Day-one login: a TECNICO/RECEPCION with no UsuarioSede row cannot pass the
   // sede gate in authorizeCredentials, so every seeded user is granted the
