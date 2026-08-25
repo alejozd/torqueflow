@@ -665,7 +665,7 @@ Estado: cerrada.
   servidor con submit vacío) siguen pasando tal cual — no hay ningún
   campo obligatorio que el client bloquee.
 - Verificación: compartida con la tarea 27.
-- Commit: `[pendiente]`.
+- Commit: `90521d0`.
 
 ### Fase 14 / Tarea 27 — Formulario `nueva-entrada` (historial, vehiculos/[id])
 
@@ -677,7 +677,7 @@ Estado: cerrada.
   reescribir).
 - Verificación: `tsc --noEmit` limpio. `npx vitest run` (2 archivos/5
   tests) verde.
-- Commit: `[pendiente]`.
+- Commit: `18757e9`.
 
 ### Fase 11 / Tarea 1 — Fundación de diseño
 
