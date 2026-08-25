@@ -34,4 +34,13 @@ describe("NuevoVehiculoForm", () => {
 
     expect(await screen.findByRole("status")).toHaveTextContent("Vehículo agregado");
   });
+
+  it("blocks submission and shows field errors when required fields are empty, without calling the server", async () => {
+    render(<NuevoVehiculoForm clienteId="c1" />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Agregar vehículo" }));
+
+    expect(await screen.findByText("La placa es obligatoria")).toBeInTheDocument();
+    expect(mockCreateVehiculoAction).not.toHaveBeenCalled();
+  });
 });
