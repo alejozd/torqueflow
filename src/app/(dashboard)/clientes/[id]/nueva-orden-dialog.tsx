@@ -6,7 +6,14 @@ import { Plus } from "lucide-react";
 import { NuevaOrdenForm } from "../../vehiculos/[id]/nueva-orden-form";
 import type { TecnicoOption } from "@/app/actions/orden-actions";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 // Reuses vehiculos/[id]'s NuevaOrdenForm as-is (same createOrdenAction, same
 // clienteId/vehiculoId binding) -- only where it renders is new: a modal
@@ -35,6 +42,9 @@ export function NuevaOrdenDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Nueva orden · {placa}</DialogTitle>
+          <DialogDescription>
+            Al crearla se abre la orden para agregar repuestos y mano de obra.
+          </DialogDescription>
         </DialogHeader>
         <NuevaOrdenForm
           clienteId={clienteId}
