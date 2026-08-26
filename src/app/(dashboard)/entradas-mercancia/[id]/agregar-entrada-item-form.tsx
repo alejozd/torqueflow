@@ -40,65 +40,69 @@ export function AgregarEntradaItemForm({
       noValidate
       ref={formRef}
       onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-6"
     >
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="repuestoId">Repuesto</Label>
-        {/*
-          Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-          while closed) -- userEvent.selectOptions()/getByRole("option")
-          in the existing tests need real <select>/<option> elements.
-          Styled by hand to match the shadcn select trigger look.
-        */}
-        <select
-          id="repuestoId"
-          required
-          aria-invalid={errors.repuestoId ? true : undefined}
-          aria-describedby={errors.repuestoId ? "repuestoId-error" : undefined}
-          className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-          {...register("repuestoId")}
-        >
-          <option value="" disabled>
-            Selecciona un repuesto
-          </option>
-          {repuestos.map((repuesto) => (
-            <option key={repuesto.id} value={repuesto.id}>
-              {repuesto.codigo} — {repuesto.nombre}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="repuestoId">Repuesto</Label>
+          {/*
+            Native <select>, not shadcn's Select (Base UI, no DOM <option>s
+            while closed) -- userEvent.selectOptions()/getByRole("option")
+            in the existing tests need real <select>/<option> elements.
+            Styled by hand to match the shadcn select trigger look.
+          */}
+          <select
+            id="repuestoId"
+            required
+            aria-invalid={errors.repuestoId ? true : undefined}
+            aria-describedby={errors.repuestoId ? "repuestoId-error" : undefined}
+            className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+            {...register("repuestoId")}
+          >
+            <option value="" disabled>
+              Selecciona un repuesto
             </option>
-          ))}
-        </select>
-        {errors.repuestoId ? <p id="repuestoId-error">{errors.repuestoId.message}</p> : null}
+            {repuestos.map((repuesto) => (
+              <option key={repuesto.id} value={repuesto.id}>
+                {repuesto.codigo} — {repuesto.nombre}
+              </option>
+            ))}
+          </select>
+          {errors.repuestoId ? <p id="repuestoId-error">{errors.repuestoId.message}</p> : null}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="cantidad">Cantidad</Label>
+          <Input
+            id="cantidad"
+            type="number"
+            min="1"
+            required
+            aria-invalid={errors.cantidad ? true : undefined}
+            aria-describedby={errors.cantidad ? "cantidad-error" : undefined}
+            {...register("cantidad")}
+          />
+          {errors.cantidad ? <p id="cantidad-error">{errors.cantidad.message}</p> : null}
+        </div>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="cantidad">Cantidad</Label>
-        <Input
-          id="cantidad"
-          type="number"
-          min="1"
-          required
-          aria-invalid={errors.cantidad ? true : undefined}
-          aria-describedby={errors.cantidad ? "cantidad-error" : undefined}
-          {...register("cantidad")}
-        />
-        {errors.cantidad ? <p id="cantidad-error">{errors.cantidad.message}</p> : null}
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="precioCompraUnitario">Precio de compra unitario</Label>
-        <Input
-          id="precioCompraUnitario"
-          type="number"
-          min="0"
-          step="0.01"
-          required
-          aria-invalid={errors.precioCompraUnitario ? true : undefined}
-          aria-describedby={errors.precioCompraUnitario ? "precioCompraUnitario-error" : undefined}
-          {...register("precioCompraUnitario")}
-        />
-        {errors.precioCompraUnitario ? (
-          <p id="precioCompraUnitario-error">{errors.precioCompraUnitario.message}</p>
-        ) : null}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="precioCompraUnitario">Precio de compra unitario</Label>
+          <Input
+            id="precioCompraUnitario"
+            type="number"
+            min="0"
+            step="0.01"
+            required
+            aria-invalid={errors.precioCompraUnitario ? true : undefined}
+            aria-describedby={errors.precioCompraUnitario ? "precioCompraUnitario-error" : undefined}
+            {...register("precioCompraUnitario")}
+          />
+          {errors.precioCompraUnitario ? (
+            <p id="precioCompraUnitario-error">{errors.precioCompraUnitario.message}</p>
+          ) : null}
+        </div>
       </div>
 
       <Button type="submit" disabled={isPending}>

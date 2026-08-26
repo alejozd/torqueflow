@@ -35,62 +35,64 @@ export function NuevaEntradaMercanciaForm({
       noValidate
       ref={formRef}
       onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-6"
     >
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="proveedorId">Proveedor</Label>
-        {/*
-          Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-          while closed) -- userEvent.selectOptions()/getByRole("option")
-          in the existing tests need real <select>/<option> elements.
-          Styled by hand to match the shadcn select trigger look.
-        */}
-        <select
-          id="proveedorId"
-          required
-          aria-invalid={errors.proveedorId ? true : undefined}
-          aria-describedby={errors.proveedorId ? "proveedorId-error" : undefined}
-          className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-          {...register("proveedorId")}
-        >
-          <option value="" disabled>
-            Selecciona un proveedor
-          </option>
-          {proveedores.map((proveedor) => (
-            <option key={proveedor.id} value={proveedor.id}>
-              {proveedor.nombre}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="proveedorId">Proveedor</Label>
+          {/*
+            Native <select>, not shadcn's Select (Base UI, no DOM <option>s
+            while closed) -- userEvent.selectOptions()/getByRole("option")
+            in the existing tests need real <select>/<option> elements.
+            Styled by hand to match the shadcn select trigger look.
+          */}
+          <select
+            id="proveedorId"
+            required
+            aria-invalid={errors.proveedorId ? true : undefined}
+            aria-describedby={errors.proveedorId ? "proveedorId-error" : undefined}
+            className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+            {...register("proveedorId")}
+          >
+            <option value="" disabled>
+              Selecciona un proveedor
             </option>
-          ))}
-        </select>
-        {errors.proveedorId ? <p id="proveedorId-error">{errors.proveedorId.message}</p> : null}
-      </div>
+            {proveedores.map((proveedor) => (
+              <option key={proveedor.id} value={proveedor.id}>
+                {proveedor.nombre}
+              </option>
+            ))}
+          </select>
+          {errors.proveedorId ? <p id="proveedorId-error">{errors.proveedorId.message}</p> : null}
+        </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="bodegaId">Bodega</Label>
-        {/*
-          Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-          while closed) -- userEvent.selectOptions()/getByRole("option")
-          in the existing tests need real <select>/<option> elements.
-          Styled by hand to match the shadcn select trigger look.
-        */}
-        <select
-          id="bodegaId"
-          required
-          aria-invalid={errors.bodegaId ? true : undefined}
-          aria-describedby={errors.bodegaId ? "bodegaId-error" : undefined}
-          className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-          {...register("bodegaId")}
-        >
-          <option value="" disabled>
-            Selecciona una bodega
-          </option>
-          {bodegas.map((bodega) => (
-            <option key={bodega.id} value={bodega.id}>
-              {bodega.nombre}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="bodegaId">Bodega</Label>
+          {/*
+            Native <select>, not shadcn's Select (Base UI, no DOM <option>s
+            while closed) -- userEvent.selectOptions()/getByRole("option")
+            in the existing tests need real <select>/<option> elements.
+            Styled by hand to match the shadcn select trigger look.
+          */}
+          <select
+            id="bodegaId"
+            required
+            aria-invalid={errors.bodegaId ? true : undefined}
+            aria-describedby={errors.bodegaId ? "bodegaId-error" : undefined}
+            className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+            {...register("bodegaId")}
+          >
+            <option value="" disabled>
+              Selecciona una bodega
             </option>
-          ))}
-        </select>
-        {errors.bodegaId ? <p id="bodegaId-error">{errors.bodegaId.message}</p> : null}
+            {bodegas.map((bodega) => (
+              <option key={bodega.id} value={bodega.id}>
+                {bodega.nombre}
+              </option>
+            ))}
+          </select>
+          {errors.bodegaId ? <p id="bodegaId-error">{errors.bodegaId.message}</p> : null}
+        </div>
       </div>
 
       <Button type="submit" disabled={isPending}>

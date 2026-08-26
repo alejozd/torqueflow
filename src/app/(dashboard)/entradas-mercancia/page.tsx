@@ -4,6 +4,7 @@ import { listProveedores } from "@/app/actions/proveedor-actions";
 import { listBodegas } from "@/app/actions/bodega-actions";
 import { NuevaEntradaMercanciaForm } from "./nueva-entrada-mercancia-form";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type EntradaRow = Awaited<ReturnType<typeof listEntradas>>[number];
 
@@ -27,15 +28,31 @@ export default async function EntradasMercanciaPage() {
   ]);
 
   return (
-    <main>
-      <h1>Entradas de mercancía</h1>
-      <NuevaEntradaMercanciaForm proveedores={proveedores} bodegas={bodegas} />
-      <DataTable
-        columns={COLUMNS}
-        rows={entradas}
-        getRowKey={(entrada) => entrada.id}
-        emptyMessage="No hay entradas de mercancía registradas."
-      />
+    <main className="flex flex-col gap-6">
+      <h1 className="text-2xl font-semibold">Entradas de mercancía</h1>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Nueva entrada</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <NuevaEntradaMercanciaForm proveedores={proveedores} bodegas={bodegas} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Listado</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={COLUMNS}
+            rows={entradas}
+            getRowKey={(entrada) => entrada.id}
+            emptyMessage="No hay entradas de mercancía registradas."
+          />
+        </CardContent>
+      </Card>
     </main>
   );
 }
