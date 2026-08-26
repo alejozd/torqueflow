@@ -5,7 +5,14 @@ import { NuevaOrdenDesdeCeroForm } from "./nueva-orden-desde-cero-form";
 import type { ClienteParaOrden } from "@/app/actions/cliente-actions";
 import type { TecnicoOption } from "@/app/actions/orden-actions";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export function NuevaOrdenDialog({
   clientes,
@@ -19,9 +26,10 @@ export function NuevaOrdenDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button />}>Nueva orden</DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Nueva orden de trabajo</DialogTitle>
+          <DialogDescription>Vehículo, responsable y diagnóstico inicial.</DialogDescription>
         </DialogHeader>
         <NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />
       </DialogContent>

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { createOrdenDesdeVehiculoAction, type OrdenFormState, type TecnicoOption } from "@/app/actions/orden-actions";
 import { ordenTrabajoInputSchema } from "@/lib/validation/orden";
 import type { ClienteParaOrden } from "@/app/actions/cliente-actions";
+import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,103 +65,108 @@ export function NuevaOrdenDesdeCeroForm({
       onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
       className="flex flex-col gap-4"
     >
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="clienteId">Cliente</Label>
-        {/*
-          Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-          while closed) -- keeps userEvent.selectOptions()/getByRole("option")
-          working, same reasoning as usuarios/nuevo-usuario-form.tsx.
-        */}
-        <select
-          id="clienteId"
-          aria-invalid={errors.clienteId ? true : undefined}
-          aria-describedby={errors.clienteId ? "clienteId-error" : undefined}
-          className={SELECT_CLASSNAME}
-          {...register("clienteId", {
-            // A vehículo selected under the previous cliente must not survive
-            // the switch -- it would silently point at another client's car.
-            onChange: () => resetField("vehiculoId", { defaultValue: "" }),
-          })}
-        >
-          <option value="">Seleccionar...</option>
-          {clientes.map((cliente) => (
-            <option key={cliente.id} value={cliente.id}>
-              {cliente.nombre}
-            </option>
-          ))}
-        </select>
-        {errors.clienteId ? <p id="clienteId-error">{errors.clienteId.message}</p> : null}
-      </div>
+      <FormGroup label="Vehículo">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="clienteId">Cliente</Label>
+            {/*
+              Native <select>, not shadcn's Select (Base UI, no DOM <option>s
+              while closed) -- keeps userEvent.selectOptions()/getByRole("option")
+              working, same reasoning as usuarios/nuevo-usuario-form.tsx.
+            */}
+            <select
+              id="clienteId"
+              aria-invalid={errors.clienteId ? true : undefined}
+              aria-describedby={errors.clienteId ? "clienteId-error" : undefined}
+              className={SELECT_CLASSNAME}
+              {...register("clienteId", {
+                // A vehículo selected under the previous cliente must not survive
+                // the switch -- it would silently point at another client's car.
+                onChange: () => resetField("vehiculoId", { defaultValue: "" }),
+              })}
+            >
+              <option value="">Seleccionar...</option>
+              {clientes.map((cliente) => (
+                <option key={cliente.id} value={cliente.id}>
+                  {cliente.nombre}
+                </option>
+              ))}
+            </select>
+            {errors.clienteId ? <p id="clienteId-error">{errors.clienteId.message}</p> : null}
+          </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="vehiculoId">Vehículo</Label>
-        <select
-          id="vehiculoId"
-          disabled={!clienteIdSeleccionado}
-          aria-invalid={errors.vehiculoId ? true : undefined}
-          aria-describedby={errors.vehiculoId ? "vehiculoId-error" : undefined}
-          className={SELECT_CLASSNAME}
-          {...register("vehiculoId")}
-        >
-          <option value="">{clienteIdSeleccionado ? "Seleccionar..." : "Primero selecciona un cliente"}</option>
-          {vehiculosDisponibles.map((vehiculo) => (
-            <option key={vehiculo.id} value={vehiculo.id}>
-              {vehiculo.placa} · {vehiculo.marca} {vehiculo.modelo}
-            </option>
-          ))}
-        </select>
-        {clienteIdSeleccionado && vehiculosDisponibles.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Este cliente no tiene vehículos registrados.</p>
-        ) : null}
-        {errors.vehiculoId ? <p id="vehiculoId-error">{errors.vehiculoId.message}</p> : null}
-      </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="vehiculoId">Vehículo</Label>
+            <select
+              id="vehiculoId"
+              disabled={!clienteIdSeleccionado}
+              aria-invalid={errors.vehiculoId ? true : undefined}
+              aria-describedby={errors.vehiculoId ? "vehiculoId-error" : undefined}
+              className={SELECT_CLASSNAME}
+              {...register("vehiculoId")}
+            >
+              <option value="">{clienteIdSeleccionado ? "Seleccionar..." : "Primero selecciona un cliente"}</option>
+              {vehiculosDisponibles.map((vehiculo) => (
+                <option key={vehiculo.id} value={vehiculo.id}>
+                  {vehiculo.placa} · {vehiculo.marca} {vehiculo.modelo}
+                </option>
+              ))}
+            </select>
+            {clienteIdSeleccionado && vehiculosDisponibles.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Este cliente no tiene vehículos registrados.</p>
+            ) : null}
+            {errors.vehiculoId ? <p id="vehiculoId-error">{errors.vehiculoId.message}</p> : null}
+          </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="kilometrajeIngreso">Kilometraje de ingreso</Label>
-        <Input
-          id="kilometrajeIngreso"
-          type="number"
-          min="0"
-          aria-invalid={errors.kilometrajeIngreso ? true : undefined}
-          aria-describedby={errors.kilometrajeIngreso ? "kilometrajeIngreso-error" : undefined}
-          {...register("kilometrajeIngreso")}
-        />
-        {errors.kilometrajeIngreso ? <p id="kilometrajeIngreso-error">{errors.kilometrajeIngreso.message}</p> : null}
-      </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="kilometrajeIngreso">Kilometraje de ingreso</Label>
+            <Input
+              id="kilometrajeIngreso"
+              type="number"
+              min="0"
+              className="font-mono"
+              aria-invalid={errors.kilometrajeIngreso ? true : undefined}
+              aria-describedby={errors.kilometrajeIngreso ? "kilometrajeIngreso-error" : undefined}
+              {...register("kilometrajeIngreso")}
+            />
+            {errors.kilometrajeIngreso ? (
+              <p id="kilometrajeIngreso-error">{errors.kilometrajeIngreso.message}</p>
+            ) : null}
+          </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="sintomas">Síntomas reportados</Label>
-        <Textarea
-          id="sintomas"
-          aria-invalid={errors.sintomas ? true : undefined}
-          aria-describedby={errors.sintomas ? "sintomas-error" : undefined}
-          {...register("sintomas")}
-        />
-        {errors.sintomas ? <p id="sintomas-error">{errors.sintomas.message}</p> : null}
-      </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="mecanicoId">Mecánico asignado</Label>
+            <select
+              id="mecanicoId"
+              aria-invalid={errors.mecanicoId ? true : undefined}
+              aria-describedby={errors.mecanicoId ? "mecanicoId-error" : undefined}
+              className={SELECT_CLASSNAME}
+              {...register("mecanicoId")}
+            >
+              <option value="">Sin asignar</option>
+              {tecnicos.map((tecnico) => (
+                <option key={tecnico.id} value={tecnico.id}>
+                  {tecnico.nombre}
+                </option>
+              ))}
+            </select>
+            {errors.mecanicoId ? <p id="mecanicoId-error">{errors.mecanicoId.message}</p> : null}
+          </div>
+        </div>
+      </FormGroup>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="mecanicoId">Mecánico asignado</Label>
-        <select
-          id="mecanicoId"
-          aria-invalid={errors.mecanicoId ? true : undefined}
-          aria-describedby={errors.mecanicoId ? "mecanicoId-error" : undefined}
-          className={SELECT_CLASSNAME}
-          {...register("mecanicoId")}
-        >
-          <option value="">Sin asignar</option>
-          {tecnicos.map((tecnico) => (
-            <option key={tecnico.id} value={tecnico.id}>
-              {tecnico.nombre}
-            </option>
-          ))}
-        </select>
-        {errors.mecanicoId ? <p id="mecanicoId-error">{errors.mecanicoId.message}</p> : null}
-      </div>
-
-      <Button type="submit" disabled={isPending}>
-        {isPending ? "Creando..." : "Crear orden"}
-      </Button>
+      <FormGroup label="Diagnóstico">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="sintomas">Síntomas reportados</Label>
+          <Textarea
+            id="sintomas"
+            aria-invalid={errors.sintomas ? true : undefined}
+            aria-describedby={errors.sintomas ? "sintomas-error" : undefined}
+            {...register("sintomas")}
+          />
+          {errors.sintomas ? <p id="sintomas-error">{errors.sintomas.message}</p> : null}
+        </div>
+      </FormGroup>
 
       {state.error ? (
         <Alert variant="destructive">
@@ -168,6 +174,10 @@ export function NuevaOrdenDesdeCeroForm({
         </Alert>
       ) : null}
       {state.success ? <p role="status">Orden creada</p> : null}
+
+      <Button type="submit" disabled={isPending}>
+        {isPending ? "Creando..." : "Crear orden"}
+      </Button>
     </form>
   );
 }
