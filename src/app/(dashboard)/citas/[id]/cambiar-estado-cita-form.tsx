@@ -24,7 +24,7 @@ export function CambiarEstadoCitaForm({
   );
 
   return (
-    <form noValidate action={formAction} className="flex flex-col gap-4">
+    <form noValidate action={formAction} className="flex flex-col gap-6">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="estado">Estado</Label>
         {/*
