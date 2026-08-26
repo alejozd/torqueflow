@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { NuevoClienteForm } from "./nuevo-cliente-form";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 /**
  * Fase 11-14: the mockup opens "Nuevo cliente" as a modal instead of the
@@ -20,6 +27,7 @@ export function NuevoClienteDialog() {
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Nuevo cliente</DialogTitle>
+          <DialogDescription>Los datos de contacto alimentan los recordatorios de cita.</DialogDescription>
         </DialogHeader>
         <NuevoClienteForm />
       </DialogContent>

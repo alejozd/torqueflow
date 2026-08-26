@@ -42,16 +42,19 @@ export function NuevoVehiculoForm({ clienteId }: { clienteId: string }) {
     >
       <VehiculoFormFields register={register} errors={errors} />
 
-      <Button type="submit" disabled={isPending}>
-        {isPending ? "Guardando..." : "Agregar vehículo"}
-      </Button>
-
       {state.error ? (
         <Alert variant="destructive">
           <AlertDescription>{state.error}</AlertDescription>
         </Alert>
       ) : null}
       {state.success ? <p role="status">Vehículo agregado</p> : null}
+
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+        <span className="text-xs text-muted-foreground">Placa, marca y modelo son obligatorios</span>
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Guardando..." : "Agregar vehículo"}
+        </Button>
+      </div>
     </form>
   );
 }

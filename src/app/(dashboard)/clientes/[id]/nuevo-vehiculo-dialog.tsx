@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { NuevoVehiculoForm } from "./nuevo-vehiculo-form";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export function NuevoVehiculoDialog({ clienteId }: { clienteId: string }) {
   const [open, setOpen] = useState(false);
@@ -14,9 +21,10 @@ export function NuevoVehiculoDialog({ clienteId }: { clienteId: string }) {
       {/* Wider than the app's usual sm:max-w-lg dialog: the 6-column detail-fields
           grid (matching the Claude Design mockup) needs the extra room, e.g. so the
           Combustible/Transmisión selects don't clip their option text. */}
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Nuevo vehículo</DialogTitle>
+          <DialogDescription>Queda asociado a este cliente y a su historial de órdenes.</DialogDescription>
         </DialogHeader>
         <NuevoVehiculoForm clienteId={clienteId} />
       </DialogContent>
