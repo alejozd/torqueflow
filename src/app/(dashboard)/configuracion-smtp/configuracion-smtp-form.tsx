@@ -68,83 +68,89 @@ export function ConfiguracionSmtpForm({
         noValidate
         ref={formRef}
         onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
-        className="flex flex-col gap-4"
+        className="flex flex-col gap-6"
       >
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="host">Servidor SMTP</Label>
-          <Input
-            id="host"
-            required
-            aria-invalid={errors.host ? true : undefined}
-            aria-describedby={errors.host ? "host-error" : undefined}
-            {...register("host")}
-          />
-          {errors.host ? <p id="host-error">{errors.host.message}</p> : null}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="host">Servidor SMTP</Label>
+            <Input
+              id="host"
+              required
+              aria-invalid={errors.host ? true : undefined}
+              aria-describedby={errors.host ? "host-error" : undefined}
+              {...register("host")}
+            />
+            {errors.host ? <p id="host-error">{errors.host.message}</p> : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="puerto">Puerto</Label>
+            <Input
+              id="puerto"
+              type="number"
+              required
+              aria-invalid={errors.puerto ? true : undefined}
+              aria-describedby={errors.puerto ? "puerto-error" : undefined}
+              {...register("puerto")}
+            />
+            {errors.puerto ? <p id="puerto-error">{errors.puerto.message}</p> : null}
+          </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="puerto">Puerto</Label>
-          <Input
-            id="puerto"
-            type="number"
-            required
-            aria-invalid={errors.puerto ? true : undefined}
-            aria-describedby={errors.puerto ? "puerto-error" : undefined}
-            {...register("puerto")}
-          />
-          {errors.puerto ? <p id="puerto-error">{errors.puerto.message}</p> : null}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="usuario">Usuario</Label>
+            <Input
+              id="usuario"
+              required
+              aria-invalid={errors.usuario ? true : undefined}
+              aria-describedby={errors.usuario ? "usuario-error" : undefined}
+              {...register("usuario")}
+            />
+            {errors.usuario ? <p id="usuario-error">{errors.usuario.message}</p> : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="password">Contraseña</Label>
+            {/* The stored password is never sent to the browser, not even encrypted:
+                the field always starts empty and an empty submission means "keep it". */}
+            <Input
+              id="password"
+              type="password"
+              required={!configuracion}
+              aria-invalid={errors.password ? true : undefined}
+              aria-describedby={errors.password ? "password-error" : undefined}
+              {...register("password")}
+            />
+            {configuracion ? <p>Déjala en blanco para conservar la contraseña guardada.</p> : null}
+            {errors.password ? <p id="password-error">{errors.password.message}</p> : null}
+          </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="usuario">Usuario</Label>
-          <Input
-            id="usuario"
-            required
-            aria-invalid={errors.usuario ? true : undefined}
-            aria-describedby={errors.usuario ? "usuario-error" : undefined}
-            {...register("usuario")}
-          />
-          {errors.usuario ? <p id="usuario-error">{errors.usuario.message}</p> : null}
-        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="fromEmail">Correo remitente</Label>
+            <Input
+              id="fromEmail"
+              required
+              aria-invalid={errors.fromEmail ? true : undefined}
+              aria-describedby={errors.fromEmail ? "fromEmail-error" : undefined}
+              {...register("fromEmail")}
+            />
+            {errors.fromEmail ? <p id="fromEmail-error">{errors.fromEmail.message}</p> : null}
+          </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="password">Contraseña</Label>
-          {/* The stored password is never sent to the browser, not even encrypted:
-              the field always starts empty and an empty submission means "keep it". */}
-          <Input
-            id="password"
-            type="password"
-            required={!configuracion}
-            aria-invalid={errors.password ? true : undefined}
-            aria-describedby={errors.password ? "password-error" : undefined}
-            {...register("password")}
-          />
-          {configuracion ? <p>Déjala en blanco para conservar la contraseña guardada.</p> : null}
-          {errors.password ? <p id="password-error">{errors.password.message}</p> : null}
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="fromEmail">Correo remitente</Label>
-          <Input
-            id="fromEmail"
-            required
-            aria-invalid={errors.fromEmail ? true : undefined}
-            aria-describedby={errors.fromEmail ? "fromEmail-error" : undefined}
-            {...register("fromEmail")}
-          />
-          {errors.fromEmail ? <p id="fromEmail-error">{errors.fromEmail.message}</p> : null}
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="fromNombre">Nombre del remitente</Label>
-          <Input
-            id="fromNombre"
-            required
-            aria-invalid={errors.fromNombre ? true : undefined}
-            aria-describedby={errors.fromNombre ? "fromNombre-error" : undefined}
-            {...register("fromNombre")}
-          />
-          {errors.fromNombre ? <p id="fromNombre-error">{errors.fromNombre.message}</p> : null}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="fromNombre">Nombre del remitente</Label>
+            <Input
+              id="fromNombre"
+              required
+              aria-invalid={errors.fromNombre ? true : undefined}
+              aria-describedby={errors.fromNombre ? "fromNombre-error" : undefined}
+              {...register("fromNombre")}
+            />
+            {errors.fromNombre ? <p id="fromNombre-error">{errors.fromNombre.message}</p> : null}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
