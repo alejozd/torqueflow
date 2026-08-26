@@ -26,7 +26,7 @@ export function NuevoBodegaForm() {
       noValidate
       ref={formRef}
       onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-6"
     >
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="nombre">Nombre</Label>
