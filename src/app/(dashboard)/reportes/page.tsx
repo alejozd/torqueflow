@@ -41,107 +41,130 @@ export default async function ReportesPage({
   const sedes = await listSedes();
 
   return (
-    <main>
-      <h1>Reportes</h1>
+    <main className="flex flex-col gap-6">
+      <h1 className="text-2xl font-semibold">Reportes</h1>
 
-      <form method="get" action="/reportes" className="flex flex-wrap items-end gap-4">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="desde">Desde</Label>
-          <Input id="desde" name="desde" type="date" defaultValue={filtros.desde} required />
-        </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Filtros</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form method="get" action="/reportes" className="flex flex-wrap items-end gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="desde">Desde</Label>
+              <Input id="desde" name="desde" type="date" defaultValue={filtros.desde} required />
+            </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="hasta">Hasta</Label>
-          <Input id="hasta" name="hasta" type="date" defaultValue={filtros.hasta} required />
-        </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="hasta">Hasta</Label>
+              <Input id="hasta" name="hasta" type="date" defaultValue={filtros.hasta} required />
+            </div>
 
-        {/*
-          Fase 6: a real selector replaces Fase 5's hidden input. It defaults to
-          whatever the actions resolved (the sede activa when the URL carries
-          none), so an ADMIN can compare any sede without re-logging-in --
-          reading another sede's numbers is safe in a way that operating in it
-          is not.
+            {/*
+              Fase 6: a real selector replaces Fase 5's hidden input. It defaults to
+              whatever the actions resolved (the sede activa when the URL carries
+              none), so an ADMIN can compare any sede without re-logging-in --
+              reading another sede's numbers is safe in a way that operating in it
+              is not.
 
-          Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-          while closed) -- kept native for consistency with the rest of this
-          migration. Styled by hand to match the shadcn select trigger look
-          (see seleccionar-sede-form.tsx).
-        */}
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="sedeId">Sede</Label>
-          <select
-            id="sedeId"
-            name="sedeId"
-            defaultValue={rentabilidad.filtros.sedeId}
-            className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-          >
-            {sedes.map((sede) => (
-              <option key={sede.id} value={sede.id}>
-                {sede.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
+              Native <select>, not shadcn's Select (Base UI, no DOM <option>s
+              while closed) -- kept native for consistency with the rest of this
+              migration. Styled by hand to match the shadcn select trigger look
+              (see seleccionar-sede-form.tsx).
+            */}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="sedeId">Sede</Label>
+              <select
+                id="sedeId"
+                name="sedeId"
+                defaultValue={rentabilidad.filtros.sedeId}
+                className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+              >
+                {sedes.map((sede) => (
+                  <option key={sede.id} value={sede.id}>
+                    {sede.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <Button type="submit">Aplicar</Button>
-      </form>
+            <Button type="submit">Aplicar</Button>
+          </form>
 
-      {rentabilidad.error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{rentabilidad.error}</AlertDescription>
-        </Alert>
-      ) : null}
+          {rentabilidad.error ? (
+            <Alert variant="destructive" className="mt-4">
+              <AlertDescription>{rentabilidad.error}</AlertDescription>
+            </Alert>
+          ) : null}
+        </CardContent>
+      </Card>
 
-      <h2>Rentabilidad</h2>
-      <p>
-        Rango: {rentabilidad.filtros.desde} a {rentabilidad.filtros.hasta}
-      </p>
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-normal text-muted-foreground">Facturas emitidas</CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">{rentabilidad.totales.facturasCount}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-normal text-muted-foreground">Total facturado</CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">{rentabilidad.totales.totalFacturado}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-normal text-muted-foreground">Costo de repuestos</CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">{rentabilidad.totales.costoRepuestos}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-normal text-muted-foreground">Margen bruto</CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">{rentabilidad.totales.margen}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-normal text-muted-foreground">Margen bruto (%)</CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">{rentabilidad.totales.margenPorcentaje}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-normal text-muted-foreground">Mano de obra facturada</CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">{rentabilidad.totales.manoDeObraFacturada}</CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Rentabilidad</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <p className="text-sm text-muted-foreground">
+            Rango: {rentabilidad.filtros.desde} a {rentabilidad.filtros.hasta}
+          </p>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-normal text-muted-foreground">Facturas emitidas</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{rentabilidad.totales.facturasCount}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-normal text-muted-foreground">Total facturado</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{rentabilidad.totales.totalFacturado}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-normal text-muted-foreground">Costo de repuestos</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{rentabilidad.totales.costoRepuestos}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-normal text-muted-foreground">Margen bruto</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{rentabilidad.totales.margen}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-normal text-muted-foreground">Margen bruto (%)</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{rentabilidad.totales.margenPorcentaje}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-normal text-muted-foreground">
+                  Mano de obra facturada
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">
+                {rentabilidad.totales.manoDeObraFacturada}
+              </CardContent>
+            </Card>
+          </div>
+        </CardContent>
+      </Card>
 
-      <h2>Productividad por técnico</h2>
-      <DataTable
-        columns={COLUMNS}
-        rows={productividad.filas}
-        getRowKey={(fila) => fila.mecanicoId ?? "sin-asignar"}
-        emptyMessage="No hay órdenes entregadas en este rango."
-      />
+      <Card>
+        <CardHeader>
+          <CardTitle>Productividad por técnico</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={COLUMNS}
+            rows={productividad.filas}
+            getRowKey={(fila) => fila.mecanicoId ?? "sin-asignar"}
+            emptyMessage="No hay órdenes entregadas en este rango."
+          />
+        </CardContent>
+      </Card>
     </main>
   );
 }
