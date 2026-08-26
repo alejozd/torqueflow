@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createProveedorAction, type ProveedorFormState } from "@/app/actions/proveedor-actions";
 import { proveedorInputSchema, type ProveedorInput } from "@/lib/validation/inventario";
+import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,56 +30,61 @@ export function NuevoProveedorForm() {
       noValidate
       ref={formRef}
       onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
-      className="flex flex-col gap-6"
+      className="flex flex-col gap-4"
     >
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="nombre">Nombre</Label>
-          <Input
-            id="nombre"
-            aria-invalid={errors.nombre ? true : undefined}
-            aria-describedby={errors.nombre ? "nombre-error" : undefined}
-            {...register("nombre")}
-          />
-          {errors.nombre ? <p id="nombre-error">{errors.nombre.message}</p> : null}
-        </div>
+      <FormGroup label="Empresa">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="nombre">Nombre</Label>
+            <Input
+              id="nombre"
+              aria-invalid={errors.nombre ? true : undefined}
+              aria-describedby={errors.nombre ? "nombre-error" : undefined}
+              {...register("nombre")}
+            />
+            {errors.nombre ? <p id="nombre-error">{errors.nombre.message}</p> : null}
+          </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="contacto">Contacto</Label>
-          <Input
-            id="contacto"
-            aria-invalid={errors.contacto ? true : undefined}
-            aria-describedby={errors.contacto ? "contacto-error" : undefined}
-            {...register("contacto")}
-          />
-          {errors.contacto ? <p id="contacto-error">{errors.contacto.message}</p> : null}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="contacto">Contacto</Label>
+            <Input
+              id="contacto"
+              aria-invalid={errors.contacto ? true : undefined}
+              aria-describedby={errors.contacto ? "contacto-error" : undefined}
+              {...register("contacto")}
+            />
+            {errors.contacto ? <p id="contacto-error">{errors.contacto.message}</p> : null}
+          </div>
         </div>
-      </div>
+      </FormGroup>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="telefono">Teléfono</Label>
-          <Input
-            id="telefono"
-            aria-invalid={errors.telefono ? true : undefined}
-            aria-describedby={errors.telefono ? "telefono-error" : undefined}
-            {...register("telefono")}
-          />
-          {errors.telefono ? <p id="telefono-error">{errors.telefono.message}</p> : null}
-        </div>
+      <FormGroup label="Contacto">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="telefono">Teléfono</Label>
+            <Input
+              id="telefono"
+              className="font-mono"
+              aria-invalid={errors.telefono ? true : undefined}
+              aria-describedby={errors.telefono ? "telefono-error" : undefined}
+              {...register("telefono")}
+            />
+            {errors.telefono ? <p id="telefono-error">{errors.telefono.message}</p> : null}
+          </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="email">Correo</Label>
-          <Input
-            id="email"
-            type="email"
-            aria-invalid={errors.email ? true : undefined}
-            aria-describedby={errors.email ? "email-error" : undefined}
-            {...register("email")}
-          />
-          {errors.email ? <p id="email-error">{errors.email.message}</p> : null}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="email">Correo</Label>
+            <Input
+              id="email"
+              type="email"
+              aria-invalid={errors.email ? true : undefined}
+              aria-describedby={errors.email ? "email-error" : undefined}
+              {...register("email")}
+            />
+            {errors.email ? <p id="email-error">{errors.email.message}</p> : null}
+          </div>
         </div>
-      </div>
+      </FormGroup>
 
       <Button type="submit" disabled={isPending}>
         {isPending ? "Guardando..." : "Crear proveedor"}

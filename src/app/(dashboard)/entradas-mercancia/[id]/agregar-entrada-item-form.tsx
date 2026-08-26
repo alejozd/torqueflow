@@ -7,6 +7,7 @@ import { addEntradaItemAction, type EntradaFormState } from "@/app/actions/entra
 import { entradaMercanciaItemInputSchema } from "@/lib/validation/inventario";
 import type { RepuestoOption } from "@/app/actions/repuesto-actions";
 import type { z } from "zod";
+import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,9 +41,9 @@ export function AgregarEntradaItemForm({
       noValidate
       ref={formRef}
       onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
-      className="flex flex-col gap-6"
+      className="flex flex-col gap-4"
     >
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <FormGroup label="Repuesto">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="repuestoId">Repuesto</Label>
           {/*
@@ -70,40 +71,44 @@ export function AgregarEntradaItemForm({
           </select>
           {errors.repuestoId ? <p id="repuestoId-error">{errors.repuestoId.message}</p> : null}
         </div>
+      </FormGroup>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="cantidad">Cantidad</Label>
-          <Input
-            id="cantidad"
-            type="number"
-            min="1"
-            required
-            aria-invalid={errors.cantidad ? true : undefined}
-            aria-describedby={errors.cantidad ? "cantidad-error" : undefined}
-            {...register("cantidad")}
-          />
-          {errors.cantidad ? <p id="cantidad-error">{errors.cantidad.message}</p> : null}
-        </div>
-      </div>
+      <FormGroup label="Recepción">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="cantidad">Cantidad</Label>
+            <Input
+              id="cantidad"
+              type="number"
+              min="1"
+              required
+              className="font-mono"
+              aria-invalid={errors.cantidad ? true : undefined}
+              aria-describedby={errors.cantidad ? "cantidad-error" : undefined}
+              {...register("cantidad")}
+            />
+            {errors.cantidad ? <p id="cantidad-error">{errors.cantidad.message}</p> : null}
+          </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="precioCompraUnitario">Precio de compra unitario</Label>
-          <Input
-            id="precioCompraUnitario"
-            type="number"
-            min="0"
-            step="0.01"
-            required
-            aria-invalid={errors.precioCompraUnitario ? true : undefined}
-            aria-describedby={errors.precioCompraUnitario ? "precioCompraUnitario-error" : undefined}
-            {...register("precioCompraUnitario")}
-          />
-          {errors.precioCompraUnitario ? (
-            <p id="precioCompraUnitario-error">{errors.precioCompraUnitario.message}</p>
-          ) : null}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="precioCompraUnitario">Precio de compra unitario</Label>
+            <Input
+              id="precioCompraUnitario"
+              type="number"
+              min="0"
+              step="0.01"
+              required
+              className="font-mono"
+              aria-invalid={errors.precioCompraUnitario ? true : undefined}
+              aria-describedby={errors.precioCompraUnitario ? "precioCompraUnitario-error" : undefined}
+              {...register("precioCompraUnitario")}
+            />
+            {errors.precioCompraUnitario ? (
+              <p id="precioCompraUnitario-error">{errors.precioCompraUnitario.message}</p>
+            ) : null}
+          </div>
         </div>
-      </div>
+      </FormGroup>
 
       <Button type="submit" disabled={isPending}>
         {isPending ? "Registrando..." : "Registrar ítem"}
