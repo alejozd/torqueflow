@@ -7,6 +7,7 @@ import { listSedes } from "@/app/actions/sede-actions";
 import { rangoMesActual } from "@/lib/reportes/rango-fechas";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
@@ -95,12 +96,44 @@ export default async function ReportesPage({
       <p>
         Rango: {rentabilidad.filtros.desde} a {rentabilidad.filtros.hasta}
       </p>
-      <p>Facturas emitidas: {rentabilidad.totales.facturasCount}</p>
-      <p>Total facturado: {rentabilidad.totales.totalFacturado}</p>
-      <p>Costo de repuestos: {rentabilidad.totales.costoRepuestos}</p>
-      <p>Margen bruto: {rentabilidad.totales.margen}</p>
-      <p>Margen bruto (%): {rentabilidad.totales.margenPorcentaje}</p>
-      <p>Mano de obra facturada: {rentabilidad.totales.manoDeObraFacturada}</p>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-normal text-muted-foreground">Facturas emitidas</CardTitle>
+          </CardHeader>
+          <CardContent className="text-2xl font-semibold">{rentabilidad.totales.facturasCount}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-normal text-muted-foreground">Total facturado</CardTitle>
+          </CardHeader>
+          <CardContent className="text-2xl font-semibold">{rentabilidad.totales.totalFacturado}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-normal text-muted-foreground">Costo de repuestos</CardTitle>
+          </CardHeader>
+          <CardContent className="text-2xl font-semibold">{rentabilidad.totales.costoRepuestos}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-normal text-muted-foreground">Margen bruto</CardTitle>
+          </CardHeader>
+          <CardContent className="text-2xl font-semibold">{rentabilidad.totales.margen}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-normal text-muted-foreground">Margen bruto (%)</CardTitle>
+          </CardHeader>
+          <CardContent className="text-2xl font-semibold">{rentabilidad.totales.margenPorcentaje}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-normal text-muted-foreground">Mano de obra facturada</CardTitle>
+          </CardHeader>
+          <CardContent className="text-2xl font-semibold">{rentabilidad.totales.manoDeObraFacturada}</CardContent>
+        </Card>
+      </div>
 
       <h2>Productividad por técnico</h2>
       <DataTable
