@@ -18,6 +18,7 @@ const mockUsuarioSedeCreate = vi.fn();
 const mockSedeFindMany = vi.fn();
 const mockSedeFindFirst = vi.fn();
 const mockTransaction = vi.fn();
+const mockOrdenGroupBy = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     usuario: {
@@ -34,6 +35,7 @@ vi.mock("@/lib/db/tenant-client", () => ({
       createMany: mockUsuarioSedeCreateMany,
       create: mockUsuarioSedeCreate,
     },
+    ordenTrabajo: { groupBy: mockOrdenGroupBy },
     $transaction: (...args: unknown[]) => mockTransaction(...args),
   }),
 }));
@@ -59,6 +61,7 @@ vi.mock("@/lib/tenant/tenant-user-email", () => {
 import { TenantUserEmailConflictError } from "@/lib/tenant/tenant-user-email";
 import {
   listUsuariosConSedes,
+  listUsuariosConMetricas,
   setUsuarioSedesAction,
   createUsuarioAction,
   updateUsuarioAction,
@@ -116,6 +119,61 @@ describe("listUsuariosConSedes", () => {
         sedeIds: ["sede-1", "sede-2"],
       },
     ]);
+  });
+});
+
+describe("listUsuariosConMetricas", () => {
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockResolvedValue(ADMIN);
+    mockUsuarioFindMany.mockReset();
+    mockOrdenGroupBy.mockReset();
+  });
+
+  it("is ADMIN-only and never selects passwordHash", async () => {
+    mockUsuarioFindMany.mockResolvedValue([]);
+    mockOrdenGroupBy.mockResolvedValue([]);
+
+    await listUsuariosConMetricas();
+
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockUsuarioFindMany).toHaveBeenCalledWith({
+      select: {
+        id: true,
+        nombre: true,
+        email: true,
+        role: true,
+        sedes: { select: { sedeId: true } },
+      },
+      orderBy: { nombre: "asc" },
+    });
+  });
+
+  it("merges ordenesActivas per usuario (mecánico), defaulting to 0", async () => {
+    mockUsuarioFindMany.mockResolvedValue([
+      { id: "u1", nombre: "Ana", email: "ana@taller.test", role: "TECNICO", sedes: [{ sedeId: "sede-1" }] },
+      { id: "u2", nombre: "Beto", email: "beto@taller.test", role: "RECEPCION", sedes: [] },
+    ]);
+    mockOrdenGroupBy.mockResolvedValue([{ mecanicoId: "u1", _count: { mecanicoId: 4 } }]);
+
+    const result = await listUsuariosConMetricas();
+
+    expect(result).toEqual([
+      { id: "u1", nombre: "Ana", email: "ana@taller.test", role: "TECNICO", sedeIds: ["sede-1"], ordenesActivas: 4 },
+      { id: "u2", nombre: "Beto", email: "beto@taller.test", role: "RECEPCION", sedeIds: [], ordenesActivas: 0 },
+    ]);
+  });
+
+  it("counts only órdenes not entregadas/anuladas as activas, excluding unassigned órdenes", async () => {
+    mockUsuarioFindMany.mockResolvedValue([]);
+    mockOrdenGroupBy.mockResolvedValue([]);
+
+    await listUsuariosConMetricas();
+
+    expect(mockOrdenGroupBy).toHaveBeenCalledWith({
+      by: ["mecanicoId"],
+      where: { estado: { notIn: ["ENTREGADA", "ANULADA"] }, mecanicoId: { not: null } },
+      _count: { mecanicoId: true },
+    });
   });
 });
 

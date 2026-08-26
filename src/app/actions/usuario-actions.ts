@@ -63,6 +63,60 @@ export async function listUsuariosConSedes(): Promise<UsuarioConSedes[]> {
   }));
 }
 
+export interface UsuarioConMetricas {
+  id: string;
+  nombre: string;
+  email: string;
+  role: "ADMIN" | "TECNICO" | "RECEPCION";
+  sedeIds: string[];
+  ordenesActivas: number;
+}
+
+/**
+ * Same directory as listUsuariosConSedes (ADMIN-only, no passwordHash) plus
+ * "órdenes activas": how many OrdenTrabajo this usuario is the mecánico on
+ * with estado not in ENTREGADA/ANULADA. A separate function instead of
+ * extending listUsuariosConSedes -- that one is also read by
+ * /usuarios/[id], which has no use for this count.
+ */
+export async function listUsuariosConMetricas(): Promise<UsuarioConMetricas[]> {
+  const session = await requireRole(["ADMIN"]);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const [usuarios, ordenesPorMecanico] = await Promise.all([
+    tenantDb.usuario.findMany({
+      select: {
+        id: true,
+        nombre: true,
+        email: true,
+        role: true,
+        sedes: { select: { sedeId: true } },
+      },
+      orderBy: { nombre: "asc" },
+    }),
+    tenantDb.ordenTrabajo.groupBy({
+      by: ["mecanicoId"],
+      where: { estado: { notIn: ["ENTREGADA", "ANULADA"] }, mecanicoId: { not: null } },
+      _count: { mecanicoId: true },
+    }),
+  ]);
+
+  const ordenesMap = new Map(
+    ordenesPorMecanico
+      .filter((fila): fila is typeof fila & { mecanicoId: string } => fila.mecanicoId !== null)
+      .map((fila) => [fila.mecanicoId, fila._count.mecanicoId]),
+  );
+
+  return usuarios.map((usuario) => ({
+    id: usuario.id,
+    nombre: usuario.nombre,
+    email: usuario.email,
+    role: usuario.role,
+    sedeIds: usuario.sedes.map((asignacion) => asignacion.sedeId),
+    ordenesActivas: ordenesMap.get(usuario.id) ?? 0,
+  }));
+}
+
 /**
  * Replaces the user's entire assignment set with whatever the checkbox group
  * submitted -- the only semantics that make a checkbox group honest. The
