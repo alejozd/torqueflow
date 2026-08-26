@@ -3,15 +3,17 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LoginErrorAlert } from "./login-error-alert";
 
 export function LoginForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -49,26 +51,56 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      {error ? <LoginErrorAlert message={error} /> : null}
+
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="email">Correo</Label>
-        <Input id="email" name="email" type="email" required />
+        <Label htmlFor="email" className="text-[10.5px] font-semibold tracking-wider text-muted-foreground uppercase">
+          Correo
+        </Label>
+        <div className="relative">
+          <Mail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input id="email" name="email" type="email" required className="h-10 rounded-[10px] pl-9 text-[13.5px]" />
+        </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="password">Contraseña</Label>
-        <Input id="password" name="password" type="password" required />
+        <Label
+          htmlFor="password"
+          className="text-[10.5px] font-semibold tracking-wider text-muted-foreground uppercase"
+        >
+          Contraseña
+        </Label>
+        <div className="relative">
+          <Lock className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            required
+            className="h-10 rounded-[10px] pr-16 pl-9 text-[13.5px]"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            className="absolute top-1/2 right-3 flex -translate-y-1/2 items-center gap-1 text-[11px] font-semibold text-primary"
+          >
+            {showPassword ? (
+              <>
+                <EyeOff className="size-3.5" /> Ocultar
+              </>
+            ) : (
+              <>
+                <Eye className="size-3.5" /> Mostrar
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
-      <Button type="submit" disabled={isPending} className="w-full">
+      <Button type="submit" disabled={isPending} className="h-[42px] w-full rounded-[10px] text-[13.5px]">
         {isPending ? "Ingresando..." : "Ingresar"}
       </Button>
-
-      {error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : null}
     </form>
   );
 }
