@@ -18,6 +18,12 @@ const ROLE_LABELS: Record<Role, string> = {
   RECEPCION: "Recepción",
 };
 
+const ROLE_LABELS_PLURAL: Record<Role, string> = {
+  ADMIN: "Administradores",
+  TECNICO: "Técnicos",
+  RECEPCION: "Recepción",
+};
+
 // ADMIN gets the primary brand color (it is the structurally distinct role --
 // bypasses UsuarioSede entirely); TECNICO/RECEPCION reuse the blue/green pair
 // already established by /ordenes for "in progress" vs. "done" states.
@@ -127,7 +133,7 @@ export default async function UsuariosPage({
         {ROLES_VALIDOS.map((role) => (
           <Card key={role}>
             <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">{ROLE_LABELS[role]}s</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{ROLE_LABELS_PLURAL[role]}</CardTitle>
             </CardHeader>
             <CardContent>
               <span className="font-mono text-2xl font-semibold">{totalesPorRol[role]}</span>
