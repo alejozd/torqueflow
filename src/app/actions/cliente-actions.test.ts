@@ -16,7 +16,13 @@ vi.mock("@/lib/db/tenant-client", () => ({
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { createClienteAction, listClientes, getCliente, type ClienteFormState } from "./cliente-actions";
+import {
+  createClienteAction,
+  listClientes,
+  listClientesParaOrden,
+  getCliente,
+  type ClienteFormState,
+} from "./cliente-actions";
 
 const initialState: ClienteFormState = { error: null, success: false };
 
@@ -105,6 +111,36 @@ describe("listClientes", () => {
         vehiculos: true,
         ordenes: { select: { updatedAt: true } },
         facturas: { where: { estado: "PENDIENTE" }, select: { saldoPendiente: true } },
+      },
+    });
+  });
+});
+
+describe("listClientesParaOrden", () => {
+  beforeEach(() => {
+    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "RECEPCION", tenantSchema: "taller_perez" } });
+    mockFindMany.mockReset();
+  });
+
+  it("lists clientes with only the vehiculo fields the cascading select needs, ordered by nombre", async () => {
+    mockFindMany.mockResolvedValue([
+      { id: "c1", nombre: "Ana", vehiculos: [{ id: "v1", placa: "ABC123", marca: "Toyota", modelo: "Corolla" }] },
+    ]);
+
+    const result = await listClientesParaOrden();
+
+    expect(result).toEqual([
+      { id: "c1", nombre: "Ana", vehiculos: [{ id: "v1", placa: "ABC123", marca: "Toyota", modelo: "Corolla" }] },
+    ]);
+    expect(mockFindMany).toHaveBeenCalledWith({
+      orderBy: { nombre: "asc" },
+      select: {
+        id: true,
+        nombre: true,
+        vehiculos: {
+          select: { id: true, placa: true, marca: true, modelo: true },
+          orderBy: { placa: "asc" },
+        },
       },
     });
   });

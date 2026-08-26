@@ -1,0 +1,97 @@
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+
+const mockCreateOrdenDesdeVehiculoAction = vi.fn();
+vi.mock("@/app/actions/orden-actions", () => ({
+  createOrdenDesdeVehiculoAction: (...args: unknown[]) => mockCreateOrdenDesdeVehiculoAction(...args),
+}));
+
+import { NuevaOrdenDesdeCeroForm } from "./nueva-orden-desde-cero-form";
+
+const tecnicos = [{ id: "t1", nombre: "Carlos Ruiz" }];
+const clientes = [
+  {
+    id: "c1",
+    nombre: "Ana Pérez",
+    vehiculos: [{ id: "v1", placa: "ABC123", marca: "Toyota", modelo: "Corolla" }],
+  },
+  {
+    id: "c2",
+    nombre: "María Gómez",
+    vehiculos: [] as { id: string; placa: string; marca: string; modelo: string }[],
+  },
+];
+
+describe("NuevaOrdenDesdeCeroForm", () => {
+  beforeEach(() => {
+    mockCreateOrdenDesdeVehiculoAction.mockReset();
+    mockCreateOrdenDesdeVehiculoAction.mockResolvedValue({ error: null, success: true });
+  });
+
+  it("renders cliente, vehiculo, kilometraje, sintomas, and mecanico fields", () => {
+    render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
+
+    expect(screen.getByLabelText("Cliente")).toBeInTheDocument();
+    expect(screen.getByLabelText("Vehículo")).toBeInTheDocument();
+    expect(screen.getByLabelText("Kilometraje de ingreso")).toBeInTheDocument();
+    expect(screen.getByLabelText("Síntomas reportados")).toBeInTheDocument();
+    expect(screen.getByLabelText("Mecánico asignado")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Ana Pérez" })).toBeInTheDocument();
+  });
+
+  it("disables the vehiculo select until a cliente is chosen", () => {
+    render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
+
+    expect(screen.getByLabelText("Vehículo")).toBeDisabled();
+  });
+
+  it("narrows the vehiculo options to the selected cliente's own vehiculos", async () => {
+    render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
+
+    await userEvent.selectOptions(screen.getByLabelText("Cliente"), "c1");
+
+    expect(screen.getByLabelText("Vehículo")).not.toBeDisabled();
+    expect(screen.getByRole("option", { name: "ABC123 · Toyota Corolla" })).toBeInTheDocument();
+  });
+
+  it("shows a message instead of vehiculo options when the selected cliente has none", async () => {
+    render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
+
+    await userEvent.selectOptions(screen.getByLabelText("Cliente"), "c2");
+
+    expect(screen.getByText("Este cliente no tiene vehículos registrados.")).toBeInTheDocument();
+  });
+
+  it("blocks submission without a cliente/vehiculo selection, without calling the server", async () => {
+    render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Crear orden" }));
+
+    expect(await screen.findByText("Selecciona un cliente")).toBeInTheDocument();
+    expect(mockCreateOrdenDesdeVehiculoAction).not.toHaveBeenCalled();
+  });
+
+  it("submits the selected vehiculo and shows a success message", async () => {
+    render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
+
+    await userEvent.selectOptions(screen.getByLabelText("Cliente"), "c1");
+    await userEvent.selectOptions(screen.getByLabelText("Vehículo"), "v1");
+    await userEvent.click(screen.getByRole("button", { name: "Crear orden" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Orden creada");
+    const formData = mockCreateOrdenDesdeVehiculoAction.mock.calls[0]![1] as FormData;
+    expect(formData.get("vehiculoId")).toBe("v1");
+  });
+
+  it("shows the error message when the action returns one", async () => {
+    mockCreateOrdenDesdeVehiculoAction.mockResolvedValue({ error: "El vehículo seleccionado no existe.", success: false });
+    render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
+
+    await userEvent.selectOptions(screen.getByLabelText("Cliente"), "c1");
+    await userEvent.selectOptions(screen.getByLabelText("Vehículo"), "v1");
+    await userEvent.click(screen.getByRole("button", { name: "Crear orden" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("El vehículo seleccionado no existe.");
+  });
+});

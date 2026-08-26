@@ -40,6 +40,34 @@ export async function listClientes(): Promise<ClienteConResumen[]> {
   return tenantDb.cliente.findMany({ orderBy: { nombre: "asc" }, include: CLIENTE_CON_RESUMEN_INCLUDE });
 }
 
+export interface ClienteParaOrden {
+  id: string;
+  nombre: string;
+  vehiculos: { id: string; placa: string; marca: string; modelo: string }[];
+}
+
+/**
+ * Feeds /ordenes' "Nueva orden" cliente->vehículo cascading select: a client
+ * picks a cliente, the vehículo options narrow to that cliente's own
+ * vehiculos, all without a second round-trip. Deliberately not sede-scoped --
+ * same reasoning as listVehiculosParaCita: clientes/vehiculos are tenant-wide.
+ */
+export async function listClientesParaOrden(): Promise<ClienteParaOrden[]> {
+  const session = await requireSession();
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  return tenantDb.cliente.findMany({
+    orderBy: { nombre: "asc" },
+    select: {
+      id: true,
+      nombre: true,
+      vehiculos: {
+        select: { id: true, placa: true, marca: true, modelo: true },
+        orderBy: { placa: "asc" },
+      },
+    },
+  });
+}
+
 // Fase 11-14: the detail page's vehicle cards need per-vehicle estado/kilometraje,
 // its historial de servicio table needs one row per orden, and its resumen
 // financiero needs both the total invoiced and the still-pending balance --

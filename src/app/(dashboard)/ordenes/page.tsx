@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { listOrdenes, type OrdenWithDetalle } from "@/app/actions/orden-actions";
+import { listOrdenes, listTecnicos, type OrdenWithDetalle } from "@/app/actions/orden-actions";
+import { listClientesParaOrden } from "@/app/actions/cliente-actions";
+import { NuevaOrdenDialog } from "./nueva-orden-dialog";
 import type { EstadoOrden } from "@/generated/prisma-tenant";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -123,7 +125,11 @@ export default async function OrdenesPage({
   // Fetched once, unfiltered: the KPI cards summarize every orden of the sede
   // regardless of which estado the list below is currently filtered to, so a
   // single read is filtered client-side rather than re-querying per filter.
-  const ordenes = await listOrdenes();
+  const [ordenes, clientes, tecnicos] = await Promise.all([
+    listOrdenes(),
+    listClientesParaOrden(),
+    listTecnicos(),
+  ]);
   const filtradas = estadoFiltro ? ordenes.filter((orden) => orden.estado === estadoFiltro) : ordenes;
 
   const enProceso = ordenes.filter((orden) => orden.estado === "EN_PROCESO").length;
@@ -148,7 +154,10 @@ export default async function OrdenesPage({
 
   return (
     <main className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Órdenes de trabajo</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Órdenes de trabajo</h1>
+        <NuevaOrdenDialog clientes={clientes} tecnicos={tecnicos} />
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
