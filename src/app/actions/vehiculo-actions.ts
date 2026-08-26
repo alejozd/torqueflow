@@ -5,7 +5,7 @@ import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { vehiculoInputSchema } from "@/lib/validation/vehiculo";
-import type { Vehiculo } from "@/generated/prisma-tenant";
+import type { Prisma, Vehiculo } from "@/generated/prisma-tenant";
 
 export interface VehiculoFormState {
   error: string | null;
@@ -18,10 +18,18 @@ export async function listVehiculosByCliente(clienteId: string): Promise<Vehicul
   return tenantDb.vehiculo.findMany({ where: { clienteId }, orderBy: { placa: "asc" } });
 }
 
-export async function getVehiculo(id: string): Promise<Vehiculo | null> {
+// vehiculos/[id]'s owner card needs the cliente's contact fields alongside
+// the vehículo itself, in the one fetch the page makes.
+const VEHICULO_CON_CLIENTE_INCLUDE = {
+  cliente: { select: { id: true, nombre: true, telefono: true, email: true, documento: true } },
+} satisfies Prisma.VehiculoInclude;
+
+export type VehiculoConCliente = Prisma.VehiculoGetPayload<{ include: typeof VEHICULO_CON_CLIENTE_INCLUDE }>;
+
+export async function getVehiculo(id: string): Promise<VehiculoConCliente | null> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  return tenantDb.vehiculo.findUnique({ where: { id } });
+  return tenantDb.vehiculo.findUnique({ where: { id }, include: VEHICULO_CON_CLIENTE_INCLUDE });
 }
 
 export async function createVehiculoAction(

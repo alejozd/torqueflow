@@ -10,8 +10,11 @@ vi.mock("@/lib/auth/guards", () => ({
 const mockCreate = vi.fn();
 const mockFindMany = vi.fn();
 const mockUpdate = vi.fn();
+const mockFindUnique = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
-  getTenantDb: () => ({ vehiculo: { create: mockCreate, findMany: mockFindMany, update: mockUpdate } }),
+  getTenantDb: () => ({
+    vehiculo: { create: mockCreate, findMany: mockFindMany, update: mockUpdate, findUnique: mockFindUnique },
+  }),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -20,6 +23,7 @@ import {
   createVehiculoAction,
   updateVehiculoAction,
   listVehiculosByCliente,
+  getVehiculo,
   type VehiculoFormState,
 } from "./vehiculo-actions";
 
@@ -226,6 +230,33 @@ describe("updateVehiculoAction", () => {
       "REDIRECT:/login?error=forbidden",
     );
     expect(mockUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe("getVehiculo", () => {
+  beforeEach(() => {
+    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
+    mockFindUnique.mockReset();
+  });
+
+  it("includes the owning cliente's contact fields, for the vehículo detail page's owner card", async () => {
+    mockFindUnique.mockResolvedValue({ id: "v1", placa: "ABC123" });
+
+    const result = await getVehiculo("v1");
+
+    expect(result).toEqual({ id: "v1", placa: "ABC123" });
+    expect(mockFindUnique).toHaveBeenCalledWith({
+      where: { id: "v1" },
+      include: { cliente: { select: { id: true, nombre: true, telefono: true, email: true, documento: true } } },
+    });
+  });
+
+  it("returns null when the vehiculo does not exist", async () => {
+    mockFindUnique.mockResolvedValue(null);
+
+    const result = await getVehiculo("missing");
+
+    expect(result).toBeNull();
   });
 });
 

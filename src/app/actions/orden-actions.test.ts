@@ -231,13 +231,25 @@ describe("listOrdenesByVehiculo", () => {
     mockFindMany.mockReset();
   });
 
-  it("scopes a vehículo's órdenes to the sede activa (the vehículo itself is tenant-wide)", async () => {
+  const ORDEN_VEHICULO_SELECT = {
+    id: true,
+    createdAt: true,
+    sintomas: true,
+    estado: true,
+    kilometrajeIngreso: true,
+    items: { select: { cantidad: true, precioUnitario: true } },
+    manoDeObra: { select: { horas: true, precioHora: true } },
+    factura: { select: { total: true } },
+  };
+
+  it("scopes a vehículo's órdenes to the sede activa (the vehículo itself is tenant-wide), selecting enough for the vehículo detail page's Total and kilometraje-actual columns", async () => {
     mockFindMany.mockResolvedValue([]);
 
     await listOrdenesByVehiculo("v1");
 
     expect(mockFindMany).toHaveBeenCalledWith({
       where: { vehiculoId: "v1", sedeId: "sede-1" },
+      select: ORDEN_VEHICULO_SELECT,
       orderBy: { createdAt: "desc" },
     });
   });

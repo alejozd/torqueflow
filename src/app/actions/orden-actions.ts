@@ -19,7 +19,7 @@ import {
   enviarNotificacionEstadoOrden,
   type ResultadoNotificacion,
 } from "@/lib/notificaciones/enviar-notificacion-estado";
-import type { EstadoOrden, OrdenTrabajo, Prisma } from "@/generated/prisma-tenant";
+import type { EstadoOrden, Prisma } from "@/generated/prisma-tenant";
 
 export interface OrdenFormState {
   error: string | null;
@@ -58,13 +58,34 @@ export async function listOrdenes(estado?: EstadoOrden): Promise<OrdenWithDetall
   });
 }
 
-export async function listOrdenesByVehiculo(vehiculoId: string): Promise<OrdenTrabajo[]> {
+// vehiculos/[id]'s Órdenes de trabajo table needs a Total column -- items and
+// manoDeObra feed totalOrden() for a not-yet-facturada orden, factura.total is
+// used directly once one exists (see src/lib/dashboard/calculos.ts's totalOrden
+// doc comment for why the two never get recomputed against each other).
+const ORDEN_VEHICULO_SELECT = {
+  id: true,
+  createdAt: true,
+  sintomas: true,
+  estado: true,
+  // Most-recent-order-with-a-kilometrajeIngreso is the page's "kilometraje
+  // actual" -- same derivation clientes/[id] uses for its vehicle cards, so
+  // the two pages never disagree about the same vehículo's mileage.
+  kilometrajeIngreso: true,
+  items: { select: { cantidad: true, precioUnitario: true } },
+  manoDeObra: { select: { horas: true, precioHora: true } },
+  factura: { select: { total: true } },
+} satisfies Prisma.OrdenTrabajoSelect;
+
+export type OrdenDeVehiculo = Prisma.OrdenTrabajoGetPayload<{ select: typeof ORDEN_VEHICULO_SELECT }>;
+
+export async function listOrdenesByVehiculo(vehiculoId: string): Promise<OrdenDeVehiculo[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
   // The Vehiculo is tenant-wide on purpose (a client may bring the same car to
   // any sede), but its órdenes belong to whichever sede opened them.
   return tenantDb.ordenTrabajo.findMany({
     where: { vehiculoId, ...scopeOrden(session.user.sedeActivaId) },
+    select: ORDEN_VEHICULO_SELECT,
     orderBy: { createdAt: "desc" },
   });
 }

@@ -1,36 +1,69 @@
-import { notFound } from "next/navigation";
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { getVehiculo } from "@/app/actions/vehiculo-actions";
 import { listHistorial, type HistorialEntryWithAutor } from "@/app/actions/historial-actions";
-import { listOrdenesByVehiculo, listTecnicos } from "@/app/actions/orden-actions";
-import { NuevaEntradaForm } from "./nueva-entrada-form";
-import { NuevaOrdenForm } from "./nueva-orden-form";
+import { listOrdenesByVehiculo, listTecnicos, type OrdenDeVehiculo } from "@/app/actions/orden-actions";
+import { EditarVehiculoDialog } from "../../clientes/[id]/editar-vehiculo-dialog";
+import { NuevaOrdenDialog } from "../../clientes/[id]/nueva-orden-dialog";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { totalOrden } from "@/lib/dashboard/calculos";
+import type { EstadoOrden } from "@/generated/prisma-tenant";
 
-type OrdenRow = Awaited<ReturnType<typeof listOrdenesByVehiculo>>[number];
+const ESTADO_LABELS: Record<EstadoOrden, string> = {
+  BORRADOR: "Borrador",
+  EN_PROCESO: "En proceso",
+  TERMINADA: "Terminada",
+  ENTREGADA: "Entregada",
+  ANULADA: "Anulada",
+};
 
-const ORDENES_COLUMNS: DataTableColumn<OrdenRow>[] = [
-  {
-    header: "Orden",
-    cell: (orden) => (
-      <Link href={`/ordenes/${orden.id}`}>
-        {new Date(orden.createdAt).toLocaleDateString()} — {orden.estado}
-      </Link>
-    ),
-  },
-];
+// Same palette as clientes/[id] and ordenes/page.tsx: amber for active work,
+// blue for finished-but-not-delivered, green for delivered, default/destructive
+// outline for borrador/anulada.
+const ESTADO_BADGE_CLASSNAME: Record<EstadoOrden, string> = {
+  BORRADOR: "",
+  EN_PROCESO: "border-transparent bg-[oklch(0.7_0.15_60/0.15)] text-[oklch(0.55_0.15_60)]",
+  TERMINADA: "border-transparent bg-[oklch(0.44_0.12_250/0.1)] text-[oklch(0.44_0.12_250)]",
+  ENTREGADA: "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]",
+  ANULADA: "",
+};
 
-const HISTORIAL_COLUMNS: DataTableColumn<HistorialEntryWithAutor>[] = [
-  {
-    header: "Historial",
-    cell: (entrada) => (
-      <>
-        {new Date(entrada.fecha).toLocaleDateString()} — {entrada.descripcion} —{" "}
-        {entrada.autor?.nombre ?? "Desconocido"}
-      </>
-    ),
-  },
-];
+const ESTADO_BADGE_VARIANT: Partial<Record<EstadoOrden, "outline" | "destructive">> = {
+  BORRADOR: "outline",
+  ANULADA: "destructive",
+};
+
+// A vehículo is "en taller" while it has an orden that hasn't reached a final
+// state (terminada/entregada/anulada) yet -- same rule as clientes/[id].
+const ESTADOS_ACTIVOS: EstadoOrden[] = ["BORRADOR", "EN_PROCESO"];
+
+const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" });
+
+const formatoMoneda = new Intl.NumberFormat("es-CO", {
+  style: "currency",
+  currency: "COP",
+  maximumFractionDigits: 0,
+});
+
+/**
+ * A ya-facturada orden uses factura.total (the real invoiced amount, with
+ * descuento/iva applied) instead of recomputing from items/manoDeObra, which
+ * would drift from it -- same rule ordenes/page.tsx and dashboard-actions.ts
+ * apply.
+ */
+function calcularTotalOrden(orden: OrdenDeVehiculo): number {
+  if (orden.factura) return Number(orden.factura.total);
+  return totalOrden({
+    items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
+    manoDeObra: orden.manoDeObra.map((linea) => ({
+      horas: Number(linea.horas),
+      precioHora: Number(linea.precioHora),
+    })),
+  });
+}
 
 export default async function VehiculoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -46,30 +79,169 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
     listTecnicos(),
   ]);
 
+  const enTaller = ordenes.some((orden) => ESTADOS_ACTIVOS.includes(orden.estado));
+
+  // ordenes is sorted desc by createdAt, so the first one with a recorded
+  // kilometraje is the most recent -- same derivation clientes/[id] uses for
+  // its vehicle cards. Falls back to the vehículo's own stored field (set
+  // from its edit form) when no orden has recorded one yet.
+  const kilometrajeActual =
+    ordenes.find((orden) => orden.kilometrajeIngreso !== null)?.kilometrajeIngreso ?? vehiculo.kilometraje;
+
+  // Every cell links to the orden's own detail page, so the row reads as a
+  // single clickable target no matter where in it the user clicks.
+  const ORDENES_COLUMNS: DataTableColumn<OrdenDeVehiculo>[] = [
+    {
+      header: "Fecha",
+      cell: (orden) => (
+        <Link href={`/ordenes/${orden.id}`} className="block text-sm text-muted-foreground hover:underline">
+          {formatoFecha.format(orden.createdAt)}
+        </Link>
+      ),
+    },
+    {
+      header: "Síntomas",
+      cell: (orden) => (
+        <Link href={`/ordenes/${orden.id}`} className="block hover:underline">
+          {orden.sintomas ?? <span className="text-muted-foreground">—</span>}
+        </Link>
+      ),
+    },
+    {
+      header: "Estado",
+      cell: (orden) => (
+        <Link href={`/ordenes/${orden.id}`} className="block w-fit">
+          <Badge variant={ESTADO_BADGE_VARIANT[orden.estado]} className={ESTADO_BADGE_CLASSNAME[orden.estado]}>
+            {ESTADO_LABELS[orden.estado]}
+          </Badge>
+        </Link>
+      ),
+    },
+    {
+      header: "Total",
+      cell: (orden) => (
+        <Link href={`/ordenes/${orden.id}`} className="block font-mono font-medium hover:underline">
+          {formatoMoneda.format(calcularTotalOrden(orden))}
+        </Link>
+      ),
+    },
+  ];
+
+  const HISTORIAL_COLUMNS: DataTableColumn<HistorialEntryWithAutor>[] = [
+    {
+      header: "Fecha",
+      cell: (entrada) => (
+        <span className="text-sm text-muted-foreground">{formatoFecha.format(entrada.fecha)}</span>
+      ),
+    },
+    {
+      header: "Descripción",
+      cell: (entrada) => entrada.descripcion,
+    },
+    {
+      header: "Autor",
+      cell: (entrada) => entrada.autor?.nombre ?? <span className="text-muted-foreground">Desconocido</span>,
+    },
+  ];
+
   return (
-    <main>
-      <h1>
-        {vehiculo.placa} — {vehiculo.marca} {vehiculo.modelo}
-      </h1>
-      <p>Año: {vehiculo.anio ?? "—"}</p>
+    <main className="flex flex-col gap-6">
+      <Link
+        href="/clientes"
+        className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="size-4" />
+        Clientes
+      </Link>
 
-      <h2>Órdenes de trabajo</h2>
-      <NuevaOrdenForm clienteId={vehiculo.clienteId} vehiculoId={vehiculo.id} tecnicos={tecnicos} />
-      <DataTable
-        columns={ORDENES_COLUMNS}
-        rows={ordenes}
-        getRowKey={(orden) => orden.id}
-        emptyMessage="Este vehículo no tiene órdenes de trabajo."
-      />
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-3">
+            <h1 className="font-mono text-2xl font-semibold">{vehiculo.placa}</h1>
+            <Badge
+              variant={enTaller ? undefined : "outline"}
+              className={enTaller ? "border-transparent bg-[oklch(0.7_0.15_60/0.15)] text-[oklch(0.55_0.15_60)]" : ""}
+            >
+              {enTaller ? "En taller" : "Sin novedad"}
+            </Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {vehiculo.marca} {vehiculo.modelo} {vehiculo.anio ?? ""} ·{" "}
+            {kilometrajeActual !== null
+              ? `${kilometrajeActual.toLocaleString("es-CO")} km`
+              : "Kilometraje no registrado"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <EditarVehiculoDialog vehiculo={vehiculo} />
+          <NuevaOrdenDialog
+            clienteId={vehiculo.clienteId}
+            vehiculoId={vehiculo.id}
+            placa={vehiculo.placa}
+            tecnicos={tecnicos}
+          />
+        </div>
+      </div>
 
-      <h2>Historial</h2>
-      <NuevaEntradaForm vehiculoId={vehiculo.id} />
-      <DataTable
-        columns={HISTORIAL_COLUMNS}
-        rows={historial}
-        getRowKey={(entrada) => entrada.id}
-        emptyMessage="Este vehículo no tiene historial registrado."
-      />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
+        <div className="flex flex-col gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Órdenes de trabajo</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                columns={ORDENES_COLUMNS}
+                rows={ordenes}
+                getRowKey={(orden) => orden.id}
+                emptyMessage="Este vehículo no tiene órdenes de trabajo."
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Historial</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                columns={HISTORIAL_COLUMNS}
+                rows={historial}
+                getRowKey={(entrada) => entrada.id}
+                emptyMessage="Este vehículo no tiene historial registrado."
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="flex flex-col gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Propietario</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <div>
+                <p className="text-xs text-muted-foreground">Cliente</p>
+                <Link href={`/clientes/${vehiculo.clienteId}`} className="text-sm font-medium hover:underline">
+                  {vehiculo.cliente.nombre}
+                </Link>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Teléfono</p>
+                <p className="font-mono text-sm">{vehiculo.cliente.telefono ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Correo</p>
+                <p className="text-sm">{vehiculo.cliente.email ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Documento</p>
+                <p className="font-mono text-sm">{vehiculo.cliente.documento ?? "—"}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </main>
   );
 }
