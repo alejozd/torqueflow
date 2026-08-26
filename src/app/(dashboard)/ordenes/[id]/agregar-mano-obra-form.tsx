@@ -6,6 +6,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { addManoDeObraAction, type ManoDeObraFormState } from "@/app/actions/mano-de-obra-actions";
 import { manoDeObraInputSchema } from "@/lib/validation/orden";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const initialState: ManoDeObraFormState = { error: null, success: false };
 
@@ -29,45 +33,56 @@ export function AgregarManoObraForm({ ordenId }: { ordenId: string }) {
       noValidate
       ref={formRef}
       onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+      className="flex flex-col gap-4"
     >
-      <label htmlFor="manoObraDescripcion">Descripción</label>
-      <input
-        id="manoObraDescripcion"
-        aria-invalid={errors.descripcion ? true : undefined}
-        aria-describedby={errors.descripcion ? "manoObraDescripcion-error" : undefined}
-        {...register("descripcion")}
-      />
-      {errors.descripcion ? <p id="manoObraDescripcion-error">{errors.descripcion.message}</p> : null}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="manoObraDescripcion">Descripción</Label>
+        <Input
+          id="manoObraDescripcion"
+          aria-invalid={errors.descripcion ? true : undefined}
+          aria-describedby={errors.descripcion ? "manoObraDescripcion-error" : undefined}
+          {...register("descripcion")}
+        />
+        {errors.descripcion ? <p id="manoObraDescripcion-error">{errors.descripcion.message}</p> : null}
+      </div>
 
-      <label htmlFor="manoObraHoras">Horas</label>
-      <input
-        id="manoObraHoras"
-        type="number"
-        min="0.1"
-        step="0.1"
-        aria-invalid={errors.horas ? true : undefined}
-        aria-describedby={errors.horas ? "manoObraHoras-error" : undefined}
-        {...register("horas")}
-      />
-      {errors.horas ? <p id="manoObraHoras-error">{errors.horas.message}</p> : null}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="manoObraHoras">Horas</Label>
+        <Input
+          id="manoObraHoras"
+          type="number"
+          min="0.1"
+          step="0.1"
+          aria-invalid={errors.horas ? true : undefined}
+          aria-describedby={errors.horas ? "manoObraHoras-error" : undefined}
+          {...register("horas")}
+        />
+        {errors.horas ? <p id="manoObraHoras-error">{errors.horas.message}</p> : null}
+      </div>
 
-      <label htmlFor="manoObraPrecioHora">Precio por hora</label>
-      <input
-        id="manoObraPrecioHora"
-        type="number"
-        min="0"
-        step="0.01"
-        aria-invalid={errors.precioHora ? true : undefined}
-        aria-describedby={errors.precioHora ? "manoObraPrecioHora-error" : undefined}
-        {...register("precioHora")}
-      />
-      {errors.precioHora ? <p id="manoObraPrecioHora-error">{errors.precioHora.message}</p> : null}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="manoObraPrecioHora">Precio por hora</Label>
+        <Input
+          id="manoObraPrecioHora"
+          type="number"
+          min="0"
+          step="0.01"
+          aria-invalid={errors.precioHora ? true : undefined}
+          aria-describedby={errors.precioHora ? "manoObraPrecioHora-error" : undefined}
+          {...register("precioHora")}
+        />
+        {errors.precioHora ? <p id="manoObraPrecioHora-error">{errors.precioHora.message}</p> : null}
+      </div>
 
-      <button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending}>
         {isPending ? "Guardando..." : "Agregar mano de obra"}
-      </button>
+      </Button>
 
-      {state.error ? <p role="alert">{state.error}</p> : null}
+      {state.error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{state.error}</AlertDescription>
+        </Alert>
+      ) : null}
       {state.success ? <p role="status">Mano de obra agregada</p> : null}
     </form>
   );
