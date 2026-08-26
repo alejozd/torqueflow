@@ -10,6 +10,7 @@ import { DviFotoForm } from "./dvi-foto-form";
 import { GenerarFacturaForm } from "./generar-factura-form";
 import type { DviChecklist } from "@/lib/dvi/checklist-items";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type Orden = NonNullable<Awaited<ReturnType<typeof getOrden>>>;
 type ItemRow = Orden["items"][number];
@@ -60,56 +61,111 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
   }
 
   return (
-    <main>
-      <h1>
+    <main className="flex flex-col gap-6">
+      <h1 className="text-2xl font-semibold">
         Orden — {orden.vehiculo.placa} ({orden.cliente.nombre})
       </h1>
-      <p>Sede: {orden.sede.nombre}</p>
-      <p>Mecánico: {orden.mecanico?.nombre ?? "Sin asignar"}</p>
-      <p>Kilometraje de ingreso: {orden.kilometrajeIngreso ?? "—"}</p>
-      <p>Síntomas: {orden.sintomas ?? "—"}</p>
 
-      <h2>Estado: {orden.estado}</h2>
-      <CambiarEstadoForm ordenId={orden.id} estadoActual={orden.estado} />
+      <Card>
+        <CardHeader>
+          <CardTitle>Información de la orden</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-sm text-muted-foreground">Sede</p>
+              <p>{orden.sede.nombre}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Mecánico</p>
+              <p>{orden.mecanico?.nombre ?? "Sin asignar"}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Kilometraje de ingreso</p>
+              <p>{orden.kilometrajeIngreso ?? "—"}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Síntomas</p>
+              <p>{orden.sintomas ?? "—"}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <h2>Ítems (repuestos)</h2>
-      {!orden.factura && <AgregarItemForm ordenId={orden.id} repuestos={repuestos} />}
-      <DataTable
-        columns={ITEMS_COLUMNS}
-        rows={orden.items}
-        getRowKey={(item) => item.id}
-        emptyMessage="Esta orden no tiene ítems agregados."
-      />
+      <Card>
+        <CardHeader>
+          <CardTitle>Estado: {orden.estado}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CambiarEstadoForm ordenId={orden.id} estadoActual={orden.estado} />
+        </CardContent>
+      </Card>
 
-      <h2>Mano de obra</h2>
-      {!orden.factura && <AgregarManoObraForm ordenId={orden.id} />}
-      <DataTable
-        columns={MANO_OBRA_COLUMNS}
-        rows={orden.manoDeObra}
-        getRowKey={(linea) => linea.id}
-        emptyMessage="Esta orden no tiene mano de obra registrada."
-      />
+      <Card>
+        <CardHeader>
+          <CardTitle>Ítems (repuestos)</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {!orden.factura && <AgregarItemForm ordenId={orden.id} repuestos={repuestos} />}
+          <DataTable
+            columns={ITEMS_COLUMNS}
+            rows={orden.items}
+            getRowKey={(item) => item.id}
+            emptyMessage="Esta orden no tiene ítems agregados."
+          />
+        </CardContent>
+      </Card>
 
-      <h2>Inspección vehicular digital (DVI)</h2>
-      <DviChecklistForm ordenId={orden.id} checklist={(orden.dvi?.checklist as DviChecklist | undefined) ?? null} />
-      <DviFotoForm ordenId={orden.id} />
-      <DataTable
-        columns={FOTOS_COLUMNS}
-        rows={orden.dvi?.fotos ?? []}
-        getRowKey={(foto) => foto.id}
-        emptyMessage="Esta orden no tiene fotos de inspección."
-      />
+      <Card>
+        <CardHeader>
+          <CardTitle>Mano de obra</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {!orden.factura && <AgregarManoObraForm ordenId={orden.id} />}
+          <DataTable
+            columns={MANO_OBRA_COLUMNS}
+            rows={orden.manoDeObra}
+            getRowKey={(linea) => linea.id}
+            emptyMessage="Esta orden no tiene mano de obra registrada."
+          />
+        </CardContent>
+      </Card>
 
-      <h2>Facturación</h2>
-      {orden.factura ? (
-        <p>
-          <Link href={`/facturas/${orden.factura.id}`}>Ver factura #{orden.factura.numero}</Link>
-        </p>
-      ) : orden.estado === "TERMINADA" || orden.estado === "ENTREGADA" ? (
-        <GenerarFacturaForm ordenId={orden.id} />
-      ) : (
-        <p>La orden debe estar Terminada o Entregada para poder facturarse.</p>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Inspección vehicular digital (DVI)</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <DviChecklistForm
+            ordenId={orden.id}
+            checklist={(orden.dvi?.checklist as DviChecklist | undefined) ?? null}
+          />
+          <DviFotoForm ordenId={orden.id} />
+          <DataTable
+            columns={FOTOS_COLUMNS}
+            rows={orden.dvi?.fotos ?? []}
+            getRowKey={(foto) => foto.id}
+            emptyMessage="Esta orden no tiene fotos de inspección."
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Facturación</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {orden.factura ? (
+            <p>
+              <Link href={`/facturas/${orden.factura.id}`}>Ver factura #{orden.factura.numero}</Link>
+            </p>
+          ) : orden.estado === "TERMINADA" || orden.estado === "ENTREGADA" ? (
+            <GenerarFacturaForm ordenId={orden.id} />
+          ) : (
+            <p>La orden debe estar Terminada o Entregada para poder facturarse.</p>
+          )}
+        </CardContent>
+      </Card>
     </main>
   );
 }

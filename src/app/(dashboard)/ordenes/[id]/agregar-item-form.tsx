@@ -49,67 +49,71 @@ export function AgregarItemForm({ ordenId, repuestos }: { ordenId: string; repue
       noValidate
       ref={formRef}
       onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-6"
     >
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="repuestoId">Repuesto del inventario (opcional)</Label>
-        {/*
-          Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-          while closed) -- userEvent.selectOptions()/getByRole("option")
-          in the existing tests need real <select>/<option> elements.
-          Styled by hand to match the shadcn select trigger look.
-        */}
-        <select
-          id="repuestoId"
-          className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-          {...register("repuestoId")}
-        >
-          <option value="">Ítem manual (completa descripción y precio abajo)</option>
-          {repuestos.map((repuesto) => (
-            <option key={repuesto.id} value={repuesto.id}>
-              {repuesto.codigo} — {repuesto.nombre}
-            </option>
-          ))}
-        </select>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="repuestoId">Repuesto del inventario (opcional)</Label>
+          {/*
+            Native <select>, not shadcn's Select (Base UI, no DOM <option>s
+            while closed) -- userEvent.selectOptions()/getByRole("option")
+            in the existing tests need real <select>/<option> elements.
+            Styled by hand to match the shadcn select trigger look.
+          */}
+          <select
+            id="repuestoId"
+            className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+            {...register("repuestoId")}
+          >
+            <option value="">Ítem manual (completa descripción y precio abajo)</option>
+            {repuestos.map((repuesto) => (
+              <option key={repuesto.id} value={repuesto.id}>
+                {repuesto.codigo} — {repuesto.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="itemDescripcion">Descripción</Label>
+          <Input
+            id="itemDescripcion"
+            aria-invalid={errors.descripcion ? true : undefined}
+            aria-describedby={errors.descripcion ? "itemDescripcion-error" : undefined}
+            {...register("descripcion")}
+          />
+          {errors.descripcion ? <p id="itemDescripcion-error">{errors.descripcion.message}</p> : null}
+        </div>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="itemDescripcion">Descripción</Label>
-        <Input
-          id="itemDescripcion"
-          aria-invalid={errors.descripcion ? true : undefined}
-          aria-describedby={errors.descripcion ? "itemDescripcion-error" : undefined}
-          {...register("descripcion")}
-        />
-        {errors.descripcion ? <p id="itemDescripcion-error">{errors.descripcion.message}</p> : null}
-      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="itemCantidad">Cantidad</Label>
+          <Input
+            id="itemCantidad"
+            type="number"
+            min="1"
+            required
+            aria-invalid={errors.cantidad ? true : undefined}
+            aria-describedby={errors.cantidad ? "itemCantidad-error" : undefined}
+            {...register("cantidad")}
+          />
+          {errors.cantidad ? <p id="itemCantidad-error">{errors.cantidad.message}</p> : null}
+        </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="itemCantidad">Cantidad</Label>
-        <Input
-          id="itemCantidad"
-          type="number"
-          min="1"
-          required
-          aria-invalid={errors.cantidad ? true : undefined}
-          aria-describedby={errors.cantidad ? "itemCantidad-error" : undefined}
-          {...register("cantidad")}
-        />
-        {errors.cantidad ? <p id="itemCantidad-error">{errors.cantidad.message}</p> : null}
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="itemPrecioUnitario">Precio unitario</Label>
-        <Input
-          id="itemPrecioUnitario"
-          type="number"
-          min="0"
-          step="0.01"
-          aria-invalid={errors.precioUnitario ? true : undefined}
-          aria-describedby={errors.precioUnitario ? "itemPrecioUnitario-error" : undefined}
-          {...register("precioUnitario")}
-        />
-        {errors.precioUnitario ? <p id="itemPrecioUnitario-error">{errors.precioUnitario.message}</p> : null}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="itemPrecioUnitario">Precio unitario</Label>
+          <Input
+            id="itemPrecioUnitario"
+            type="number"
+            min="0"
+            step="0.01"
+            aria-invalid={errors.precioUnitario ? true : undefined}
+            aria-describedby={errors.precioUnitario ? "itemPrecioUnitario-error" : undefined}
+            {...register("precioUnitario")}
+          />
+          {errors.precioUnitario ? <p id="itemPrecioUnitario-error">{errors.precioUnitario.message}</p> : null}
+        </div>
       </div>
 
       <p>Si seleccionas un repuesto del inventario, la descripción y el precio se completan automáticamente.</p>

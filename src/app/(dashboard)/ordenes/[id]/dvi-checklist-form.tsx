@@ -22,28 +22,34 @@ export function DviChecklistForm({ ordenId, checklist }: { ordenId: string; chec
   const [state, formAction, isPending] = useActionState(saveChecklist, initialState);
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
-      {DVI_CHECKLIST_ITEMS.map((item) => (
-        <div key={item.key} className="flex flex-col gap-1.5">
-          <Label htmlFor={item.key}>{item.label}</Label>
-          {/*
-            Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-            while closed) -- getByLabelText/value in the existing tests needs
-            a real <select>/<option> element. Styled by hand to match the
-            shadcn select trigger look (see seleccionar-sede-form.tsx).
-          */}
-          <select
-            id={item.key}
-            name={item.key}
-            defaultValue={current[item.key] ?? "OK"}
-            className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-          >
-            {DVI_CHECKLIST_STATUSES.map((estado) => (
-              <option key={estado} value={estado}>
-                {ESTADO_LABELS[estado]}
-              </option>
-            ))}
-          </select>
+    <form action={formAction} className="flex flex-col gap-6">
+      {Array.from({ length: Math.ceil(DVI_CHECKLIST_ITEMS.length / 2) }, (_, rowIndex) =>
+        DVI_CHECKLIST_ITEMS.slice(rowIndex * 2, rowIndex * 2 + 2)
+      ).map((pair, rowIndex) => (
+        <div key={rowIndex} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {pair.map((item) => (
+            <div key={item.key} className="flex flex-col gap-1.5">
+              <Label htmlFor={item.key}>{item.label}</Label>
+              {/*
+                Native <select>, not shadcn's Select (Base UI, no DOM <option>s
+                while closed) -- getByLabelText/value in the existing tests needs
+                a real <select>/<option> element. Styled by hand to match the
+                shadcn select trigger look (see seleccionar-sede-form.tsx).
+              */}
+              <select
+                id={item.key}
+                name={item.key}
+                defaultValue={current[item.key] ?? "OK"}
+                className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+              >
+                {DVI_CHECKLIST_STATUSES.map((estado) => (
+                  <option key={estado} value={estado}>
+                    {ESTADO_LABELS[estado]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
         </div>
       ))}
 
