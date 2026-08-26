@@ -7,6 +7,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { crearFacturaAction, type FacturaFormState } from "@/app/actions/factura-actions";
 import { facturarOrdenInputSchema } from "@/lib/validation/factura";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const initialState: FacturaFormState = { error: null, success: false, facturaId: null };
 
@@ -49,24 +53,30 @@ export function GenerarFacturaForm({ ordenId }: { ordenId: string }) {
   }
 
   return (
-    <form noValidate ref={formRef} onSubmit={handleSubmit(onValid)}>
-      <label htmlFor="descuento">Descuento</label>
-      <input
-        id="descuento"
-        type="number"
-        min="0"
-        step="0.01"
-        aria-invalid={errors.descuento ? true : undefined}
-        aria-describedby={errors.descuento ? "descuento-error" : undefined}
-        {...register("descuento")}
-      />
-      {errors.descuento ? <p id="descuento-error">{errors.descuento.message}</p> : null}
+    <form noValidate ref={formRef} onSubmit={handleSubmit(onValid)} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="descuento">Descuento</Label>
+        <Input
+          id="descuento"
+          type="number"
+          min="0"
+          step="0.01"
+          aria-invalid={errors.descuento ? true : undefined}
+          aria-describedby={errors.descuento ? "descuento-error" : undefined}
+          {...register("descuento")}
+        />
+        {errors.descuento ? <p id="descuento-error">{errors.descuento.message}</p> : null}
+      </div>
 
-      <button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending}>
         {isPending ? "Generando..." : "Generar factura"}
-      </button>
+      </Button>
 
-      {state.error ? <p role="alert">{state.error}</p> : null}
+      {state.error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{state.error}</AlertDescription>
+        </Alert>
+      ) : null}
     </form>
   );
 }
