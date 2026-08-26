@@ -6,6 +6,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createVehiculoAction, type VehiculoFormState } from "@/app/actions/vehiculo-actions";
 import { vehiculoInputSchema } from "@/lib/validation/vehiculo";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const initialState: VehiculoFormState = { error: null, success: false };
 
@@ -36,51 +40,64 @@ export function NuevoVehiculoForm({ clienteId }: { clienteId: string }) {
       noValidate
       ref={formRef}
       onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+      className="flex flex-col gap-4"
     >
-      <label htmlFor="placa">Placa</label>
-      <input
-        id="placa"
-        aria-invalid={errors.placa ? true : undefined}
-        aria-describedby={errors.placa ? "placa-error" : undefined}
-        {...register("placa")}
-      />
-      {errors.placa ? <p id="placa-error">{errors.placa.message}</p> : null}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="placa">Placa</Label>
+        <Input
+          id="placa"
+          aria-invalid={errors.placa ? true : undefined}
+          aria-describedby={errors.placa ? "placa-error" : undefined}
+          {...register("placa")}
+        />
+        {errors.placa ? <p id="placa-error">{errors.placa.message}</p> : null}
+      </div>
 
-      <label htmlFor="marca">Marca</label>
-      <input
-        id="marca"
-        aria-invalid={errors.marca ? true : undefined}
-        aria-describedby={errors.marca ? "marca-error" : undefined}
-        {...register("marca")}
-      />
-      {errors.marca ? <p id="marca-error">{errors.marca.message}</p> : null}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="marca">Marca</Label>
+        <Input
+          id="marca"
+          aria-invalid={errors.marca ? true : undefined}
+          aria-describedby={errors.marca ? "marca-error" : undefined}
+          {...register("marca")}
+        />
+        {errors.marca ? <p id="marca-error">{errors.marca.message}</p> : null}
+      </div>
 
-      <label htmlFor="modelo">Modelo</label>
-      <input
-        id="modelo"
-        aria-invalid={errors.modelo ? true : undefined}
-        aria-describedby={errors.modelo ? "modelo-error" : undefined}
-        {...register("modelo")}
-      />
-      {errors.modelo ? <p id="modelo-error">{errors.modelo.message}</p> : null}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="modelo">Modelo</Label>
+        <Input
+          id="modelo"
+          aria-invalid={errors.modelo ? true : undefined}
+          aria-describedby={errors.modelo ? "modelo-error" : undefined}
+          {...register("modelo")}
+        />
+        {errors.modelo ? <p id="modelo-error">{errors.modelo.message}</p> : null}
+      </div>
 
-      <label htmlFor="anio">Año</label>
-      <input
-        id="anio"
-        type="number"
-        min="1900"
-        max="2100"
-        aria-invalid={errors.anio ? true : undefined}
-        aria-describedby={errors.anio ? "anio-error" : undefined}
-        {...register("anio")}
-      />
-      {errors.anio ? <p id="anio-error">{errors.anio.message}</p> : null}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="anio">Año</Label>
+        <Input
+          id="anio"
+          type="number"
+          min="1900"
+          max="2100"
+          aria-invalid={errors.anio ? true : undefined}
+          aria-describedby={errors.anio ? "anio-error" : undefined}
+          {...register("anio")}
+        />
+        {errors.anio ? <p id="anio-error">{errors.anio.message}</p> : null}
+      </div>
 
-      <button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending}>
         {isPending ? "Guardando..." : "Agregar vehículo"}
-      </button>
+      </Button>
 
-      {state.error ? <p role="alert">{state.error}</p> : null}
+      {state.error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{state.error}</AlertDescription>
+        </Alert>
+      ) : null}
       {state.success ? <p role="status">Vehículo agregado</p> : null}
     </form>
   );
