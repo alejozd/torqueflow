@@ -4,7 +4,14 @@ import { useState } from "react";
 import { EditarSedeForm } from "./editar-sede-form";
 import type { Sede } from "@/generated/prisma-tenant";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 /**
  * Fase 11-14: row-level "Editar" action opens EditarSedeForm (edit + delete,
@@ -20,6 +27,7 @@ export function EditarSedeDialog({ sede }: { sede: Sede }) {
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Editar {sede.nombre}</DialogTitle>
+          <DialogDescription>Los cambios aplican de inmediato a esta sede.</DialogDescription>
         </DialogHeader>
         <EditarSedeForm sede={sede} />
       </DialogContent>

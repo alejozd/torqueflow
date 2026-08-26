@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { NuevaSedeForm } from "./nueva-sede-form";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 /**
  * Fase 11-14: the mockup opens "Nueva sede" as a modal instead of the
@@ -20,6 +27,7 @@ export function NuevaSedeDialog() {
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Nueva sede</DialogTitle>
+          <DialogDescription>Cada sede tiene su propia agenda, bodegas y órdenes.</DialogDescription>
         </DialogHeader>
         <NuevaSedeForm />
       </DialogContent>
