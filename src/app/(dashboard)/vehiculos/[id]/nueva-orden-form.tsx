@@ -6,6 +6,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createOrdenAction, type OrdenFormState, type TecnicoOption } from "@/app/actions/orden-actions";
 import { ordenTrabajoInputSchema } from "@/lib/validation/orden";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 const initialState: OrdenFormState = { error: null, success: false };
 
@@ -46,36 +51,66 @@ export function NuevaOrdenForm({
       noValidate
       ref={formRef}
       onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+      className="flex flex-col gap-4"
     >
-      <label htmlFor="kilometrajeIngreso">Kilometraje de ingreso</label>
-      <input
-        id="kilometrajeIngreso"
-        type="number"
-        min="0"
-        aria-invalid={errors.kilometrajeIngreso ? true : undefined}
-        aria-describedby={errors.kilometrajeIngreso ? "kilometrajeIngreso-error" : undefined}
-        {...register("kilometrajeIngreso")}
-      />
-      {errors.kilometrajeIngreso ? <p id="kilometrajeIngreso-error">{errors.kilometrajeIngreso.message}</p> : null}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="kilometrajeIngreso">Kilometraje de ingreso</Label>
+        <Input
+          id="kilometrajeIngreso"
+          type="number"
+          min="0"
+          aria-invalid={errors.kilometrajeIngreso ? true : undefined}
+          aria-describedby={errors.kilometrajeIngreso ? "kilometrajeIngreso-error" : undefined}
+          {...register("kilometrajeIngreso")}
+        />
+        {errors.kilometrajeIngreso ? <p id="kilometrajeIngreso-error">{errors.kilometrajeIngreso.message}</p> : null}
+      </div>
 
-      <label htmlFor="sintomas">Síntomas reportados</label>
-      <textarea id="sintomas" {...register("sintomas")} />
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="sintomas">Síntomas reportados</Label>
+        <Textarea
+          id="sintomas"
+          aria-invalid={errors.sintomas ? true : undefined}
+          aria-describedby={errors.sintomas ? "sintomas-error" : undefined}
+          {...register("sintomas")}
+        />
+        {errors.sintomas ? <p id="sintomas-error">{errors.sintomas.message}</p> : null}
+      </div>
 
-      <label htmlFor="mecanicoId">Mecánico asignado</label>
-      <select id="mecanicoId" {...register("mecanicoId")}>
-        <option value="">Sin asignar</option>
-        {tecnicos.map((tecnico) => (
-          <option key={tecnico.id} value={tecnico.id}>
-            {tecnico.nombre}
-          </option>
-        ))}
-      </select>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="mecanicoId">Mecánico asignado</Label>
+        {/*
+          Native <select>, not shadcn's Select (Base UI, no DOM <option>s
+          while closed) -- userEvent.selectOptions()/getByRole("option")
+          in the existing tests need real <select>/<option> elements.
+          Styled by hand to match the shadcn select trigger look.
+        */}
+        <select
+          id="mecanicoId"
+          aria-invalid={errors.mecanicoId ? true : undefined}
+          aria-describedby={errors.mecanicoId ? "mecanicoId-error" : undefined}
+          className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+          {...register("mecanicoId")}
+        >
+          <option value="">Sin asignar</option>
+          {tecnicos.map((tecnico) => (
+            <option key={tecnico.id} value={tecnico.id}>
+              {tecnico.nombre}
+            </option>
+          ))}
+        </select>
+        {errors.mecanicoId ? <p id="mecanicoId-error">{errors.mecanicoId.message}</p> : null}
+      </div>
 
-      <button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending}>
         {isPending ? "Creando..." : "Crear orden"}
-      </button>
+      </Button>
 
-      {state.error ? <p role="alert">{state.error}</p> : null}
+      {state.error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{state.error}</AlertDescription>
+        </Alert>
+      ) : null}
       {state.success ? <p role="status">Orden creada</p> : null}
     </form>
   );
