@@ -4,6 +4,7 @@ import { listSedes } from "@/app/actions/sede-actions";
 import { AsignarSedesForm } from "./asignar-sedes-form";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
 
 const ROLE_LABELS: Record<"ADMIN" | "TECNICO" | "RECEPCION", string> = {
   ADMIN: "Administrador",
@@ -59,7 +60,9 @@ export default async function UsuariosPage() {
           <p className="text-sm text-muted-foreground">
             Un administrador puede trabajar en cualquier sede aunque no esté asignado a ella.
           </p>
-          <Link href="/usuarios/nuevo">Crear usuario</Link>
+          <Link href="/usuarios/nuevo" className={buttonVariants({ className: "self-start" })}>
+            Crear usuario
+          </Link>
           <DataTable
             columns={buildColumns(sedes.map((sede) => ({ id: sede.id, nombre: sede.nombre })))}
             rows={usuarios}
