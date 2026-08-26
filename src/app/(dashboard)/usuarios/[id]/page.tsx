@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { listUsuariosConSedes } from "@/app/actions/usuario-actions";
 import { EditarUsuarioForm } from "./editar-usuario-form";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function EditarUsuarioPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -11,9 +12,17 @@ export default async function EditarUsuarioPage({ params }: { params: Promise<{ 
   }
 
   return (
-    <main>
-      <h1>Editar usuario</h1>
-      <EditarUsuarioForm usuario={usuario} />
+    <main className="flex flex-col gap-6">
+      <h1 className="text-2xl font-semibold">Editar usuario</h1>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Editar usuario</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EditarUsuarioForm usuario={usuario} />
+        </CardContent>
+      </Card>
     </main>
   );
 }

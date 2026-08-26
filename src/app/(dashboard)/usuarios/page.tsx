@@ -3,6 +3,7 @@ import { listUsuariosConSedes } from "@/app/actions/usuario-actions";
 import { listSedes } from "@/app/actions/sede-actions";
 import { AsignarSedesForm } from "./asignar-sedes-form";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const ROLE_LABELS: Record<"ADMIN" | "TECNICO" | "RECEPCION", string> = {
   ADMIN: "Administrador",
@@ -47,18 +48,26 @@ export default async function UsuariosPage() {
   const sedes = await listSedes();
 
   return (
-    <main>
-      <h1>Usuarios</h1>
-      <p>
-        Un administrador puede trabajar en cualquier sede aunque no esté asignado a ella.
-      </p>
-      <Link href="/usuarios/nuevo">Crear usuario</Link>
-      <DataTable
-        columns={buildColumns(sedes.map((sede) => ({ id: sede.id, nombre: sede.nombre })))}
-        rows={usuarios}
-        getRowKey={(usuario) => usuario.id}
-        emptyMessage="No hay usuarios registrados."
-      />
+    <main className="flex flex-col gap-6">
+      <h1 className="text-2xl font-semibold">Usuarios</h1>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Listado</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <p className="text-sm text-muted-foreground">
+            Un administrador puede trabajar en cualquier sede aunque no esté asignado a ella.
+          </p>
+          <Link href="/usuarios/nuevo">Crear usuario</Link>
+          <DataTable
+            columns={buildColumns(sedes.map((sede) => ({ id: sede.id, nombre: sede.nombre })))}
+            rows={usuarios}
+            getRowKey={(usuario) => usuario.id}
+            emptyMessage="No hay usuarios registrados."
+          />
+        </CardContent>
+      </Card>
     </main>
   );
 }
