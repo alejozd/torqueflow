@@ -112,6 +112,20 @@ describe("listOrdenes", () => {
     mockFindMany.mockReset();
   });
 
+  const ORDEN_DETAIL_INCLUDE = {
+    cliente: true,
+    vehiculo: true,
+    sede: true,
+    mecanico: { select: { id: true, nombre: true } },
+    items: true,
+    manoDeObra: true,
+    dvi: { include: { fotos: true } },
+    // total is required by the ordenes list page to show a "Total" column for
+    // ya-facturada orders without recomputing it from items/manoDeObra (which
+    // would drift once descuento/iva are applied at facturación time).
+    factura: { select: { id: true, numero: true, total: true } },
+  };
+
   it("lists only órdenes of the sede activa", async () => {
     mockFindMany.mockResolvedValue([]);
 
@@ -119,7 +133,7 @@ describe("listOrdenes", () => {
 
     expect(mockFindMany).toHaveBeenCalledWith({
       where: { sedeId: "sede-1" },
-      include: expect.anything(),
+      include: ORDEN_DETAIL_INCLUDE,
       orderBy: { createdAt: "desc" },
     });
   });
@@ -131,7 +145,7 @@ describe("listOrdenes", () => {
 
     expect(mockFindMany).toHaveBeenCalledWith({
       where: { sedeId: "sede-1", estado: "EN_PROCESO" },
-      include: expect.anything(),
+      include: ORDEN_DETAIL_INCLUDE,
       orderBy: { createdAt: "desc" },
     });
   });
