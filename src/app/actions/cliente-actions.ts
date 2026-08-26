@@ -5,7 +5,7 @@ import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { clienteInputSchema } from "@/lib/validation/cliente";
-import type { Cliente, Vehiculo } from "@/generated/prisma-tenant";
+import type { Cliente, Prisma, Vehiculo } from "@/generated/prisma-tenant";
 
 export interface ClienteFormState {
   error: string | null;
@@ -21,10 +21,23 @@ function parseClienteFormData(formData: FormData) {
   });
 }
 
-export async function listClientes(): Promise<Cliente[]> {
+const CLIENTE_CON_RESUMEN_INCLUDE = {
+  vehiculos: true,
+  // updatedAt-only: enough to derive "última visita" without pulling every
+  // orden field for a list page.
+  ordenes: { select: { updatedAt: true } },
+  // Only PENDIENTE facturas -- "Saldo" is what the cliente still owes, so a
+  // PAGADA factura's (zero) saldoPendiente would only pad the query for
+  // nothing the column shows.
+  facturas: { where: { estado: "PENDIENTE" }, select: { saldoPendiente: true } },
+} satisfies Prisma.ClienteInclude;
+
+export type ClienteConResumen = Prisma.ClienteGetPayload<{ include: typeof CLIENTE_CON_RESUMEN_INCLUDE }>;
+
+export async function listClientes(): Promise<ClienteConResumen[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  return tenantDb.cliente.findMany({ orderBy: { nombre: "asc" } });
+  return tenantDb.cliente.findMany({ orderBy: { nombre: "asc" }, include: CLIENTE_CON_RESUMEN_INCLUDE });
 }
 
 export async function getCliente(id: string): Promise<(Cliente & { vehiculos: Vehiculo[] }) | null> {

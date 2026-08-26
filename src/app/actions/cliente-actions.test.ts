@@ -92,12 +92,19 @@ describe("listClientes", () => {
     mockFindMany.mockReset();
   });
 
-  it("lists clientes for the resolved tenant, ordered by nombre", async () => {
+  it("lists clientes for the resolved tenant, ordered by nombre, with vehiculos/ordenes/facturas for the enriched columns", async () => {
     mockFindMany.mockResolvedValue([{ id: "c1", nombre: "Ana" }]);
 
     const result = await listClientes();
 
     expect(result).toEqual([{ id: "c1", nombre: "Ana" }]);
-    expect(mockFindMany).toHaveBeenCalledWith({ orderBy: { nombre: "asc" } });
+    expect(mockFindMany).toHaveBeenCalledWith({
+      orderBy: { nombre: "asc" },
+      include: {
+        vehiculos: true,
+        ordenes: { select: { updatedAt: true } },
+        facturas: { where: { estado: "PENDIENTE" }, select: { saldoPendiente: true } },
+      },
+    });
   });
 });
