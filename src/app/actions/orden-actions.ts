@@ -91,6 +91,26 @@ export async function listTecnicos(): Promise<TecnicoOption[]> {
   });
 }
 
+async function crearOrdenTrabajo(
+  tenantDb: TenantPrismaClient,
+  data: {
+    clienteId: string;
+    vehiculoId: string;
+    sedeId: string;
+    creadoPorId: string;
+    mecanicoId: string | null;
+    kilometrajeIngreso: number | undefined;
+    sintomas: string | null;
+  },
+): Promise<{ error: string | null }> {
+  try {
+    await tenantDb.ordenTrabajo.create({ data });
+  } catch (err) {
+    return { error: friendlyPrismaErrorMessage(err, "Error al crear la orden") };
+  }
+  return { error: null };
+}
+
 export async function createOrdenAction(
   clienteId: string,
   vehiculoId: string,
@@ -110,23 +130,77 @@ export async function createOrdenAction(
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  try {
-    await tenantDb.ordenTrabajo.create({
-      data: {
-        clienteId,
-        vehiculoId,
-        sedeId: session.user.sedeActivaId,
-        creadoPorId: session.user.id,
-        mecanicoId: parsed.data.mecanicoId || null,
-        kilometrajeIngreso: parsed.data.kilometrajeIngreso,
-        sintomas: parsed.data.sintomas || null,
-      },
-    });
-  } catch (err) {
-    return { error: friendlyPrismaErrorMessage(err, "Error al crear la orden"), success: false };
+  const { error } = await crearOrdenTrabajo(tenantDb, {
+    clienteId,
+    vehiculoId,
+    sedeId: session.user.sedeActivaId,
+    creadoPorId: session.user.id,
+    mecanicoId: parsed.data.mecanicoId || null,
+    kilometrajeIngreso: parsed.data.kilometrajeIngreso,
+    sintomas: parsed.data.sintomas || null,
+  });
+  if (error) {
+    return { error, success: false };
   }
 
+  // Both callers of this action live under a specific vehículo/cliente
+  // (vehiculos/[id]'s own form, and clientes/[id]'s per-vehicle "+ Orden"
+  // dialog) -- revalidate both so either page reflects the new orden
+  // immediately, regardless of which one the user is looking at.
   revalidatePath(`/vehiculos/${vehiculoId}`);
+  revalidatePath(`/clientes/${clienteId}`);
+  return { error: null, success: true };
+}
+
+// Used by /ordenes' "Nueva orden" dialog, which lets staff pick ANY cliente
+// and vehículo from scratch instead of already being on that vehículo's page.
+// clienteId is deliberately never taken from the form -- same rule
+// createCitaAction documents: it is derived from the vehículo so "create an
+// orden for vehicle X under client Y" can't be forged from form data.
+export async function createOrdenDesdeVehiculoAction(
+  prevState: OrdenFormState,
+  formData: FormData,
+): Promise<OrdenFormState> {
+  const vehiculoId = String(formData.get("vehiculoId") ?? "");
+  if (!vehiculoId) {
+    return { error: "Selecciona un vehículo", success: false };
+  }
+
+  const parsed = ordenTrabajoInputSchema.safeParse({
+    mecanicoId: formData.get("mecanicoId") ?? "",
+    kilometrajeIngreso: formData.get("kilometrajeIngreso") || undefined,
+    sintomas: formData.get("sintomas") ?? "",
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
+  }
+
+  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const vehiculo = await tenantDb.vehiculo.findUnique({
+    where: { id: vehiculoId },
+    select: { id: true, clienteId: true },
+  });
+  if (!vehiculo) {
+    return { error: "El vehículo seleccionado no existe.", success: false };
+  }
+
+  const { error } = await crearOrdenTrabajo(tenantDb, {
+    clienteId: vehiculo.clienteId,
+    vehiculoId: vehiculo.id,
+    sedeId: session.user.sedeActivaId,
+    creadoPorId: session.user.id,
+    mecanicoId: parsed.data.mecanicoId || null,
+    kilometrajeIngreso: parsed.data.kilometrajeIngreso,
+    sintomas: parsed.data.sintomas || null,
+  });
+  if (error) {
+    return { error, success: false };
+  }
+
+  revalidatePath("/ordenes");
   return { error: null, success: true };
 }
 

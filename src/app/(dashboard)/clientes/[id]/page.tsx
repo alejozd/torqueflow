@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, History } from "lucide-react";
 import { getCliente } from "@/app/actions/cliente-actions";
+import { listTecnicos } from "@/app/actions/orden-actions";
 import { EditarClienteDialog } from "./editar-cliente-dialog";
 import { NuevoVehiculoDialog } from "./nuevo-vehiculo-dialog";
+import { EditarVehiculoDialog } from "./editar-vehiculo-dialog";
+import { NuevaOrdenDialog } from "./nueva-orden-dialog";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { EstadoOrden } from "@/generated/prisma-tenant";
@@ -83,7 +87,7 @@ function resumirVehiculo(vehiculo: VehiculoDeCliente, ordenes: OrdenDeCliente[])
 
 export default async function ClienteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const cliente = await getCliente(id);
+  const [cliente, tecnicos] = await Promise.all([getCliente(id), listTecnicos()]);
 
   if (!cliente) {
     notFound();
@@ -182,11 +186,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
               ) : (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {vehiculosResumen.map(({ vehiculo, enTaller, kilometraje, ordenesCount }) => (
-                    <Link
-                      key={vehiculo.id}
-                      href={`/vehiculos/${vehiculo.id}`}
-                      className="flex flex-col gap-2 rounded-lg border border-border p-4 transition-colors hover:bg-muted/50"
-                    >
+                    <div key={vehiculo.id} className="flex flex-col gap-2 rounded-lg border border-border p-4">
                       <div className="flex items-start justify-between gap-2">
                         <span className="font-mono text-sm font-medium">{vehiculo.placa}</span>
                         <Badge
@@ -203,7 +203,26 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
                         <span>Kilometraje: {kilometraje !== null ? `${kilometraje.toLocaleString("es-CO")} km` : "—"}</span>
                         <span>{ordenesCount} órdenes</span>
                       </div>
-                    </Link>
+
+                      <div className="mt-1 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2">
+                        <div className="flex items-center gap-1.5">
+                          <EditarVehiculoDialog vehiculo={vehiculo} />
+                          <Link
+                            href={`/vehiculos/${vehiculo.id}`}
+                            className={buttonVariants({ variant: "outline", size: "sm" })}
+                          >
+                            <History />
+                            Historial
+                          </Link>
+                        </div>
+                        <NuevaOrdenDialog
+                          clienteId={cliente.id}
+                          vehiculoId={vehiculo.id}
+                          placa={vehiculo.placa}
+                          tecnicos={tecnicos}
+                        />
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}

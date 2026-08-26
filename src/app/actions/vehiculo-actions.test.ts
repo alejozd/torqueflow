@@ -9,14 +9,16 @@ vi.mock("@/lib/auth/guards", () => ({
 
 const mockCreate = vi.fn();
 const mockFindMany = vi.fn();
+const mockUpdate = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
-  getTenantDb: () => ({ vehiculo: { create: mockCreate, findMany: mockFindMany } }),
+  getTenantDb: () => ({ vehiculo: { create: mockCreate, findMany: mockFindMany, update: mockUpdate } }),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import {
   createVehiculoAction,
+  updateVehiculoAction,
   listVehiculosByCliente,
   type VehiculoFormState,
 } from "./vehiculo-actions";
@@ -143,6 +145,87 @@ describe("createVehiculoAction", () => {
       "REDIRECT:/login?error=forbidden",
     );
     expect(mockCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateVehiculoAction", () => {
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockUpdate.mockReset();
+  });
+
+  it("returns a validation error when placa is missing", async () => {
+    const formData = new FormData();
+    formData.set("marca", "Toyota");
+    formData.set("modelo", "Corolla");
+
+    const result = await updateVehiculoAction("v1", initialState, formData);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("La placa es obligatoria");
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("updates the Vehiculo, including the detail fields, and revalidates its owning cliente", async () => {
+    mockUpdate.mockResolvedValue({ id: "v1", clienteId: "c1" });
+    const formData = new FormData();
+    formData.set("placa", "ABC123");
+    formData.set("marca", "Toyota");
+    formData.set("modelo", "Corolla");
+    formData.set("anio", "2020");
+    formData.set("combustible", "GASOLINA");
+    formData.set("kilometraje", "78420");
+    formData.set("proximoMantenimiento", "2026-12-01");
+    formData.set("transmision", "AUTOMATICA");
+    formData.set("observaciones", "Rines de posventa");
+
+    const result = await updateVehiculoAction("v1", initialState, formData);
+
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: "v1" },
+      data: {
+        placa: "ABC123",
+        marca: "Toyota",
+        modelo: "Corolla",
+        anio: 2020,
+        combustible: "GASOLINA",
+        kilometraje: 78420,
+        proximoMantenimiento: new Date("2026-12-01"),
+        transmision: "AUTOMATICA",
+        observaciones: "Rines de posventa",
+      },
+      select: { clienteId: true },
+    });
+  });
+
+  it("returns a friendly Spanish message instead of the raw Prisma error on a unique constraint violation", async () => {
+    mockUpdate.mockRejectedValue({
+      code: "P2002",
+      message: "Unique constraint failed on the fields: (`placa`)",
+    });
+    const formData = new FormData();
+    formData.set("placa", "ABC123");
+    formData.set("marca", "Toyota");
+    formData.set("modelo", "Corolla");
+
+    const result = await updateVehiculoAction("v1", initialState, formData);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Ya existe un registro con ese valor.");
+  });
+
+  it("propagates the redirect rejection and never touches the database when requireRole rejects (unauthorized)", async () => {
+    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+    const formData = new FormData();
+    formData.set("placa", "ABC123");
+    formData.set("marca", "Toyota");
+    formData.set("modelo", "Corolla");
+
+    await expect(updateVehiculoAction("v1", initialState, formData)).rejects.toThrow(
+      "REDIRECT:/login?error=forbidden",
+    );
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });
 

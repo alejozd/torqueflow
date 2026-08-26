@@ -15,6 +15,7 @@ const mockSedeFindFirst = vi.fn();
 const mockUsuarioFindMany = vi.fn();
 const mockConfiguracionSmtpFindUnique = vi.fn();
 const mockNotificacionCreate = vi.fn();
+const mockVehiculoFindUnique = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     ordenTrabajo: {
@@ -25,6 +26,7 @@ vi.mock("@/lib/db/tenant-client", () => ({
     },
     sede: { findFirst: mockSedeFindFirst },
     usuario: { findMany: mockUsuarioFindMany },
+    vehiculo: { findUnique: mockVehiculoFindUnique },
     configuracionSmtp: { findUnique: mockConfiguracionSmtpFindUnique },
     notificacionOrdenEnviada: { create: mockNotificacionCreate },
   }),
@@ -40,6 +42,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import { cifrarSecreto } from "@/lib/crypto/secret-box";
 import {
   createOrdenAction,
+  createOrdenDesdeVehiculoAction,
   listOrdenes,
   listOrdenesByVehiculo,
   getOrden,
@@ -100,6 +103,77 @@ describe("createOrdenAction", () => {
     const formData = new FormData();
 
     await expect(createOrdenAction("c1", "v1", initialState, formData)).rejects.toThrow(
+      "REDIRECT:/login?error=forbidden",
+    );
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("createOrdenDesdeVehiculoAction", () => {
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockCreate.mockReset();
+    mockVehiculoFindUnique.mockReset();
+  });
+
+  it("returns a validation error when no vehiculo is selected, without touching the database", async () => {
+    const formData = new FormData();
+
+    const result = await createOrdenDesdeVehiculoAction(initialState, formData);
+
+    expect(result).toEqual({ error: "Selecciona un vehículo", success: false });
+    expect(mockVehiculoFindUnique).not.toHaveBeenCalled();
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns an error when the selected vehiculo does not exist", async () => {
+    mockVehiculoFindUnique.mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("vehiculoId", "v-missing");
+
+    const result = await createOrdenDesdeVehiculoAction(initialState, formData);
+
+    expect(result).toEqual({ error: "El vehículo seleccionado no existe.", success: false });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("derives clienteId from the vehiculo instead of trusting form data", async () => {
+    mockVehiculoFindUnique.mockResolvedValue({ id: "v1", clienteId: "c1" });
+    mockCreate.mockResolvedValue({ id: "o1" });
+    const formData = new FormData();
+    formData.set("vehiculoId", "v1");
+    // A forged clienteId in the form must be ignored -- only the vehículo's
+    // own clienteId ("c1") may end up in the created row.
+    formData.set("clienteId", "c-forjado");
+    formData.set("kilometrajeIngreso", "45000");
+    formData.set("sintomas", "Ruido al frenar");
+
+    const result = await createOrdenDesdeVehiculoAction(initialState, formData);
+
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockVehiculoFindUnique).toHaveBeenCalledWith({
+      where: { id: "v1" },
+      select: { id: true, clienteId: true },
+    });
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: {
+        clienteId: "c1",
+        vehiculoId: "v1",
+        sedeId: "sede-1",
+        creadoPorId: "u1",
+        mecanicoId: null,
+        kilometrajeIngreso: 45000,
+        sintomas: "Ruido al frenar",
+      },
+    });
+  });
+
+  it("propagates the redirect rejection and never touches the database when requireRole rejects (unauthorized)", async () => {
+    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+    const formData = new FormData();
+    formData.set("vehiculoId", "v1");
+
+    await expect(createOrdenDesdeVehiculoAction(initialState, formData)).rejects.toThrow(
       "REDIRECT:/login?error=forbidden",
     );
     expect(mockCreate).not.toHaveBeenCalled();

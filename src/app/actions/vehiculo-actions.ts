@@ -71,6 +71,57 @@ export async function createVehiculoAction(
   return { error: null, success: true };
 }
 
+export async function updateVehiculoAction(
+  id: string,
+  prevState: VehiculoFormState,
+  formData: FormData,
+): Promise<VehiculoFormState> {
+  const parsed = vehiculoInputSchema.safeParse({
+    placa: formData.get("placa") ?? "",
+    marca: formData.get("marca") ?? "",
+    modelo: formData.get("modelo") ?? "",
+    anio: formData.get("anio") || undefined,
+    combustible: formData.get("combustible") || undefined,
+    kilometraje: formData.get("kilometraje") || undefined,
+    proximoMantenimiento: formData.get("proximoMantenimiento") || undefined,
+    transmision: formData.get("transmision") || undefined,
+    observaciones: formData.get("observaciones") || undefined,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
+  }
+
+  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  let clienteId: string;
+  try {
+    const updated = await tenantDb.vehiculo.update({
+      where: { id },
+      data: {
+        placa: parsed.data.placa,
+        marca: parsed.data.marca,
+        modelo: parsed.data.modelo,
+        anio: parsed.data.anio,
+        combustible: parsed.data.combustible,
+        kilometraje: parsed.data.kilometraje,
+        proximoMantenimiento: parsed.data.proximoMantenimiento,
+        transmision: parsed.data.transmision,
+        observaciones: parsed.data.observaciones,
+      },
+      select: { clienteId: true },
+    });
+    clienteId = updated.clienteId;
+  } catch (err) {
+    return { error: friendlyPrismaErrorMessage(err, "Error al actualizar vehículo"), success: false };
+  }
+
+  revalidatePath(`/clientes/${clienteId}`);
+  revalidatePath(`/vehiculos/${id}`);
+  return { error: null, success: true };
+}
+
 export async function deleteVehiculoAction(id: string, clienteId: string): Promise<void> {
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);

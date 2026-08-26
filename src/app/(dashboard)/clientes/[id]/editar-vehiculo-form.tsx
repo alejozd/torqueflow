@@ -3,16 +3,23 @@
 import { startTransition, useActionState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createVehiculoAction, type VehiculoFormState } from "@/app/actions/vehiculo-actions";
+import { updateVehiculoAction, type VehiculoFormState } from "@/app/actions/vehiculo-actions";
 import { VehiculoFormFields, vehiculoFormSchema, type VehiculoFormInput } from "./vehiculo-form-fields";
+import type { Vehiculo } from "@/generated/prisma-tenant";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
 const initialState: VehiculoFormState = { error: null, success: false };
 
-export function NuevoVehiculoForm({ clienteId }: { clienteId: string }) {
-  const createVehiculoForCliente = createVehiculoAction.bind(null, clienteId);
-  const [state, formAction, isPending] = useActionState(createVehiculoForCliente, initialState);
+function toDateInputValue(fecha: Date | null): string {
+  return fecha ? fecha.toISOString().slice(0, 10) : "";
+}
+
+export function EditarVehiculoForm({ vehiculo }: { vehiculo: Vehiculo }) {
+  const [state, formAction, isPending] = useActionState(
+    updateVehiculoAction.bind(null, vehiculo.id),
+    initialState,
+  );
   const formRef = useRef<HTMLFormElement>(null);
   const {
     register,
@@ -21,15 +28,15 @@ export function NuevoVehiculoForm({ clienteId }: { clienteId: string }) {
   } = useForm<VehiculoFormInput>({
     resolver: zodResolver(vehiculoFormSchema),
     defaultValues: {
-      placa: "",
-      marca: "",
-      modelo: "",
-      anio: "",
-      combustible: "",
-      kilometraje: "",
-      proximoMantenimiento: "",
-      transmision: "",
-      observaciones: "",
+      placa: vehiculo.placa,
+      marca: vehiculo.marca,
+      modelo: vehiculo.modelo,
+      anio: vehiculo.anio ?? "",
+      combustible: vehiculo.combustible ?? "",
+      kilometraje: vehiculo.kilometraje ?? "",
+      proximoMantenimiento: toDateInputValue(vehiculo.proximoMantenimiento),
+      transmision: vehiculo.transmision ?? "",
+      observaciones: vehiculo.observaciones ?? "",
     },
   });
 
@@ -43,7 +50,7 @@ export function NuevoVehiculoForm({ clienteId }: { clienteId: string }) {
       <VehiculoFormFields register={register} errors={errors} />
 
       <Button type="submit" disabled={isPending}>
-        {isPending ? "Guardando..." : "Agregar vehículo"}
+        {isPending ? "Guardando..." : "Guardar cambios"}
       </Button>
 
       {state.error ? (
@@ -51,7 +58,7 @@ export function NuevoVehiculoForm({ clienteId }: { clienteId: string }) {
           <AlertDescription>{state.error}</AlertDescription>
         </Alert>
       ) : null}
-      {state.success ? <p role="status">Vehículo agregado</p> : null}
+      {state.success ? <p role="status">Vehículo actualizado</p> : null}
     </form>
   );
 }
