@@ -15,7 +15,7 @@ import { totalOrden } from "@/lib/dashboard/calculos";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { FormGroup } from "@/components/form-group";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type Orden = NonNullable<Awaited<ReturnType<typeof getOrden>>>;
 type ItemRow = Orden["items"][number];
@@ -55,22 +55,60 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", {
 
 const ITEMS_COLUMNS: DataTableColumn<ItemRow>[] = [
   {
-    header: "Ítem",
+    header: "Concepto",
+    cell: (item) => <span className="text-sm">{item.descripcion}</span>,
+  },
+  {
+    header: "Tipo",
     cell: (item) => (
-      <>
-        {item.descripcion} — {item.cantidad} x {item.precioUnitario.toString()}
-      </>
+      <Badge variant="outline" className="text-[10px]">
+        {item.repuestoId ? "Repuesto" : "Manual"}
+      </Badge>
+    ),
+  },
+  {
+    header: "Cant.",
+    cell: (item) => <span className="font-mono text-sm">{item.cantidad}</span>,
+  },
+  {
+    header: "Unitario",
+    cell: (item) => (
+      <span className="font-mono text-sm text-muted-foreground">
+        {formatoMoneda.format(Number(item.precioUnitario))}
+      </span>
+    ),
+  },
+  {
+    header: "Importe",
+    cell: (item) => (
+      <span className="font-mono text-sm font-medium">
+        {formatoMoneda.format(item.cantidad * Number(item.precioUnitario))}
+      </span>
     ),
   },
 ];
 
 const MANO_OBRA_COLUMNS: DataTableColumn<ManoObraRow>[] = [
   {
-    header: "Mano de obra",
+    header: "Trabajo",
+    cell: (linea) => <span className="text-sm">{linea.descripcion}</span>,
+  },
+  {
+    header: "Horas",
+    cell: (linea) => <span className="font-mono text-sm">{linea.horas.toString()} h</span>,
+  },
+  {
+    header: "Precio hora",
     cell: (linea) => (
-      <>
-        {linea.descripcion} — {linea.horas.toString()}h x {linea.precioHora.toString()}
-      </>
+      <span className="font-mono text-sm text-muted-foreground">{formatoMoneda.format(Number(linea.precioHora))}</span>
+    ),
+  },
+  {
+    header: "Importe",
+    cell: (linea) => (
+      <span className="font-mono text-sm font-medium">
+        {formatoMoneda.format(Number(linea.horas) * Number(linea.precioHora))}
+      </span>
     ),
   },
 ];
@@ -111,6 +149,10 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
     0,
   );
   const horasCargadas = orden.manoDeObra.reduce((suma, linea) => suma + Number(linea.horas), 0);
+  const checklist = (orden.dvi?.checklist as DviChecklist | undefined) ?? null;
+  const checklistValores = checklist ? Object.values(checklist) : [];
+  const atencionCount = checklistValores.filter((v) => v === "ATENCION").length;
+  const criticoCount = checklistValores.filter((v) => v === "CRITICO").length;
   const total = totalOrden({
     items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
     manoDeObra: orden.manoDeObra.map((linea) => ({
@@ -121,6 +163,13 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
 
   return (
     <main className="flex flex-col gap-4">
+      <Link
+        href="/ordenes"
+        className="flex w-fit items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+      >
+        ← Órdenes
+      </Link>
+
       <div>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold tracking-tight">Orden — {orden.vehiculo.placa}</h1>
@@ -175,7 +224,12 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
 
           <Card>
             <CardHeader>
-              <CardTitle>Ítems (repuestos)</CardTitle>
+              <CardTitle>
+                Ítems (repuestos) <span className="font-normal text-muted-foreground">· {orden.items.length}</span>
+              </CardTitle>
+              <CardAction>
+                <span className="font-mono text-sm text-muted-foreground">{formatoMoneda.format(repuestosTotal)}</span>
+              </CardAction>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               {!orden.factura && <AgregarItemForm ordenId={orden.id} repuestos={repuestos} />}
@@ -190,7 +244,15 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
 
           <Card>
             <CardHeader>
-              <CardTitle>Mano de obra</CardTitle>
+              <CardTitle>
+                Mano de obra{" "}
+                <span className="font-normal text-muted-foreground">
+                  · {orden.manoDeObra.length} {orden.manoDeObra.length === 1 ? "línea" : "líneas"} · {horasCargadas} h
+                </span>
+              </CardTitle>
+              <CardAction>
+                <span className="font-mono text-sm text-muted-foreground">{formatoMoneda.format(manoObraTotal)}</span>
+              </CardAction>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               {!orden.factura && <AgregarManoObraForm ordenId={orden.id} />}
@@ -206,12 +268,18 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
           <Card>
             <CardHeader>
               <CardTitle>Inspección vehicular digital (DVI)</CardTitle>
+              {atencionCount + criticoCount > 0 ? (
+                <CardAction>
+                  <span className="text-xs text-muted-foreground">
+                    {atencionCount > 0 ? `${atencionCount} con atención` : null}
+                    {atencionCount > 0 && criticoCount > 0 ? " · " : null}
+                    {criticoCount > 0 ? `${criticoCount} crítico${criticoCount > 1 ? "s" : ""}` : null}
+                  </span>
+                </CardAction>
+              ) : null}
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <DviChecklistForm
-                ordenId={orden.id}
-                checklist={(orden.dvi?.checklist as DviChecklist | undefined) ?? null}
-              />
+              <DviChecklistForm ordenId={orden.id} checklist={checklist} />
               <DviFotoForm ordenId={orden.id} />
               <DataTable
                 columns={FOTOS_COLUMNS}
