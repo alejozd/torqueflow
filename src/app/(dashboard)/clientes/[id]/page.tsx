@@ -74,13 +74,16 @@ function resumirVehiculo(vehiculo: VehiculoDeCliente, ordenes: OrdenDeCliente[])
   const enTaller = ordenesDelVehiculo.some((orden) => ESTADOS_ACTIVOS.includes(orden.estado));
 
   // ordenes is already sorted desc by createdAt, so the first one with a
-  // recorded kilometraje is the most recent.
+  // recorded kilometraje is the most recent. Falls back to the vehículo's own
+  // stored field (set from its edit form) when no orden has recorded one yet
+  // -- same derivation vehiculos/[id]/page.tsx uses, so the two pages never
+  // disagree about the same vehículo's mileage.
   const masReciente = ordenesDelVehiculo.find((orden) => orden.kilometrajeIngreso !== null);
 
   return {
     vehiculo,
     enTaller,
-    kilometraje: masReciente?.kilometrajeIngreso ?? null,
+    kilometraje: masReciente?.kilometrajeIngreso ?? vehiculo.kilometraje,
     ordenesCount: ordenesDelVehiculo.length,
   };
 }
@@ -117,35 +120,55 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
     .reduce((suma, factura) => suma + Number(factura.saldoPendiente), 0);
   const ticketMedio = cliente.facturas.length > 0 ? facturado / cliente.facturas.length : null;
 
+  // Every cell links to the orden's own detail page, so the row reads as a
+  // single clickable target no matter where in it the user clicks -- same
+  // pattern as vehiculos/[id]/page.tsx's ORDENES_COLUMNS.
   const HISTORIAL_COLUMNS: DataTableColumn<OrdenDeCliente>[] = [
     {
       header: "Fecha",
-      cell: (orden) => <span className="text-sm text-muted-foreground">{formatoFecha.format(orden.createdAt)}</span>,
+      cell: (orden) => (
+        <Link href={`/ordenes/${orden.id}`} className="block text-sm text-muted-foreground hover:underline">
+          {formatoFecha.format(orden.createdAt)}
+        </Link>
+      ),
     },
     {
       header: "Placa",
-      cell: (orden) => <span className="font-mono text-sm">{placaPorVehiculo.get(orden.vehiculoId) ?? "—"}</span>,
+      cell: (orden) => (
+        <Link href={`/ordenes/${orden.id}`} className="block font-mono text-sm hover:underline">
+          {placaPorVehiculo.get(orden.vehiculoId) ?? "—"}
+        </Link>
+      ),
     },
     {
       header: "Trabajo",
-      cell: (orden) => orden.sintomas ?? <span className="text-muted-foreground">—</span>,
+      cell: (orden) => (
+        <Link href={`/ordenes/${orden.id}`} className="block hover:underline">
+          {orden.sintomas ?? <span className="text-muted-foreground">—</span>}
+        </Link>
+      ),
     },
     {
       header: "Estado",
       cell: (orden) => (
-        <Badge variant={ESTADO_BADGE_VARIANT[orden.estado]} className={ESTADO_BADGE_CLASSNAME[orden.estado]}>
-          {ESTADO_LABELS[orden.estado]}
-        </Badge>
+        <Link href={`/ordenes/${orden.id}`} className="block w-fit">
+          <Badge variant={ESTADO_BADGE_VARIANT[orden.estado]} className={ESTADO_BADGE_CLASSNAME[orden.estado]}>
+            {ESTADO_LABELS[orden.estado]}
+          </Badge>
+        </Link>
       ),
     },
     {
       header: "Total",
-      cell: (orden) =>
-        orden.factura ? (
-          <span className="font-mono font-medium">{formatoMoneda.format(Number(orden.factura.total))}</span>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        ),
+      cell: (orden) => (
+        <Link href={`/ordenes/${orden.id}`} className="block">
+          {orden.factura ? (
+            <span className="font-mono font-medium">{formatoMoneda.format(Number(orden.factura.total))}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </Link>
+      ),
     },
   ];
 

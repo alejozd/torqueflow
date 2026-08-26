@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getVehiculo } from "@/app/actions/vehiculo-actions";
-import { listHistorial, type HistorialEntryWithAutor } from "@/app/actions/historial-actions";
 import { listOrdenesByVehiculo, listTecnicos, type OrdenDeVehiculo } from "@/app/actions/orden-actions";
 import { EditarVehiculoDialog } from "../../clientes/[id]/editar-vehiculo-dialog";
 import { NuevaOrdenDialog } from "../../clientes/[id]/nueva-orden-dialog";
@@ -73,11 +72,7 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
     notFound();
   }
 
-  const [historial, ordenes, tecnicos] = await Promise.all([
-    listHistorial(id),
-    listOrdenesByVehiculo(id),
-    listTecnicos(),
-  ]);
+  const [ordenes, tecnicos] = await Promise.all([listOrdenesByVehiculo(id), listTecnicos()]);
 
   const enTaller = ordenes.some((orden) => ESTADOS_ACTIVOS.includes(orden.estado));
 
@@ -127,31 +122,14 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
     },
   ];
 
-  const HISTORIAL_COLUMNS: DataTableColumn<HistorialEntryWithAutor>[] = [
-    {
-      header: "Fecha",
-      cell: (entrada) => (
-        <span className="text-sm text-muted-foreground">{formatoFecha.format(entrada.fecha)}</span>
-      ),
-    },
-    {
-      header: "Descripción",
-      cell: (entrada) => entrada.descripcion,
-    },
-    {
-      header: "Autor",
-      cell: (entrada) => entrada.autor?.nombre ?? <span className="text-muted-foreground">Desconocido</span>,
-    },
-  ];
-
   return (
     <main className="flex flex-col gap-6">
       <Link
-        href="/clientes"
+        href={`/clientes/${vehiculo.clienteId}`}
         className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-4" />
-        Clientes
+        {vehiculo.cliente.nombre}
       </Link>
 
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -195,20 +173,6 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
                 rows={ordenes}
                 getRowKey={(orden) => orden.id}
                 emptyMessage="Este vehículo no tiene órdenes de trabajo."
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Historial</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <DataTable
-                columns={HISTORIAL_COLUMNS}
-                rows={historial}
-                getRowKey={(entrada) => entrada.id}
-                emptyMessage="Este vehículo no tiene historial registrado."
               />
             </CardContent>
           </Card>
