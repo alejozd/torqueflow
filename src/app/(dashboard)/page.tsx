@@ -3,7 +3,7 @@ import { requireSession } from "@/lib/auth/guards";
 import { getDashboardOverview } from "@/app/actions/dashboard-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { EstadoCita, EstadoOrden } from "@/generated/prisma-tenant";
 
@@ -75,10 +75,12 @@ export default async function InicioPage() {
             vehículo, create the orden there) -- linking anywhere else here
             would be a dead end or a fabricated modal.
           */}
-          <Button render={<Link href="/clientes" />}>Nueva orden</Button>
-          <Button variant="outline" render={<Link href="/citas" />}>
+          <Link href="/clientes" className={buttonVariants({})}>
+            Nueva orden
+          </Link>
+          <Link href="/citas" className={buttonVariants({ variant: "outline" })}>
             Agendar cita
-          </Button>
+          </Link>
         </div>
       </div>
 
