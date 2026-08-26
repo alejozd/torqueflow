@@ -28,14 +28,9 @@ export function DataTable<T>({
    * Component this way, so none of its 30+ other callers (which pass plain
    * functions as `cell`/`getRowKey` -- not serializable across a client
    * boundary) need to change. `position: relative` on the row makes it the
-   * containing block the link's `inset-0` sizes against. Every row already
-   * highlights on hover (ui/table.tsx's hover:bg-muted/50), but --muted and
-   * --accent are the identical near-white oklch(0.97 0 0) in the light theme
-   * (see globals.css) -- too close to the page background to read as
-   * "clickable" at a glance. hover:bg-border below reuses the row's own
-   * border color (oklch(0.922 0 0), meaningfully darker) for a hover that's
-   * actually visible, and still adapts for the (currently unused outside
-   * login/sidebar) dark theme via the same token.
+   * containing block the link's `inset-0` sizes against. `cursor-pointer` is
+   * scoped to rowHref rows only -- showing it on a row that isn't actually
+   * clickable would be a false affordance.
    */
   rowHref?: (row: T) => string;
 }) {
@@ -54,7 +49,7 @@ export function DataTable<T>({
       </TableHeader>
       <TableBody>
         {rows.map((row) => (
-          <TableRow key={getRowKey(row)} className={cn(rowHref && "relative cursor-pointer hover:bg-border")}>
+          <TableRow key={getRowKey(row)} className={cn("hover:bg-border", rowHref && "relative cursor-pointer")}>
             {columns.map((column, index) => (
               <TableCell key={column.header} className={column.className}>
                 {rowHref && index === 0 ? (
