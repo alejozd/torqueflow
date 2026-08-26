@@ -57,6 +57,63 @@ describe("createVehiculoAction", () => {
     });
   });
 
+  it("persists the optional detail fields (combustible, kilometraje, proximo mantenimiento, transmision, observaciones) when provided", async () => {
+    mockCreate.mockResolvedValue({ id: "v1", placa: "ABC123" });
+    const formData = new FormData();
+    formData.set("placa", "ABC123");
+    formData.set("marca", "Toyota");
+    formData.set("modelo", "Corolla");
+    formData.set("anio", "2020");
+    formData.set("combustible", "GASOLINA");
+    formData.set("kilometraje", "78420");
+    formData.set("proximoMantenimiento", "2026-12-01");
+    formData.set("transmision", "AUTOMATICA");
+    formData.set("observaciones", "Rines de posventa, llave de repuesto en recepción");
+
+    const result = await createVehiculoAction("c1", initialState, formData);
+
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: {
+        placa: "ABC123",
+        marca: "Toyota",
+        modelo: "Corolla",
+        anio: 2020,
+        combustible: "GASOLINA",
+        kilometraje: 78420,
+        proximoMantenimiento: new Date("2026-12-01"),
+        transmision: "AUTOMATICA",
+        observaciones: "Rines de posventa, llave de repuesto en recepción",
+        clienteId: "c1",
+      },
+    });
+  });
+
+  it("leaves the optional detail fields undefined when not provided", async () => {
+    mockCreate.mockResolvedValue({ id: "v1", placa: "ABC123" });
+    const formData = new FormData();
+    formData.set("placa", "ABC123");
+    formData.set("marca", "Toyota");
+    formData.set("modelo", "Corolla");
+
+    await createVehiculoAction("c1", initialState, formData);
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: {
+        placa: "ABC123",
+        marca: "Toyota",
+        modelo: "Corolla",
+        anio: undefined,
+        combustible: undefined,
+        kilometraje: undefined,
+        proximoMantenimiento: undefined,
+        transmision: undefined,
+        observaciones: undefined,
+        clienteId: "c1",
+      },
+    });
+  });
+
   it("returns a friendly Spanish message instead of the raw Prisma error on a unique constraint violation", async () => {
     mockCreate.mockRejectedValue({
       code: "P2002",

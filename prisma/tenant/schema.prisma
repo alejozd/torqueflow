@@ -29,6 +29,18 @@ enum EstadoCita {
   COMPLETADA
 }
 
+enum TipoCombustible {
+  GASOLINA
+  DIESEL
+  HIBRIDO
+  ELECTRICO
+}
+
+enum TipoTransmision {
+  AUTOMATICA
+  MECANICA
+}
+
 enum MotivoRecordatorio {
   KILOMETRAJE
   TIEMPO
@@ -40,61 +52,66 @@ enum ResultadoNotificacionOrden {
 }
 
 model Usuario {
-  id                String              @id @default(cuid())
-  email             String              @unique
-  passwordHash      String              @map("password_hash")
-  nombre            String
-  role              Role                @default(RECEPCION)
-  historialEntries  HistorialVehiculo[]
-  ordenesCreadas    OrdenTrabajo[]      @relation("OrdenCreadoPor")
-  ordenesAsignadas  OrdenTrabajo[]      @relation("OrdenMecanico")
-  dviRealizados     Dvi[]
-  entradasCreadas   EntradaMercancia[]
-  facturasEmitidas  Factura[]
-  pagosRegistrados  Pago[]
-  citasCreadas      Cita[]              @relation("CitaCreadoPor")
-  sedes             UsuarioSede[]
-  createdAt         DateTime            @default(now()) @map("created_at")
-  updatedAt         DateTime            @updatedAt @map("updated_at")
+  id               String              @id @default(cuid())
+  email            String              @unique
+  passwordHash     String              @map("password_hash")
+  nombre           String
+  role             Role                @default(RECEPCION)
+  historialEntries HistorialVehiculo[]
+  ordenesCreadas   OrdenTrabajo[]      @relation("OrdenCreadoPor")
+  ordenesAsignadas OrdenTrabajo[]      @relation("OrdenMecanico")
+  dviRealizados    Dvi[]
+  entradasCreadas  EntradaMercancia[]
+  facturasEmitidas Factura[]
+  pagosRegistrados Pago[]
+  citasCreadas     Cita[]              @relation("CitaCreadoPor")
+  sedes            UsuarioSede[]
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
 
   @@map("usuarios")
 }
 
 model Cliente {
-  id        String         @id @default(cuid())
-  nombre    String
-  telefono  String?
-  email     String?
-  documento String?
-  vehiculos Vehiculo[]
-  ordenes   OrdenTrabajo[]
-  facturas  Factura[]
-  citas         Cita[]
-  recordatorios RecordatorioEnviado[]
+  id                  String                     @id @default(cuid())
+  nombre              String
+  telefono            String?
+  email               String?
+  documento           String?
+  vehiculos           Vehiculo[]
+  ordenes             OrdenTrabajo[]
+  facturas            Factura[]
+  citas               Cita[]
+  recordatorios       RecordatorioEnviado[]
   notificacionesOrden NotificacionOrdenEnviada[]
-  createdAt DateTime       @default(now()) @map("created_at")
-  updatedAt DateTime       @updatedAt @map("updated_at")
+  createdAt           DateTime                   @default(now()) @map("created_at")
+  updatedAt           DateTime                   @updatedAt @map("updated_at")
 
   @@map("clientes")
 }
 
 model Vehiculo {
-  id        String              @id @default(cuid())
-  placa     String              @unique
-  marca     String
-  modelo    String
-  anio      Int?
-  clienteId String              @map("cliente_id")
-  cliente   Cliente             @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  historial HistorialVehiculo[]
-  ordenes   OrdenTrabajo[]
-  citas         Cita[]
-  recordatorios RecordatorioEnviado[]
-  createdAt DateTime            @default(now()) @map("created_at")
-  updatedAt DateTime            @updatedAt @map("updated_at")
+  id                   String                @id @default(cuid())
+  placa                String                @unique
+  marca                String
+  modelo               String
+  anio                 Int?
+  combustible          TipoCombustible?
+  kilometraje          Int?
+  proximoMantenimiento DateTime?             @map("proximo_mantenimiento")
+  transmision          TipoTransmision?
+  observaciones        String?
+  clienteId            String                @map("cliente_id")
+  cliente              Cliente               @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  historial            HistorialVehiculo[]
+  ordenes              OrdenTrabajo[]
+  citas                Cita[]
+  recordatorios        RecordatorioEnviado[]
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
 
-  @@map("vehiculos")
   @@index([clienteId])
+  @@map("vehiculos")
 }
 
 model HistorialVehiculo {
@@ -107,8 +124,8 @@ model HistorialVehiculo {
   autor       Usuario? @relation(fields: [autorId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now()) @map("created_at")
 
-  @@map("historial_vehiculo")
   @@index([vehiculoId])
+  @@map("historial_vehiculo")
 }
 
 model Sede {
@@ -137,40 +154,40 @@ model UsuarioSede {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@id([usuarioId, sedeId])
-  @@map("usuario_sedes")
   @@index([sedeId])
+  @@map("usuario_sedes")
 }
 
 model OrdenTrabajo {
-  id                 String       @id @default(cuid())
-  estado             EstadoOrden  @default(BORRADOR)
-  clienteId          String       @map("cliente_id")
-  cliente            Cliente      @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  vehiculoId         String       @map("vehiculo_id")
-  vehiculo           Vehiculo     @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
-  sedeId             String       @map("sede_id")
-  sede               Sede         @relation(fields: [sedeId], references: [id], onDelete: Restrict)
-  mecanicoId         String?      @map("mecanico_id")
-  mecanico           Usuario?     @relation("OrdenMecanico", fields: [mecanicoId], references: [id], onDelete: SetNull)
-  creadoPorId        String       @map("creado_por_id")
-  creadoPor          Usuario      @relation("OrdenCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
-  kilometrajeIngreso Int?         @map("kilometraje_ingreso")
+  id                 String                     @id @default(cuid())
+  estado             EstadoOrden                @default(BORRADOR)
+  clienteId          String                     @map("cliente_id")
+  cliente            Cliente                    @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  vehiculoId         String                     @map("vehiculo_id")
+  vehiculo           Vehiculo                   @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  sedeId             String                     @map("sede_id")
+  sede               Sede                       @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  mecanicoId         String?                    @map("mecanico_id")
+  mecanico           Usuario?                   @relation("OrdenMecanico", fields: [mecanicoId], references: [id], onDelete: SetNull)
+  creadoPorId        String                     @map("creado_por_id")
+  creadoPor          Usuario                    @relation("OrdenCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  kilometrajeIngreso Int?                       @map("kilometraje_ingreso")
   sintomas           String?
   items              ItemOrden[]
   manoDeObra         ManoDeObra[]
   dvi                Dvi?
   factura            Factura?
   notificaciones     NotificacionOrdenEnviada[]
-  entregadaAt        DateTime?    @map("entregada_at")
-  anuladaAt          DateTime?    @map("anulada_at")
-  createdAt          DateTime     @default(now()) @map("created_at")
-  updatedAt          DateTime     @updatedAt @map("updated_at")
+  entregadaAt        DateTime?                  @map("entregada_at")
+  anuladaAt          DateTime?                  @map("anulada_at")
+  createdAt          DateTime                   @default(now()) @map("created_at")
+  updatedAt          DateTime                   @updatedAt @map("updated_at")
 
-  @@map("ordenes_trabajo")
   @@index([clienteId])
   @@index([vehiculoId])
   @@index([sedeId])
   @@index([estado])
+  @@map("ordenes_trabajo")
 }
 
 model ItemOrden {
@@ -184,9 +201,9 @@ model ItemOrden {
   precioUnitario Decimal      @map("precio_unitario") @db.Decimal(10, 2)
   createdAt      DateTime     @default(now()) @map("created_at")
 
-  @@map("items_orden")
   @@index([ordenId])
   @@index([repuestoId])
+  @@map("items_orden")
 }
 
 model ManoDeObra {
@@ -198,8 +215,8 @@ model ManoDeObra {
   precioHora  Decimal      @map("precio_hora") @db.Decimal(10, 2)
   createdAt   DateTime     @default(now()) @map("created_at")
 
-  @@map("mano_de_obra")
   @@index([ordenId])
+  @@map("mano_de_obra")
 }
 
 enum DviFotoMomento {
@@ -208,15 +225,15 @@ enum DviFotoMomento {
 }
 
 model Dvi {
-  id          String        @id @default(cuid())
-  ordenId     String        @unique @map("orden_id")
-  orden       OrdenTrabajo  @relation(fields: [ordenId], references: [id], onDelete: Cascade)
-  checklist   Json          @default("{}")
+  id          String       @id @default(cuid())
+  ordenId     String       @unique @map("orden_id")
+  orden       OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  checklist   Json         @default("{}")
   fotos       DviFoto[]
-  creadoPorId String        @map("creado_por_id")
-  creadoPor   Usuario       @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
+  creadoPorId String       @map("creado_por_id")
+  creadoPor   Usuario      @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
 
   @@map("dvi")
 }
@@ -229,34 +246,34 @@ model DviFoto {
   url       String
   createdAt DateTime       @default(now()) @map("created_at")
 
-  @@map("dvi_fotos")
   @@index([dviId])
+  @@map("dvi_fotos")
 }
 
 model Bodega {
-  id        String              @id @default(cuid())
+  id        String             @id @default(cuid())
   nombre    String
-  sedeId    String              @map("sede_id")
-  sede      Sede                @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  sedeId    String             @map("sede_id")
+  sede      Sede               @relation(fields: [sedeId], references: [id], onDelete: Restrict)
   repuestos Repuesto[]
   entradas  EntradaMercancia[]
-  createdAt DateTime            @default(now()) @map("created_at")
-  updatedAt DateTime            @updatedAt @map("updated_at")
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
 
-  @@map("bodegas")
   @@index([sedeId])
+  @@map("bodegas")
 }
 
 model Proveedor {
-  id        String              @id @default(cuid())
+  id        String             @id @default(cuid())
   nombre    String
   contacto  String?
   telefono  String?
   email     String?
   repuestos Repuesto[]
   entradas  EntradaMercancia[]
-  createdAt DateTime            @default(now()) @map("created_at")
-  updatedAt DateTime            @updatedAt @map("updated_at")
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
 
   @@map("proveedores")
 }
@@ -279,9 +296,9 @@ model Repuesto {
   createdAt    DateTime               @default(now()) @map("created_at")
   updatedAt    DateTime               @updatedAt @map("updated_at")
 
-  @@map("repuestos")
   @@index([bodegaId])
   @@index([proveedorId])
+  @@map("repuestos")
 }
 
 model EntradaMercancia {
@@ -295,9 +312,9 @@ model EntradaMercancia {
   items       EntradaMercanciaItem[]
   createdAt   DateTime               @default(now()) @map("created_at")
 
-  @@map("entradas_mercancia")
   @@index([proveedorId])
   @@index([bodegaId])
+  @@map("entradas_mercancia")
 }
 
 model EntradaMercanciaItem {
@@ -310,9 +327,9 @@ model EntradaMercanciaItem {
   precioCompraUnitario Decimal          @map("precio_compra_unitario") @db.Decimal(10, 2)
   createdAt            DateTime         @default(now()) @map("created_at")
 
-  @@map("entrada_mercancia_items")
   @@index([entradaId])
   @@index([repuestoId])
+  @@map("entrada_mercancia_items")
 }
 
 enum EstadoFactura {
@@ -346,9 +363,9 @@ model Factura {
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
 
-  @@map("facturas")
   @@index([clienteId])
   @@index([estado])
+  @@map("facturas")
 }
 
 model Pago {
@@ -362,8 +379,8 @@ model Pago {
   registradoPor   Usuario    @relation(fields: [registradoPorId], references: [id], onDelete: Restrict)
   createdAt       DateTime   @default(now()) @map("created_at")
 
-  @@map("pagos")
   @@index([facturaId])
+  @@map("pagos")
 }
 
 /// A booked appointment. Staff-only in v1: RECEPCION/ADMIN book on behalf of a
@@ -388,11 +405,11 @@ model Cita {
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
 
-  @@map("citas")
   @@index([sedeId])
   @@index([clienteId])
   @@index([vehiculoId])
   @@index([fechaHora])
+  @@map("citas")
 }
 
 /// The tenant's own SMTP server. Exactly one row per tenant schema: the schema
@@ -432,9 +449,9 @@ model RecordatorioEnviado {
   motivo       MotivoRecordatorio
   enviadoAt    DateTime           @default(now()) @map("enviado_at")
 
-  @@map("recordatorios_enviados")
   @@index([vehiculoId, enviadoAt])
   @@index([clienteId])
+  @@map("recordatorios_enviados")
 }
 
 /// One row per order-status notification actually attempted and resolved
@@ -456,7 +473,7 @@ model NotificacionOrdenEnviada {
   resultado    ResultadoNotificacionOrden
   enviadoAt    DateTime                   @default(now()) @map("enviado_at")
 
-  @@map("notificaciones_orden_enviadas")
   @@index([ordenId, enviadoAt])
   @@index([clienteId])
+  @@map("notificaciones_orden_enviadas")
 }

@@ -24,6 +24,41 @@ describe("NuevoVehiculoForm", () => {
     expect(screen.getByLabelText("Año")).toBeInTheDocument();
   });
 
+  it("renders the vehicle detail fields (combustible, kilometraje, proximo mantenimiento, transmision, observaciones)", () => {
+    render(<NuevoVehiculoForm clienteId="c1" />);
+
+    expect(screen.getByLabelText("Combustible")).toBeInTheDocument();
+    expect(screen.getByLabelText("Kilometraje")).toBeInTheDocument();
+    expect(screen.getByLabelText("Próximo mantenimiento")).toBeInTheDocument();
+    expect(screen.getByLabelText("Transmisión")).toBeInTheDocument();
+    expect(screen.getByLabelText("Observaciones del vehículo")).toBeInTheDocument();
+  });
+
+  it("submits the detail fields to createVehiculoAction when filled", async () => {
+    render(<NuevoVehiculoForm clienteId="c1" />);
+
+    await userEvent.type(screen.getByLabelText("Placa"), "ABC123");
+    await userEvent.type(screen.getByLabelText("Marca"), "Toyota");
+    await userEvent.type(screen.getByLabelText("Modelo"), "Corolla");
+    await userEvent.selectOptions(screen.getByLabelText("Combustible"), "GASOLINA");
+    await userEvent.type(screen.getByLabelText("Kilometraje"), "78420");
+    await userEvent.type(screen.getByLabelText("Próximo mantenimiento"), "2026-12-01");
+    await userEvent.selectOptions(screen.getByLabelText("Transmisión"), "AUTOMATICA");
+    await userEvent.type(
+      screen.getByLabelText("Observaciones del vehículo"),
+      "Rines de posventa, llave de repuesto en recepción",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Agregar vehículo" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Vehículo agregado");
+    const formData = mockCreateVehiculoAction.mock.calls[0]![2] as FormData;
+    expect(formData.get("combustible")).toBe("GASOLINA");
+    expect(formData.get("kilometraje")).toBe("78420");
+    expect(formData.get("proximoMantenimiento")).toBe("2026-12-01");
+    expect(formData.get("transmision")).toBe("AUTOMATICA");
+    expect(formData.get("observaciones")).toBe("Rines de posventa, llave de repuesto en recepción");
+  });
+
   it("shows a success message after a successful submit", async () => {
     render(<NuevoVehiculoForm clienteId="c1" />);
 

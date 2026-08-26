@@ -11,7 +11,10 @@ export function NuevoVehiculoDialog({ clienteId }: { clienteId: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button size="sm" />}>+ Vehículo</DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      {/* Wider than the app's usual sm:max-w-lg dialog: the 6-column detail-fields
+          grid (matching the Claude Design mockup) needs the extra room, e.g. so the
+          Combustible/Transmisión selects don't clip their option text. */}
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Nuevo vehículo</DialogTitle>
         </DialogHeader>

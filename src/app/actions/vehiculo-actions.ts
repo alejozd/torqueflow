@@ -34,6 +34,11 @@ export async function createVehiculoAction(
     marca: formData.get("marca") ?? "",
     modelo: formData.get("modelo") ?? "",
     anio: formData.get("anio") || undefined,
+    combustible: formData.get("combustible") || undefined,
+    kilometraje: formData.get("kilometraje") || undefined,
+    proximoMantenimiento: formData.get("proximoMantenimiento") || undefined,
+    transmision: formData.get("transmision") || undefined,
+    observaciones: formData.get("observaciones") || undefined,
   });
 
   if (!parsed.success) {
@@ -50,6 +55,11 @@ export async function createVehiculoAction(
         marca: parsed.data.marca,
         modelo: parsed.data.modelo,
         anio: parsed.data.anio,
+        combustible: parsed.data.combustible,
+        kilometraje: parsed.data.kilometraje,
+        proximoMantenimiento: parsed.data.proximoMantenimiento,
+        transmision: parsed.data.transmision,
+        observaciones: parsed.data.observaciones,
         clienteId,
       },
     });

@@ -89,6 +89,21 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
     notFound();
   }
 
+  // EditarClienteDialog is a Client Component: it may only receive plain,
+  // serializable props. `cliente` itself carries `ordenes`/`facturas` with
+  // Prisma `Decimal` fields (facturado/saldo above), which Next.js rejects
+  // across the server/client boundary -- pass just the scalar Cliente fields
+  // the edit form actually needs.
+  const clienteEditable = {
+    id: cliente.id,
+    nombre: cliente.nombre,
+    telefono: cliente.telefono,
+    email: cliente.email,
+    documento: cliente.documento,
+    createdAt: cliente.createdAt,
+    updatedAt: cliente.updatedAt,
+  };
+
   const placaPorVehiculo = new Map(cliente.vehiculos.map((vehiculo) => [vehiculo.id, vehiculo.placa]));
   const vehiculosResumen = cliente.vehiculos.map((vehiculo) => resumirVehiculo(vehiculo, cliente.ordenes));
 
@@ -151,7 +166,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
             </p>
           </div>
         </div>
-        <EditarClienteDialog cliente={cliente} />
+        <EditarClienteDialog cliente={clienteEditable} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
