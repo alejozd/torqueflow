@@ -31,30 +31,30 @@ export default async function CitaDetallePage({ params }: { params: Promise<{ id
         <CardContent>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <p className="text-sm text-muted-foreground">Fecha</p>
-              <p>{formatoFecha.format(cita.fechaHora)}</p>
+              <p className="text-xs text-muted-foreground">Fecha</p>
+              <p className="text-sm">{formatoFecha.format(cita.fechaHora)}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Cliente</p>
-              <p>{cita.cliente.nombre}</p>
+              <p className="text-xs text-muted-foreground">Cliente</p>
+              <p className="text-sm">{cita.cliente.nombre}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Vehículo</p>
-              <p>{`${cita.vehiculo.marca} ${cita.vehiculo.modelo} (${cita.vehiculo.placa})`}</p>
+              <p className="text-xs text-muted-foreground">Vehículo</p>
+              <p className="font-mono text-sm">{`${cita.vehiculo.marca} ${cita.vehiculo.modelo} (${cita.vehiculo.placa})`}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Motivo</p>
-              <p>{cita.motivo}</p>
+              <p className="text-xs text-muted-foreground">Motivo</p>
+              <p className="text-sm">{cita.motivo}</p>
             </div>
             {cita.notas ? (
               <div>
-                <p className="text-sm text-muted-foreground">Notas</p>
-                <p>{cita.notas}</p>
+                <p className="text-xs text-muted-foreground">Notas</p>
+                <p className="text-sm">{cita.notas}</p>
               </div>
             ) : null}
             <div>
-              <p className="text-sm text-muted-foreground">Agendada por</p>
-              <p>{cita.creadoPor.nombre}</p>
+              <p className="text-xs text-muted-foreground">Agendada por</p>
+              <p className="text-sm">{cita.creadoPor.nombre}</p>
             </div>
           </div>
         </CardContent>
