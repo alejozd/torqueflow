@@ -83,41 +83,30 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
   const kilometrajeActual =
     ordenes.find((orden) => orden.kilometrajeIngreso !== null)?.kilometrajeIngreso ?? vehiculo.kilometraje;
 
-  // Every cell links to the orden's own detail page, so the row reads as a
-  // single clickable target no matter where in it the user clicks.
+  // The whole row is clickable via DataTable's rowHref (a stretched link),
+  // not a per-cell <Link> -- one unified hover/cursor/click target instead of
+  // fragmented underlines per cell.
   const ORDENES_COLUMNS: DataTableColumn<OrdenDeVehiculo>[] = [
     {
       header: "Fecha",
-      cell: (orden) => (
-        <Link href={`/ordenes/${orden.id}`} className="block text-sm text-muted-foreground hover:underline">
-          {formatoFecha.format(orden.createdAt)}
-        </Link>
-      ),
+      cell: (orden) => <span className="text-sm text-muted-foreground">{formatoFecha.format(orden.createdAt)}</span>,
     },
     {
       header: "Síntomas",
-      cell: (orden) => (
-        <Link href={`/ordenes/${orden.id}`} className="block hover:underline">
-          {orden.sintomas ?? <span className="text-muted-foreground">—</span>}
-        </Link>
-      ),
+      cell: (orden) => orden.sintomas ?? <span className="text-muted-foreground">—</span>,
     },
     {
       header: "Estado",
       cell: (orden) => (
-        <Link href={`/ordenes/${orden.id}`} className="block w-fit">
-          <Badge variant={ESTADO_BADGE_VARIANT[orden.estado]} className={ESTADO_BADGE_CLASSNAME[orden.estado]}>
-            {ESTADO_LABELS[orden.estado]}
-          </Badge>
-        </Link>
+        <Badge variant={ESTADO_BADGE_VARIANT[orden.estado]} className={ESTADO_BADGE_CLASSNAME[orden.estado]}>
+          {ESTADO_LABELS[orden.estado]}
+        </Badge>
       ),
     },
     {
       header: "Total",
       cell: (orden) => (
-        <Link href={`/ordenes/${orden.id}`} className="block font-mono font-medium hover:underline">
-          {formatoMoneda.format(calcularTotalOrden(orden))}
-        </Link>
+        <span className="font-mono font-medium">{formatoMoneda.format(calcularTotalOrden(orden))}</span>
       ),
     },
   ];
@@ -172,6 +161,7 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
                 columns={ORDENES_COLUMNS}
                 rows={ordenes}
                 getRowKey={(orden) => orden.id}
+                rowHref={(orden) => `/ordenes/${orden.id}`}
                 emptyMessage="Este vehículo no tiene órdenes de trabajo."
               />
             </CardContent>

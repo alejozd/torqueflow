@@ -120,55 +120,38 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
     .reduce((suma, factura) => suma + Number(factura.saldoPendiente), 0);
   const ticketMedio = cliente.facturas.length > 0 ? facturado / cliente.facturas.length : null;
 
-  // Every cell links to the orden's own detail page, so the row reads as a
-  // single clickable target no matter where in it the user clicks -- same
-  // pattern as vehiculos/[id]/page.tsx's ORDENES_COLUMNS.
+  // The whole row is clickable via DataTable's rowHref (a stretched link),
+  // not a per-cell <Link> -- one unified hover/cursor/click target instead of
+  // fragmented underlines per cell.
   const HISTORIAL_COLUMNS: DataTableColumn<OrdenDeCliente>[] = [
     {
       header: "Fecha",
-      cell: (orden) => (
-        <Link href={`/ordenes/${orden.id}`} className="block text-sm text-muted-foreground hover:underline">
-          {formatoFecha.format(orden.createdAt)}
-        </Link>
-      ),
+      cell: (orden) => <span className="text-sm text-muted-foreground">{formatoFecha.format(orden.createdAt)}</span>,
     },
     {
       header: "Placa",
-      cell: (orden) => (
-        <Link href={`/ordenes/${orden.id}`} className="block font-mono text-sm hover:underline">
-          {placaPorVehiculo.get(orden.vehiculoId) ?? "—"}
-        </Link>
-      ),
+      cell: (orden) => <span className="font-mono text-sm">{placaPorVehiculo.get(orden.vehiculoId) ?? "—"}</span>,
     },
     {
       header: "Trabajo",
-      cell: (orden) => (
-        <Link href={`/ordenes/${orden.id}`} className="block hover:underline">
-          {orden.sintomas ?? <span className="text-muted-foreground">—</span>}
-        </Link>
-      ),
+      cell: (orden) => orden.sintomas ?? <span className="text-muted-foreground">—</span>,
     },
     {
       header: "Estado",
       cell: (orden) => (
-        <Link href={`/ordenes/${orden.id}`} className="block w-fit">
-          <Badge variant={ESTADO_BADGE_VARIANT[orden.estado]} className={ESTADO_BADGE_CLASSNAME[orden.estado]}>
-            {ESTADO_LABELS[orden.estado]}
-          </Badge>
-        </Link>
+        <Badge variant={ESTADO_BADGE_VARIANT[orden.estado]} className={ESTADO_BADGE_CLASSNAME[orden.estado]}>
+          {ESTADO_LABELS[orden.estado]}
+        </Badge>
       ),
     },
     {
       header: "Total",
-      cell: (orden) => (
-        <Link href={`/ordenes/${orden.id}`} className="block">
-          {orden.factura ? (
-            <span className="font-mono font-medium">{formatoMoneda.format(Number(orden.factura.total))}</span>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          )}
-        </Link>
-      ),
+      cell: (orden) =>
+        orden.factura ? (
+          <span className="font-mono font-medium">{formatoMoneda.format(Number(orden.factura.total))}</span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
     },
   ];
 
@@ -261,6 +244,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
                 columns={HISTORIAL_COLUMNS}
                 rows={cliente.ordenes}
                 getRowKey={(orden) => orden.id}
+                rowHref={(orden) => `/ordenes/${orden.id}`}
                 emptyMessage="Este cliente no tiene órdenes registradas."
               />
             </CardContent>
