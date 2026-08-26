@@ -42,6 +42,43 @@ export async function getSede(id: string): Promise<Sede | null> {
   return tenantDb.sede.findUnique({ where: { id } });
 }
 
+export interface SedeConMetricas extends Sede {
+  usuariosAsignados: number;
+  ordenesAbiertas: number;
+}
+
+/**
+ * "Usuarios asignados" only counts explicit UsuarioSede grants -- an ADMIN
+ * can operate any sede without a row there (see src/lib/auth/sede-access.ts),
+ * so this number deliberately does not represent "everyone who can work
+ * here," only who was explicitly assigned. "Órdenes abiertas" excludes
+ * ENTREGADA/ANULADA, matching the estado semantics already used across
+ * /ordenes.
+ */
+export async function listSedesConMetricas(): Promise<SedeConMetricas[]> {
+  const session = await requireRole(["ADMIN"]);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const [sedes, usuariosPorSede, ordenesPorSede] = await Promise.all([
+    tenantDb.sede.findMany({ orderBy: { nombre: "asc" } }),
+    tenantDb.usuarioSede.groupBy({ by: ["sedeId"], _count: { sedeId: true } }),
+    tenantDb.ordenTrabajo.groupBy({
+      by: ["sedeId"],
+      where: { estado: { notIn: ["ENTREGADA", "ANULADA"] } },
+      _count: { sedeId: true },
+    }),
+  ]);
+
+  const usuariosMap = new Map(usuariosPorSede.map((fila) => [fila.sedeId, fila._count.sedeId]));
+  const ordenesMap = new Map(ordenesPorSede.map((fila) => [fila.sedeId, fila._count.sedeId]));
+
+  return sedes.map((sede) => ({
+    ...sede,
+    usuariosAsignados: usuariosMap.get(sede.id) ?? 0,
+    ordenesAbiertas: ordenesMap.get(sede.id) ?? 0,
+  }));
+}
+
 export async function createSedeAction(
   prevState: SedeFormState,
   formData: FormData,

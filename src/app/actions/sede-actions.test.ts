@@ -14,8 +14,10 @@ const mockFindMany = vi.fn();
 const mockFindUnique = vi.fn();
 const mockSedeCount = vi.fn();
 const mockOrdenCount = vi.fn();
+const mockOrdenGroupBy = vi.fn();
 const mockBodegaCount = vi.fn();
 const mockUsuarioSedeCount = vi.fn();
+const mockUsuarioSedeGroupBy = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     sede: {
@@ -26,9 +28,9 @@ vi.mock("@/lib/db/tenant-client", () => ({
       findUnique: mockFindUnique,
       count: mockSedeCount,
     },
-    ordenTrabajo: { count: mockOrdenCount },
+    ordenTrabajo: { count: mockOrdenCount, groupBy: mockOrdenGroupBy },
     bodega: { count: mockBodegaCount },
-    usuarioSede: { count: mockUsuarioSedeCount },
+    usuarioSede: { count: mockUsuarioSedeCount, groupBy: mockUsuarioSedeGroupBy },
   }),
 }));
 
@@ -44,6 +46,7 @@ import {
   updateSedeAction,
   deleteSedeAction,
   listSedes,
+  listSedesConMetricas,
   type SedeFormState,
 } from "./sede-actions";
 
@@ -229,5 +232,49 @@ describe("listSedes", () => {
     expect(result).toEqual([{ id: "sede-1", nombre: "Sede principal" }]);
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
     expect(mockFindMany).toHaveBeenCalledWith({ orderBy: { nombre: "asc" } });
+  });
+});
+
+describe("listSedesConMetricas", () => {
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockResolvedValue(ADMIN);
+    mockFindMany.mockReset();
+    mockUsuarioSedeGroupBy.mockReset();
+    mockOrdenGroupBy.mockReset();
+  });
+
+  it("is ADMIN-only and merges usuarios asignados + órdenes abiertas per sede, defaulting to 0", async () => {
+    mockFindMany.mockResolvedValue([
+      { id: "sede-1", nombre: "Sede principal", direccion: "Calle 1" },
+      { id: "sede-2", nombre: "Sede norte", direccion: null },
+    ]);
+    mockUsuarioSedeGroupBy.mockResolvedValue([{ sedeId: "sede-1", _count: { sedeId: 3 } }]);
+    mockOrdenGroupBy.mockResolvedValue([{ sedeId: "sede-2", _count: { sedeId: 5 } }]);
+
+    const result = await listSedesConMetricas();
+
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(result).toEqual([
+      { id: "sede-1", nombre: "Sede principal", direccion: "Calle 1", usuariosAsignados: 3, ordenesAbiertas: 0 },
+      { id: "sede-2", nombre: "Sede norte", direccion: null, usuariosAsignados: 0, ordenesAbiertas: 5 },
+    ]);
+  });
+
+  it("counts only órdenes not entregadas/anuladas as abiertas", async () => {
+    mockFindMany.mockResolvedValue([]);
+    mockUsuarioSedeGroupBy.mockResolvedValue([]);
+    mockOrdenGroupBy.mockResolvedValue([]);
+
+    await listSedesConMetricas();
+
+    expect(mockOrdenGroupBy).toHaveBeenCalledWith({
+      by: ["sedeId"],
+      where: { estado: { notIn: ["ENTREGADA", "ANULADA"] } },
+      _count: { sedeId: true },
+    });
+    expect(mockUsuarioSedeGroupBy).toHaveBeenCalledWith({
+      by: ["sedeId"],
+      _count: { sedeId: true },
+    });
   });
 });
