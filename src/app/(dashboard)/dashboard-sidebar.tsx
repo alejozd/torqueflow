@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   CalendarDays,
+  Home,
   Mail,
   MapPin,
   Package,
@@ -42,6 +43,10 @@ interface NavGroup {
   items: NavItem[];
 }
 
+// Standalone, ungrouped -- the dashboard/overview link at src/app/(dashboard)/page.tsx
+// sits at "/" itself, not under any of the labeled groups below.
+const INICIO: NavItem = { href: "/", label: "Inicio", icon: Home };
+
 const OPERACION: NavGroup = {
   label: "Operación",
   items: [
@@ -76,6 +81,25 @@ function isActiveHref(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+// Fase 11-14: the mockup's active nav item is NOT the generic shadcn dark
+// --sidebar-accent grey -- it's the brand accent at 10% opacity with the
+// darker accent text, exact oklch values from the mockup (not the theme's
+// --sidebar-accent/--sidebar-accent-foreground tokens).
+const ACTIVE_ITEM_CLASSNAME =
+  "data-active:bg-[oklch(0.62_0.19_45/0.10)] data-active:text-[oklch(0.45_0.15_45)] data-active:font-medium";
+
+function NavItemButton({ href, label, icon: Icon, pathname }: NavItem & { pathname: string }) {
+  const active = isActiveHref(pathname, href);
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton isActive={active} render={<Link href={href} />} className={cn(ACTIVE_ITEM_CLASSNAME)}>
+        <Icon />
+        {label}
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+
 function NavGroupSection({ group, pathname }: { group: NavGroup; pathname: string }) {
   return (
     <SidebarGroup>
@@ -84,28 +108,9 @@ function NavGroupSection({ group, pathname }: { group: NavGroup; pathname: strin
       </SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
-          {group.items.map(({ href, label, icon: Icon }) => {
-            const active = isActiveHref(pathname, href);
-            return (
-              <SidebarMenuItem key={href}>
-                <SidebarMenuButton
-                  isActive={active}
-                  render={<Link href={href} />}
-                  className={cn(
-                    // Fase 11-14: the mockup's active nav item is NOT the
-                    // generic shadcn dark --sidebar-accent grey -- it's the
-                    // brand accent at 10% opacity with the darker accent text,
-                    // exact oklch values from the mockup (not the theme's
-                    // --sidebar-accent/--sidebar-accent-foreground tokens).
-                    "data-active:bg-[oklch(0.62_0.19_45/0.10)] data-active:text-[oklch(0.45_0.15_45)] data-active:font-medium",
-                  )}
-                >
-                  <Icon />
-                  {label}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            );
-          })}
+          {group.items.map((item) => (
+            <NavItemButton key={item.href} {...item} pathname={pathname} />
+          ))}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
@@ -144,6 +149,13 @@ export function DashboardSidebar({
           </div>
         </SidebarHeader>
         <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <NavItemButton {...INICIO} pathname={pathname} />
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
           <NavGroupSection group={OPERACION} pathname={pathname} />
           <NavGroupSection group={INVENTARIO} pathname={pathname} />
           {esAdmin ? <NavGroupSection group={ADMINISTRACION} pathname={pathname} /> : null}
