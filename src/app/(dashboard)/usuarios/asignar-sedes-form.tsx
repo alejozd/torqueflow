@@ -9,6 +9,7 @@ import {
   type UsuarioSedesFormState,
 } from "@/app/actions/usuario-actions";
 import { usuarioSedesInputSchema, type UsuarioSedesInput } from "@/lib/validation/sede";
+import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -49,31 +50,33 @@ export function AsignarSedesForm({
       onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
       className="flex flex-col gap-4"
     >
-      <div className="flex flex-col gap-1.5">
-        {sedes.map((sede) => {
-          const inputId = `sede-${sede.id}-usuario-${usuario.id}`;
-          return (
-            <div key={sede.id} className="flex items-center gap-2">
-              {/*
-                Native checkbox input -- no shadcn Checkbox component exists
-                in this project yet, and this form's tests rely on a real
-                <input type="checkbox"> for userEvent.click()/.checked.
-              */}
-              <input
-                id={inputId}
-                type="checkbox"
-                value={sede.id}
-                aria-describedby={errors.sedeIds ? sedesErrorId : undefined}
-                {...register("sedeIds")}
-              />
-              <Label htmlFor={inputId}>
-                {sede.nombre} para {usuario.nombre}
-              </Label>
-            </div>
-          );
-        })}
-        {errors.sedeIds ? <p id={sedesErrorId}>{errors.sedeIds.message}</p> : null}
-      </div>
+      <FormGroup label="Sedes asignadas">
+        <div className="flex flex-col gap-1.5">
+          {sedes.map((sede) => {
+            const inputId = `sede-${sede.id}-usuario-${usuario.id}`;
+            return (
+              <div key={sede.id} className="flex items-center gap-2">
+                {/*
+                  Native checkbox input -- no shadcn Checkbox component exists
+                  in this project yet, and this form's tests rely on a real
+                  <input type="checkbox"> for userEvent.click()/.checked.
+                */}
+                <input
+                  id={inputId}
+                  type="checkbox"
+                  value={sede.id}
+                  aria-describedby={errors.sedeIds ? sedesErrorId : undefined}
+                  {...register("sedeIds")}
+                />
+                <Label htmlFor={inputId}>
+                  {sede.nombre} para {usuario.nombre}
+                </Label>
+              </div>
+            );
+          })}
+          {errors.sedeIds ? <p id={sedesErrorId}>{errors.sedeIds.message}</p> : null}
+        </div>
+      </FormGroup>
 
       <Button type="submit" disabled={isPending}>
         {isPending ? "Guardando..." : `Guardar sedes de ${usuario.nombre}`}

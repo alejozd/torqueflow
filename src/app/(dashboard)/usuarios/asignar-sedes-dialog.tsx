@@ -4,7 +4,14 @@ import { useState } from "react";
 import { AsignarSedesForm, type SedeCheckboxOption } from "./asignar-sedes-form";
 import type { UsuarioConSedes } from "@/app/actions/usuario-actions";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 /**
  * Fase 11-14: row-level "Asignar sedes" opens the existing checkbox-group
@@ -26,6 +33,7 @@ export function AsignarSedesDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Sedes de {usuario.nombre}</DialogTitle>
+          <DialogDescription>Controla a qué sedes puede acceder este usuario.</DialogDescription>
         </DialogHeader>
         <AsignarSedesForm usuario={usuario} sedes={sedes} />
       </DialogContent>
