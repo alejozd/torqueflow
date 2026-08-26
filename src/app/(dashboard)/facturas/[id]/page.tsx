@@ -3,6 +3,7 @@ import { getFactura } from "@/app/actions/factura-actions";
 import { RegistrarPagoForm } from "./registrar-pago-form";
 import type { MetodoPago } from "@/generated/prisma-tenant";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const METODO_PAGO_LABELS: Record<MetodoPago, string> = {
   EFECTIVO: "Efectivo",
@@ -59,43 +60,91 @@ export default async function FacturaDetailPage({ params }: { params: Promise<{ 
   }
 
   return (
-    <main>
-      <h1>
+    <main className="flex flex-col gap-6">
+      <h1 className="text-2xl font-semibold">
         Factura #{factura.numero} — {factura.cliente.nombre}
       </h1>
-      <p>Vehículo: {factura.orden.vehiculo.placa}</p>
-      <p>Estado: {factura.estado === "PAGADA" ? "Pagada" : "Pendiente"}</p>
 
-      <h2>Ítems</h2>
-      <DataTable
-        columns={ITEMS_COLUMNS}
-        rows={factura.orden.items}
-        getRowKey={(item) => item.id}
-        emptyMessage="Esta factura no tiene ítems."
-      />
+      <Card>
+        <CardHeader>
+          <CardTitle>Información de la factura</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-sm text-muted-foreground">Vehículo</p>
+              <p>{factura.orden.vehiculo.placa}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Estado</p>
+              <p>{factura.estado === "PAGADA" ? "Pagada" : "Pendiente"}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Subtotal</p>
+              <p>{factura.subtotal.toString()}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Descuento</p>
+              <p>{factura.descuento.toString()}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">IVA (19%)</p>
+              <p>{factura.iva.toString()}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Total</p>
+              <p>{factura.total.toString()}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Saldo pendiente</p>
+              <p>{factura.saldoPendiente.toString()}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <h2>Mano de obra</h2>
-      <DataTable
-        columns={MANO_OBRA_COLUMNS}
-        rows={factura.orden.manoDeObra}
-        getRowKey={(linea) => linea.id}
-        emptyMessage="Esta factura no tiene mano de obra."
-      />
+      <Card>
+        <CardHeader>
+          <CardTitle>Ítems</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={ITEMS_COLUMNS}
+            rows={factura.orden.items}
+            getRowKey={(item) => item.id}
+            emptyMessage="Esta factura no tiene ítems."
+          />
+        </CardContent>
+      </Card>
 
-      <p>Subtotal: {factura.subtotal.toString()}</p>
-      <p>Descuento: {factura.descuento.toString()}</p>
-      <p>IVA (19%): {factura.iva.toString()}</p>
-      <p>Total: {factura.total.toString()}</p>
-      <p>Saldo pendiente: {factura.saldoPendiente.toString()}</p>
+      <Card>
+        <CardHeader>
+          <CardTitle>Mano de obra</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={MANO_OBRA_COLUMNS}
+            rows={factura.orden.manoDeObra}
+            getRowKey={(linea) => linea.id}
+            emptyMessage="Esta factura no tiene mano de obra."
+          />
+        </CardContent>
+      </Card>
 
-      <h2>Pagos</h2>
-      <RegistrarPagoForm facturaId={factura.id} estado={factura.estado} />
-      <DataTable
-        columns={PAGOS_COLUMNS}
-        rows={factura.pagos}
-        getRowKey={(pago) => pago.id}
-        emptyMessage="Esta factura no tiene pagos registrados."
-      />
+      <Card>
+        <CardHeader>
+          <CardTitle>Pagos</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <RegistrarPagoForm facturaId={factura.id} estado={factura.estado} />
+          <DataTable
+            columns={PAGOS_COLUMNS}
+            rows={factura.pagos}
+            getRowKey={(pago) => pago.id}
+            emptyMessage="Esta factura no tiene pagos registrados."
+          />
+        </CardContent>
+      </Card>
     </main>
   );
 }
