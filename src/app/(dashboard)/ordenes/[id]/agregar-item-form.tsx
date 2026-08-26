@@ -7,6 +7,10 @@ import { z } from "zod";
 import { addItemOrdenAction, type ItemOrdenFormState } from "@/app/actions/item-orden-actions";
 import { itemOrdenInputSchema } from "@/lib/validation/orden";
 import type { RepuestoOption } from "@/app/actions/repuesto-actions";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const initialState: ItemOrdenFormState = { error: null, success: false };
 
@@ -45,43 +49,81 @@ export function AgregarItemForm({ ordenId, repuestos }: { ordenId: string; repue
       noValidate
       ref={formRef}
       onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+      className="flex flex-col gap-4"
     >
-      <label htmlFor="repuestoId">Repuesto del inventario (opcional)</label>
-      <select id="repuestoId" {...register("repuestoId")}>
-        <option value="">Ítem manual (completa descripción y precio abajo)</option>
-        {repuestos.map((repuesto) => (
-          <option key={repuesto.id} value={repuesto.id}>
-            {repuesto.codigo} — {repuesto.nombre}
-          </option>
-        ))}
-      </select>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="repuestoId">Repuesto del inventario (opcional)</Label>
+        {/*
+          Native <select>, not shadcn's Select (Base UI, no DOM <option>s
+          while closed) -- userEvent.selectOptions()/getByRole("option")
+          in the existing tests need real <select>/<option> elements.
+          Styled by hand to match the shadcn select trigger look.
+        */}
+        <select
+          id="repuestoId"
+          className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+          {...register("repuestoId")}
+        >
+          <option value="">Ítem manual (completa descripción y precio abajo)</option>
+          {repuestos.map((repuesto) => (
+            <option key={repuesto.id} value={repuesto.id}>
+              {repuesto.codigo} — {repuesto.nombre}
+            </option>
+          ))}
+        </select>
+      </div>
 
-      <label htmlFor="itemDescripcion">Descripción</label>
-      <input id="itemDescripcion" {...register("descripcion")} />
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="itemDescripcion">Descripción</Label>
+        <Input
+          id="itemDescripcion"
+          aria-invalid={errors.descripcion ? true : undefined}
+          aria-describedby={errors.descripcion ? "itemDescripcion-error" : undefined}
+          {...register("descripcion")}
+        />
+        {errors.descripcion ? <p id="itemDescripcion-error">{errors.descripcion.message}</p> : null}
+      </div>
 
-      <label htmlFor="itemCantidad">Cantidad</label>
-      <input
-        id="itemCantidad"
-        type="number"
-        min="1"
-        required
-        aria-invalid={errors.cantidad ? true : undefined}
-        aria-describedby={errors.cantidad ? "itemCantidad-error" : undefined}
-        {...register("cantidad")}
-      />
-      {errors.cantidad ? <p id="itemCantidad-error">{errors.cantidad.message}</p> : null}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="itemCantidad">Cantidad</Label>
+        <Input
+          id="itemCantidad"
+          type="number"
+          min="1"
+          required
+          aria-invalid={errors.cantidad ? true : undefined}
+          aria-describedby={errors.cantidad ? "itemCantidad-error" : undefined}
+          {...register("cantidad")}
+        />
+        {errors.cantidad ? <p id="itemCantidad-error">{errors.cantidad.message}</p> : null}
+      </div>
 
-      <label htmlFor="itemPrecioUnitario">Precio unitario</label>
-      <input id="itemPrecioUnitario" type="number" min="0" step="0.01" {...register("precioUnitario")} />
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="itemPrecioUnitario">Precio unitario</Label>
+        <Input
+          id="itemPrecioUnitario"
+          type="number"
+          min="0"
+          step="0.01"
+          aria-invalid={errors.precioUnitario ? true : undefined}
+          aria-describedby={errors.precioUnitario ? "itemPrecioUnitario-error" : undefined}
+          {...register("precioUnitario")}
+        />
+        {errors.precioUnitario ? <p id="itemPrecioUnitario-error">{errors.precioUnitario.message}</p> : null}
+      </div>
 
       <p>Si seleccionas un repuesto del inventario, la descripción y el precio se completan automáticamente.</p>
       {formError ? <p>{formError}</p> : null}
 
-      <button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending}>
         {isPending ? "Guardando..." : "Agregar ítem"}
-      </button>
+      </Button>
 
-      {state.error ? <p role="alert">{state.error}</p> : null}
+      {state.error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{state.error}</AlertDescription>
+        </Alert>
+      ) : null}
       {state.success ? <p role="status">Ítem agregado</p> : null}
     </form>
   );
