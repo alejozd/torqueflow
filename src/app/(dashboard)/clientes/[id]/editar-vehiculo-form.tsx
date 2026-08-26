@@ -49,16 +49,19 @@ export function EditarVehiculoForm({ vehiculo }: { vehiculo: Vehiculo }) {
     >
       <VehiculoFormFields register={register} errors={errors} />
 
-      <Button type="submit" disabled={isPending}>
-        {isPending ? "Guardando..." : "Guardar cambios"}
-      </Button>
-
       {state.error ? (
         <Alert variant="destructive">
           <AlertDescription>{state.error}</AlertDescription>
         </Alert>
       ) : null}
       {state.success ? <p role="status">Vehículo actualizado</p> : null}
+
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+        <span className="text-xs text-muted-foreground">Placa, marca y modelo son obligatorios</span>
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Guardando..." : "Guardar cambios"}
+        </Button>
+      </div>
     </form>
   );
 }

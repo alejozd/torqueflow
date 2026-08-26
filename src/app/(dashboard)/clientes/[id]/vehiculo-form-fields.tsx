@@ -3,6 +3,7 @@
 import { z } from "zod";
 import type { FieldErrors, UseFormRegister } from "react-hook-form";
 import { vehiculoInputSchema } from "@/lib/validation/vehiculo";
+import { FormGroup } from "@/components/form-group";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,18 +22,6 @@ export const vehiculoFormSchema = vehiculoInputSchema.extend({
 });
 export type VehiculoFormInput = z.input<typeof vehiculoFormSchema>;
 
-// Group label + divider line, matching the Claude Design mockup's form layout.
-function GroupLabel({ children }: { children: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-[10px] font-semibold tracking-[0.1em] text-[oklch(0.45_0.15_45)] uppercase">
-        {children}
-      </span>
-      <span className="h-px flex-1 bg-border" />
-    </div>
-  );
-}
-
 // Shared by NuevoVehiculoForm and EditarVehiculoForm -- both need the exact
 // same 9-field, 4-group layout, only the submit action and defaultValues differ.
 export function VehiculoFormFields({
@@ -44,8 +33,7 @@ export function VehiculoFormFields({
 }) {
   return (
     <>
-      <div className="flex flex-col gap-3">
-        <GroupLabel>Identificación</GroupLabel>
+      <FormGroup label="Identificación">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="placa">Placa</Label>
@@ -59,10 +47,9 @@ export function VehiculoFormFields({
             {errors.placa ? <p id="placa-error">{errors.placa.message}</p> : null}
           </div>
         </div>
-      </div>
+      </FormGroup>
 
-      <div className="flex flex-col gap-3">
-        <GroupLabel>Vehículo</GroupLabel>
+      <FormGroup label="Vehículo">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="marca">Marca</Label>
@@ -121,10 +108,9 @@ export function VehiculoFormFields({
             </select>
           </div>
         </div>
-      </div>
+      </FormGroup>
 
-      <div className="flex flex-col gap-3">
-        <GroupLabel>Estado actual</GroupLabel>
+      <FormGroup label="Estado actual">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="kilometraje">Kilometraje</Label>
@@ -167,10 +153,9 @@ export function VehiculoFormFields({
             </select>
           </div>
         </div>
-      </div>
+      </FormGroup>
 
-      <div className="flex flex-col gap-3">
-        <GroupLabel>Notas</GroupLabel>
+      <FormGroup label="Notas">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="observaciones">Observaciones del vehículo</Label>
           <Textarea
@@ -180,7 +165,7 @@ export function VehiculoFormFields({
             {...register("observaciones")}
           />
         </div>
-      </div>
+      </FormGroup>
     </>
   );
 }
