@@ -5,12 +5,19 @@ import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { proveedorInputSchema } from "@/lib/validation/inventario";
-import type { Proveedor } from "@/generated/prisma-tenant";
+import type { Proveedor, Prisma } from "@/generated/prisma-tenant";
 
 export interface ProveedorFormState {
   error: string | null;
   success: boolean;
 }
+
+const PROVEEDOR_INVENTARIO_INCLUDE = {
+  repuestos: { select: { id: true } },
+  entradas: { select: { createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
+} satisfies Prisma.ProveedorInclude;
+
+export type ProveedorConInventario = Prisma.ProveedorGetPayload<{ include: typeof PROVEEDOR_INVENTARIO_INCLUDE }>;
 
 function parseProveedorFormData(formData: FormData) {
   return proveedorInputSchema.safeParse({
@@ -25,6 +32,21 @@ export async function listProveedores(): Promise<Proveedor[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.proveedor.findMany({ orderBy: { nombre: "asc" } });
+}
+
+/**
+ * Same rows as listProveedores, plus each proveedor's repuestos (for the
+ * Referencias count) and its single most recent entrada (for "Última
+ * entrada"). Proveedor has no sedeId -- it is shared across the whole tenant,
+ * same as listProveedores.
+ */
+export async function listProveedoresConInventario(): Promise<ProveedorConInventario[]> {
+  const session = await requireSession();
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  return tenantDb.proveedor.findMany({
+    include: PROVEEDOR_INVENTARIO_INCLUDE,
+    orderBy: { nombre: "asc" },
+  });
 }
 
 export async function getProveedor(id: string): Promise<Proveedor | null> {

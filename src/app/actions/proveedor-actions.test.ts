@@ -24,6 +24,7 @@ import {
   updateProveedorAction,
   deleteProveedorAction,
   listProveedores,
+  listProveedoresConInventario,
   type ProveedorFormState,
 } from "./proveedor-actions";
 
@@ -98,5 +99,37 @@ describe("listProveedores", () => {
 
     expect(result).toEqual([{ id: "p1", nombre: "Repuestos El Motor" }]);
     expect(mockFindMany).toHaveBeenCalledWith({ orderBy: { nombre: "asc" } });
+  });
+});
+
+describe("listProveedoresConInventario", () => {
+  it("lists proveedores with their repuestos count and most recent entrada for the KPI columns", async () => {
+    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
+    mockFindMany.mockReset().mockResolvedValue([
+      {
+        id: "p1",
+        nombre: "Repuestos El Motor",
+        repuestos: [{ id: "r1" }],
+        entradas: [{ createdAt: new Date("2026-01-01") }],
+      },
+    ]);
+
+    const result = await listProveedoresConInventario();
+
+    expect(result).toEqual([
+      {
+        id: "p1",
+        nombre: "Repuestos El Motor",
+        repuestos: [{ id: "r1" }],
+        entradas: [{ createdAt: new Date("2026-01-01") }],
+      },
+    ]);
+    expect(mockFindMany).toHaveBeenCalledWith({
+      include: {
+        repuestos: { select: { id: true } },
+        entradas: { select: { createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
+      },
+      orderBy: { nombre: "asc" },
+    });
   });
 });

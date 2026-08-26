@@ -1,36 +1,57 @@
-import { listProveedores } from "@/app/actions/proveedor-actions";
-import { NuevoProveedorForm } from "./nuevo-proveedor-form";
+import Link from "next/link";
+import { listProveedoresConInventario, type ProveedorConInventario } from "@/app/actions/proveedor-actions";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
 
-type ProveedorRow = Awaited<ReturnType<typeof listProveedores>>[number];
+const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" });
 
-const COLUMNS: DataTableColumn<ProveedorRow>[] = [
+const COLUMNS: DataTableColumn<ProveedorConInventario>[] = [
   {
     header: "Proveedor",
-    cell: (proveedor) => (
-      <>
-        {proveedor.nombre} — {proveedor.telefono ?? "—"} — {proveedor.email ?? "—"}
-      </>
-    ),
+    cell: (proveedor) => <span className="font-medium">{proveedor.nombre}</span>,
+  },
+  {
+    header: "Contacto",
+    cell: (proveedor) => proveedor.contacto ?? <span className="text-muted-foreground">—</span>,
+  },
+  {
+    header: "Teléfono",
+    cell: (proveedor) => <span className="font-mono text-sm">{proveedor.telefono ?? "—"}</span>,
+  },
+  {
+    header: "Correo",
+    cell: (proveedor) => <span className="text-muted-foreground">{proveedor.email ?? "—"}</span>,
+  },
+  {
+    header: "Referencias",
+    cell: (proveedor) => <span className="font-mono">{proveedor.repuestos.length}</span>,
+  },
+  {
+    header: "Última entrada",
+    cell: (proveedor) =>
+      proveedor.entradas[0] ? (
+        <span className="text-sm text-muted-foreground">{formatoFecha.format(proveedor.entradas[0].createdAt)}</span>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      ),
   },
 ];
 
 export default async function ProveedoresPage() {
-  const proveedores = await listProveedores();
+  const proveedores = await listProveedoresConInventario();
 
   return (
     <main className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Proveedores</h1>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Nuevo proveedor</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <NuevoProveedorForm />
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold">Proveedores</h1>
+          <p className="text-sm text-muted-foreground">{proveedores.length} proveedores registrados</p>
+        </div>
+        <Link href="/proveedores/nuevo" className={buttonVariants({})}>
+          Nuevo proveedor
+        </Link>
+      </div>
 
       <Card>
         <CardHeader>
