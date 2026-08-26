@@ -29,29 +29,31 @@ export function NuevaSedeForm() {
       noValidate
       ref={formRef}
       onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-6"
     >
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="nombre">Nombre</Label>
-        <Input
-          id="nombre"
-          required
-          aria-invalid={errors.nombre ? true : undefined}
-          aria-describedby={errors.nombre ? "nombre-error" : undefined}
-          {...register("nombre")}
-        />
-        {errors.nombre ? <p id="nombre-error">{errors.nombre.message}</p> : null}
-      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="nombre">Nombre</Label>
+          <Input
+            id="nombre"
+            required
+            aria-invalid={errors.nombre ? true : undefined}
+            aria-describedby={errors.nombre ? "nombre-error" : undefined}
+            {...register("nombre")}
+          />
+          {errors.nombre ? <p id="nombre-error">{errors.nombre.message}</p> : null}
+        </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="direccion">Dirección</Label>
-        <Input
-          id="direccion"
-          aria-invalid={errors.direccion ? true : undefined}
-          aria-describedby={errors.direccion ? "direccion-error" : undefined}
-          {...register("direccion")}
-        />
-        {errors.direccion ? <p id="direccion-error">{errors.direccion.message}</p> : null}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="direccion">Dirección</Label>
+          <Input
+            id="direccion"
+            aria-invalid={errors.direccion ? true : undefined}
+            aria-describedby={errors.direccion ? "direccion-error" : undefined}
+            {...register("direccion")}
+          />
+          {errors.direccion ? <p id="direccion-error">{errors.direccion.message}</p> : null}
+        </div>
       </div>
 
       <Button type="submit" disabled={isPending}>
