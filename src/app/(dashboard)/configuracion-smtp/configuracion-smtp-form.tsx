@@ -11,6 +11,10 @@ import {
   type SmtpFormState,
 } from "@/app/actions/smtp-actions";
 import { smtpConfigInputSchema } from "@/lib/validation/smtp";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const initialState: SmtpFormState = { error: null, success: false };
 
@@ -64,89 +68,117 @@ export function ConfiguracionSmtpForm({
         noValidate
         ref={formRef}
         onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+        className="flex flex-col gap-4"
       >
-        <label htmlFor="host">Servidor SMTP</label>
-        <input
-          id="host"
-          required
-          aria-invalid={errors.host ? true : undefined}
-          aria-describedby={errors.host ? "host-error" : undefined}
-          {...register("host")}
-        />
-        {errors.host ? <p id="host-error">{errors.host.message}</p> : null}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="host">Servidor SMTP</Label>
+          <Input
+            id="host"
+            required
+            aria-invalid={errors.host ? true : undefined}
+            aria-describedby={errors.host ? "host-error" : undefined}
+            {...register("host")}
+          />
+          {errors.host ? <p id="host-error">{errors.host.message}</p> : null}
+        </div>
 
-        <label htmlFor="puerto">Puerto</label>
-        <input
-          id="puerto"
-          type="number"
-          required
-          aria-invalid={errors.puerto ? true : undefined}
-          aria-describedby={errors.puerto ? "puerto-error" : undefined}
-          {...register("puerto")}
-        />
-        {errors.puerto ? <p id="puerto-error">{errors.puerto.message}</p> : null}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="puerto">Puerto</Label>
+          <Input
+            id="puerto"
+            type="number"
+            required
+            aria-invalid={errors.puerto ? true : undefined}
+            aria-describedby={errors.puerto ? "puerto-error" : undefined}
+            {...register("puerto")}
+          />
+          {errors.puerto ? <p id="puerto-error">{errors.puerto.message}</p> : null}
+        </div>
 
-        <label htmlFor="usuario">Usuario</label>
-        <input
-          id="usuario"
-          required
-          aria-invalid={errors.usuario ? true : undefined}
-          aria-describedby={errors.usuario ? "usuario-error" : undefined}
-          {...register("usuario")}
-        />
-        {errors.usuario ? <p id="usuario-error">{errors.usuario.message}</p> : null}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="usuario">Usuario</Label>
+          <Input
+            id="usuario"
+            required
+            aria-invalid={errors.usuario ? true : undefined}
+            aria-describedby={errors.usuario ? "usuario-error" : undefined}
+            {...register("usuario")}
+          />
+          {errors.usuario ? <p id="usuario-error">{errors.usuario.message}</p> : null}
+        </div>
 
-        <label htmlFor="password">Contraseña</label>
-        {/* The stored password is never sent to the browser, not even encrypted:
-            the field always starts empty and an empty submission means "keep it". */}
-        <input
-          id="password"
-          type="password"
-          required={!configuracion}
-          aria-invalid={errors.password ? true : undefined}
-          aria-describedby={errors.password ? "password-error" : undefined}
-          {...register("password")}
-        />
-        {configuracion ? <p>Déjala en blanco para conservar la contraseña guardada.</p> : null}
-        {errors.password ? <p id="password-error">{errors.password.message}</p> : null}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="password">Contraseña</Label>
+          {/* The stored password is never sent to the browser, not even encrypted:
+              the field always starts empty and an empty submission means "keep it". */}
+          <Input
+            id="password"
+            type="password"
+            required={!configuracion}
+            aria-invalid={errors.password ? true : undefined}
+            aria-describedby={errors.password ? "password-error" : undefined}
+            {...register("password")}
+          />
+          {configuracion ? <p>Déjala en blanco para conservar la contraseña guardada.</p> : null}
+          {errors.password ? <p id="password-error">{errors.password.message}</p> : null}
+        </div>
 
-        <label htmlFor="fromEmail">Correo remitente</label>
-        <input
-          id="fromEmail"
-          required
-          aria-invalid={errors.fromEmail ? true : undefined}
-          aria-describedby={errors.fromEmail ? "fromEmail-error" : undefined}
-          {...register("fromEmail")}
-        />
-        {errors.fromEmail ? <p id="fromEmail-error">{errors.fromEmail.message}</p> : null}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="fromEmail">Correo remitente</Label>
+          <Input
+            id="fromEmail"
+            required
+            aria-invalid={errors.fromEmail ? true : undefined}
+            aria-describedby={errors.fromEmail ? "fromEmail-error" : undefined}
+            {...register("fromEmail")}
+          />
+          {errors.fromEmail ? <p id="fromEmail-error">{errors.fromEmail.message}</p> : null}
+        </div>
 
-        <label htmlFor="fromNombre">Nombre del remitente</label>
-        <input
-          id="fromNombre"
-          required
-          aria-invalid={errors.fromNombre ? true : undefined}
-          aria-describedby={errors.fromNombre ? "fromNombre-error" : undefined}
-          {...register("fromNombre")}
-        />
-        {errors.fromNombre ? <p id="fromNombre-error">{errors.fromNombre.message}</p> : null}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="fromNombre">Nombre del remitente</Label>
+          <Input
+            id="fromNombre"
+            required
+            aria-invalid={errors.fromNombre ? true : undefined}
+            aria-describedby={errors.fromNombre ? "fromNombre-error" : undefined}
+            {...register("fromNombre")}
+          />
+          {errors.fromNombre ? <p id="fromNombre-error">{errors.fromNombre.message}</p> : null}
+        </div>
 
-        <label htmlFor="activo">Enviar recordatorios</label>
-        <input id="activo" type="checkbox" {...register("activo")} />
+        <div className="flex items-center gap-2">
+          {/*
+            Native checkbox input -- no shadcn Checkbox component exists in
+            this project yet, and this form's tests rely on a real
+            <input type="checkbox"> for userEvent.click()/.checked.
+          */}
+          <input id="activo" type="checkbox" {...register("activo")} />
+          <Label htmlFor="activo">Enviar recordatorios</Label>
+        </div>
 
-        <button type="submit" disabled={isPending}>
+        <Button type="submit" disabled={isPending}>
           {isPending ? "Guardando..." : "Guardar configuración"}
-        </button>
+        </Button>
 
-        {state.error ? <p role="alert">{state.error}</p> : null}
+        {state.error ? (
+          <Alert variant="destructive">
+            <AlertDescription>{state.error}</AlertDescription>
+          </Alert>
+        ) : null}
         {state.success ? <p role="status">Configuración guardada</p> : null}
       </form>
 
       {configuracion ? (
-        <form action={pruebaAction}>
-          <button type="submit" disabled={pruebaPending}>
+        <form action={pruebaAction} className="flex flex-col gap-1.5">
+          <Button type="submit" variant="outline" disabled={pruebaPending}>
             {pruebaPending ? "Enviando..." : "Enviar correo de prueba"}
-          </button>
-          {pruebaState.error ? <p role="alert">{pruebaState.error}</p> : null}
+          </Button>
+          {pruebaState.error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{pruebaState.error}</AlertDescription>
+            </Alert>
+          ) : null}
           {pruebaState.success ? <p role="status">Correo de prueba enviado</p> : null}
         </form>
       ) : null}
