@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useRef } from "react";
+import { startTransition, useActionState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -29,14 +29,29 @@ export function NuevaOrdenForm({
   clienteId,
   vehiculoId,
   tecnicos,
+  onCreated,
 }: {
   clienteId: string;
   vehiculoId: string;
   tecnicos: TecnicoOption[];
+  /** Fired once, right after a successful create, with the new orden's id. */
+  onCreated?: (ordenId: string) => void;
 }) {
   const createForVehiculo = createOrdenAction.bind(null, clienteId, vehiculoId);
   const [state, formAction, isPending] = useActionState(createForVehiculo, initialState);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // useActionState has no "then" -- this is the standard way to react to a
+  // state transition it produces (as opposed to the submit event itself).
+  // onCreated is deliberately omitted from the deps: it's a fresh closure
+  // per render in every caller, and keying off it would refire this on every
+  // parent re-render instead of only on a real state change.
+  useEffect(() => {
+    if (state.success && state.ordenId) {
+      onCreated?.(state.ordenId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.success, state.ordenId]);
   const {
     register,
     handleSubmit,

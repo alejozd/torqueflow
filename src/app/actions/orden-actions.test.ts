@@ -83,7 +83,7 @@ describe("createOrdenAction", () => {
 
     const result = await createOrdenAction("c1", "v1", initialState, formData);
 
-    expect(result).toEqual({ error: null, success: true });
+    expect(result).toEqual({ error: null, success: true, ordenId: "o1" });
     expect(mockSedeFindFirst).not.toHaveBeenCalled();
     expect(mockCreate).toHaveBeenCalledWith({
       data: {
@@ -150,7 +150,7 @@ describe("createOrdenDesdeVehiculoAction", () => {
 
     const result = await createOrdenDesdeVehiculoAction(initialState, formData);
 
-    expect(result).toEqual({ error: null, success: true });
+    expect(result).toEqual({ error: null, success: true, ordenId: "o1" });
     expect(mockVehiculoFindUnique).toHaveBeenCalledWith({
       where: { id: "v1" },
       select: { id: true, clienteId: true },

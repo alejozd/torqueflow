@@ -24,6 +24,7 @@ import type { EstadoOrden, Prisma } from "@/generated/prisma-tenant";
 export interface OrdenFormState {
   error: string | null;
   success: boolean;
+  ordenId?: string;
 }
 
 export interface TecnicoOption {
@@ -123,13 +124,13 @@ async function crearOrdenTrabajo(
     kilometrajeIngreso: number | undefined;
     sintomas: string | null;
   },
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null; ordenId?: string }> {
   try {
-    await tenantDb.ordenTrabajo.create({ data });
+    const orden = await tenantDb.ordenTrabajo.create({ data });
+    return { error: null, ordenId: orden.id };
   } catch (err) {
     return { error: friendlyPrismaErrorMessage(err, "Error al crear la orden") };
   }
-  return { error: null };
 }
 
 export async function createOrdenAction(
@@ -151,7 +152,7 @@ export async function createOrdenAction(
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  const { error } = await crearOrdenTrabajo(tenantDb, {
+  const { error, ordenId } = await crearOrdenTrabajo(tenantDb, {
     clienteId,
     vehiculoId,
     sedeId: session.user.sedeActivaId,
@@ -170,7 +171,7 @@ export async function createOrdenAction(
   // immediately, regardless of which one the user is looking at.
   revalidatePath(`/vehiculos/${vehiculoId}`);
   revalidatePath(`/clientes/${clienteId}`);
-  return { error: null, success: true };
+  return { error: null, success: true, ordenId };
 }
 
 // Used by /ordenes' "Nueva orden" dialog, which lets staff pick ANY cliente
@@ -208,7 +209,7 @@ export async function createOrdenDesdeVehiculoAction(
     return { error: "El vehículo seleccionado no existe.", success: false };
   }
 
-  const { error } = await crearOrdenTrabajo(tenantDb, {
+  const { error, ordenId } = await crearOrdenTrabajo(tenantDb, {
     clienteId: vehiculo.clienteId,
     vehiculoId: vehiculo.id,
     sedeId: session.user.sedeActivaId,
@@ -222,7 +223,7 @@ export async function createOrdenDesdeVehiculoAction(
   }
 
   revalidatePath("/ordenes");
-  return { error: null, success: true };
+  return { error: null, success: true, ordenId };
 }
 
 export interface EstadoFormState {

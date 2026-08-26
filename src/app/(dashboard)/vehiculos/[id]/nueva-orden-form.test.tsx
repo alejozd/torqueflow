@@ -35,6 +35,28 @@ describe("NuevaOrdenForm", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("Orden creada");
   });
 
+  it("calls onCreated with the new orden's id after a successful submit", async () => {
+    mockCreateOrdenAction.mockResolvedValue({ error: null, success: true, ordenId: "o1" });
+    const onCreated = vi.fn();
+    render(<NuevaOrdenForm clienteId="c1" vehiculoId="v1" tecnicos={tecnicos} onCreated={onCreated} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Crear orden" }));
+
+    await screen.findByRole("status");
+    expect(onCreated).toHaveBeenCalledExactlyOnceWith("o1");
+  });
+
+  it("does not call onCreated when the action returns an error", async () => {
+    mockCreateOrdenAction.mockResolvedValue({ error: "El kilometraje no puede ser negativo", success: false });
+    const onCreated = vi.fn();
+    render(<NuevaOrdenForm clienteId="c1" vehiculoId="v1" tecnicos={tecnicos} onCreated={onCreated} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Crear orden" }));
+
+    await screen.findByRole("alert");
+    expect(onCreated).not.toHaveBeenCalled();
+  });
+
   it("shows the error message when the action returns one", async () => {
     mockCreateOrdenAction.mockResolvedValue({ error: "El kilometraje no puede ser negativo", success: false });
     render(<NuevaOrdenForm clienteId="c1" vehiculoId="v1" tecnicos={tecnicos} />);
