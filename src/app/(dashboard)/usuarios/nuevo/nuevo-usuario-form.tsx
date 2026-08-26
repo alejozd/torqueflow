@@ -5,6 +5,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createUsuarioAction, type UsuarioFormState } from "@/app/actions/usuario-actions";
 import { usuarioCreateInputSchema, type UsuarioCreateInput } from "@/lib/validation/usuario";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const initialState: UsuarioFormState = { error: null, success: false };
 
@@ -25,52 +29,75 @@ export function NuevoUsuarioForm() {
       noValidate
       ref={formRef}
       onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+      className="flex flex-col gap-4"
     >
-      <label htmlFor="nombre">Nombre</label>
-      <input
-        id="nombre"
-        required
-        aria-invalid={errors.nombre ? true : undefined}
-        aria-describedby={errors.nombre ? "nombre-error" : undefined}
-        {...register("nombre")}
-      />
-      {errors.nombre ? <p id="nombre-error">{errors.nombre.message}</p> : null}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="nombre">Nombre</Label>
+        <Input
+          id="nombre"
+          required
+          aria-invalid={errors.nombre ? true : undefined}
+          aria-describedby={errors.nombre ? "nombre-error" : undefined}
+          {...register("nombre")}
+        />
+        {errors.nombre ? <p id="nombre-error">{errors.nombre.message}</p> : null}
+      </div>
 
-      <label htmlFor="email">Correo</label>
-      <input
-        id="email"
-        type="email"
-        required
-        aria-invalid={errors.email ? true : undefined}
-        aria-describedby={errors.email ? "email-error" : undefined}
-        {...register("email")}
-      />
-      {errors.email ? <p id="email-error">{errors.email.message}</p> : null}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="email">Correo</Label>
+        <Input
+          id="email"
+          type="email"
+          required
+          aria-invalid={errors.email ? true : undefined}
+          aria-describedby={errors.email ? "email-error" : undefined}
+          {...register("email")}
+        />
+        {errors.email ? <p id="email-error">{errors.email.message}</p> : null}
+      </div>
 
-      <label htmlFor="password">Contraseña</label>
-      <input
-        id="password"
-        type="password"
-        required
-        minLength={8}
-        aria-invalid={errors.password ? true : undefined}
-        aria-describedby={errors.password ? "password-error" : undefined}
-        {...register("password")}
-      />
-      {errors.password ? <p id="password-error">{errors.password.message}</p> : null}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="password">Contraseña</Label>
+        <Input
+          id="password"
+          type="password"
+          required
+          minLength={8}
+          aria-invalid={errors.password ? true : undefined}
+          aria-describedby={errors.password ? "password-error" : undefined}
+          {...register("password")}
+        />
+        {errors.password ? <p id="password-error">{errors.password.message}</p> : null}
+      </div>
 
-      <label htmlFor="role">Rol</label>
-      <select id="role" {...register("role")}>
-        <option value="ADMIN">ADMIN</option>
-        <option value="TECNICO">TECNICO</option>
-        <option value="RECEPCION">RECEPCION</option>
-      </select>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="role">Rol</Label>
+        {/*
+          Native <select>, not shadcn's Select (Base UI, no DOM <option>s
+          while closed) -- userEvent.selectOptions()/getByRole("option")
+          in the existing tests need real <select>/<option> elements.
+          Styled by hand to match the shadcn select trigger look.
+        */}
+        <select
+          id="role"
+          className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+          {...register("role")}
+        >
+          <option value="ADMIN">ADMIN</option>
+          <option value="TECNICO">TECNICO</option>
+          <option value="RECEPCION">RECEPCION</option>
+        </select>
+      </div>
 
-      <button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending}>
         {isPending ? "Creando..." : "Crear usuario"}
-      </button>
+      </Button>
 
-      {state.error ? <p role="alert">{state.error}</p> : null}
+      {state.error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{state.error}</AlertDescription>
+        </Alert>
+      ) : null}
       {state.success ? <p role="status">Usuario creado</p> : null}
     </form>
   );
