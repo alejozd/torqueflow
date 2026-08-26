@@ -11,6 +11,7 @@ import {
   type SmtpFormState,
 } from "@/app/actions/smtp-actions";
 import { smtpConfigInputSchema } from "@/lib/validation/smtp";
+import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,105 +64,114 @@ export function ConfiguracionSmtpForm({
   });
 
   return (
-    <>
+    <div className="flex flex-col gap-4">
       <form
         noValidate
         ref={formRef}
         onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
-        className="flex flex-col gap-6"
+        className="flex flex-col gap-4"
       >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="host">Servidor SMTP</Label>
-            <Input
-              id="host"
-              required
-              aria-invalid={errors.host ? true : undefined}
-              aria-describedby={errors.host ? "host-error" : undefined}
-              {...register("host")}
-            />
-            {errors.host ? <p id="host-error">{errors.host.message}</p> : null}
+        <FormGroup label="Servidor">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="host">Servidor SMTP</Label>
+              <Input
+                id="host"
+                required
+                aria-invalid={errors.host ? true : undefined}
+                aria-describedby={errors.host ? "host-error" : undefined}
+                {...register("host")}
+              />
+              {errors.host ? <p id="host-error">{errors.host.message}</p> : null}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="puerto">Puerto</Label>
+              <Input
+                id="puerto"
+                type="number"
+                required
+                className="font-mono"
+                aria-invalid={errors.puerto ? true : undefined}
+                aria-describedby={errors.puerto ? "puerto-error" : undefined}
+                {...register("puerto")}
+              />
+              {errors.puerto ? <p id="puerto-error">{errors.puerto.message}</p> : null}
+            </div>
+          </div>
+        </FormGroup>
+
+        <FormGroup label="Autenticación">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="usuario">Usuario</Label>
+              <Input
+                id="usuario"
+                required
+                aria-invalid={errors.usuario ? true : undefined}
+                aria-describedby={errors.usuario ? "usuario-error" : undefined}
+                {...register("usuario")}
+              />
+              {errors.usuario ? <p id="usuario-error">{errors.usuario.message}</p> : null}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="password">Contraseña</Label>
+              {/* The stored password is never sent to the browser, not even encrypted:
+                  the field always starts empty and an empty submission means "keep it". */}
+              <Input
+                id="password"
+                type="password"
+                required={!configuracion}
+                aria-invalid={errors.password ? true : undefined}
+                aria-describedby={errors.password ? "password-error" : undefined}
+                {...register("password")}
+              />
+              {configuracion ? (
+                <p className="text-xs text-muted-foreground">Déjala en blanco para conservar la contraseña guardada.</p>
+              ) : null}
+              {errors.password ? <p id="password-error">{errors.password.message}</p> : null}
+            </div>
+          </div>
+        </FormGroup>
+
+        <FormGroup label="Remitente">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="fromEmail">Correo remitente</Label>
+              <Input
+                id="fromEmail"
+                required
+                aria-invalid={errors.fromEmail ? true : undefined}
+                aria-describedby={errors.fromEmail ? "fromEmail-error" : undefined}
+                {...register("fromEmail")}
+              />
+              {errors.fromEmail ? <p id="fromEmail-error">{errors.fromEmail.message}</p> : null}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="fromNombre">Nombre del remitente</Label>
+              <Input
+                id="fromNombre"
+                required
+                aria-invalid={errors.fromNombre ? true : undefined}
+                aria-describedby={errors.fromNombre ? "fromNombre-error" : undefined}
+                {...register("fromNombre")}
+              />
+              {errors.fromNombre ? <p id="fromNombre-error">{errors.fromNombre.message}</p> : null}
+            </div>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="puerto">Puerto</Label>
-            <Input
-              id="puerto"
-              type="number"
-              required
-              aria-invalid={errors.puerto ? true : undefined}
-              aria-describedby={errors.puerto ? "puerto-error" : undefined}
-              {...register("puerto")}
-            />
-            {errors.puerto ? <p id="puerto-error">{errors.puerto.message}</p> : null}
+          <div className="flex items-center gap-2">
+            {/*
+              Native checkbox input -- no shadcn Checkbox component exists in
+              this project yet, and this form's tests rely on a real
+              <input type="checkbox"> for userEvent.click()/.checked.
+            */}
+            <input id="activo" type="checkbox" {...register("activo")} />
+            <Label htmlFor="activo">Enviar recordatorios</Label>
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="usuario">Usuario</Label>
-            <Input
-              id="usuario"
-              required
-              aria-invalid={errors.usuario ? true : undefined}
-              aria-describedby={errors.usuario ? "usuario-error" : undefined}
-              {...register("usuario")}
-            />
-            {errors.usuario ? <p id="usuario-error">{errors.usuario.message}</p> : null}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="password">Contraseña</Label>
-            {/* The stored password is never sent to the browser, not even encrypted:
-                the field always starts empty and an empty submission means "keep it". */}
-            <Input
-              id="password"
-              type="password"
-              required={!configuracion}
-              aria-invalid={errors.password ? true : undefined}
-              aria-describedby={errors.password ? "password-error" : undefined}
-              {...register("password")}
-            />
-            {configuracion ? <p>Déjala en blanco para conservar la contraseña guardada.</p> : null}
-            {errors.password ? <p id="password-error">{errors.password.message}</p> : null}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="fromEmail">Correo remitente</Label>
-            <Input
-              id="fromEmail"
-              required
-              aria-invalid={errors.fromEmail ? true : undefined}
-              aria-describedby={errors.fromEmail ? "fromEmail-error" : undefined}
-              {...register("fromEmail")}
-            />
-            {errors.fromEmail ? <p id="fromEmail-error">{errors.fromEmail.message}</p> : null}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="fromNombre">Nombre del remitente</Label>
-            <Input
-              id="fromNombre"
-              required
-              aria-invalid={errors.fromNombre ? true : undefined}
-              aria-describedby={errors.fromNombre ? "fromNombre-error" : undefined}
-              {...register("fromNombre")}
-            />
-            {errors.fromNombre ? <p id="fromNombre-error">{errors.fromNombre.message}</p> : null}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/*
-            Native checkbox input -- no shadcn Checkbox component exists in
-            this project yet, and this form's tests rely on a real
-            <input type="checkbox"> for userEvent.click()/.checked.
-          */}
-          <input id="activo" type="checkbox" {...register("activo")} />
-          <Label htmlFor="activo">Enviar recordatorios</Label>
-        </div>
+        </FormGroup>
 
         <Button type="submit" disabled={isPending}>
           {isPending ? "Guardando..." : "Guardar configuración"}
@@ -176,7 +186,7 @@ export function ConfiguracionSmtpForm({
       </form>
 
       {configuracion ? (
-        <form action={pruebaAction} className="flex flex-col gap-1.5">
+        <form action={pruebaAction} className="flex flex-col gap-1.5 border-t border-border pt-4">
           <Button type="submit" variant="outline" disabled={pruebaPending}>
             {pruebaPending ? "Enviando..." : "Enviar correo de prueba"}
           </Button>
@@ -188,6 +198,6 @@ export function ConfiguracionSmtpForm({
           {pruebaState.success ? <p role="status">Correo de prueba enviado</p> : null}
         </form>
       ) : null}
-    </>
+    </div>
   );
 }
