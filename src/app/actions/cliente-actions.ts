@@ -5,7 +5,7 @@ import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { clienteInputSchema } from "@/lib/validation/cliente";
-import type { Cliente, Prisma, Vehiculo } from "@/generated/prisma-tenant";
+import type { Prisma } from "@/generated/prisma-tenant";
 
 export interface ClienteFormState {
   error: string | null;
@@ -40,10 +40,35 @@ export async function listClientes(): Promise<ClienteConResumen[]> {
   return tenantDb.cliente.findMany({ orderBy: { nombre: "asc" }, include: CLIENTE_CON_RESUMEN_INCLUDE });
 }
 
-export async function getCliente(id: string): Promise<(Cliente & { vehiculos: Vehiculo[] }) | null> {
+// Fase 11-14: the detail page's vehicle cards need per-vehicle estado/kilometraje,
+// its historial de servicio table needs one row per orden, and its resumen
+// financiero needs both the total invoiced and the still-pending balance --
+// all derived client-side in the page from this single fetch.
+const CLIENTE_DETALLE_INCLUDE = {
+  vehiculos: true,
+  ordenes: {
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      estado: true,
+      vehiculoId: true,
+      kilometrajeIngreso: true,
+      sintomas: true,
+      createdAt: true,
+      // Only a ya-facturada orden has a committed total; an orden still in
+      // progress has none to show yet.
+      factura: { select: { total: true } },
+    },
+  },
+  facturas: { select: { total: true, saldoPendiente: true, estado: true } },
+} satisfies Prisma.ClienteInclude;
+
+export type ClienteDetalle = Prisma.ClienteGetPayload<{ include: typeof CLIENTE_DETALLE_INCLUDE }>;
+
+export async function getCliente(id: string): Promise<ClienteDetalle | null> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  return tenantDb.cliente.findUnique({ where: { id }, include: { vehiculos: true } });
+  return tenantDb.cliente.findUnique({ where: { id }, include: CLIENTE_DETALLE_INCLUDE });
 }
 
 export async function createClienteAction(

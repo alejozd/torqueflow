@@ -9,13 +9,14 @@ vi.mock("@/lib/auth/guards", () => ({
 
 const mockCreate = vi.fn();
 const mockFindMany = vi.fn();
+const mockFindUnique = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
-  getTenantDb: () => ({ cliente: { create: mockCreate, findMany: mockFindMany } }),
+  getTenantDb: () => ({ cliente: { create: mockCreate, findMany: mockFindMany, findUnique: mockFindUnique } }),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { createClienteAction, listClientes, type ClienteFormState } from "./cliente-actions";
+import { createClienteAction, listClientes, getCliente, type ClienteFormState } from "./cliente-actions";
 
 const initialState: ClienteFormState = { error: null, success: false };
 
@@ -106,5 +107,47 @@ describe("listClientes", () => {
         facturas: { where: { estado: "PENDIENTE" }, select: { saldoPendiente: true } },
       },
     });
+  });
+});
+
+describe("getCliente", () => {
+  beforeEach(() => {
+    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockFindUnique.mockReset();
+  });
+
+  it("fetches the cliente with vehiculos, ordenes (for historial/kilometraje/estado) and facturas (for the resumen financiero)", async () => {
+    mockFindUnique.mockResolvedValue({ id: "c1", nombre: "Ana" });
+
+    const result = await getCliente("c1");
+
+    expect(result).toEqual({ id: "c1", nombre: "Ana" });
+    expect(mockFindUnique).toHaveBeenCalledWith({
+      where: { id: "c1" },
+      include: {
+        vehiculos: true,
+        ordenes: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            estado: true,
+            vehiculoId: true,
+            kilometrajeIngreso: true,
+            sintomas: true,
+            createdAt: true,
+            factura: { select: { total: true } },
+          },
+        },
+        facturas: { select: { total: true, saldoPendiente: true, estado: true } },
+      },
+    });
+  });
+
+  it("returns null when the cliente does not exist", async () => {
+    mockFindUnique.mockResolvedValue(null);
+
+    const result = await getCliente("missing");
+
+    expect(result).toBeNull();
   });
 });
