@@ -6,7 +6,7 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { bodegaInputSchema } from "@/lib/validation/inventario";
 import { scopeBodega } from "@/lib/sede/scope";
-import type { Bodega } from "@/generated/prisma-tenant";
+import type { Bodega, Prisma } from "@/generated/prisma-tenant";
 
 export interface BodegaFormState {
   error: string | null;
@@ -15,11 +15,34 @@ export interface BodegaFormState {
 
 const NO_ENCONTRADA = "Bodega no encontrada en tu sede activa.";
 
+const BODEGA_INVENTARIO_INCLUDE = {
+  repuestos: { select: { stockActual: true, stockMinimo: true, precioCompra: true } },
+} satisfies Prisma.BodegaInclude;
+
+export type BodegaConInventario = Prisma.BodegaGetPayload<{ include: typeof BODEGA_INVENTARIO_INCLUDE }>;
+
 export async function listBodegas(): Promise<Bodega[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.bodega.findMany({
     where: { ...scopeBodega(session.user.sedeActivaId) },
+    orderBy: { nombre: "asc" },
+  });
+}
+
+/**
+ * Same rows as listBodegas, plus each repuesto's stockActual/stockMinimo/
+ * precioCompra -- the raw material the Bodegas listado page aggregates into
+ * its Referencias/Unidades/Valor inventario/Stock bajo columns. Kept separate
+ * from listBodegas (used by the repuesto/entrada forms' plain <select>
+ * dropdowns) so those forms don't pull the extra relation they don't need.
+ */
+export async function listBodegasConInventario(): Promise<BodegaConInventario[]> {
+  const session = await requireSession();
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  return tenantDb.bodega.findMany({
+    where: { ...scopeBodega(session.user.sedeActivaId) },
+    include: BODEGA_INVENTARIO_INCLUDE,
     orderBy: { nombre: "asc" },
   });
 }

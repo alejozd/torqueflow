@@ -33,6 +33,7 @@ import {
   updateBodegaAction,
   deleteBodegaAction,
   listBodegas,
+  listBodegasConInventario,
   getBodega,
   type BodegaFormState,
 } from "./bodega-actions";
@@ -147,6 +148,36 @@ describe("listBodegas", () => {
     expect(result).toEqual([{ id: "b1", nombre: "Bodega norte" }]);
     expect(mockFindMany).toHaveBeenCalledWith({
       where: { sedeId: "sede-1" },
+      orderBy: { nombre: "asc" },
+    });
+  });
+});
+
+describe("listBodegasConInventario", () => {
+  it("lists bodegas of the sede activa with their repuestos' stock/precio for the KPI columns", async () => {
+    mockRequireSession.mockReset().mockResolvedValue({
+      user: { id: "u1", role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+    });
+    mockFindMany.mockReset().mockResolvedValue([
+      {
+        id: "b1",
+        nombre: "Bodega norte",
+        repuestos: [{ stockActual: 10, stockMinimo: 5, precioCompra: 8 }],
+      },
+    ]);
+
+    const result = await listBodegasConInventario();
+
+    expect(result).toEqual([
+      {
+        id: "b1",
+        nombre: "Bodega norte",
+        repuestos: [{ stockActual: 10, stockMinimo: 5, precioCompra: 8 }],
+      },
+    ]);
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: { sedeId: "sede-1" },
+      include: { repuestos: { select: { stockActual: true, stockMinimo: true, precioCompra: true } } },
       orderBy: { nombre: "asc" },
     });
   });
