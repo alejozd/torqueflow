@@ -5,6 +5,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createSedeAction, type SedeFormState } from "@/app/actions/sede-actions";
 import { sedeInputSchema, type SedeInput } from "@/lib/validation/sede";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const initialState: SedeFormState = { error: null, success: false };
 
@@ -25,25 +29,40 @@ export function NuevaSedeForm() {
       noValidate
       ref={formRef}
       onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+      className="flex flex-col gap-4"
     >
-      <label htmlFor="nombre">Nombre</label>
-      <input
-        id="nombre"
-        required
-        aria-invalid={errors.nombre ? true : undefined}
-        aria-describedby={errors.nombre ? "nombre-error" : undefined}
-        {...register("nombre")}
-      />
-      {errors.nombre ? <p id="nombre-error">{errors.nombre.message}</p> : null}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="nombre">Nombre</Label>
+        <Input
+          id="nombre"
+          required
+          aria-invalid={errors.nombre ? true : undefined}
+          aria-describedby={errors.nombre ? "nombre-error" : undefined}
+          {...register("nombre")}
+        />
+        {errors.nombre ? <p id="nombre-error">{errors.nombre.message}</p> : null}
+      </div>
 
-      <label htmlFor="direccion">Dirección</label>
-      <input id="direccion" {...register("direccion")} />
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="direccion">Dirección</Label>
+        <Input
+          id="direccion"
+          aria-invalid={errors.direccion ? true : undefined}
+          aria-describedby={errors.direccion ? "direccion-error" : undefined}
+          {...register("direccion")}
+        />
+        {errors.direccion ? <p id="direccion-error">{errors.direccion.message}</p> : null}
+      </div>
 
-      <button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending}>
         {isPending ? "Guardando..." : "Crear sede"}
-      </button>
+      </Button>
 
-      {state.error ? <p role="alert">{state.error}</p> : null}
+      {state.error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{state.error}</AlertDescription>
+        </Alert>
+      ) : null}
       {state.success ? <p role="status">Sede creada</p> : null}
     </form>
   );
