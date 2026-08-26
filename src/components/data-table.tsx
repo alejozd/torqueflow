@@ -29,9 +29,13 @@ export function DataTable<T>({
    * functions as `cell`/`getRowKey` -- not serializable across a client
    * boundary) need to change. `position: relative` on the row makes it the
    * containing block the link's `inset-0` sizes against. Every row already
-   * highlights on hover (ui/table.tsx's hover:bg-muted/50); clickable rows
-   * get the full-strength hover:bg-muted below so it reads as an actionable
-   * target, not just the ambient table styling.
+   * highlights on hover (ui/table.tsx's hover:bg-muted/50), but --muted and
+   * --accent are the identical near-white oklch(0.97 0 0) in the light theme
+   * (see globals.css) -- too close to the page background to read as
+   * "clickable" at a glance. hover:bg-border below reuses the row's own
+   * border color (oklch(0.922 0 0), meaningfully darker) for a hover that's
+   * actually visible, and still adapts for the (currently unused outside
+   * login/sidebar) dark theme via the same token.
    */
   rowHref?: (row: T) => string;
 }) {
@@ -50,7 +54,7 @@ export function DataTable<T>({
       </TableHeader>
       <TableBody>
         {rows.map((row) => (
-          <TableRow key={getRowKey(row)} className={cn(rowHref && "relative cursor-pointer hover:bg-muted")}>
+          <TableRow key={getRowKey(row)} className={cn(rowHref && "relative cursor-pointer hover:bg-border")}>
             {columns.map((column, index) => (
               <TableCell key={column.header} className={column.className}>
                 {rowHref && index === 0 ? (

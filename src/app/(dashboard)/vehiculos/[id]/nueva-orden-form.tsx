@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useRef } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -34,24 +34,22 @@ export function NuevaOrdenForm({
   clienteId: string;
   vehiculoId: string;
   tecnicos: TecnicoOption[];
-  /** Fired once, right after a successful create, with the new orden's id. */
+  /**
+   * Fired synchronously right after a successful create, with the new
+   * orden's id -- instead of a status message, so a caller like
+   * NuevaOrdenDialog can navigate immediately. Not driven by useActionState +
+   * useEffect: createOrdenAction's revalidatePath(`/clientes/${clienteId}`) /
+   * (`/vehiculos/${vehiculoId}`) can refresh this form's parent before a
+   * state-driven effect gets a chance to run, same race
+   * generar-factura-form.tsx's onValid comment documents. useTransition + a
+   * manual submit calls onCreated from inside the same transition as the
+   * action call, ahead of any RSC update.
+   */
   onCreated?: (ordenId: string) => void;
 }) {
-  const createForVehiculo = createOrdenAction.bind(null, clienteId, vehiculoId);
-  const [state, formAction, isPending] = useActionState(createForVehiculo, initialState);
+  const [state, setState] = useState<OrdenFormState>(initialState);
+  const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
-
-  // useActionState has no "then" -- this is the standard way to react to a
-  // state transition it produces (as opposed to the submit event itself).
-  // onCreated is deliberately omitted from the deps: it's a fresh closure
-  // per render in every caller, and keying off it would refire this on every
-  // parent re-render instead of only on a real state change.
-  useEffect(() => {
-    if (state.success && state.ordenId) {
-      onCreated?.(state.ordenId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.success, state.ordenId]);
   const {
     register,
     handleSubmit,
@@ -61,13 +59,20 @@ export function NuevaOrdenForm({
     defaultValues: { kilometrajeIngreso: "", sintomas: "", mecanicoId: "" },
   });
 
+  function onValid() {
+    startTransition(async () => {
+      const formData = new FormData(formRef.current!);
+      const result = await createOrdenAction(clienteId, vehiculoId, initialState, formData);
+      if (result.success && result.ordenId && onCreated) {
+        onCreated(result.ordenId);
+      } else {
+        setState(result);
+      }
+    });
+  }
+
   return (
-    <form
-      noValidate
-      ref={formRef}
-      onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
-      className="flex flex-col gap-4"
-    >
+    <form noValidate ref={formRef} onSubmit={handleSubmit(onValid)} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="kilometrajeIngreso">Kilometraje de ingreso</Label>
         <Input
