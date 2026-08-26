@@ -2,6 +2,7 @@ import Link from "next/link";
 import { listFacturas } from "@/app/actions/factura-actions";
 import type { EstadoFactura } from "@/generated/prisma-tenant";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { cn } from "@/lib/utils";
 
 const ESTADOS_VALIDOS: EstadoFactura[] = ["PENDIENTE", "PAGADA"];
 
@@ -38,10 +39,29 @@ export default async function FacturasPage({
     <main>
       <h1>Facturas</h1>
 
-      <nav aria-label="Filtrar por estado">
-        <Link href="/facturas">Todas</Link>
+      <nav aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
+        <Link
+          href="/facturas"
+          className={cn(
+            "rounded-full border px-3 py-1 text-sm transition-colors",
+            estadoFiltro === undefined
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
+          )}
+        >
+          Todas
+        </Link>
         {ESTADOS_VALIDOS.map((value) => (
-          <Link key={value} href={`/facturas?estado=${value}`}>
+          <Link
+            key={value}
+            href={`/facturas?estado=${value}`}
+            className={cn(
+              "rounded-full border px-3 py-1 text-sm transition-colors",
+              estadoFiltro === value
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
             {ESTADO_LABELS[value]}
           </Link>
         ))}
