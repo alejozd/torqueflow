@@ -48,3 +48,7 @@ src/generated/
 Thumbs.db
 
 /uploads
+
+# Local tool caches
+.codegraph/
+.atl/
