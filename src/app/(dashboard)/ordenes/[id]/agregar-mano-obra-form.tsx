@@ -83,7 +83,7 @@ export function AgregarManoObraForm({ ordenId }: { ordenId: string }) {
         </div>
       </FormGroup>
 
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} className="self-end">
         {isPending ? "Guardando..." : "Agregar mano de obra"}
       </Button>
 

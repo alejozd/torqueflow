@@ -13,7 +13,6 @@ import type { DviChecklist } from "@/lib/dvi/checklist-items";
 import type { EstadoOrden } from "@/generated/prisma-tenant";
 import { totalOrden } from "@/lib/dashboard/calculos";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
-import { FormGroup } from "@/components/form-group";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -61,7 +60,14 @@ const ITEMS_COLUMNS: DataTableColumn<ItemRow>[] = [
   {
     header: "Tipo",
     cell: (item) => (
-      <Badge variant="outline" className="text-[10px]">
+      <Badge
+        variant="outline"
+        className={
+          item.repuestoId
+            ? "border-transparent bg-[oklch(0.7_0.15_60/0.15)] text-[10px] text-[oklch(0.55_0.15_60)]"
+            : "border-transparent bg-[oklch(0.44_0.12_250/0.1)] text-[10px] text-[oklch(0.44_0.12_250)]"
+        }
+      >
         {item.repuestoId ? "Repuesto" : "Manual"}
       </Badge>
     ),
@@ -189,43 +195,52 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
             <CardHeader>
               <CardTitle>Información de la orden</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <FormGroup label="Recepción">
+            <CardContent className="flex flex-col gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <div className="text-[10px] tracking-wide text-muted-foreground uppercase">Recepción</div>
                   <div className="grid grid-cols-2 gap-3">
                     <InfoField label="Sede" value={orden.sede.nombre} />
                     <InfoField label="Ingresó" value={formatoFechaHora.format(orden.createdAt)} />
                     <InfoField label="Km de ingreso" value={orden.kilometrajeIngreso ?? "—"} />
                   </div>
-                </FormGroup>
+                </div>
 
-                <FormGroup label="Vehículo y cliente">
+                <div className="space-y-2">
+                  <div className="text-[10px] tracking-wide text-muted-foreground uppercase">Vehículo y cliente</div>
                   <div className="grid grid-cols-2 gap-3">
                     <InfoField label="Placa" value={<span className="font-mono">{orden.vehiculo.placa}</span>} />
                     <InfoField label="Vehículo" value={`${orden.vehiculo.marca} ${orden.vehiculo.modelo}`} />
                     <InfoField label="Cliente" value={orden.cliente.nombre} />
                     <InfoField label="Teléfono" value={orden.cliente.telefono ?? "—"} />
                   </div>
-                </FormGroup>
+                </div>
 
-                <FormGroup label="Asignación">
+                <div className="space-y-2">
+                  <div className="text-[10px] tracking-wide text-muted-foreground uppercase">Asignación</div>
                   <div className="grid grid-cols-2 gap-3">
                     <InfoField label="Mecánico" value={orden.mecanico?.nombre ?? "Sin asignar"} />
                     <InfoField label="Horas cargadas" value={`${horasCargadas} h`} />
                   </div>
-                </FormGroup>
+                </div>
               </div>
 
-              <FormGroup label="Síntomas reportados">
-                <p className="max-w-[78ch] text-sm leading-relaxed text-foreground/80">{orden.sintomas ?? "—"}</p>
-              </FormGroup>
+              <div>
+                <div className="mb-1 text-[10px] tracking-wide text-muted-foreground uppercase">
+                  Síntomas reportados
+                </div>
+                <p className="max-w-[78ch] text-sm leading-relaxed">{orden.sintomas ?? "—"}</p>
+              </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
               <CardTitle>
-                Ítems (repuestos) <span className="font-normal text-muted-foreground">· {orden.items.length}</span>
+                Ítems (repuestos){" "}
+                <span className="font-normal text-muted-foreground">
+                  · {orden.items.length} {orden.items.length === 1 ? "ítem" : "ítems"}
+                </span>
               </CardTitle>
               <CardAction>
                 <span className="font-mono text-sm text-muted-foreground">{formatoMoneda.format(repuestosTotal)}</span>
@@ -271,7 +286,9 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
               {atencionCount + criticoCount > 0 ? (
                 <CardAction>
                   <span className="text-xs text-muted-foreground">
-                    {atencionCount > 0 ? `${atencionCount} con atención` : null}
+                    {atencionCount > 0
+                      ? `${atencionCount} ${atencionCount === 1 ? "punto requiere" : "puntos requieren"} atención`
+                      : null}
                     {atencionCount > 0 && criticoCount > 0 ? " · " : null}
                     {criticoCount > 0 ? `${criticoCount} crítico${criticoCount > 1 ? "s" : ""}` : null}
                   </span>
@@ -291,7 +308,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
           </Card>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="sticky top-4 flex flex-col gap-4">
           <Card>
             <CardHeader>
               <CardTitle>Totales</CardTitle>

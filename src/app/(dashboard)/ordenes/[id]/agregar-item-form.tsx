@@ -128,7 +128,7 @@ export function AgregarItemForm({ ordenId, repuestos }: { ordenId: string; repue
 
       {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
 
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} className="self-end">
         {isPending ? "Guardando..." : "Agregar ítem"}
       </Button>
 

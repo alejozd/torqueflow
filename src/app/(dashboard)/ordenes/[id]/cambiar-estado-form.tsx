@@ -51,7 +51,7 @@ export function CambiarEstadoForm({ ordenId, estadoActual }: { ordenId: string; 
         </select>
       </div>
 
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} className="self-end">
         {isPending ? "Guardando..." : "Cambiar estado"}
       </Button>
 

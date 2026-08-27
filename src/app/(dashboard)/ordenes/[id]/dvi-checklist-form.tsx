@@ -53,7 +53,7 @@ export function DviChecklistForm({ ordenId, checklist }: { ordenId: string; chec
         </div>
       ))}
 
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} className="self-end">
         {isPending ? "Guardando..." : "Guardar checklist"}
       </Button>
 

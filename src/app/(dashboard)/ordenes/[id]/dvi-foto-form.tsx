@@ -41,7 +41,7 @@ export function DviFotoForm({ ordenId }: { ordenId: string }) {
         </div>
       </div>
 
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} className="self-end">
         {isPending ? "Subiendo..." : "Subir foto"}
       </Button>
 

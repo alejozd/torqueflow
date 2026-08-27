@@ -68,7 +68,7 @@ export function GenerarFacturaForm({ ordenId }: { ordenId: string }) {
         {errors.descuento ? <p id="descuento-error">{errors.descuento.message}</p> : null}
       </div>
 
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} className="self-end">
         {isPending ? "Generando..." : "Generar factura"}
       </Button>
 
