@@ -237,33 +237,31 @@ export default async function CitasPage({
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
+        <Card size="sm">
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">Hoy</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col gap-1">
             <span className="font-mono text-2xl font-semibold">{citasHoy}</span>
             <p className="text-xs text-muted-foreground">citas agendadas hoy</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card size="sm">
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">Confirmadas</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col gap-1">
             <span className="font-mono text-2xl font-semibold">{confirmadasSemana}</span>
-            <p className="text-xs text-muted-foreground">
-              esta semana · {programadasSemana} sin confirmar
-            </p>
+            <p className="text-xs text-muted-foreground">esta semana · {programadasSemana} sin confirmar</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card size="sm">
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">Canceladas</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col gap-1">
             <span className="font-mono text-2xl font-semibold text-destructive">{canceladasSemana}</span>
             <p className="text-xs text-muted-foreground">
               esta semana{citasSemana.length > 0 ? ` · ${porcentajeCanceladas}% del total` : ""}
