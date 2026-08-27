@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/auth/guards";
 import { listCitas, listVehiculosParaCita, type CitaConDetalle } from "@/app/actions/cita-actions";
-import { NuevaCitaForm } from "./nueva-cita-form";
+import { NuevaCitaDialog } from "./nueva-cita-dialog";
 import { ExportarCitasButton } from "./exportar-citas-button";
 import type { EstadoCita } from "@/generated/prisma-tenant";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
@@ -229,11 +229,14 @@ export default async function CitasPage({
 
   return (
     <main className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Citas</h1>
-        <p className="text-sm text-muted-foreground">
-          Agenda de {session.user.sedeActivaNombre} · semana del {rangoSemanaTexto}
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Citas</h1>
+          <p className="text-sm text-muted-foreground">
+            Agenda de {session.user.sedeActivaNombre} · semana del {rangoSemanaTexto}
+          </p>
+        </div>
+        <NuevaCitaDialog vehiculos={vehiculos} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -269,15 +272,6 @@ export default async function CitasPage({
           </CardContent>
         </Card>
       </div>
-
-      <Card className="sm:max-w-lg">
-        <CardHeader>
-          <CardTitle>Nueva cita</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <NuevaCitaForm vehiculos={vehiculos} />
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>

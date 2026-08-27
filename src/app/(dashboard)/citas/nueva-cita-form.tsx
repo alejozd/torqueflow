@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useRef } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,8 +18,24 @@ const initialState: CitaFormState = { error: null, success: false };
 type CitaFormInput = z.input<typeof citaInputSchema>;
 type CitaFormOutput = z.output<typeof citaInputSchema>;
 
-export function NuevaCitaForm({ vehiculos }: { vehiculos: VehiculoOption[] }) {
-  const [state, formAction, isPending] = useActionState(createCitaAction, initialState);
+export function NuevaCitaForm({
+  vehiculos,
+  onCreated,
+}: {
+  vehiculos: VehiculoOption[];
+  /**
+   * Fired synchronously right after a successful create -- not driven by
+   * useActionState + useEffect: createCitaAction's revalidatePath("/citas")
+   * can refresh (and unmount, inside a dialog) this form's parent before a
+   * state-driven effect gets a chance to run, same race
+   * vehiculos/[id]/nueva-orden-form.tsx's onCreated documents. useTransition +
+   * a manual submit calls onCreated from inside the same transition as the
+   * action call, ahead of any RSC update.
+   */
+  onCreated?: () => void;
+}) {
+  const [state, setState] = useState<CitaFormState>(initialState);
+  const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
   const {
     register,
@@ -34,13 +50,20 @@ export function NuevaCitaForm({ vehiculos }: { vehiculos: VehiculoOption[] }) {
     return <p>Registra un cliente y su vehículo antes de agendar una cita.</p>;
   }
 
+  function onValid() {
+    startTransition(async () => {
+      const formData = new FormData(formRef.current!);
+      const result = await createCitaAction(initialState, formData);
+      if (result.success && onCreated) {
+        onCreated();
+      } else {
+        setState(result);
+      }
+    });
+  }
+
   return (
-    <form
-      noValidate
-      ref={formRef}
-      onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
-      className="flex flex-col gap-4"
-    >
+    <form noValidate ref={formRef} onSubmit={handleSubmit(onValid)} className="flex flex-col gap-4">
       <FormGroup label="Cuándo y quién">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
