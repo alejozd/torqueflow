@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireSession } from "@/lib/auth/guards";
 import { listCitas, listVehiculosParaCita, type CitaConDetalle } from "@/app/actions/cita-actions";
 import { NuevaCitaForm } from "./nueva-cita-form";
 import { ExportarCitasButton } from "./exportar-citas-button";
@@ -56,6 +57,8 @@ const formatoFechaLarga = new Intl.DateTimeFormat("es-CO", {
 });
 
 const formatoFechaCorta = new Intl.DateTimeFormat("es-CO", { dateStyle: "short", timeZone: "America/Bogota" });
+
+const formatoDiaMes = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "long", timeZone: "America/Bogota" });
 
 /**
  * America/Bogota is a fixed UTC-5 offset with no daylight saving time (same
@@ -184,6 +187,11 @@ export default async function CitasPage({
   const vistaActual: "agenda" | "tabla" = vista === "tabla" ? "tabla" : "agenda";
   const busqueda = q?.trim().toLowerCase() ?? "";
 
+  // requireSession() here is redundant with the one inside listCitas/listVehiculosParaCita
+  // (same cheap auth() + tenant lookup, no extra query) -- needed to read
+  // sedeActivaNombre for the page subtitle, which those actions don't return.
+  const session = await requireSession();
+
   // Both reads go through the actions module, so the guard and the sede filter
   // are applied in exactly one place instead of being restated here. Fetched
   // once, unfiltered: the KPI cards summarize every cita of the sede
@@ -207,18 +215,26 @@ export default async function CitasPage({
   const { inicio: inicioSemana, fin: finSemana } = rangoSemanaBogota(ahora);
 
   const citasHoy = citas.filter((cita) => cita.fechaHora >= inicioHoy && cita.fechaHora < finHoy).length;
-  const confirmadasSemana = citas.filter(
-    (cita) => cita.estado === "CONFIRMADA" && cita.fechaHora >= inicioSemana && cita.fechaHora < finSemana,
-  ).length;
-  const canceladasSemana = citas.filter(
-    (cita) => cita.estado === "CANCELADA" && cita.fechaHora >= inicioSemana && cita.fechaHora < finSemana,
-  ).length;
+  const citasSemana = citas.filter((cita) => cita.fechaHora >= inicioSemana && cita.fechaHora < finSemana);
+  const confirmadasSemana = citasSemana.filter((cita) => cita.estado === "CONFIRMADA").length;
+  const programadasSemana = citasSemana.filter((cita) => cita.estado === "PROGRAMADA").length;
+  const canceladasSemana = citasSemana.filter((cita) => cita.estado === "CANCELADA").length;
+  const porcentajeCanceladas =
+    citasSemana.length > 0 ? Math.round((canceladasSemana / citasSemana.length) * 100) : 0;
+
+  const finSemanaMostrado = new Date(finSemana.getTime() - 24 * 60 * 60 * 1000);
+  const rangoSemanaTexto = `${formatoDiaMes.format(inicioSemana)} al ${formatoDiaMes.format(finSemanaMostrado)}`;
 
   const grupos = agruparPorDia(filtradas);
 
   return (
     <main className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Citas</h1>
+      <div>
+        <h1 className="text-2xl font-semibold">Citas</h1>
+        <p className="text-sm text-muted-foreground">
+          Agenda de {session.user.sedeActivaNombre} · semana del {rangoSemanaTexto}
+        </p>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
@@ -233,21 +249,25 @@ export default async function CitasPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Confirmadas esta semana</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Confirmadas</CardTitle>
           </CardHeader>
           <CardContent>
             <span className="font-mono text-2xl font-semibold">{confirmadasSemana}</span>
-            <p className="text-xs text-muted-foreground">lunes a domingo</p>
+            <p className="text-xs text-muted-foreground">
+              esta semana · {programadasSemana} sin confirmar
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Canceladas esta semana</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Canceladas</CardTitle>
           </CardHeader>
           <CardContent>
             <span className="font-mono text-2xl font-semibold text-destructive">{canceladasSemana}</span>
-            <p className="text-xs text-muted-foreground">lunes a domingo</p>
+            <p className="text-xs text-muted-foreground">
+              esta semana{citasSemana.length > 0 ? ` · ${porcentajeCanceladas}% del total` : ""}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -353,36 +373,44 @@ export default async function CitasPage({
               ) : (
                 grupos.map((grupo) => (
                   <div key={grupo.clave} className="flex flex-col gap-2">
-                    <h3 className="text-sm font-semibold text-muted-foreground">{grupo.etiqueta}</h3>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-muted-foreground">{grupo.etiqueta}</h3>
+                      <span className="text-xs text-muted-foreground">
+                        {grupo.citas.length} {grupo.citas.length === 1 ? "cita" : "citas"}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-4">
                       {grupo.citas.map((cita) => (
-                        <Link
-                          key={cita.id}
-                          href={`/citas/${cita.id}`}
-                          className="flex flex-col gap-2 rounded-xl border border-border p-4 transition-colors hover:bg-accent/50 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
-                        >
-                          <div className="flex items-center gap-4">
-                            <span className="w-14 shrink-0 font-mono text-lg font-semibold">
-                              {formatoHora.format(cita.fechaHora)}
-                            </span>
-                            <div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-mono text-sm">{cita.vehiculo.placa}</span>
-                                <span className="text-sm text-muted-foreground">
-                                  {cita.vehiculo.marca} {cita.vehiculo.modelo}
-                                  {cita.vehiculo.anio ? ` ${cita.vehiculo.anio}` : ""}
+                        <Link key={cita.id} href={`/citas/${cita.id}`} className="block">
+                          <Card className="transition-colors hover:bg-accent/50">
+                            <CardContent className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                              <div className="flex items-center gap-4">
+                                <span className="w-14 shrink-0 font-mono text-lg font-semibold">
+                                  {formatoHora.format(cita.fechaHora)}
                                 </span>
+                                <div>
+                                  <div className="flex flex-wrap items-center gap-1.5 text-sm">
+                                    <span className="font-mono">{cita.vehiculo.placa}</span>
+                                    <span className="text-muted-foreground">
+                                      · {cita.vehiculo.marca} {cita.vehiculo.modelo}
+                                      {cita.vehiculo.anio ? ` · ${cita.vehiculo.anio}` : ""}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm">{cita.motivo}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {cita.cliente.nombre}
+                                    {cita.cliente.telefono ? ` · ${cita.cliente.telefono}` : ""}
+                                  </p>
+                                </div>
                               </div>
-                              <p className="text-sm">{cita.motivo}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {cita.cliente.nombre}
-                                {cita.cliente.telefono ? ` · ${cita.cliente.telefono}` : ""}
-                              </p>
-                            </div>
-                          </div>
-                          <Badge variant={ESTADO_BADGE_VARIANT[cita.estado]} className={ESTADO_BADGE_CLASSNAME[cita.estado]}>
-                            {ESTADO_LABELS[cita.estado]}
-                          </Badge>
+                              <Badge
+                                variant={ESTADO_BADGE_VARIANT[cita.estado]}
+                                className={ESTADO_BADGE_CLASSNAME[cita.estado]}
+                              >
+                                {ESTADO_LABELS[cita.estado]}
+                              </Badge>
+                            </CardContent>
+                          </Card>
                         </Link>
                       ))}
                     </div>
