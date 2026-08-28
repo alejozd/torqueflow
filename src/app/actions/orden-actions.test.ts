@@ -13,6 +13,7 @@ const mockOrdenFindFirst = vi.fn();
 const mockUpdate = vi.fn();
 const mockSedeFindFirst = vi.fn();
 const mockUsuarioFindMany = vi.fn();
+const mockUsuarioFindFirst = vi.fn();
 const mockConfiguracionSmtpFindUnique = vi.fn();
 const mockNotificacionCreate = vi.fn();
 const mockVehiculoFindUnique = vi.fn();
@@ -25,7 +26,7 @@ vi.mock("@/lib/db/tenant-client", () => ({
       update: mockUpdate,
     },
     sede: { findFirst: mockSedeFindFirst },
-    usuario: { findMany: mockUsuarioFindMany },
+    usuario: { findMany: mockUsuarioFindMany, findFirst: mockUsuarioFindFirst },
     vehiculo: { findUnique: mockVehiculoFindUnique },
     configuracionSmtp: { findUnique: mockConfiguracionSmtpFindUnique },
     notificacionOrdenEnviada: { create: mockNotificacionCreate },
@@ -48,8 +49,10 @@ import {
   getOrden,
   listTecnicos,
   updateEstadoOrdenAction,
+  asignarMecanicoAction,
   type OrdenFormState,
   type EstadoFormState,
+  type AsignarMecanicoFormState,
 } from "./orden-actions";
 
 const initialState: OrdenFormState = { error: null, success: false };
@@ -517,5 +520,106 @@ describe("updateEstadoOrdenAction", () => {
     );
     expect(mockEnviarEmail).not.toHaveBeenCalled();
     expect(mockNotificacionCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("asignarMecanicoAction", () => {
+  const initialAsignarState: AsignarMecanicoFormState = { error: null, success: false };
+
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockOrdenFindFirst.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
+    mockUsuarioFindFirst.mockReset().mockResolvedValue({ id: "t1" });
+    mockUpdate.mockReset().mockResolvedValue({ id: "o1" });
+  });
+
+  it("requires ADMIN/RECEPCION", async () => {
+    const formData = new FormData();
+    formData.set("mecanicoId", "t1");
+
+    await asignarMecanicoAction("o1", initialAsignarState, formData);
+
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+  });
+
+  it("assigns the chosen técnico after confirming they belong to the sede activa", async () => {
+    const formData = new FormData();
+    formData.set("mecanicoId", "t1");
+
+    const result = await asignarMecanicoAction("o1", initialAsignarState, formData);
+
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockUsuarioFindFirst).toHaveBeenCalledWith({
+      where: { id: "t1", role: "TECNICO", sedes: { some: { sedeId: "sede-1" } } },
+      select: { id: true },
+    });
+    expect(mockUpdate).toHaveBeenCalledWith({ where: { id: "o1" }, data: { mecanicoId: "t1" } });
+  });
+
+  it("unassigns the mecánico when the empty option is submitted", async () => {
+    const formData = new FormData();
+    formData.set("mecanicoId", "");
+
+    const result = await asignarMecanicoAction("o1", initialAsignarState, formData);
+
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockUsuarioFindFirst).not.toHaveBeenCalled();
+    expect(mockUpdate).toHaveBeenCalledWith({ where: { id: "o1" }, data: { mecanicoId: null } });
+  });
+
+  it("rejects a técnico that does not belong to (or does not exist in) the sede activa", async () => {
+    mockUsuarioFindFirst.mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("mecanicoId", "t-otra-sede");
+
+    const result = await asignarMecanicoAction("o1", initialAsignarState, formData);
+
+    expect(result).toEqual({
+      error: "El técnico seleccionado no existe o no pertenece a esta sede.",
+      success: false,
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("blocks reassigning a mecánico when the orden is in a terminal state (ENTREGADA)", async () => {
+    mockOrdenFindFirst.mockResolvedValue({ estado: "ENTREGADA", factura: null });
+    const formData = new FormData();
+    formData.set("mecanicoId", "t1");
+
+    const result = await asignarMecanicoAction("o1", initialAsignarState, formData);
+
+    expect(result).toEqual({
+      error: "No se puede modificar una orden en estado ENTREGADA.",
+      success: false,
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("blocks reassigning a mecánico when the orden already has a factura", async () => {
+    mockOrdenFindFirst.mockResolvedValue({ estado: "TERMINADA", factura: { id: "f1" } });
+    const formData = new FormData();
+    formData.set("mecanicoId", "t1");
+
+    const result = await asignarMecanicoAction("o1", initialAsignarState, formData);
+
+    expect(result).toEqual({
+      error: "No se puede modificar una orden que ya tiene una factura generada.",
+      success: false,
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("refuses to touch an orden from another sede", async () => {
+    mockOrdenFindFirst.mockReset().mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("mecanicoId", "t1");
+
+    const result = await asignarMecanicoAction("orden-de-otra-sede", initialAsignarState, formData);
+
+    expect(result).toEqual({ error: "Orden no encontrada", success: false });
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith({
+      where: { id: "orden-de-otra-sede", sedeId: "sede-1" },
+      select: { estado: true, factura: { select: { id: true } } },
+    });
   });
 });

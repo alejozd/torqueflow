@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getOrden } from "@/app/actions/orden-actions";
+import { getOrden, listTecnicos } from "@/app/actions/orden-actions";
 import { listRepuestoOptions } from "@/app/actions/repuesto-actions";
+import { AsignarMecanicoForm } from "./asignar-mecanico-form";
 import { CambiarEstadoForm } from "./cambiar-estado-form";
 import { AgregarItemForm } from "./agregar-item-form";
 import { AgregarManoObraForm } from "./agregar-mano-obra-form";
@@ -118,7 +119,7 @@ function InfoField({ label, value }: { label: string; value: ReactNode }) {
 
 export default async function OrdenDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [orden, repuestos] = await Promise.all([getOrden(id), listRepuestoOptions()]);
+  const [orden, repuestos, tecnicos] = await Promise.all([getOrden(id), listRepuestoOptions(), listTecnicos()]);
 
   if (!orden) {
     notFound();
@@ -185,7 +186,16 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
 
                 <FormGroup label="Asignación">
                   <div className="grid grid-cols-2 gap-3">
-                    <InfoField label="Mecánico" value={orden.mecanico?.nombre ?? "Sin asignar"} />
+                    <InfoField
+                      label="Mecánico"
+                      value={
+                        <AsignarMecanicoForm
+                          ordenId={orden.id}
+                          mecanicoIdActual={orden.mecanicoId}
+                          tecnicos={tecnicos}
+                        />
+                      }
+                    />
                     <InfoField label="Mano de obra" value={formatoMoneda.format(manoObraTotal)} />
                   </div>
                 </FormGroup>

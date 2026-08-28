@@ -6,6 +6,7 @@ import { getTenantDb, type TenantPrismaClient } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { ordenTrabajoInputSchema, estadoOrdenSchema } from "@/lib/validation/orden";
 import { isValidEstadoTransition } from "@/lib/orden/estado-transitions";
+import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
 import { scopeOrden } from "@/lib/sede/scope";
 import {
   CONFIGURACION_SMTP_ID,
@@ -354,4 +355,64 @@ export async function updateEstadoOrdenAction(
     : null;
 
   return { error: null, advertencia };
+}
+
+export interface AsignarMecanicoFormState {
+  error: string | null;
+  success: boolean;
+}
+
+/**
+ * mecanicoId stays optional at creation (a sede may receive a vehículo
+ * before deciding who works it -- the Kanban's "Sin asignar" column is a
+ * real, intended state), but must be assignable/reassignable afterward from
+ * the orden detail page. Reuses assertOrdenMutable so this follows the same
+ * "no ENTREGADA/ANULADA, no ya facturada" rule as every other edit on the
+ * orden (see mano-de-obra-actions.ts).
+ */
+export async function asignarMecanicoAction(
+  id: string,
+  prevState: AsignarMecanicoFormState,
+  formData: FormData,
+): Promise<AsignarMecanicoFormState> {
+  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const orden = await tenantDb.ordenTrabajo.findFirst({
+    where: { id, ...scopeOrden(session.user.sedeActivaId) },
+    select: { estado: true, factura: { select: { id: true } } },
+  });
+  if (!orden) {
+    return { error: "Orden no encontrada", success: false };
+  }
+  try {
+    assertOrdenMutable(orden);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Orden no modificable", success: false };
+  }
+
+  const mecanicoId = String(formData.get("mecanicoId") ?? "");
+  if (mecanicoId) {
+    // Same sede-membership check listTecnicos() applies to the picker itself --
+    // this is the server-side half, in case the posted id is stale or tampered.
+    const tecnico = await tenantDb.usuario.findFirst({
+      where: { id: mecanicoId, role: "TECNICO", sedes: { some: { sedeId: session.user.sedeActivaId } } },
+      select: { id: true },
+    });
+    if (!tecnico) {
+      return { error: "El técnico seleccionado no existe o no pertenece a esta sede.", success: false };
+    }
+  }
+
+  try {
+    await tenantDb.ordenTrabajo.update({
+      where: { id },
+      data: { mecanicoId: mecanicoId || null },
+    });
+  } catch (err) {
+    return { error: friendlyPrismaErrorMessage(err, "Error al asignar el mecánico"), success: false };
+  }
+
+  revalidatePath(`/ordenes/${id}`);
+  return { error: null, success: true };
 }
