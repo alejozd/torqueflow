@@ -196,7 +196,7 @@ describe("listOrdenes", () => {
     mecanico: { select: { id: true, nombre: true } },
     creadoPor: { select: { id: true, nombre: true } },
     items: true,
-    manoDeObra: true,
+    manoDeObra: { include: { mecanico: { select: { id: true, nombre: true } } } },
     dvi: { include: { fotos: true } },
     // total is required by the ordenes list page to show a "Total" column for
     // ya-facturada orders without recomputing it from items/manoDeObra (which
@@ -581,7 +581,10 @@ describe("asignarMecanicoAction", () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it("blocks the assignment once the orden already has a mecánico assigned", async () => {
+  it("blocks RECEPCION from changing an already-assigned mecánico", async () => {
+    mockRequireRole.mockResolvedValue({
+      user: { id: "u1", role: "RECEPCION", tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+    });
     mockOrdenFindFirst.mockResolvedValue({ estado: "EN_PROCESO", factura: null, mecanicoId: "t1" });
     const formData = new FormData();
     formData.set("mecanicoId", "t2");
@@ -593,6 +596,17 @@ describe("asignarMecanicoAction", () => {
       success: false,
     });
     expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("lets ADMIN correct an already-assigned mecánico", async () => {
+    mockOrdenFindFirst.mockResolvedValue({ estado: "EN_PROCESO", factura: null, mecanicoId: "t1" });
+    const formData = new FormData();
+    formData.set("mecanicoId", "t2");
+
+    const result = await asignarMecanicoAction("o1", initialAsignarState, formData);
+
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockUpdate).toHaveBeenCalledWith({ where: { id: "o1" }, data: { mecanicoId: "t2" } });
   });
 
   it("blocks assigning a mecánico when the orden is in a terminal state (ENTREGADA)", async () => {

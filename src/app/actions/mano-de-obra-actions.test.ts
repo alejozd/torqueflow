@@ -8,10 +8,12 @@ vi.mock("@/lib/auth/guards", () => ({
 const mockCreate = vi.fn();
 const mockDeleteMany = vi.fn();
 const mockOrdenFindFirst = vi.fn();
+const mockUsuarioFindFirst = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     manoDeObra: { create: mockCreate, deleteMany: mockDeleteMany },
     ordenTrabajo: { findFirst: mockOrdenFindFirst },
+    usuario: { findFirst: mockUsuarioFindFirst },
   }),
 }));
 
@@ -28,6 +30,7 @@ describe("addManoDeObraAction", () => {
     mockRequireRole.mockReset().mockResolvedValue(SESSION);
     mockCreate.mockReset();
     mockOrdenFindFirst.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
+    mockUsuarioFindFirst.mockReset().mockResolvedValue({ id: "t1" });
   });
 
   it("returns a validation error when valor is negative", async () => {
@@ -64,8 +67,44 @@ describe("addManoDeObraAction", () => {
 
     expect(result).toEqual({ error: null, success: true });
     expect(mockCreate).toHaveBeenCalledWith({
-      data: { ordenId: "o1", descripcion: "Cambio de pastillas de freno", valor: 30000 },
+      data: { ordenId: "o1", descripcion: "Cambio de pastillas de freno", valor: 30000, mecanicoId: null },
     });
+    expect(mockUsuarioFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("assigns a técnico to the labor line after confirming they belong to the sede activa", async () => {
+    mockCreate.mockResolvedValue({ id: "m1" });
+    const formData = new FormData();
+    formData.set("descripcion", "Cambio de pastillas de freno");
+    formData.set("valor", "30000");
+    formData.set("mecanicoId", "t1");
+
+    const result = await addManoDeObraAction("o1", initialState, formData);
+
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockUsuarioFindFirst).toHaveBeenCalledWith({
+      where: { id: "t1", role: "TECNICO", sedes: { some: { sedeId: "sede-1" } } },
+      select: { id: true },
+    });
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: { ordenId: "o1", descripcion: "Cambio de pastillas de freno", valor: 30000, mecanicoId: "t1" },
+    });
+  });
+
+  it("rejects a técnico that does not belong to (or does not exist in) the sede activa", async () => {
+    mockUsuarioFindFirst.mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("descripcion", "Cambio de pastillas de freno");
+    formData.set("valor", "30000");
+    formData.set("mecanicoId", "t-otra-sede");
+
+    const result = await addManoDeObraAction("o1", initialState, formData);
+
+    expect(result).toEqual({
+      error: "El técnico seleccionado no existe o no pertenece a esta sede.",
+      success: false,
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 
   it("blocks adding a labor line when the order is in a terminal state (ENTREGADA)", async () => {

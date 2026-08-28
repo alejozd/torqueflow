@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrden, listTecnicos } from "@/app/actions/orden-actions";
+import { requireSession } from "@/lib/auth/guards";
 import { listRepuestoOptions } from "@/app/actions/repuesto-actions";
 import { AsignarMecanicoForm } from "./asignar-mecanico-form";
 import { CambiarEstadoForm } from "./cambiar-estado-form";
@@ -101,6 +102,12 @@ const MANO_OBRA_COLUMNS: DataTableColumn<ManoObraRow>[] = [
     cell: (linea) => <span className="text-sm">{linea.descripcion}</span>,
   },
   {
+    header: "Mecánico",
+    cell: (linea) => (
+      <span className="text-sm text-muted-foreground">{linea.mecanico?.nombre ?? "Sin asignar"}</span>
+    ),
+  },
+  {
     header: "Valor",
     cell: (linea) => (
       <span className="font-mono text-sm font-medium">{formatoMoneda.format(Number(linea.valor))}</span>
@@ -119,7 +126,12 @@ function InfoField({ label, value }: { label: string; value: ReactNode }) {
 
 export default async function OrdenDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [orden, repuestos, tecnicos] = await Promise.all([getOrden(id), listRepuestoOptions(), listTecnicos()]);
+  const [session, orden, repuestos, tecnicos] = await Promise.all([
+    requireSession(),
+    getOrden(id),
+    listRepuestoOptions(),
+    listTecnicos(),
+  ]);
 
   if (!orden) {
     notFound();
@@ -193,6 +205,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
                           ordenId={orden.id}
                           mecanico={orden.mecanico}
                           tecnicos={tecnicos}
+                          puedeReasignar={session.user.role === "ADMIN"}
                         />
                       }
                     />
@@ -243,7 +256,9 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
               </CardAction>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              {!orden.factura && <AgregarManoObraForm ordenId={orden.id} />}
+              {!orden.factura && (
+                <AgregarManoObraForm ordenId={orden.id} tecnicos={tecnicos} mecanicoIdHeader={orden.mecanicoId} />
+              )}
               <DataTable
                 columns={MANO_OBRA_COLUMNS}
                 rows={orden.manoDeObra}

@@ -40,7 +40,7 @@ const ORDEN_DETAIL_INCLUDE = {
   mecanico: { select: { id: true, nombre: true } },
   creadoPor: { select: { id: true, nombre: true } },
   items: true,
-  manoDeObra: true,
+  manoDeObra: { include: { mecanico: { select: { id: true, nombre: true } } } },
   dvi: { include: { fotos: true } },
   // total is required by the ordenes list page's "Total" column so a
   // ya-facturada orden shows the real invoiced amount (with descuento/iva
@@ -366,7 +366,7 @@ export interface AsignarMecanicoFormState {
  * mecanicoId stays optional at creation (a sede may receive a vehículo
  * before deciding who works it -- the Kanban's "Sin asignar" column is a
  * real, intended state), but once someone assigns it, the assignment is
- * permanent -- the user explicitly wants no reassignment afterward.
+ * permanent for RECEPCION -- only ADMIN can still correct it afterward.
  * Reuses assertOrdenMutable so the underlying "no ENTREGADA/ANULADA, no ya
  * facturada" rule still applies too (see mano-de-obra-actions.ts).
  */
@@ -390,7 +390,7 @@ export async function asignarMecanicoAction(
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Orden no modificable", success: false };
   }
-  if (orden.mecanicoId) {
+  if (orden.mecanicoId && session.user.role !== "ADMIN") {
     return { error: "Esta orden ya tiene un mecánico asignado y no se puede modificar.", success: false };
   }
 

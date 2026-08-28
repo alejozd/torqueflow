@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { addManoDeObraAction, type ManoDeObraFormState } from "@/app/actions/mano-de-obra-actions";
+import type { TecnicoOption } from "@/app/actions/orden-actions";
 import { manoDeObraInputSchema } from "@/lib/validation/orden";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -16,7 +17,17 @@ const initialState: ManoDeObraFormState = { error: null, success: false };
 
 type ManoDeObraFormInput = z.input<typeof manoDeObraInputSchema>;
 
-export function AgregarManoObraForm({ ordenId }: { ordenId: string }) {
+export function AgregarManoObraForm({
+  ordenId,
+  tecnicos,
+  mecanicoIdHeader,
+}: {
+  ordenId: string;
+  tecnicos: TecnicoOption[];
+  /** Distinto técnico por tarea (pastillas vs. correa) es habitual, así que
+   * esto solo precarga el select -- no obliga a usar el mecánico de la orden. */
+  mecanicoIdHeader?: string | null;
+}) {
   const addManoObra = addManoDeObraAction.bind(null, ordenId);
   const [state, formAction, isPending] = useActionState(addManoObra, initialState);
   const formRef = useRef<HTMLFormElement>(null);
@@ -26,7 +37,7 @@ export function AgregarManoObraForm({ ordenId }: { ordenId: string }) {
     formState: { errors },
   } = useForm<ManoDeObraFormInput>({
     resolver: zodResolver(manoDeObraInputSchema),
-    defaultValues: { descripcion: "", valor: "" },
+    defaultValues: { descripcion: "", valor: "", mecanicoId: mecanicoIdHeader ?? "" },
   });
 
   return (
@@ -63,6 +74,30 @@ export function AgregarManoObraForm({ ordenId }: { ordenId: string }) {
               {...register("valor")}
             />
             {errors.valor ? <p id="manoObraValor-error">{errors.valor.message}</p> : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="manoObraMecanico">Mecánico</Label>
+            {/*
+              Native <select>, not shadcn's Select -- keeps
+              userEvent.selectOptions()/getByRole("option") working, same
+              reasoning as asignar-mecanico-form.tsx.
+            */}
+            <select
+              id="manoObraMecanico"
+              aria-invalid={errors.mecanicoId ? true : undefined}
+              aria-describedby={errors.mecanicoId ? "manoObraMecanico-error" : undefined}
+              className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+              {...register("mecanicoId")}
+            >
+              <option value="">Sin asignar</option>
+              {tecnicos.map((tecnico) => (
+                <option key={tecnico.id} value={tecnico.id}>
+                  {tecnico.nombre}
+                </option>
+              ))}
+            </select>
+            {errors.mecanicoId ? <p id="manoObraMecanico-error">{errors.mecanicoId.message}</p> : null}
           </div>
         </div>
       </FormGroup>

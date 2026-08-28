@@ -46,6 +46,26 @@ describe("AsignarMecanicoForm", () => {
     expect(mockAsignarMecanicoAction).toHaveBeenCalled();
   });
 
+  it("still shows the editable picker to ADMIN (puedeReasignar) after a mecánico is assigned", async () => {
+    render(
+      <AsignarMecanicoForm
+        ordenId="o1"
+        mecanico={{ id: "t1", nombre: "Carlos Ruiz" }}
+        tecnicos={tecnicos}
+        puedeReasignar
+      />,
+    );
+
+    const select = screen.getByRole<HTMLSelectElement>("combobox");
+    expect(select.value).toBe("t1");
+    expect(screen.getByRole("button", { name: "Guardar" })).toBeInTheDocument();
+
+    await userEvent.selectOptions(select, "t2");
+    await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+    expect(mockAsignarMecanicoAction).toHaveBeenCalled();
+  });
+
   it("shows the server error when the assignment is refused", async () => {
     mockAsignarMecanicoAction.mockResolvedValue({
       error: "Esta orden ya tiene un mecánico asignado y no se puede modificar.",

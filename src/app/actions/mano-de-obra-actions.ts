@@ -21,6 +21,7 @@ export async function addManoDeObraAction(
   const parsed = manoDeObraInputSchema.safeParse({
     descripcion: formData.get("descripcion"),
     valor: formData.get("valor"),
+    mecanicoId: formData.get("mecanicoId") ?? "",
   });
 
   if (!parsed.success) {
@@ -43,12 +44,26 @@ export async function addManoDeObraAction(
     return { error: err instanceof Error ? err.message : "Orden no modificable", success: false };
   }
 
+  const mecanicoId = parsed.data.mecanicoId || null;
+  if (mecanicoId) {
+    // Same sede-membership check asignarMecanicoAction applies to the orden's
+    // propio mecánico -- in case the posted id is stale or tampered.
+    const tecnico = await tenantDb.usuario.findFirst({
+      where: { id: mecanicoId, role: "TECNICO", sedes: { some: { sedeId: session.user.sedeActivaId } } },
+      select: { id: true },
+    });
+    if (!tecnico) {
+      return { error: "El técnico seleccionado no existe o no pertenece a esta sede.", success: false };
+    }
+  }
+
   try {
     await tenantDb.manoDeObra.create({
       data: {
         ordenId,
         descripcion: parsed.data.descripcion,
         valor: parsed.data.valor,
+        mecanicoId,
       },
     });
   } catch (err) {

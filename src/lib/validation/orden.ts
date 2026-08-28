@@ -30,6 +30,9 @@ export const manoDeObraInputSchema = z.object({
     (v) => (v === "" || v === null || v === undefined ? undefined : v),
     z.coerce.number({ error: "El valor es obligatorio" }).min(0, "El valor no puede ser negativo"),
   ),
+  // Opcional, igual que OrdenTrabajo.mecanicoId: una tarea puede quedar sin
+  // asignar y completarse después.
+  mecanicoId: z.string().optional().or(z.literal("")),
 });
 
 export type ManoDeObraInput = z.infer<typeof manoDeObraInputSchema>;

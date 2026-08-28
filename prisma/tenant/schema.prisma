@@ -60,6 +60,7 @@ model Usuario {
   historialEntries HistorialVehiculo[]
   ordenesCreadas   OrdenTrabajo[]      @relation("OrdenCreadoPor")
   ordenesAsignadas OrdenTrabajo[]      @relation("OrdenMecanico")
+  manoDeObraAsignada ManoDeObra[]      @relation("ManoDeObraMecanico")
   dviRealizados    Dvi[]
   entradasCreadas  EntradaMercancia[]
   facturasEmitidas Factura[]
@@ -212,9 +213,15 @@ model ManoDeObra {
   orden       OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
   descripcion String
   valor       Decimal      @db.Decimal(10, 2)
+  // Distinto del mecanicoId de la orden (OrdenTrabajo.mecanicoId): cada tarea
+  // puede quedar en manos de un técnico distinto al mecánico asignado en la
+  // cabecera (p.ej. pastillas vs. correa de repartición).
+  mecanicoId  String?      @map("mecanico_id")
+  mecanico    Usuario?     @relation("ManoDeObraMecanico", fields: [mecanicoId], references: [id], onDelete: SetNull)
   createdAt   DateTime     @default(now()) @map("created_at")
 
   @@index([ordenId])
+  @@index([mecanicoId])
   @@map("mano_de_obra")
 }
 
