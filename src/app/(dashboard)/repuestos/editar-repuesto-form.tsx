@@ -86,6 +86,9 @@ export function EditarRepuestoForm({
         onSubmit={handleSubmit((data) =>
           startTransition(() => {
             const formData = new FormData(formRef.current!);
+            // proveedorId is a Combobox (react-hook-form-controlled, not a
+            // native <select name="..."> register()) -- it doesn't populate
+            // FormData on its own, so it must be set explicitly here.
             formData.set("proveedorId", data.proveedorId ?? "");
             formAction(formData);
           }),

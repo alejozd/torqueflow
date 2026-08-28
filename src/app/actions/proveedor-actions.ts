@@ -138,6 +138,9 @@ export async function deleteProveedorFormAction(
   try {
     await deleteProveedorAction(id);
   } catch (err) {
+    if (typeof (err as { digest?: unknown })?.digest === "string" && (err as { digest: string }).digest.startsWith("NEXT_")) {
+      throw err;
+    }
     return { error: err instanceof Error ? err.message : "Error al eliminar el proveedor", success: false };
   }
   return { error: null, success: true };

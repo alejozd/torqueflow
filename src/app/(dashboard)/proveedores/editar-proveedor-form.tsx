@@ -73,12 +73,25 @@ export function EditarProveedorForm({ proveedor }: { proveedor: ProveedorEditabl
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor={`contacto-${proveedor.id}`}>Contacto</Label>
-              <Input id={`contacto-${proveedor.id}`} {...register("contacto")} />
+              <Input
+                id={`contacto-${proveedor.id}`}
+                aria-invalid={errors.contacto ? true : undefined}
+                aria-describedby={errors.contacto ? `contacto-${proveedor.id}-error` : undefined}
+                {...register("contacto")}
+              />
+              {errors.contacto ? <p id={`contacto-${proveedor.id}-error`}>{errors.contacto.message}</p> : null}
             </div>
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor={`telefono-${proveedor.id}`}>Teléfono</Label>
-              <Input id={`telefono-${proveedor.id}`} className="font-mono" {...register("telefono")} />
+              <Input
+                id={`telefono-${proveedor.id}`}
+                className="font-mono"
+                aria-invalid={errors.telefono ? true : undefined}
+                aria-describedby={errors.telefono ? `telefono-${proveedor.id}-error` : undefined}
+                {...register("telefono")}
+              />
+              {errors.telefono ? <p id={`telefono-${proveedor.id}-error`}>{errors.telefono.message}</p> : null}
             </div>
 
             <div className="flex flex-col gap-1.5">
