@@ -35,6 +35,17 @@ const ESTADO_BADGE_VARIANT: Partial<Record<EstadoOrden, "outline" | "destructive
   ANULADA: "destructive",
 };
 
+// Dot/left-border tone per columna del tablero -- mismos tonos que
+// ESTADO_BADGE_CLASSNAME (o el neutro/destructivo estándar para los estados
+// que usan variant en vez de className propio).
+const ESTADO_DOT_COLOR: Record<EstadoOrden, string> = {
+  BORRADOR: "oklch(0.7 0 0)",
+  EN_PROCESO: "oklch(0.55 0.15 60)",
+  TERMINADA: "oklch(0.44 0.12 250)",
+  ENTREGADA: "oklch(0.4 0.1 150)",
+  ANULADA: "oklch(0.5 0.2 27)",
+};
+
 const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" });
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", {
@@ -68,6 +79,37 @@ function calcularTotalOrden(orden: OrdenRow): number {
     0,
   );
   return itemsTotal + manoObraTotal;
+}
+
+function iniciales(nombre: string): string {
+  return nombre
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((parte) => parte[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+interface ColumnaKanban {
+  estado: EstadoOrden;
+  ordenes: OrdenRow[];
+}
+
+// Fixed ESTADOS_VALIDOS order (not grouped from `ordenes`' own order) so every
+// columna renders even when empty, matching the mockup's always-visible board.
+function agruparPorEstado(ordenes: OrdenRow[]): ColumnaKanban[] {
+  return ESTADOS_VALIDOS.map((estado) => ({
+    estado,
+    ordenes: ordenes.filter((orden) => orden.estado === estado),
+  }));
+}
+
+function construirHrefOrdenes(base: { estado?: EstadoOrden; vista?: "tabla" | "tablero" }): string {
+  const params = new URLSearchParams();
+  if (base.estado) params.set("estado", base.estado);
+  if (base.vista && base.vista !== "tabla") params.set("vista", base.vista);
+  const query = params.toString();
+  return query ? `/ordenes?${query}` : "/ordenes";
 }
 
 const COLUMNS: DataTableColumn<OrdenRow>[] = [
@@ -117,10 +159,11 @@ const COLUMNS: DataTableColumn<OrdenRow>[] = [
 export default async function OrdenesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ estado?: string }>;
+  searchParams: Promise<{ estado?: string; vista?: string }>;
 }) {
-  const { estado } = await searchParams;
+  const { estado, vista } = await searchParams;
   const estadoFiltro = ESTADOS_VALIDOS.includes(estado as EstadoOrden) ? (estado as EstadoOrden) : undefined;
+  const vistaActual: "tabla" | "tablero" = vista === "tablero" ? "tablero" : "tabla";
 
   // Fetched once, unfiltered: the KPI cards summarize every orden of the sede
   // regardless of which estado the list below is currently filtered to, so a
@@ -151,6 +194,11 @@ export default async function OrdenesPage({
     facturadas.length > 0
       ? facturadas.reduce((suma, orden) => suma + Number(orden.factura!.total), 0) / facturadas.length
       : null;
+
+  // El tablero agrupa TODAS las órdenes en sus 5 columnas de estado, así que
+  // el filtro de estado (pensado para la tabla) no aplica aquí -- se oculta
+  // en esta vista en vez de filtrar columnas completas.
+  const columnas = agruparPorEstado(ordenes);
 
   return (
     <main className="flex flex-col gap-6">
@@ -206,40 +254,131 @@ export default async function OrdenesPage({
           <CardTitle>Listado</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <nav aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
-            <Link
-              href="/ordenes"
-              className={cn(
-                "rounded-full border px-3 py-1 text-sm transition-colors",
-                estadoFiltro === undefined
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
-              )}
-            >
-              Todas
-            </Link>
-            {ESTADOS_VALIDOS.map((value) => (
+          <div
+            className={cn(
+              "flex flex-wrap items-center gap-3",
+              vistaActual === "tabla" ? "justify-between" : "justify-end",
+            )}
+          >
+            {vistaActual === "tabla" ? (
+              <nav aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
+                <Link
+                  href={construirHrefOrdenes({ vista: vistaActual })}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-sm transition-colors",
+                    estadoFiltro === undefined
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  Todas
+                </Link>
+                {ESTADOS_VALIDOS.map((value) => (
+                  <Link
+                    key={value}
+                    href={construirHrefOrdenes({ estado: value, vista: vistaActual })}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-sm transition-colors",
+                      estadoFiltro === value
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
+                    )}
+                  >
+                    {ESTADO_LABELS[value]}
+                  </Link>
+                ))}
+              </nav>
+            ) : null}
+
+            <div className="flex gap-1 rounded-full border border-input p-0.5">
               <Link
-                key={value}
-                href={`/ordenes?estado=${value}`}
+                href={construirHrefOrdenes({ estado: estadoFiltro, vista: "tablero" })}
                 className={cn(
-                  "rounded-full border px-3 py-1 text-sm transition-colors",
-                  estadoFiltro === value
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
+                  "rounded-full px-3 py-1 text-sm transition-colors",
+                  vistaActual === "tablero"
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-accent hover:text-accent-foreground",
                 )}
               >
-                {ESTADO_LABELS[value]}
+                Tablero
               </Link>
-            ))}
-          </nav>
+              <Link
+                href={construirHrefOrdenes({ estado: estadoFiltro, vista: "tabla" })}
+                className={cn(
+                  "rounded-full px-3 py-1 text-sm transition-colors",
+                  vistaActual === "tabla"
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-accent hover:text-accent-foreground",
+                )}
+              >
+                Tabla
+              </Link>
+            </div>
+          </div>
 
-          <DataTable
-            columns={COLUMNS}
-            rows={filtradas}
-            getRowKey={(orden) => orden.id}
-            emptyMessage="No hay órdenes de trabajo en este estado."
-          />
+          {vistaActual === "tabla" ? (
+            <DataTable
+              columns={COLUMNS}
+              rows={filtradas}
+              getRowKey={(orden) => orden.id}
+              emptyMessage="No hay órdenes de trabajo en este estado."
+            />
+          ) : (
+            <div className="flex items-start gap-3 overflow-x-auto pb-1">
+              {columnas.map((columna) => (
+                <div
+                  key={columna.estado}
+                  className="flex w-64 shrink-0 flex-col gap-2 rounded-xl border border-border bg-muted/30 p-2"
+                >
+                  <div className="flex items-center gap-1.5 px-1.5 py-1">
+                    <span
+                      className="size-1.5 shrink-0 rounded-full"
+                      style={{ background: ESTADO_DOT_COLOR[columna.estado] }}
+                    />
+                    <span className="flex-1 text-xs font-semibold">{ESTADO_LABELS[columna.estado]}</span>
+                    <span className="font-mono text-[11px] text-muted-foreground">{columna.ordenes.length}</span>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    {columna.ordenes.length === 0 ? (
+                      <p className="px-1.5 text-xs text-muted-foreground">Sin órdenes</p>
+                    ) : (
+                      columna.ordenes.map((orden) => (
+                        <Link
+                          key={orden.id}
+                          href={`/ordenes/${orden.id}`}
+                          style={{ borderLeftColor: ESTADO_DOT_COLOR[columna.estado] }}
+                          className="flex flex-col gap-1.5 rounded-lg border border-l-2 border-border bg-card p-2.5 text-xs transition-shadow hover:shadow-md"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-mono text-[13px] font-semibold">{orden.vehiculo.placa}</span>
+                            <span className="font-mono text-[10px] text-muted-foreground">
+                              #{orden.id.slice(-8).toUpperCase()}
+                            </span>
+                          </div>
+                          <p className="line-clamp-2 text-muted-foreground">
+                            {orden.sintomas ?? "Sin síntomas registrados"}
+                          </p>
+                          <p className="text-[10.5px] text-muted-foreground">{orden.cliente.nombre}</p>
+                          <div className="flex items-center justify-between gap-2 border-t border-border pt-1.5">
+                            <span className="flex min-w-0 items-center gap-1.5 text-[10.5px] text-muted-foreground">
+                              <span className="grid size-4 shrink-0 place-items-center rounded-full bg-muted text-[8.5px] font-semibold text-foreground">
+                                {orden.mecanico ? iniciales(orden.mecanico.nombre) : "–"}
+                              </span>
+                              <span className="truncate">{orden.mecanico ? orden.mecanico.nombre : "Sin asignar"}</span>
+                            </span>
+                            <span className="shrink-0 font-mono text-[11px] font-medium">
+                              {formatoMoneda.format(calcularTotalOrden(orden))}
+                            </span>
+                          </div>
+                        </Link>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </main>
