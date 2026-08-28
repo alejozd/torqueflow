@@ -2,14 +2,16 @@
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
 import { crearFacturaAction, type FacturaFormState, type OrdenFacturableOption } from "@/app/actions/factura-actions";
+import { normalizeForSearch } from "@/lib/search";
 import { facturarOrdenInputSchema } from "@/lib/validation/factura";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -34,27 +36,30 @@ export function NuevaFacturaForm({ ordenes }: { ordenes: OrdenFacturableOption[]
   const router = useRouter();
   const [state, setState] = useState<FacturaFormState>(initialState);
   const [isPending, startTransition] = useTransition();
-  const [busqueda, setBusqueda] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<NuevaFacturaFormInput>({
     resolver: zodResolver(nuevaFacturaFormSchema),
     defaultValues: { ordenId: "", descuento: 0 },
   });
+  const { field: ordenIdField } = useController({ name: "ordenId", control });
 
-  const filtro = busqueda.trim().toLowerCase();
-  const ordenesFiltradas = useMemo(() => {
-    if (!filtro) return ordenes;
-    return ordenes.filter(
-      (orden) =>
-        orden.placa.toLowerCase().includes(filtro) ||
-        orden.clienteNombre.toLowerCase().includes(filtro) ||
-        (orden.clienteDocumento?.toLowerCase().includes(filtro) ?? false),
-    );
-  }, [ordenes, filtro]);
+  // ordenId no se lee de FormData (crearFacturaAction lo recibe como argumento
+  // aparte, no del form) -- el Combobox solo necesita quedar sincronizado con
+  // react-hook-form vía useController, no con name/FormData.
+  const ordenesPorId = useMemo(() => new Map(ordenes.map((orden) => [orden.id, orden])), [ordenes]);
+  const ordenOptions: ComboboxOption[] = useMemo(
+    () =>
+      ordenes.map((orden) => ({
+        value: orden.id,
+        label: `${orden.placa} — ${orden.clienteNombre} · ${formatoMoneda.format(orden.total)}`,
+      })),
+    [ordenes],
+  );
 
   if (ordenes.length === 0) {
     return <p>No hay órdenes terminadas o entregadas pendientes de facturar.</p>;
@@ -77,41 +82,29 @@ export function NuevaFacturaForm({ ordenes }: { ordenes: OrdenFacturableOption[]
   return (
     <form noValidate ref={formRef} onSubmit={handleSubmit(onValid)} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="busquedaOrden">Buscar por cliente, cédula o placa</Label>
-        <Input
-          id="busquedaOrden"
-          type="search"
-          value={busqueda}
-          onChange={(event) => setBusqueda(event.target.value)}
-          placeholder="María Gómez, 43128905, WGT-451…"
-        />
-      </div>
-
-      <div className="flex flex-col gap-1.5">
         <Label htmlFor="ordenId">Orden</Label>
-        {/*
-          Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-          while closed) -- userEvent.selectOptions()/getByRole("option")
-          in the existing tests need real <select>/<option> elements.
-          Styled by hand to match the shadcn select trigger look.
-        */}
-        <select
+        <Combobox
           id="ordenId"
           required
+          items={ordenOptions}
+          value={ordenIdField.value}
+          onValueChange={ordenIdField.onChange}
+          placeholder="Cliente, cédula o placa…"
+          emptyMessage="Ninguna orden coincide con la búsqueda"
           aria-invalid={errors.ordenId ? true : undefined}
           aria-describedby={errors.ordenId ? "ordenId-error" : undefined}
-          className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-          {...register("ordenId")}
-        >
-          <option value="" disabled>
-            {ordenesFiltradas.length > 0 ? "Selecciona una orden" : "Ninguna orden coincide con la búsqueda"}
-          </option>
-          {ordenesFiltradas.map((orden) => (
-            <option key={orden.id} value={orden.id}>
-              {`${orden.placa} — ${orden.clienteNombre} · ${formatoMoneda.format(orden.total)}`}
-            </option>
-          ))}
-        </select>
+          filter={(item, query) => {
+            const orden = ordenesPorId.get(item.value);
+            if (!orden) return false;
+            const q = normalizeForSearch(query.trim());
+            if (!q) return true;
+            return (
+              normalizeForSearch(orden.placa).includes(q) ||
+              normalizeForSearch(orden.clienteNombre).includes(q) ||
+              (orden.clienteDocumento ? normalizeForSearch(orden.clienteDocumento).includes(q) : false)
+            );
+          }}
+        />
         {errors.ordenId ? <p id="ordenId-error">{errors.ordenId.message}</p> : null}
       </div>
 

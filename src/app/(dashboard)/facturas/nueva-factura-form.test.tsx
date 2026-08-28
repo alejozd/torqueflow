@@ -34,27 +34,30 @@ describe("NuevaFacturaForm", () => {
     expect(screen.queryByRole("button", { name: "Generar factura" })).not.toBeInTheDocument();
   });
 
-  it("lists every orden by placa, cliente, and total", () => {
+  it("lists every orden by placa, cliente, and total once the picker is open", async () => {
     render(<NuevaFacturaForm ordenes={ordenes} />);
 
-    expect(screen.getByRole("option", { name: /WGT-451 — María Gómez/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("combobox"));
+
+    expect(await screen.findByRole("option", { name: /WGT-451 — María Gómez/ })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /PLR-902 — Jorge Cardona/ })).toBeInTheDocument();
   });
 
-  it("filters the orden options by cliente, cédula, or placa", async () => {
+  it("filters the orden options by cliente, cédula, or placa as you type", async () => {
     render(<NuevaFacturaForm ordenes={ordenes} />);
 
-    await userEvent.type(screen.getByLabelText("Buscar por cliente, cédula o placa"), "79445210");
+    await userEvent.type(screen.getByRole("combobox"), "79445210");
 
+    expect(await screen.findByRole("option", { name: /PLR-902 — Jorge Cardona/ })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: /WGT-451/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /PLR-902 — Jorge Cardona/ })).toBeInTheDocument();
   });
 
   it("submits the selected ordenId and navigates to the new factura on success", async () => {
     mockCrearFacturaAction.mockResolvedValue({ error: null, success: true, facturaId: "f1" });
     render(<NuevaFacturaForm ordenes={ordenes} />);
 
-    await userEvent.selectOptions(screen.getByLabelText("Orden"), "o2");
+    await userEvent.click(screen.getByRole("combobox"));
+    await userEvent.click(await screen.findByRole("option", { name: /PLR-902 — Jorge Cardona/ }));
     await userEvent.click(screen.getByRole("button", { name: "Generar factura" }));
 
     expect(mockCrearFacturaAction).toHaveBeenCalledWith(
@@ -69,7 +72,8 @@ describe("NuevaFacturaForm", () => {
     mockCrearFacturaAction.mockResolvedValue({ error: "Orden no encontrada", success: false, facturaId: null });
     render(<NuevaFacturaForm ordenes={ordenes} />);
 
-    await userEvent.selectOptions(screen.getByLabelText("Orden"), "o1");
+    await userEvent.click(screen.getByRole("combobox"));
+    await userEvent.click(await screen.findByRole("option", { name: /WGT-451 — María Gómez/ }));
     await userEvent.click(screen.getByRole("button", { name: "Generar factura" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Orden no encontrada");
