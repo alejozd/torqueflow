@@ -11,17 +11,25 @@ import { AgregarEntradaItemForm } from "./agregar-entrada-item-form";
 
 const repuestos = [{ id: "r1", codigo: "FRN-001", nombre: "Filtro de aceite" }] as never;
 
+// Repuesto is a Combobox now (search-as-you-type), not a native <select> --
+// options only mount in the DOM once the popup is open.
+async function selectCombobox(labelText: string, optionName: string | RegExp) {
+  await userEvent.click(screen.getByLabelText(labelText));
+  await userEvent.click(await screen.findByRole("option", { name: optionName }));
+}
+
 describe("AgregarEntradaItemForm", () => {
   beforeEach(() => {
     mockAddEntradaItemAction.mockReset();
     mockAddEntradaItemAction.mockResolvedValue({ error: null, success: true });
   });
 
-  it("renders the repuesto select, cantidad, and precio fields", () => {
+  it("renders the repuesto select, cantidad, and precio fields", async () => {
     render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
 
     expect(screen.getByLabelText("Repuesto")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /Filtro de aceite/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText("Repuesto"));
+    expect(await screen.findByRole("option", { name: /Filtro de aceite/ })).toBeInTheDocument();
     expect(screen.getByLabelText("Cantidad")).toBeInTheDocument();
     expect(screen.getByLabelText("Precio de compra unitario")).toBeInTheDocument();
   });
@@ -29,7 +37,7 @@ describe("AgregarEntradaItemForm", () => {
   it("shows a success message after a successful submit", async () => {
     render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
 
-    await userEvent.selectOptions(screen.getByLabelText("Repuesto"), "r1");
+    await selectCombobox("Repuesto", /Filtro de aceite/);
     await userEvent.type(screen.getByLabelText("Cantidad"), "5");
     await userEvent.type(screen.getByLabelText("Precio de compra unitario"), "8");
     await userEvent.click(screen.getByRole("button", { name: "Registrar ítem" }));
@@ -50,7 +58,7 @@ describe("AgregarEntradaItemForm", () => {
     mockAddEntradaItemAction.mockResolvedValue({ error: "No puedes agregar ítems a una entrada anulada.", success: false });
     render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
 
-    await userEvent.selectOptions(screen.getByLabelText("Repuesto"), "r1");
+    await selectCombobox("Repuesto", /Filtro de aceite/);
     await userEvent.type(screen.getByLabelText("Cantidad"), "5");
     await userEvent.type(screen.getByLabelText("Precio de compra unitario"), "8");
     await userEvent.click(screen.getByRole("button", { name: "Registrar ítem" }));
