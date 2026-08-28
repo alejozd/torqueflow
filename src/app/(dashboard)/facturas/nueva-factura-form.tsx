@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 import { z } from "zod";
 import { crearFacturaAction, type FacturaFormState, type OrdenFacturableOption } from "@/app/actions/factura-actions";
 import { facturarOrdenInputSchema } from "@/lib/validation/factura";
@@ -64,8 +65,10 @@ export function NuevaFacturaForm({ ordenes }: { ordenes: OrdenFacturableOption[]
       const formData = new FormData(formRef.current!);
       const result = await crearFacturaAction(data.ordenId, initialState, formData);
       if (result.success && result.facturaId) {
+        toast.success("Factura generada");
         router.push(`/facturas/${result.facturaId}`);
       } else {
+        toast.error(result.error ?? "No se pudo generar la factura");
         setState(result);
       }
     });

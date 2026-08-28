@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 import { z } from "zod";
 import { createCitaAction, type CitaFormState, type VehiculoOption } from "@/app/actions/cita-actions";
 import { citaInputSchema } from "@/lib/validation/cita";
@@ -54,9 +55,12 @@ export function NuevaCitaForm({
     startTransition(async () => {
       const formData = new FormData(formRef.current!);
       const result = await createCitaAction(initialState, formData);
-      if (result.success && onCreated) {
-        onCreated();
+      if (result.success) {
+        toast.success("Cita agendada");
+        if (onCreated) onCreated();
+        else setState(result);
       } else {
+        toast.error(result.error ?? "No se pudo agendar la cita");
         setState(result);
       }
     });

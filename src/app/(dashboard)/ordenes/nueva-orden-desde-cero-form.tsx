@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 import { z } from "zod";
 import { createOrdenDesdeVehiculoAction, type OrdenFormState, type TecnicoOption } from "@/app/actions/orden-actions";
 import { ordenTrabajoInputSchema } from "@/lib/validation/orden";
@@ -74,9 +75,12 @@ export function NuevaOrdenDesdeCeroForm({
     startTransition(async () => {
       const formData = new FormData(formRef.current!);
       const result = await createOrdenDesdeVehiculoAction(initialState, formData);
-      if (result.success && onCreated) {
-        onCreated();
+      if (result.success) {
+        toast.success("Orden creada");
+        if (onCreated) onCreated();
+        else setState(result);
       } else {
+        toast.error(result.error ?? "No se pudo crear la orden");
         setState(result);
       }
     });

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Toaster } from "sonner";
 import { requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { publicDb } from "@/lib/db/public-client";
@@ -43,6 +44,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   return (
     <DashboardSessionProvider>
       <TooltipProvider>
+        <Toaster richColors position="top-right" />
         <SidebarProvider>
           <DashboardSidebar esAdmin={esAdmin} tenantSlug={session.user.tenantSlug} plan={plan} />
           <SidebarInset>
