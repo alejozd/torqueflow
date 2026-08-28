@@ -31,6 +31,7 @@ describe("AgregarManoObraForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Agregar mano de obra" }));
 
     expect(await screen.findByText("La descripción es obligatoria")).toBeInTheDocument();
+    expect(await screen.findByText("El valor es obligatorio")).toBeInTheDocument();
     expect(mockAddManoDeObraAction).not.toHaveBeenCalled();
   });
 

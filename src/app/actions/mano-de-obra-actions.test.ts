@@ -42,6 +42,18 @@ describe("addManoDeObraAction", () => {
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
+  it("returns a validation error when valor is left blank, instead of silently defaulting to 0", async () => {
+    const formData = new FormData();
+    formData.set("descripcion", "Cambio de pastillas de freno");
+    formData.set("valor", "");
+
+    const result = await addManoDeObraAction("o1", initialState, formData);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("El valor es obligatorio");
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
   it("creates the labor line linked to the given ordenId on valid input", async () => {
     mockCreate.mockResolvedValue({ id: "m1" });
     const formData = new FormData();
