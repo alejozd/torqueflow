@@ -23,6 +23,7 @@ import {
   createProveedorAction,
   updateProveedorAction,
   deleteProveedorAction,
+  deleteProveedorFormAction,
   listProveedores,
   listProveedoresConInventario,
   type ProveedorFormState,
@@ -87,6 +88,29 @@ describe("deleteProveedorAction", () => {
 
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
     expect(mockDelete).toHaveBeenCalledWith({ where: { id: "p1" } });
+  });
+});
+
+describe("deleteProveedorFormAction", () => {
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockDelete.mockReset();
+  });
+
+  it("returns success after deleting the proveedor", async () => {
+    mockDelete.mockResolvedValue({ id: "p1" });
+
+    const result = await deleteProveedorFormAction("p1", initialState);
+
+    expect(result).toEqual({ error: null, success: true });
+  });
+
+  it("returns the thrown error message instead of throwing", async () => {
+    mockDelete.mockRejectedValue(new Error("boom"));
+
+    const result = await deleteProveedorFormAction("p1", initialState);
+
+    expect(result).toEqual({ error: "Error al eliminar el proveedor", success: false });
   });
 });
 

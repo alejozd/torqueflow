@@ -3,6 +3,7 @@ import { listProveedoresConInventario, type ProveedorConInventario } from "@/app
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { EditarProveedorDialog } from "./editar-proveedor-dialog";
 
 const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" });
 
@@ -35,6 +36,20 @@ const COLUMNS: DataTableColumn<ProveedorConInventario>[] = [
       ) : (
         <span className="text-muted-foreground">—</span>
       ),
+  },
+  {
+    header: "Acciones",
+    cell: (proveedor) => (
+      <EditarProveedorDialog
+        proveedor={{
+          id: proveedor.id,
+          nombre: proveedor.nombre,
+          contacto: proveedor.contacto,
+          telefono: proveedor.telefono,
+          email: proveedor.email,
+        }}
+      />
+    ),
   },
 ];
 

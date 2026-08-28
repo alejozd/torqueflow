@@ -125,3 +125,20 @@ export async function deleteProveedorAction(id: string): Promise<void> {
   }
   revalidatePath("/proveedores");
 }
+
+/**
+ * useActionState-compatible wrapper for deleteProveedorAction, which throws
+ * on any underlying Prisma error -- same adapter shape as
+ * deleteSedeFormAction/deleteBodegaFormAction.
+ */
+export async function deleteProveedorFormAction(
+  id: string,
+  prevState: ProveedorFormState,
+): Promise<ProveedorFormState> {
+  try {
+    await deleteProveedorAction(id);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Error al eliminar el proveedor", success: false };
+  }
+  return { error: null, success: true };
+}
