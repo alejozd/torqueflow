@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 vi.mock("@/app/actions/cita-actions", () => ({
   createCitaAction: vi.fn(),
@@ -13,10 +14,14 @@ const vehiculos = [
 ];
 
 describe("NuevaCitaForm", () => {
-  it("renders one option per vehículo, labelled with placa and cliente", () => {
+  it("renders one option per vehículo, labelled with placa and cliente", async () => {
     render(<NuevaCitaForm vehiculos={vehiculos} />);
 
-    expect(screen.getByRole("option", { name: "ABC123 — Mazda 3 (Ana Pérez)" })).toBeInTheDocument();
+    // Vehículo is a Combobox now (search-as-you-type), not a native <select>
+    // -- options only mount in the DOM once the popup is open.
+    await userEvent.click(screen.getByLabelText("Vehículo"));
+
+    expect(await screen.findByRole("option", { name: "ABC123 — Mazda 3 (Ana Pérez)" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "XYZ789 — Renault Logan (Beto Ruiz)" })).toBeInTheDocument();
   });
 

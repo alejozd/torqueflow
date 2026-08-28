@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { useMemo, useRef, useState, useTransition } from "react";
+import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -10,6 +10,7 @@ import { citaInputSchema } from "@/lib/validation/cita";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,19 +42,34 @@ export function NuevaCitaForm({
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<CitaFormInput, unknown, CitaFormOutput>({
     resolver: zodResolver(citaInputSchema),
     defaultValues: { vehiculoId: "", fechaHora: "", motivo: "", notas: "" },
   });
+  const { field: vehiculoIdField } = useController({ name: "vehiculoId", control });
+
+  const vehiculoOptions: ComboboxOption[] = useMemo(
+    () =>
+      vehiculos.map((vehiculo) => ({
+        value: vehiculo.id,
+        label: `${vehiculo.placa} — ${vehiculo.marca} ${vehiculo.modelo} (${vehiculo.clienteNombre})`,
+      })),
+    [vehiculos],
+  );
 
   if (vehiculos.length === 0) {
     return <p>Registra un cliente y su vehículo antes de agendar una cita.</p>;
   }
 
-  function onValid() {
+  function onValid(data: { vehiculoId: string }) {
     startTransition(async () => {
       const formData = new FormData(formRef.current!);
+      // vehiculoId is a Combobox (react-hook-form-controlled, not a native
+      // <select name="..."> register()) -- it doesn't populate FormData on
+      // its own, so it must be set explicitly here before submitting.
+      formData.set("vehiculoId", data.vehiculoId);
       const result = await createCitaAction(initialState, formData);
       if (result.success) {
         toast.success("Cita agendada");
@@ -72,29 +88,17 @@ export function NuevaCitaForm({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="vehiculoId">Vehículo</Label>
-            {/*
-              Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-              while closed) -- userEvent.selectOptions()/getByRole("option")
-              in the existing tests need real <select>/<option> elements.
-              Styled by hand to match the shadcn select trigger look.
-            */}
-            <select
+            <Combobox
               id="vehiculoId"
               required
+              items={vehiculoOptions}
+              value={vehiculoIdField.value}
+              onValueChange={vehiculoIdField.onChange}
+              placeholder="Buscar vehículo..."
+              emptyMessage="Ningún vehículo coincide"
               aria-invalid={errors.vehiculoId ? true : undefined}
               aria-describedby={errors.vehiculoId ? "vehiculoId-error" : undefined}
-              className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-              {...register("vehiculoId")}
-            >
-              <option value="" disabled>
-                Selecciona un vehículo
-              </option>
-              {vehiculos.map((vehiculo) => (
-                <option key={vehiculo.id} value={vehiculo.id}>
-                  {`${vehiculo.placa} — ${vehiculo.marca} ${vehiculo.modelo} (${vehiculo.clienteNombre})`}
-                </option>
-              ))}
-            </select>
+            />
             {errors.vehiculoId ? <p id="vehiculoId-error">{errors.vehiculoId.message}</p> : null}
           </div>
 
