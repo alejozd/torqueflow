@@ -20,8 +20,7 @@ export async function addManoDeObraAction(
 ): Promise<ManoDeObraFormState> {
   const parsed = manoDeObraInputSchema.safeParse({
     descripcion: formData.get("descripcion"),
-    horas: formData.get("horas"),
-    precioHora: formData.get("precioHora"),
+    valor: formData.get("valor"),
   });
 
   if (!parsed.success) {
@@ -49,8 +48,7 @@ export async function addManoDeObraAction(
       data: {
         ordenId,
         descripcion: parsed.data.descripcion,
-        horas: parsed.data.horas,
-        precioHora: parsed.data.precioHora,
+        valor: parsed.data.valor,
       },
     });
   } catch (err) {

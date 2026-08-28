@@ -17,7 +17,6 @@ type FilaProductividad = Awaited<ReturnType<typeof getReporteProductividad>>["fi
 const COLUMNS: DataTableColumn<FilaProductividad>[] = [
   { header: "Técnico", cell: (fila) => fila.mecanicoNombre },
   { header: "Órdenes entregadas", cell: (fila) => fila.ordenesCompletadas },
-  { header: "Horas", cell: (fila) => fila.horasManoDeObra },
   { header: "Mano de obra", cell: (fila) => fila.montoManoDeObra },
 ];
 

@@ -23,7 +23,7 @@ describe("computeRentabilidad", () => {
           { cantidad: 4, precioCompra: null },
           { cantidad: 2, precioCompra: 8 },
         ],
-        manoDeObra: [{ horas: 1.5, precioHora: 20 }],
+        manoDeObra: [{ valor: 30 }],
       },
     ]);
 
@@ -44,7 +44,7 @@ describe("computeRentabilidad", () => {
         total: 200,
         base: 160,
         items: [{ cantidad: 2, precioCompra: 20 }],
-        manoDeObra: [{ horas: 2, precioHora: 25 }],
+        manoDeObra: [{ valor: 50 }],
       },
     ]);
 
@@ -74,7 +74,7 @@ describe("computeRentabilidad", () => {
         total: 10.005,
         base: 10.005,
         items: [{ cantidad: 3, precioCompra: 0.335 }],
-        manoDeObra: [{ horas: 0.333, precioHora: 3 }],
+        manoDeObra: [{ valor: 0.999 }],
       },
     ]);
 

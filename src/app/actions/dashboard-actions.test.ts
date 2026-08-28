@@ -117,11 +117,11 @@ describe("getDashboardOverview", () => {
         return Promise.resolve([
           {
             items: [{ cantidad: 2, precioUnitario: 10 }],
-            manoDeObra: [{ horas: 1, precioHora: 20 }],
+            manoDeObra: [{ valor: 20 }],
           },
           {
             items: [],
-            manoDeObra: [{ horas: 2, precioHora: 15 }],
+            manoDeObra: [{ valor: 30 }],
           },
         ]);
       }
@@ -131,7 +131,7 @@ describe("getDashboardOverview", () => {
     const overview = await getDashboardOverview();
 
     expect(overview.porFacturar.count).toBe(2);
-    expect(overview.porFacturar.monto).toBe(2 * 10 + 1 * 20 + 2 * 15);
+    expect(overview.porFacturar.monto).toBe(2 * 10 + 20 + 30);
   });
 
   it("computes cartera from Factura.saldoPendiente sum and pending count, defaulting a null sum to 0", async () => {

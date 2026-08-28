@@ -26,7 +26,7 @@ export function AgregarManoObraForm({ ordenId }: { ordenId: string }) {
     formState: { errors },
   } = useForm<ManoDeObraFormInput>({
     resolver: zodResolver(manoDeObraInputSchema),
-    defaultValues: { descripcion: "", horas: "", precioHora: "" },
+    defaultValues: { descripcion: "", valor: "" },
   });
 
   return (
@@ -37,48 +37,32 @@ export function AgregarManoObraForm({ ordenId }: { ordenId: string }) {
       className="flex flex-col gap-4"
     >
       <FormGroup label="Trabajo">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="manoObraDescripcion">Descripción</Label>
-          <Input
-            id="manoObraDescripcion"
-            aria-invalid={errors.descripcion ? true : undefined}
-            aria-describedby={errors.descripcion ? "manoObraDescripcion-error" : undefined}
-            {...register("descripcion")}
-          />
-          {errors.descripcion ? <p id="manoObraDescripcion-error">{errors.descripcion.message}</p> : null}
-        </div>
-      </FormGroup>
-
-      <FormGroup label="Tiempo y tarifa">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="manoObraHoras">Horas</Label>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <Label htmlFor="manoObraDescripcion">Descripción</Label>
             <Input
-              id="manoObraHoras"
-              type="number"
-              min="0.1"
-              step="0.1"
-              className="font-mono"
-              aria-invalid={errors.horas ? true : undefined}
-              aria-describedby={errors.horas ? "manoObraHoras-error" : undefined}
-              {...register("horas")}
+              id="manoObraDescripcion"
+              aria-invalid={errors.descripcion ? true : undefined}
+              aria-describedby={errors.descripcion ? "manoObraDescripcion-error" : undefined}
+              {...register("descripcion")}
             />
-            {errors.horas ? <p id="manoObraHoras-error">{errors.horas.message}</p> : null}
+            {errors.descripcion ? <p id="manoObraDescripcion-error">{errors.descripcion.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="manoObraPrecioHora">Precio por hora</Label>
+            <Label htmlFor="manoObraValor">Valor</Label>
+            {/* Flat labor charge, no hours captured -- Colombian shops quote mano de obra as a single amount. */}
             <Input
-              id="manoObraPrecioHora"
+              id="manoObraValor"
               type="number"
               min="0"
               step="0.01"
               className="font-mono"
-              aria-invalid={errors.precioHora ? true : undefined}
-              aria-describedby={errors.precioHora ? "manoObraPrecioHora-error" : undefined}
-              {...register("precioHora")}
+              aria-invalid={errors.valor ? true : undefined}
+              aria-describedby={errors.valor ? "manoObraValor-error" : undefined}
+              {...register("valor")}
             />
-            {errors.precioHora ? <p id="manoObraPrecioHora-error">{errors.precioHora.message}</p> : null}
+            {errors.valor ? <p id="manoObraValor-error">{errors.valor.message}</p> : null}
           </div>
         </div>
       </FormGroup>

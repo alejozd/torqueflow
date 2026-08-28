@@ -6,10 +6,10 @@ describe("computeProductividad", () => {
     expect(computeProductividad([])).toEqual([]);
   });
 
-  it("groups several órdenes under the same técnico and sums hours and amount", () => {
+  it("groups several órdenes under the same técnico and sums the amount", () => {
     const filas = computeProductividad([
-      { mecanicoId: "t1", mecanicoNombre: "Ana", manoDeObra: [{ horas: 1.5, precioHora: 20 }] },
-      { mecanicoId: "t1", mecanicoNombre: "Ana", manoDeObra: [{ horas: 2, precioHora: 20 }] },
+      { mecanicoId: "t1", mecanicoNombre: "Ana", manoDeObra: [{ valor: 30 }] },
+      { mecanicoId: "t1", mecanicoNombre: "Ana", manoDeObra: [{ valor: 40 }] },
     ]);
 
     expect(filas).toEqual([
@@ -17,7 +17,6 @@ describe("computeProductividad", () => {
         mecanicoId: "t1",
         mecanicoNombre: "Ana",
         ordenesCompletadas: 2,
-        horasManoDeObra: 3.5,
         montoManoDeObra: 70,
       },
     ]);
@@ -25,7 +24,7 @@ describe("computeProductividad", () => {
 
   it("buckets órdenes with no mecánico under 'Sin asignar' instead of dropping them", () => {
     const filas = computeProductividad([
-      { mecanicoId: null, mecanicoNombre: null, manoDeObra: [{ horas: 1, precioHora: 40 }] },
+      { mecanicoId: null, mecanicoNombre: null, manoDeObra: [{ valor: 40 }] },
     ]);
 
     expect(filas).toEqual([
@@ -33,28 +32,26 @@ describe("computeProductividad", () => {
         mecanicoId: null,
         mecanicoNombre: SIN_ASIGNAR_LABEL,
         ordenesCompletadas: 1,
-        horasManoDeObra: 1,
         montoManoDeObra: 40,
       },
     ]);
   });
 
-  it("counts an orden with no mano de obra lines as completed with zero hours", () => {
+  it("counts an orden with no mano de obra lines as completed with zero amount", () => {
     const filas = computeProductividad([{ mecanicoId: "t1", mecanicoNombre: "Ana", manoDeObra: [] }]);
 
     expect(filas[0]).toEqual({
       mecanicoId: "t1",
       mecanicoNombre: "Ana",
       ordenesCompletadas: 1,
-      horasManoDeObra: 0,
       montoManoDeObra: 0,
     });
   });
 
   it("sorts by billed amount descending", () => {
     const filas = computeProductividad([
-      { mecanicoId: "t1", mecanicoNombre: "Ana", manoDeObra: [{ horas: 1, precioHora: 10 }] },
-      { mecanicoId: "t2", mecanicoNombre: "Beto", manoDeObra: [{ horas: 1, precioHora: 30 }] },
+      { mecanicoId: "t1", mecanicoNombre: "Ana", manoDeObra: [{ valor: 10 }] },
+      { mecanicoId: "t2", mecanicoNombre: "Beto", manoDeObra: [{ valor: 30 }] },
       { mecanicoId: null, mecanicoNombre: null, manoDeObra: [] },
     ]);
 
@@ -63,19 +60,18 @@ describe("computeProductividad", () => {
 
   it("breaks amount ties alphabetically by name", () => {
     const filas = computeProductividad([
-      { mecanicoId: "t2", mecanicoNombre: "Zoe", manoDeObra: [{ horas: 1, precioHora: 10 }] },
-      { mecanicoId: "t1", mecanicoNombre: "Ana", manoDeObra: [{ horas: 1, precioHora: 10 }] },
+      { mecanicoId: "t2", mecanicoNombre: "Zoe", manoDeObra: [{ valor: 10 }] },
+      { mecanicoId: "t1", mecanicoNombre: "Ana", manoDeObra: [{ valor: 10 }] },
     ]);
 
     expect(filas.map((fila) => fila.mecanicoNombre)).toEqual(["Ana", "Zoe"]);
   });
 
-  it("rounds hours and amount to two decimals", () => {
+  it("rounds the summed amount to two decimals", () => {
     const filas = computeProductividad([
-      { mecanicoId: "t1", mecanicoNombre: "Ana", manoDeObra: [{ horas: 0.333, precioHora: 3 }] },
+      { mecanicoId: "t1", mecanicoNombre: "Ana", manoDeObra: [{ valor: 0.1 }, { valor: 0.2 }] },
     ]);
 
-    expect(filas[0].horasManoDeObra).toBe(0.33);
-    expect(filas[0].montoManoDeObra).toBe(1);
+    expect(filas[0].montoManoDeObra).toBe(0.3);
   });
 });

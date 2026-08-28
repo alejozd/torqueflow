@@ -7,8 +7,7 @@ export interface RentabilidadItem {
 }
 
 export interface RentabilidadManoDeObra {
-  horas: number;
-  precioHora: number;
+  valor: number;
 }
 
 export interface RentabilidadFactura {
@@ -45,7 +44,7 @@ export function computeRentabilidad(facturas: RentabilidadFactura[]): Rentabilid
       }
     }
     for (const linea of factura.manoDeObra) {
-      manoDeObra += linea.horas * linea.precioHora;
+      manoDeObra += linea.valor;
     }
   }
 

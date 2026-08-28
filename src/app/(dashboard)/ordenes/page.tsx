@@ -74,10 +74,7 @@ function contarItems(orden: OrdenRow): number {
 function calcularTotalOrden(orden: OrdenRow): number {
   if (orden.factura) return Number(orden.factura.total);
   const itemsTotal = orden.items.reduce((suma, item) => suma + item.cantidad * Number(item.precioUnitario), 0);
-  const manoObraTotal = orden.manoDeObra.reduce(
-    (suma, linea) => suma + Number(linea.horas) * Number(linea.precioHora),
-    0,
-  );
+  const manoObraTotal = orden.manoDeObra.reduce((suma, linea) => suma + Number(linea.valor), 0);
   return itemsTotal + manoObraTotal;
 }
 

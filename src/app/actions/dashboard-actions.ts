@@ -119,7 +119,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       where: { ...scopeOrden(sedeActivaId), estado: "TERMINADA", factura: null },
       select: {
         items: { select: { cantidad: true, precioUnitario: true } },
-        manoDeObra: { select: { horas: true, precioHora: true } },
+        manoDeObra: { select: { valor: true } },
       },
     }),
     tenantDb.factura.aggregate({
@@ -148,7 +148,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
         cliente: { select: { nombre: true } },
         mecanico: { select: { nombre: true } },
         items: { select: { cantidad: true, precioUnitario: true } },
-        manoDeObra: { select: { horas: true, precioHora: true } },
+        manoDeObra: { select: { valor: true } },
         factura: { select: { total: true } },
       },
     }),
@@ -187,7 +187,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
           sum +
           totalOrden({
             items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
-            manoDeObra: orden.manoDeObra.map((linea) => ({ horas: Number(linea.horas), precioHora: Number(linea.precioHora) })),
+            manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor) })),
           }),
         0,
       ),
@@ -216,10 +216,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
         ? Number(orden.factura.total)
         : totalOrden({
             items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
-            manoDeObra: orden.manoDeObra.map((linea) => ({
-              horas: Number(linea.horas),
-              precioHora: Number(linea.precioHora),
-            })),
+            manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor) })),
           }),
     })),
     agendaHoy: citasHoyRows.map((cita) => ({

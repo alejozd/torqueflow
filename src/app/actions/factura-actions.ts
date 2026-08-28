@@ -81,8 +81,7 @@ export async function crearFacturaAction(
   const { subtotal, iva, total } = computeFacturaTotales({
     items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
     manoDeObra: orden.manoDeObra.map((linea) => ({
-      horas: Number(linea.horas),
-      precioHora: Number(linea.precioHora),
+      valor: Number(linea.valor),
     })),
     descuento,
   });

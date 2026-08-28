@@ -57,10 +57,7 @@ function calcularTotalOrden(orden: OrdenDeVehiculo): number {
   if (orden.factura) return Number(orden.factura.total);
   return totalOrden({
     items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
-    manoDeObra: orden.manoDeObra.map((linea) => ({
-      horas: Number(linea.horas),
-      precioHora: Number(linea.precioHora),
-    })),
+    manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor) })),
   });
 }
 

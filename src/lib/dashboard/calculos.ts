@@ -6,13 +6,13 @@
  * fields to plain numbers before calling these.
  */
 
-/** OrdenTrabajo total: items (cantidad x precioUnitario) + manoDeObra (horas x precioHora). */
+/** OrdenTrabajo total: items (cantidad x precioUnitario) + manoDeObra (flat valor per línea). */
 export function totalOrden(orden: {
   items: { cantidad: number; precioUnitario: number }[];
-  manoDeObra: { horas: number; precioHora: number }[];
+  manoDeObra: { valor: number }[];
 }): number {
   const itemsTotal = orden.items.reduce((sum, item) => sum + item.cantidad * item.precioUnitario, 0);
-  const manoDeObraTotal = orden.manoDeObra.reduce((sum, linea) => sum + linea.horas * linea.precioHora, 0);
+  const manoDeObraTotal = orden.manoDeObra.reduce((sum, linea) => sum + linea.valor, 0);
   return itemsTotal + manoDeObraTotal;
 }
 

@@ -5,7 +5,7 @@ describe("computeFacturaTotales", () => {
   it("computes subtotal, IVA at the fixed rate, and total with no discount", () => {
     const result = computeFacturaTotales({
       items: [{ cantidad: 4, precioUnitario: 15 }],
-      manoDeObra: [{ horas: 1.5, precioHora: 20 }],
+      manoDeObra: [{ valor: 30 }],
       descuento: 0,
     });
 
@@ -18,7 +18,7 @@ describe("computeFacturaTotales", () => {
         { cantidad: 4, precioUnitario: 15 },
         { cantidad: 2, precioUnitario: 18.9 },
       ],
-      manoDeObra: [{ horas: 1.5, precioHora: 20 }],
+      manoDeObra: [{ valor: 30 }],
       descuento: 10,
     });
 

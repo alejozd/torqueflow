@@ -211,8 +211,7 @@ model ManoDeObra {
   ordenId     String       @map("orden_id")
   orden       OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
   descripcion String
-  horas       Decimal      @db.Decimal(5, 2)
-  precioHora  Decimal      @map("precio_hora") @db.Decimal(10, 2)
+  valor       Decimal      @db.Decimal(10, 2)
   createdAt   DateTime     @default(now()) @map("created_at")
 
   @@index([ordenId])

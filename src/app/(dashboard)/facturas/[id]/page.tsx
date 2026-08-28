@@ -55,7 +55,7 @@ const MANO_OBRA_COLUMNS: DataTableColumn<ManoObraRow>[] = [
     header: "Mano de obra",
     cell: (linea) => (
       <>
-        {linea.descripcion} — {linea.horas.toString()}h x {linea.precioHora.toString()}
+        {linea.descripcion} — {linea.valor.toString()}
       </>
     ),
   },

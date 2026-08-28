@@ -74,7 +74,7 @@ const ORDEN_VEHICULO_SELECT = {
   // the two pages never disagree about the same vehículo's mileage.
   kilometrajeIngreso: true,
   items: { select: { cantidad: true, precioUnitario: true } },
-  manoDeObra: { select: { horas: true, precioHora: true } },
+  manoDeObra: { select: { valor: true } },
   factura: { select: { total: true } },
 } satisfies Prisma.OrdenTrabajoSelect;
 

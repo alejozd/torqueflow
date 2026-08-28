@@ -74,7 +74,7 @@ export async function getReporteRentabilidad(filtros: ReporteFiltros): Promise<R
       orden: {
         select: {
           items: { select: { cantidad: true, repuesto: { select: { precioCompra: true } } } },
-          manoDeObra: { select: { horas: true, precioHora: true } },
+          manoDeObra: { select: { valor: true } },
         },
       },
     },
@@ -89,8 +89,7 @@ export async function getReporteRentabilidad(filtros: ReporteFiltros): Promise<R
         precioCompra: item.repuesto ? Number(item.repuesto.precioCompra) : null,
       })),
       manoDeObra: factura.orden.manoDeObra.map((linea) => ({
-        horas: Number(linea.horas),
-        precioHora: Number(linea.precioHora),
+        valor: Number(linea.valor),
       })),
     })),
   );
@@ -150,7 +149,7 @@ export async function getReporteProductividad(filtros: ReporteFiltros): Promise<
       mecanicoId: true,
       // select-only: never pull the whole Usuario row (passwordHash leak class).
       mecanico: { select: { nombre: true } },
-      manoDeObra: { select: { horas: true, precioHora: true } },
+      manoDeObra: { select: { valor: true } },
     },
   });
 
@@ -159,8 +158,7 @@ export async function getReporteProductividad(filtros: ReporteFiltros): Promise<
       mecanicoId: orden.mecanicoId,
       mecanicoNombre: orden.mecanico?.nombre ?? null,
       manoDeObra: orden.manoDeObra.map((linea) => ({
-        horas: Number(linea.horas),
-        precioHora: Number(linea.precioHora),
+        valor: Number(linea.valor),
       })),
     })),
   );

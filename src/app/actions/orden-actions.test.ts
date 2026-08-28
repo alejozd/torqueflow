@@ -239,7 +239,7 @@ describe("listOrdenesByVehiculo", () => {
     estado: true,
     kilometrajeIngreso: true,
     items: { select: { cantidad: true, precioUnitario: true } },
-    manoDeObra: { select: { horas: true, precioHora: true } },
+    manoDeObra: { select: { valor: true } },
     factura: { select: { total: true } },
   };
 

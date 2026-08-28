@@ -101,21 +101,9 @@ const MANO_OBRA_COLUMNS: DataTableColumn<ManoObraRow>[] = [
     cell: (linea) => <span className="text-sm">{linea.descripcion}</span>,
   },
   {
-    header: "Horas",
-    cell: (linea) => <span className="font-mono text-sm">{linea.horas.toString()} h</span>,
-  },
-  {
-    header: "Precio hora",
+    header: "Valor",
     cell: (linea) => (
-      <span className="font-mono text-sm text-muted-foreground">{formatoMoneda.format(Number(linea.precioHora))}</span>
-    ),
-  },
-  {
-    header: "Importe",
-    cell: (linea) => (
-      <span className="font-mono text-sm font-medium">
-        {formatoMoneda.format(Number(linea.horas) * Number(linea.precioHora))}
-      </span>
+      <span className="font-mono text-sm font-medium">{formatoMoneda.format(Number(linea.valor))}</span>
     ),
   },
 ];
@@ -151,21 +139,14 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
   }
 
   const repuestosTotal = orden.items.reduce((suma, item) => suma + item.cantidad * Number(item.precioUnitario), 0);
-  const manoObraTotal = orden.manoDeObra.reduce(
-    (suma, linea) => suma + Number(linea.horas) * Number(linea.precioHora),
-    0,
-  );
-  const horasCargadas = orden.manoDeObra.reduce((suma, linea) => suma + Number(linea.horas), 0);
+  const manoObraTotal = orden.manoDeObra.reduce((suma, linea) => suma + Number(linea.valor), 0);
   const checklist = (orden.dvi?.checklist as DviChecklist | undefined) ?? null;
   const checklistValores = checklist ? Object.values(checklist) : [];
   const atencionCount = checklistValores.filter((v) => v === "ATENCION").length;
   const criticoCount = checklistValores.filter((v) => v === "CRITICO").length;
   const total = totalOrden({
     items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
-    manoDeObra: orden.manoDeObra.map((linea) => ({
-      horas: Number(linea.horas),
-      precioHora: Number(linea.precioHora),
-    })),
+    manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor) })),
   });
 
   return (
@@ -219,7 +200,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
                 <FormGroup label="Asignación">
                   <div className="grid grid-cols-2 gap-3">
                     <InfoField label="Mecánico" value={orden.mecanico?.nombre ?? "Sin asignar"} />
-                    <InfoField label="Horas cargadas" value={`${horasCargadas} h`} />
+                    <InfoField label="Mano de obra" value={formatoMoneda.format(manoObraTotal)} />
                   </div>
                 </FormGroup>
               </div>
@@ -258,7 +239,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
               <CardTitle>
                 Mano de obra{" "}
                 <span className="font-normal text-muted-foreground">
-                  · {orden.manoDeObra.length} {orden.manoDeObra.length === 1 ? "línea" : "líneas"} · {horasCargadas} h
+                  · {orden.manoDeObra.length} {orden.manoDeObra.length === 1 ? "línea" : "líneas"}
                 </span>
               </CardTitle>
               <CardAction>

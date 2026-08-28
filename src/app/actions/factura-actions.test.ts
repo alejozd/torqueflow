@@ -41,7 +41,7 @@ function baseOrden(overrides: Record<string, unknown> = {}) {
       { id: "i1", repuestoId: "r1", cantidad: 2, precioUnitario: "18.9" },
       { id: "i2", repuestoId: null, cantidad: 4, precioUnitario: "15" },
     ],
-    manoDeObra: [{ id: "m1", horas: "1.5", precioHora: "20" }],
+    manoDeObra: [{ id: "m1", valor: "30" }],
     ...overrides,
   };
 }

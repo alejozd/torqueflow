@@ -4,7 +4,7 @@ export const IVA_RATE = 0.19;
 
 export interface FacturaTotalesInput {
   items: { cantidad: number; precioUnitario: number }[];
-  manoDeObra: { horas: number; precioHora: number }[];
+  manoDeObra: { valor: number }[];
   descuento: number;
 }
 
@@ -17,7 +17,7 @@ export interface FacturaTotales {
 
 export function computeFacturaTotales({ items, manoDeObra, descuento }: FacturaTotalesInput): FacturaTotales {
   const itemsTotal = items.reduce((sum, item) => sum + item.cantidad * item.precioUnitario, 0);
-  const manoDeObraTotal = manoDeObra.reduce((sum, linea) => sum + linea.horas * linea.precioHora, 0);
+  const manoDeObraTotal = manoDeObra.reduce((sum, linea) => sum + linea.valor, 0);
   const subtotal = roundMoney(itemsTotal + manoDeObraTotal);
   const base = roundMoney(subtotal - descuento);
   const iva = roundMoney(base * IVA_RATE);

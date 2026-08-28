@@ -23,8 +23,7 @@ export type ItemOrdenInput = z.infer<typeof itemOrdenInputSchema>;
 
 export const manoDeObraInputSchema = z.object({
   descripcion: z.string().min(1, "La descripción es obligatoria"),
-  horas: z.coerce.number().min(0.1, "Las horas deben ser mayores a 0"),
-  precioHora: z.coerce.number().min(0, "El precio no puede ser negativo"),
+  valor: z.coerce.number().min(0, "El valor no puede ser negativo"),
 });
 
 export type ManoDeObraInput = z.infer<typeof manoDeObraInputSchema>;

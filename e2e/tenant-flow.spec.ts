@@ -122,8 +122,7 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   await page.getByRole("link", { name: /ABC123/ }).click();
 
   await page.getByLabel("Descripción").nth(1).fill("Cambio de pastillas de freno");
-  await page.getByLabel("Horas").fill("1.5");
-  await page.getByLabel("Precio por hora").fill("20");
+  await page.getByLabel("Valor").fill("30000");
   await page.getByRole("button", { name: "Agregar mano de obra" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Mano de obra agregada" })).toBeVisible();
 

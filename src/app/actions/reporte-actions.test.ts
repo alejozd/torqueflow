@@ -81,7 +81,7 @@ describe("getReporteRentabilidad", () => {
             { cantidad: 4, repuesto: null },
             { cantidad: 2, repuesto: { precioCompra: "8" } },
           ],
-          manoDeObra: [{ horas: "1.5", precioHora: "20" }],
+          manoDeObra: [{ valor: "30" }],
         },
       },
     ]);
@@ -111,7 +111,7 @@ describe("getReporteRentabilidad", () => {
         orden: {
           select: {
             items: { select: { cantidad: true, repuesto: { select: { precioCompra: true } } } },
-            manoDeObra: { select: { horas: true, precioHora: true } },
+            manoDeObra: { select: { valor: true } },
           },
         },
       },
@@ -153,7 +153,7 @@ describe("getReporteProductividad", () => {
       select: {
         mecanicoId: true,
         mecanico: { select: { nombre: true } },
-        manoDeObra: { select: { horas: true, precioHora: true } },
+        manoDeObra: { select: { valor: true } },
       },
     });
   });
@@ -191,8 +191,8 @@ describe("getReporteProductividad", () => {
 
   it("converts Decimals to numbers and groups by técnico, keeping unassigned work visible", async () => {
     mockOrdenFindMany.mockResolvedValue([
-      { mecanicoId: "t1", mecanico: { nombre: "Ana" }, manoDeObra: [{ horas: "1.5", precioHora: "20" }] },
-      { mecanicoId: "t1", mecanico: { nombre: "Ana" }, manoDeObra: [{ horas: "2", precioHora: "20" }] },
+      { mecanicoId: "t1", mecanico: { nombre: "Ana" }, manoDeObra: [{ valor: "30" }] },
+      { mecanicoId: "t1", mecanico: { nombre: "Ana" }, manoDeObra: [{ valor: "40" }] },
       { mecanicoId: null, mecanico: null, manoDeObra: [] },
     ]);
 
@@ -204,14 +204,12 @@ describe("getReporteProductividad", () => {
         mecanicoId: "t1",
         mecanicoNombre: "Ana",
         ordenesCompletadas: 2,
-        horasManoDeObra: 3.5,
         montoManoDeObra: 70,
       },
       {
         mecanicoId: null,
         mecanicoNombre: "Sin asignar",
         ordenesCompletadas: 1,
-        horasManoDeObra: 0,
         montoManoDeObra: 0,
       },
     ]);

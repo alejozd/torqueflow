@@ -30,16 +30,15 @@ describe("addManoDeObraAction", () => {
     mockOrdenFindFirst.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
   });
 
-  it("returns a validation error when horas is 0", async () => {
+  it("returns a validation error when valor is negative", async () => {
     const formData = new FormData();
     formData.set("descripcion", "Cambio de pastillas de freno");
-    formData.set("horas", "0");
-    formData.set("precioHora", "20");
+    formData.set("valor", "-5");
 
     const result = await addManoDeObraAction("o1", initialState, formData);
 
     expect(result.success).toBe(false);
-    expect(result.error).toBe("Las horas deben ser mayores a 0");
+    expect(result.error).toBe("El valor no puede ser negativo");
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
@@ -47,14 +46,13 @@ describe("addManoDeObraAction", () => {
     mockCreate.mockResolvedValue({ id: "m1" });
     const formData = new FormData();
     formData.set("descripcion", "Cambio de pastillas de freno");
-    formData.set("horas", "1.5");
-    formData.set("precioHora", "20");
+    formData.set("valor", "30000");
 
     const result = await addManoDeObraAction("o1", initialState, formData);
 
     expect(result).toEqual({ error: null, success: true });
     expect(mockCreate).toHaveBeenCalledWith({
-      data: { ordenId: "o1", descripcion: "Cambio de pastillas de freno", horas: 1.5, precioHora: 20 },
+      data: { ordenId: "o1", descripcion: "Cambio de pastillas de freno", valor: 30000 },
     });
   });
 
@@ -62,8 +60,7 @@ describe("addManoDeObraAction", () => {
     mockOrdenFindFirst.mockResolvedValue({ estado: "ENTREGADA", factura: null });
     const formData = new FormData();
     formData.set("descripcion", "Cambio de pastillas de freno");
-    formData.set("horas", "1");
-    formData.set("precioHora", "20");
+    formData.set("valor", "30000");
 
     const result = await addManoDeObraAction("o1", initialState, formData);
 
@@ -76,8 +73,7 @@ describe("addManoDeObraAction", () => {
     mockOrdenFindFirst.mockResolvedValue({ estado: "TERMINADA", factura: { id: "f1" } });
     const formData = new FormData();
     formData.set("descripcion", "Cambio de pastillas de freno");
-    formData.set("horas", "1");
-    formData.set("precioHora", "20");
+    formData.set("valor", "30000");
 
     const result = await addManoDeObraAction("o1", initialState, formData);
 
@@ -90,8 +86,7 @@ describe("addManoDeObraAction", () => {
     mockOrdenFindFirst.mockReset().mockResolvedValue(null);
     const formData = new FormData();
     formData.set("descripcion", "Cambio de pastillas de freno");
-    formData.set("horas", "1");
-    formData.set("precioHora", "20");
+    formData.set("valor", "30000");
 
     const result = await addManoDeObraAction("orden-de-otra-sede", initialState, formData);
 

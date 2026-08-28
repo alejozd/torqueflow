@@ -2,16 +2,16 @@ import { describe, expect, it } from "vitest";
 import { agruparFacturacionPorDia, ordenarPorCriticidad, totalOrden, ultimosNDiasIso } from "./calculos";
 
 describe("totalOrden", () => {
-  it("sums items (cantidad x precioUnitario) plus mano de obra (horas x precioHora)", () => {
+  it("sums items (cantidad x precioUnitario) plus mano de obra (flat valor per línea)", () => {
     const total = totalOrden({
       items: [
         { cantidad: 2, precioUnitario: 10 },
         { cantidad: 1, precioUnitario: 50 },
       ],
-      manoDeObra: [{ horas: 2, precioHora: 30 }],
+      manoDeObra: [{ valor: 60 }],
     });
 
-    expect(total).toBe(2 * 10 + 1 * 50 + 2 * 30);
+    expect(total).toBe(2 * 10 + 1 * 50 + 60);
   });
 
   it("returns 0 for an orden with no items and no mano de obra", () => {

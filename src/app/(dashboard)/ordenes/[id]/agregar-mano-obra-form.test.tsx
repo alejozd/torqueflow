@@ -19,8 +19,7 @@ describe("AgregarManoObraForm", () => {
     render(<AgregarManoObraForm ordenId="o1" />);
 
     await userEvent.type(screen.getByLabelText("Descripción"), "Cambio de pastillas de freno");
-    await userEvent.type(screen.getByLabelText("Horas"), "1.5");
-    await userEvent.type(screen.getByLabelText("Precio por hora"), "20");
+    await userEvent.type(screen.getByLabelText("Valor"), "30000");
     await userEvent.click(screen.getByRole("button", { name: "Agregar mano de obra" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Mano de obra agregada");
@@ -40,8 +39,7 @@ describe("AgregarManoObraForm", () => {
     render(<AgregarManoObraForm ordenId="o1" />);
 
     await userEvent.type(screen.getByLabelText("Descripción"), "Cambio de pastillas de freno");
-    await userEvent.type(screen.getByLabelText("Horas"), "1.5");
-    await userEvent.type(screen.getByLabelText("Precio por hora"), "20");
+    await userEvent.type(screen.getByLabelText("Valor"), "30000");
     await userEvent.click(screen.getByRole("button", { name: "Agregar mano de obra" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("No puedes agregar mano de obra a una orden facturada.");

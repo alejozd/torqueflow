@@ -6,8 +6,7 @@ export const SIN_ASIGNAR_LABEL = "Sin asignar";
 const SIN_ASIGNAR_KEY = "__sin_asignar__";
 
 export interface ProductividadManoDeObra {
-  horas: number;
-  precioHora: number;
+  valor: number;
 }
 
 export interface ProductividadOrden {
@@ -20,7 +19,6 @@ export interface ProductividadFila {
   mecanicoId: string | null;
   mecanicoNombre: string;
   ordenesCompletadas: number;
-  horasManoDeObra: number;
   montoManoDeObra: number;
 }
 
@@ -35,7 +33,6 @@ export function computeProductividad(ordenes: ProductividadOrden[]): Productivid
         mecanicoId: orden.mecanicoId,
         mecanicoNombre: orden.mecanicoNombre ?? SIN_ASIGNAR_LABEL,
         ordenesCompletadas: 0,
-        horasManoDeObra: 0,
         montoManoDeObra: 0,
       };
       acumulado.set(clave, fila);
@@ -43,15 +40,13 @@ export function computeProductividad(ordenes: ProductividadOrden[]): Productivid
 
     fila.ordenesCompletadas += 1;
     for (const linea of orden.manoDeObra) {
-      fila.horasManoDeObra += linea.horas;
-      fila.montoManoDeObra += linea.horas * linea.precioHora;
+      fila.montoManoDeObra += linea.valor;
     }
   }
 
   return [...acumulado.values()]
     .map((fila) => ({
       ...fila,
-      horasManoDeObra: roundMoney(fila.horasManoDeObra),
       montoManoDeObra: roundMoney(fila.montoManoDeObra),
     }))
     .sort(
