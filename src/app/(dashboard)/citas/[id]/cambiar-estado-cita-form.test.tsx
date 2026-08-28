@@ -7,15 +7,28 @@ vi.mock("@/app/actions/cita-actions", () => ({
 
 import { CambiarEstadoCitaForm } from "./cambiar-estado-cita-form";
 
+const ESTADOS: [string, string][] = [
+  ["PROGRAMADA", "Programada"],
+  ["CONFIRMADA", "Confirmada"],
+  ["CANCELADA", "Cancelada"],
+  ["COMPLETADA", "Completada"],
+];
+
 describe("CambiarEstadoCitaForm", () => {
   it("offers the four estados and preselects the current one", () => {
     render(<CambiarEstadoCitaForm citaId="cita-1" estadoActual="CONFIRMADA" />);
 
-    const select = screen.getByLabelText<HTMLSelectElement>("Estado");
-    expect(select.value).toBe("CONFIRMADA");
-    for (const estado of ["PROGRAMADA", "CONFIRMADA", "CANCELADA", "COMPLETADA"]) {
-      expect(screen.getByRole("option", { name: estado })).toBeInTheDocument();
+    for (const [estado, label] of ESTADOS) {
+      const radio = screen.getByRole<HTMLInputElement>("radio", { name: label });
+      expect(radio.value).toBe(estado);
+      expect(radio.checked).toBe(estado === "CONFIRMADA");
     }
+  });
+
+  it("marks only the current estado as Actual", () => {
+    render(<CambiarEstadoCitaForm citaId="cita-1" estadoActual="PROGRAMADA" />);
+
+    expect(screen.getAllByText("Actual")).toHaveLength(1);
   });
 
   it("renders the submit button", () => {
