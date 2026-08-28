@@ -18,7 +18,7 @@ describe("NuevoRepuestoForm", () => {
     mockCreateRepuestoAction.mockResolvedValue({ error: null, success: true });
   });
 
-  it("renders all Repuesto fields plus the bodega/proveedor selects", () => {
+  it("renders all Repuesto fields plus the bodega/proveedor selects", async () => {
     render(<NuevoRepuestoForm bodegas={bodegas} proveedores={proveedores} />);
 
     expect(screen.getByLabelText("Código")).toBeInTheDocument();
@@ -31,7 +31,10 @@ describe("NuevoRepuestoForm", () => {
     expect(screen.getByLabelText("Bodega")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Bodega principal" })).toBeInTheDocument();
     expect(screen.getByLabelText("Proveedor")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Repuestos El Motor" })).toBeInTheDocument();
+    // Proveedor is a Combobox now (search-as-you-type), not a native <select>
+    // -- options only mount in the DOM once the popup is open.
+    await userEvent.click(screen.getByLabelText("Proveedor"));
+    expect(await screen.findByRole("option", { name: "Repuestos El Motor" })).toBeInTheDocument();
   });
 
   it("shows a success message after a successful submit", async () => {

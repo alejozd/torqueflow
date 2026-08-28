@@ -1,7 +1,7 @@
 "use client";
 
-import { startTransition, useActionState, useRef } from "react";
-import { useForm } from "react-hook-form";
+import { startTransition, useActionState, useMemo, useRef } from "react";
+import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createRepuestoAction, type RepuestoFormState } from "@/app/actions/repuesto-actions";
@@ -10,6 +10,7 @@ import type { Bodega, Proveedor } from "@/generated/prisma-tenant";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +32,7 @@ export function NuevoRepuestoForm({
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<RepuestoFormInput>({
     resolver: zodResolver(repuestoFormSchema),
@@ -46,12 +48,27 @@ export function NuevoRepuestoForm({
       proveedorId: "",
     },
   });
+  const { field: proveedorIdField } = useController({ name: "proveedorId", control });
+
+  const proveedorOptions: ComboboxOption[] = useMemo(
+    () => proveedores.map((proveedor) => ({ value: proveedor.id, label: proveedor.nombre })),
+    [proveedores],
+  );
 
   return (
     <form
       noValidate
       ref={formRef}
-      onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+      onSubmit={handleSubmit((data) =>
+        startTransition(() => {
+          const formData = new FormData(formRef.current!);
+          // proveedorId is a Combobox (react-hook-form-controlled, not a
+          // native <select name="..."> register()) -- it doesn't populate
+          // FormData on its own, so it must be set explicitly here.
+          formData.set("proveedorId", data.proveedorId ?? "");
+          formAction(formData);
+        }),
+      )}
       className="flex flex-col gap-4"
     >
       <FormGroup label="Identificación">
@@ -123,26 +140,16 @@ export function NuevoRepuestoForm({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="proveedorId">Proveedor</Label>
-            {/*
-              Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-              while closed) -- userEvent.selectOptions()/getByRole("option")
-              in the existing tests need real <select>/<option> elements.
-              Styled by hand to match the shadcn select trigger look.
-            */}
-            <select
+            <Combobox
               id="proveedorId"
+              items={proveedorOptions}
+              value={proveedorIdField.value ?? ""}
+              onValueChange={proveedorIdField.onChange}
+              placeholder="Sin proveedor asignado"
+              emptyMessage="Ningún proveedor coincide"
               aria-invalid={errors.proveedorId ? true : undefined}
               aria-describedby={errors.proveedorId ? "proveedorId-error" : undefined}
-              className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-              {...register("proveedorId")}
-            >
-              <option value="">Sin proveedor asignado</option>
-              {proveedores.map((proveedor) => (
-                <option key={proveedor.id} value={proveedor.id}>
-                  {proveedor.nombre}
-                </option>
-              ))}
-            </select>
+            />
             {errors.proveedorId ? <p id="proveedorId-error">{errors.proveedorId.message}</p> : null}
           </div>
         </div>
