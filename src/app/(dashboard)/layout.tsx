@@ -11,6 +11,13 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
+// Same convention as clientes/[id]/page.tsx's getIniciales.
+function getIniciales(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/);
+  if (partes.length === 1) return partes[0]!.slice(0, 2).toUpperCase();
+  return (partes[0]!.charAt(0) + partes[1]!.charAt(0)).toUpperCase();
+}
+
 async function loadPlanInfo(session: Awaited<ReturnType<typeof requireSession>>): Promise<SidebarPlanInfo | null> {
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const [tenant, sedesCount] = await Promise.all([
@@ -30,6 +37,8 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const session = await requireSession();
   const esAdmin = session.user.role === "ADMIN";
   const plan = await loadPlanInfo(session);
+  // Same name-or-email fallback as the Inicio page's greeting.
+  const nombreUsuario = session.user.name ?? session.user.email ?? "";
 
   return (
     <DashboardSessionProvider>
@@ -41,9 +50,15 @@ export default async function DashboardLayout({ children }: { children: ReactNod
               <SidebarTrigger />
               <Separator orientation="vertical" className="h-5" />
               <div className="flex flex-1 flex-wrap items-center justify-between gap-3">
-                <span className="text-sm text-muted-foreground">
-                  Sesión: {session.user.email} — {session.user.tenantSlug}
-                </span>
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[oklch(0.62_0.19_45/0.14)] text-[10.5px] font-semibold text-[oklch(0.42_0.14_45)]">
+                    {getIniciales(nombreUsuario)}
+                  </div>
+                  <div className="flex min-w-0 flex-col leading-tight">
+                    <span className="truncate text-xs font-medium">{session.user.email}</span>
+                    <span className="font-mono text-[10.5px] text-muted-foreground">{session.user.tenantSlug}</span>
+                  </div>
+                </div>
                 <div className="flex items-center gap-2">
                   {/* The sede activa scopes everything below this header, so it is shown
                       on every page rather than only on /sedes. */}
