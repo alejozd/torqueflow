@@ -20,7 +20,6 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/componen
 type Orden = NonNullable<Awaited<ReturnType<typeof getOrden>>>;
 type ItemRow = Orden["items"][number];
 type ManoObraRow = Orden["manoDeObra"][number];
-type FotoRow = NonNullable<Orden["dvi"]>["fotos"][number];
 
 // Same estado label/badge convention as /ordenes' list page (see ordenes/page.tsx) --
 // kept local here too rather than extracted to a shared module neither page asked for.
@@ -104,19 +103,6 @@ const MANO_OBRA_COLUMNS: DataTableColumn<ManoObraRow>[] = [
     header: "Valor",
     cell: (linea) => (
       <span className="font-mono text-sm font-medium">{formatoMoneda.format(Number(linea.valor))}</span>
-    ),
-  },
-];
-
-const FOTOS_COLUMNS: DataTableColumn<FotoRow>[] = [
-  {
-    header: "Foto",
-    cell: (foto) => (
-      <>
-        {foto.momento === "ANTES" ? "Antes" : "Después"}:{" "}
-        {/* eslint-disable-next-line @next/next/no-img-element -- auth-gated route, next/image's optimizer can't reach it */}
-        <img src={foto.url} alt={`Foto ${foto.momento.toLowerCase()} de la inspección`} width={200} />
-      </>
     ),
   },
 ];
@@ -274,13 +260,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <DviChecklistForm ordenId={orden.id} checklist={checklist} />
-              <DviFotoForm ordenId={orden.id} />
-              <DataTable
-                columns={FOTOS_COLUMNS}
-                rows={orden.dvi?.fotos ?? []}
-                getRowKey={(foto) => foto.id}
-                emptyMessage="Esta orden no tiene fotos de inspección."
-              />
+              <DviFotoForm ordenId={orden.id} fotos={orden.dvi?.fotos ?? []} />
             </CardContent>
           </Card>
         </div>
