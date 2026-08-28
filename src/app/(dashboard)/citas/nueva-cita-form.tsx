@@ -105,6 +105,7 @@ export function NuevaCitaForm({
               aria-describedby={errors.fechaHora ? "fechaHora-error" : undefined}
               {...register("fechaHora")}
             />
+            <span className="text-[10px] text-muted-foreground">Zona horaria de la sede: America/Bogotá</span>
             {errors.fechaHora ? <p id="fechaHora-error">{errors.fechaHora.message}</p> : null}
           </div>
         </div>

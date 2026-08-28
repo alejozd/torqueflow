@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import {
   updateCitaAction,
@@ -9,7 +10,7 @@ import {
 } from "@/app/actions/cita-actions";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,6 +25,12 @@ const formatoFechaHoraBogota = new Intl.DateTimeFormat("en-CA", {
   hour: "2-digit",
   minute: "2-digit",
   hourCycle: "h23",
+});
+
+const formatoActualizacion = new Intl.DateTimeFormat("es-CO", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "America/Bogota",
 });
 
 // citaInputSchema expects the same naive "YYYY-MM-DDTHH:mm" shape
@@ -76,6 +83,7 @@ export function EditarCitaForm({
               className="font-mono"
               defaultValue={paraInputDatetimeLocal(cita.fechaHora)}
             />
+            <span className="text-[10px] text-muted-foreground">Zona horaria de la sede: America/Bogotá</span>
           </div>
         </div>
       </FormGroup>
@@ -94,9 +102,17 @@ export function EditarCitaForm({
         </div>
       </FormGroup>
 
-      <Button type="submit" disabled={isPending} className="self-end">
-        {isPending ? "Guardando..." : "Guardar cambios"}
-      </Button>
+      <div className="flex items-center gap-3 border-t border-border pt-3">
+        <span className="flex-1 text-xs text-muted-foreground">
+          Última actualización: {formatoActualizacion.format(cita.updatedAt)}
+        </span>
+        <Link href="/citas" className={buttonVariants({ variant: "outline" })}>
+          Descartar
+        </Link>
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Guardando..." : "Guardar cambios"}
+        </Button>
+      </div>
 
       {state.error ? (
         <Alert variant="destructive">
