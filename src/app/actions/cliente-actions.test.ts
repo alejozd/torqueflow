@@ -124,13 +124,30 @@ describe("listClientesParaOrden", () => {
 
   it("lists clientes with only the vehiculo fields the cascading select needs, ordered by nombre", async () => {
     mockFindMany.mockResolvedValue([
-      { id: "c1", nombre: "Ana", vehiculos: [{ id: "v1", placa: "ABC123", marca: "Toyota", modelo: "Corolla" }] },
+      {
+        id: "c1",
+        nombre: "Ana",
+        vehiculos: [
+          {
+            id: "v1",
+            placa: "ABC123",
+            marca: "Toyota",
+            modelo: "Corolla",
+            kilometraje: 50000,
+            ordenes: [{ kilometrajeIngreso: null }, { kilometrajeIngreso: 78420 }],
+          },
+        ],
+      },
     ]);
 
     const result = await listClientesParaOrden();
 
     expect(result).toEqual([
-      { id: "c1", nombre: "Ana", vehiculos: [{ id: "v1", placa: "ABC123", marca: "Toyota", modelo: "Corolla" }] },
+      {
+        id: "c1",
+        nombre: "Ana",
+        vehiculos: [{ id: "v1", placa: "ABC123", marca: "Toyota", modelo: "Corolla", kilometrajeActual: 78420 }],
+      },
     ]);
     expect(mockFindMany).toHaveBeenCalledWith({
       orderBy: { nombre: "asc" },
@@ -138,11 +155,34 @@ describe("listClientesParaOrden", () => {
         id: true,
         nombre: true,
         vehiculos: {
-          select: { id: true, placa: true, marca: true, modelo: true },
+          select: {
+            id: true,
+            placa: true,
+            marca: true,
+            modelo: true,
+            kilometraje: true,
+            ordenes: { select: { kilometrajeIngreso: true }, orderBy: { createdAt: "desc" } },
+          },
           orderBy: { placa: "asc" },
         },
       },
     });
+  });
+
+  it("falls back to the vehículo's own stored kilometraje when no orden ever recorded one", async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: "c1",
+        nombre: "Ana",
+        vehiculos: [
+          { id: "v1", placa: "ABC123", marca: "Toyota", modelo: "Corolla", kilometraje: 50000, ordenes: [] },
+        ],
+      },
+    ]);
+
+    const result = await listClientesParaOrden();
+
+    expect(result[0]!.vehiculos[0]!.kilometrajeActual).toBe(50000);
   });
 });
 

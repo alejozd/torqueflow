@@ -66,10 +66,13 @@ export function NuevaOrdenDesdeCeroForm({
   });
 
   const clienteIdSeleccionado = watch("clienteId");
+  const vehiculoIdSeleccionado = watch("vehiculoId");
   const vehiculosDisponibles = useMemo(
     () => clientes.find((cliente) => cliente.id === clienteIdSeleccionado)?.vehiculos ?? [],
     [clientes, clienteIdSeleccionado],
   );
+  const kilometrajeActual = vehiculosDisponibles.find((vehiculo) => vehiculo.id === vehiculoIdSeleccionado)
+    ?.kilometrajeActual;
 
   function onValid() {
     startTransition(async () => {
@@ -160,6 +163,11 @@ export function NuevaOrdenDesdeCeroForm({
               aria-describedby={errors.kilometrajeIngreso ? "kilometrajeIngreso-error" : undefined}
               {...register("kilometrajeIngreso")}
             />
+            {kilometrajeActual !== null && kilometrajeActual !== undefined ? (
+              <span className="text-[10px] text-muted-foreground">
+                Último kilometraje registrado: {kilometrajeActual.toLocaleString("es-CO")} km
+              </span>
+            ) : null}
             {errors.kilometrajeIngreso ? (
               <p id="kilometrajeIngreso-error" className="text-xs text-destructive">
                 {errors.kilometrajeIngreso.message}

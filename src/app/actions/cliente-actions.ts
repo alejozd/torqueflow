@@ -43,7 +43,17 @@ export async function listClientes(): Promise<ClienteConResumen[]> {
 export interface ClienteParaOrden {
   id: string;
   nombre: string;
-  vehiculos: { id: string; placa: string; marca: string; modelo: string }[];
+  vehiculos: {
+    id: string;
+    placa: string;
+    marca: string;
+    modelo: string;
+    /** Most-recent-orden-with-a-kilometrajeIngreso, falling back to the
+     * vehículo's own stored field -- same derivation clientes/[id] and
+     * vehiculos/[id] use, so "Nueva orden" never disagrees with them about
+     * the same vehículo's mileage. */
+    kilometrajeActual: number | null;
+  }[];
 }
 
 /**
@@ -55,17 +65,32 @@ export interface ClienteParaOrden {
 export async function listClientesParaOrden(): Promise<ClienteParaOrden[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  return tenantDb.cliente.findMany({
+  const clientes = await tenantDb.cliente.findMany({
     orderBy: { nombre: "asc" },
     select: {
       id: true,
       nombre: true,
       vehiculos: {
-        select: { id: true, placa: true, marca: true, modelo: true },
+        select: {
+          id: true,
+          placa: true,
+          marca: true,
+          modelo: true,
+          kilometraje: true,
+          ordenes: { select: { kilometrajeIngreso: true }, orderBy: { createdAt: "desc" } },
+        },
         orderBy: { placa: "asc" },
       },
     },
   });
+
+  return clientes.map((cliente) => ({
+    ...cliente,
+    vehiculos: cliente.vehiculos.map(({ ordenes, kilometraje, ...vehiculo }) => ({
+      ...vehiculo,
+      kilometrajeActual: ordenes.find((orden) => orden.kilometrajeIngreso !== null)?.kilometrajeIngreso ?? kilometraje,
+    })),
+  }));
 }
 
 // Fase 11-14: the detail page's vehicle cards need per-vehicle estado/kilometraje,

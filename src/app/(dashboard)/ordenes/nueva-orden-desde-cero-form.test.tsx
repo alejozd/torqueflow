@@ -14,12 +14,18 @@ const clientes = [
   {
     id: "c1",
     nombre: "Ana Pérez",
-    vehiculos: [{ id: "v1", placa: "ABC123", marca: "Toyota", modelo: "Corolla" }],
+    vehiculos: [{ id: "v1", placa: "ABC123", marca: "Toyota", modelo: "Corolla", kilometrajeActual: 78420 }],
   },
   {
     id: "c2",
     nombre: "María Gómez",
-    vehiculos: [] as { id: string; placa: string; marca: string; modelo: string }[],
+    vehiculos: [] as {
+      id: string;
+      placa: string;
+      marca: string;
+      modelo: string;
+      kilometrajeActual: number | null;
+    }[],
   },
 ];
 
@@ -53,6 +59,17 @@ describe("NuevaOrdenDesdeCeroForm", () => {
 
     expect(screen.getByLabelText("Vehículo")).not.toBeDisabled();
     expect(screen.getByRole("option", { name: "ABC123 · Toyota Corolla" })).toBeInTheDocument();
+  });
+
+  it("shows the vehículo's last known kilometraje once it is selected, as a hint for kilometraje de ingreso", async () => {
+    render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
+
+    expect(screen.queryByText(/Último kilometraje registrado/)).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText("Cliente"), "c1");
+    await userEvent.selectOptions(screen.getByLabelText("Vehículo"), "v1");
+
+    expect(screen.getByText("Último kilometraje registrado: 78.420 km")).toBeInTheDocument();
   });
 
   it("shows a message instead of vehiculo options when the selected cliente has none", async () => {
