@@ -4,6 +4,7 @@ import { listBodegasConInventario, type BodegaConInventario } from "@/app/action
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { EditarBodegaDialog } from "./editar-bodega-dialog";
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", {
   style: "currency",
@@ -59,6 +60,10 @@ const COLUMNS: DataTableColumn<BodegaRow>[] = [
         <span className="font-mono text-muted-foreground">0</span>
       );
     },
+  },
+  {
+    header: "Acciones",
+    cell: (bodega) => <EditarBodegaDialog bodega={{ id: bodega.id, nombre: bodega.nombre }} />,
   },
 ];
 

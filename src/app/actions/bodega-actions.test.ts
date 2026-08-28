@@ -32,6 +32,7 @@ import {
   createBodegaAction,
   updateBodegaAction,
   deleteBodegaAction,
+  deleteBodegaFormAction,
   listBodegas,
   listBodegasConInventario,
   getBodega,
@@ -133,6 +134,29 @@ describe("deleteBodegaAction", () => {
     await expect(deleteBodegaAction("b-otra-sede")).rejects.toThrow(
       "Bodega no encontrada en tu sede activa.",
     );
+  });
+});
+
+describe("deleteBodegaFormAction", () => {
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockDeleteMany.mockReset();
+  });
+
+  it("returns success after deleting the bodega", async () => {
+    mockDeleteMany.mockResolvedValue({ count: 1 });
+
+    const result = await deleteBodegaFormAction("b1", initialState);
+
+    expect(result).toEqual({ error: null, success: true });
+  });
+
+  it("returns the thrown error message instead of throwing", async () => {
+    mockDeleteMany.mockResolvedValue({ count: 0 });
+
+    const result = await deleteBodegaFormAction("b-otra-sede", initialState);
+
+    expect(result).toEqual({ error: "Bodega no encontrada en tu sede activa.", success: false });
   });
 });
 

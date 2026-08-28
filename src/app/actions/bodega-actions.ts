@@ -131,3 +131,21 @@ export async function deleteBodegaAction(id: string): Promise<void> {
   }
   revalidatePath("/bodegas");
 }
+
+/**
+ * useActionState-compatible wrapper for deleteBodegaAction, which throws on
+ * every refusal (wrong sede, or the FK-restrict error when the bodega still
+ * has repuestos) -- same adapter shape as deleteSedeFormAction
+ * (src/app/actions/sede-actions.ts).
+ */
+export async function deleteBodegaFormAction(
+  id: string,
+  prevState: BodegaFormState,
+): Promise<BodegaFormState> {
+  try {
+    await deleteBodegaAction(id);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Error al eliminar la bodega", success: false };
+  }
+  return { error: null, success: true };
+}
