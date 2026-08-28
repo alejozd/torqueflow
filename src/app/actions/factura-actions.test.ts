@@ -8,6 +8,7 @@ vi.mock("@/lib/auth/guards", () => ({
 }));
 
 const mockOrdenFindFirst = vi.fn();
+const mockOrdenFindMany = vi.fn();
 const mockFacturaFindMany = vi.fn();
 const mockFacturaFindFirst = vi.fn();
 const mockFacturaCreate = vi.fn();
@@ -17,7 +18,7 @@ const mockTransaction = vi.fn((cb: (tx: unknown) => unknown) =>
 );
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
-    ordenTrabajo: { findFirst: mockOrdenFindFirst },
+    ordenTrabajo: { findFirst: mockOrdenFindFirst, findMany: mockOrdenFindMany },
     factura: { findMany: mockFacturaFindMany, findFirst: mockFacturaFindFirst },
     $transaction: mockTransaction,
   }),
@@ -25,7 +26,13 @@ vi.mock("@/lib/db/tenant-client", () => ({
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { crearFacturaAction, listFacturas, getFactura, type FacturaFormState } from "./factura-actions";
+import {
+  crearFacturaAction,
+  listFacturas,
+  listOrdenesFacturables,
+  getFactura,
+  type FacturaFormState,
+} from "./factura-actions";
 
 const initialState: FacturaFormState = { error: null, success: false, facturaId: null };
 const SESSION_ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
@@ -220,6 +227,51 @@ describe("listFacturas", () => {
       include: expect.anything(),
       orderBy: { createdAt: "desc" },
     });
+  });
+});
+
+describe("listOrdenesFacturables", () => {
+  beforeEach(() => {
+    mockRequireSession.mockReset().mockResolvedValue(SESSION_TECNICO);
+    mockOrdenFindMany.mockReset();
+  });
+
+  it("queries only TERMINADA/ENTREGADA órdenes with no factura yet, scoped to the sede activa", async () => {
+    mockOrdenFindMany.mockResolvedValue([]);
+
+    await listOrdenesFacturables();
+
+    expect(mockOrdenFindMany).toHaveBeenCalledWith({
+      where: { sedeId: "sede-1", estado: { in: ["TERMINADA", "ENTREGADA"] }, factura: null },
+      select: expect.anything(),
+      orderBy: { updatedAt: "desc" },
+    });
+  });
+
+  it("maps each orden to placa, cliente, and a computed total", async () => {
+    mockOrdenFindMany.mockResolvedValue([
+      {
+        id: "o1",
+        vehiculo: { placa: "WGT-451" },
+        cliente: { nombre: "María Gómez", documento: "43128905" },
+        items: [{ cantidad: 2, precioUnitario: "10" }],
+        manoDeObra: [{ valor: "30" }],
+      },
+      {
+        id: "o2",
+        vehiculo: { placa: "PLR-902" },
+        cliente: { nombre: "Jorge Cardona", documento: null },
+        items: [],
+        manoDeObra: [],
+      },
+    ]);
+
+    const result = await listOrdenesFacturables();
+
+    expect(result).toEqual([
+      { id: "o1", placa: "WGT-451", clienteNombre: "María Gómez", clienteDocumento: "43128905", total: 50 },
+      { id: "o2", placa: "PLR-902", clienteNombre: "Jorge Cardona", clienteDocumento: null, total: 0 },
+    ]);
   });
 });
 

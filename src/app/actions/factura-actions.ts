@@ -7,6 +7,7 @@ import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { facturarOrdenInputSchema } from "@/lib/validation/factura";
 import { assertOrdenFacturable } from "@/lib/factura/facturable-guard";
 import { computeFacturaTotales } from "@/lib/factura/totales";
+import { totalOrden } from "@/lib/dashboard/calculos";
 import { scopeFactura, scopeOrden } from "@/lib/sede/scope";
 import type { EstadoFactura, Prisma } from "@/generated/prisma-tenant";
 
@@ -14,6 +15,14 @@ export interface FacturaFormState {
   error: string | null;
   success: boolean;
   facturaId: string | null;
+}
+
+export interface OrdenFacturableOption {
+  id: string;
+  placa: string;
+  clienteNombre: string;
+  clienteDocumento: string | null;
+  total: number;
 }
 
 const STOCK_INSUFICIENTE = "STOCK_INSUFICIENTE";
@@ -43,6 +52,43 @@ export async function getFactura(id: string): Promise<FacturaWithDetalle | null>
     where: { id, ...scopeFactura(session.user.sedeActivaId) },
     include: FACTURA_DETAIL_INCLUDE,
   });
+}
+
+/**
+ * Órdenes an ADMIN/RECEPCION can pick from the "Nueva factura" dialog:
+ * facturable estado (assertOrdenFacturable's own rule) AND not already
+ * invoiced -- crearFacturaAction rejects the latter anyway, but filtering it
+ * out here keeps the picker from listing dead ends.
+ */
+export async function listOrdenesFacturables(): Promise<OrdenFacturableOption[]> {
+  const session = await requireSession();
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  const ordenes = await tenantDb.ordenTrabajo.findMany({
+    where: {
+      ...scopeOrden(session.user.sedeActivaId),
+      estado: { in: ["TERMINADA", "ENTREGADA"] },
+      factura: null,
+    },
+    select: {
+      id: true,
+      vehiculo: { select: { placa: true } },
+      cliente: { select: { nombre: true, documento: true } },
+      items: { select: { cantidad: true, precioUnitario: true } },
+      manoDeObra: { select: { valor: true } },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  return ordenes.map((orden) => ({
+    id: orden.id,
+    placa: orden.vehiculo.placa,
+    clienteNombre: orden.cliente.nombre,
+    clienteDocumento: orden.cliente.documento,
+    total: totalOrden({
+      items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
+      manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor) })),
+    }),
+  }));
 }
 
 export async function crearFacturaAction(

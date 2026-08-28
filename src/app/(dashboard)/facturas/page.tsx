@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { listFacturas, type FacturaWithDetalle } from "@/app/actions/factura-actions";
+import { listFacturas, listOrdenesFacturables, type FacturaWithDetalle } from "@/app/actions/factura-actions";
+import { NuevaFacturaDialog } from "./nueva-factura-dialog";
 import type { EstadoFactura } from "@/generated/prisma-tenant";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -125,7 +126,7 @@ export default async function FacturasPage({
 
   // Fetched once, unfiltered: the KPI cards summarize every factura of the
   // sede regardless of which estado the list below is currently filtered to.
-  const facturas = await listFacturas();
+  const [facturas, ordenesFacturables] = await Promise.all([listFacturas(), listOrdenesFacturables()]);
   const filtradas = facturas
     .filter((factura) => !estadoFiltro || factura.estado === estadoFiltro)
     .filter(
@@ -152,7 +153,10 @@ export default async function FacturasPage({
 
   return (
     <main className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Facturas</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Facturas</h1>
+        <NuevaFacturaDialog ordenes={ordenesFacturables} />
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
