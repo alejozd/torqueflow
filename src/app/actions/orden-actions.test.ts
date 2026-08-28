@@ -191,6 +191,7 @@ describe("listOrdenes", () => {
     vehiculo: true,
     sede: true,
     mecanico: { select: { id: true, nombre: true } },
+    creadoPor: { select: { id: true, nombre: true } },
     items: true,
     manoDeObra: true,
     dvi: { include: { fotos: true } },

@@ -12,6 +12,7 @@ import { GenerarFacturaForm } from "./generar-factura-form";
 import type { DviChecklist } from "@/lib/dvi/checklist-items";
 import type { EstadoOrden } from "@/generated/prisma-tenant";
 import { totalOrden } from "@/lib/dashboard/calculos";
+import { FormGroup } from "@/components/form-group";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -196,41 +197,36 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
               <CardTitle>Información de la orden</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <div className="text-[10px] tracking-wide text-muted-foreground uppercase">Recepción</div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <FormGroup label="Recepción">
                   <div className="grid grid-cols-2 gap-3">
                     <InfoField label="Sede" value={orden.sede.nombre} />
                     <InfoField label="Ingresó" value={formatoFechaHora.format(orden.createdAt)} />
                     <InfoField label="Km de ingreso" value={orden.kilometrajeIngreso ?? "—"} />
+                    <InfoField label="Recibió" value={orden.creadoPor.nombre} />
                   </div>
-                </div>
+                </FormGroup>
 
-                <div className="space-y-2">
-                  <div className="text-[10px] tracking-wide text-muted-foreground uppercase">Vehículo y cliente</div>
+                <FormGroup label="Vehículo y cliente">
                   <div className="grid grid-cols-2 gap-3">
                     <InfoField label="Placa" value={<span className="font-mono">{orden.vehiculo.placa}</span>} />
                     <InfoField label="Vehículo" value={`${orden.vehiculo.marca} ${orden.vehiculo.modelo}`} />
                     <InfoField label="Cliente" value={orden.cliente.nombre} />
                     <InfoField label="Teléfono" value={orden.cliente.telefono ?? "—"} />
                   </div>
-                </div>
+                </FormGroup>
 
-                <div className="space-y-2">
-                  <div className="text-[10px] tracking-wide text-muted-foreground uppercase">Asignación</div>
+                <FormGroup label="Asignación">
                   <div className="grid grid-cols-2 gap-3">
                     <InfoField label="Mecánico" value={orden.mecanico?.nombre ?? "Sin asignar"} />
                     <InfoField label="Horas cargadas" value={`${horasCargadas} h`} />
                   </div>
-                </div>
+                </FormGroup>
               </div>
 
-              <div>
-                <div className="mb-1 text-[10px] tracking-wide text-muted-foreground uppercase">
-                  Síntomas reportados
-                </div>
+              <FormGroup label="Síntomas reportados">
                 <p className="max-w-[78ch] text-sm leading-relaxed">{orden.sintomas ?? "—"}</p>
-              </div>
+              </FormGroup>
             </CardContent>
           </Card>
 
