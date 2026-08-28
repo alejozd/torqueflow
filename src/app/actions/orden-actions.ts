@@ -365,10 +365,10 @@ export interface AsignarMecanicoFormState {
 /**
  * mecanicoId stays optional at creation (a sede may receive a vehículo
  * before deciding who works it -- the Kanban's "Sin asignar" column is a
- * real, intended state), but must be assignable/reassignable afterward from
- * the orden detail page. Reuses assertOrdenMutable so this follows the same
- * "no ENTREGADA/ANULADA, no ya facturada" rule as every other edit on the
- * orden (see mano-de-obra-actions.ts).
+ * real, intended state), but once someone assigns it, the assignment is
+ * permanent -- the user explicitly wants no reassignment afterward.
+ * Reuses assertOrdenMutable so the underlying "no ENTREGADA/ANULADA, no ya
+ * facturada" rule still applies too (see mano-de-obra-actions.ts).
  */
 export async function asignarMecanicoAction(
   id: string,
@@ -380,7 +380,7 @@ export async function asignarMecanicoAction(
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
     where: { id, ...scopeOrden(session.user.sedeActivaId) },
-    select: { estado: true, factura: { select: { id: true } } },
+    select: { estado: true, factura: { select: { id: true } }, mecanicoId: true },
   });
   if (!orden) {
     return { error: "Orden no encontrada", success: false };
@@ -389,6 +389,9 @@ export async function asignarMecanicoAction(
     assertOrdenMutable(orden);
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Orden no modificable", success: false };
+  }
+  if (orden.mecanicoId) {
+    return { error: "Esta orden ya tiene un mecánico asignado y no se puede modificar.", success: false };
   }
 
   const mecanicoId = String(formData.get("mecanicoId") ?? "");

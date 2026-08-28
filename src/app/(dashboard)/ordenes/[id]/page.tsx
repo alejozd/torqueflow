@@ -191,7 +191,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
                       value={
                         <AsignarMecanicoForm
                           ordenId={orden.id}
-                          mecanicoIdActual={orden.mecanicoId}
+                          mecanico={orden.mecanico}
                           tecnicos={tecnicos}
                         />
                       }

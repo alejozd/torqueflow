@@ -528,7 +528,7 @@ describe("asignarMecanicoAction", () => {
 
   beforeEach(() => {
     mockRequireRole.mockReset().mockResolvedValue(SESSION);
-    mockOrdenFindFirst.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
+    mockOrdenFindFirst.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null, mecanicoId: null });
     mockUsuarioFindFirst.mockReset().mockResolvedValue({ id: "t1" });
     mockUpdate.mockReset().mockResolvedValue({ id: "o1" });
   });
@@ -581,8 +581,22 @@ describe("asignarMecanicoAction", () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it("blocks reassigning a mecánico when the orden is in a terminal state (ENTREGADA)", async () => {
-    mockOrdenFindFirst.mockResolvedValue({ estado: "ENTREGADA", factura: null });
+  it("blocks the assignment once the orden already has a mecánico assigned", async () => {
+    mockOrdenFindFirst.mockResolvedValue({ estado: "EN_PROCESO", factura: null, mecanicoId: "t1" });
+    const formData = new FormData();
+    formData.set("mecanicoId", "t2");
+
+    const result = await asignarMecanicoAction("o1", initialAsignarState, formData);
+
+    expect(result).toEqual({
+      error: "Esta orden ya tiene un mecánico asignado y no se puede modificar.",
+      success: false,
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("blocks assigning a mecánico when the orden is in a terminal state (ENTREGADA)", async () => {
+    mockOrdenFindFirst.mockResolvedValue({ estado: "ENTREGADA", factura: null, mecanicoId: null });
     const formData = new FormData();
     formData.set("mecanicoId", "t1");
 
@@ -595,8 +609,8 @@ describe("asignarMecanicoAction", () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it("blocks reassigning a mecánico when the orden already has a factura", async () => {
-    mockOrdenFindFirst.mockResolvedValue({ estado: "TERMINADA", factura: { id: "f1" } });
+  it("blocks assigning a mecánico when the orden already has a factura", async () => {
+    mockOrdenFindFirst.mockResolvedValue({ estado: "TERMINADA", factura: { id: "f1" }, mecanicoId: null });
     const formData = new FormData();
     formData.set("mecanicoId", "t1");
 
@@ -619,7 +633,7 @@ describe("asignarMecanicoAction", () => {
     expect(result).toEqual({ error: "Orden no encontrada", success: false });
     expect(mockOrdenFindFirst).toHaveBeenCalledWith({
       where: { id: "orden-de-otra-sede", sedeId: "sede-1" },
-      select: { estado: true, factura: { select: { id: true } } },
+      select: { estado: true, factura: { select: { id: true } }, mecanicoId: true },
     });
   });
 });

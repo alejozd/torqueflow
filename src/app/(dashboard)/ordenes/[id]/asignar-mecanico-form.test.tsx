@@ -20,39 +20,43 @@ describe("AsignarMecanicoForm", () => {
     mockAsignarMecanicoAction.mockResolvedValue({ error: null, success: true });
   });
 
-  it("preselects the current mecánico, with 'Sin asignar' as an explicit option", () => {
-    render(<AsignarMecanicoForm ordenId="o1" mecanicoIdActual="t1" tecnicos={tecnicos} />);
+  it("shows the assigned mecánico as read-only text, with no picker", () => {
+    render(<AsignarMecanicoForm ordenId="o1" mecanico={{ id: "t1", nombre: "Carlos Ruiz" }} tecnicos={tecnicos} />);
+
+    expect(screen.getByText("Carlos Ruiz")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("shows the picker with 'Sin asignar' selected when no mecánico is assigned yet", () => {
+    render(<AsignarMecanicoForm ordenId="o1" mecanico={null} tecnicos={tecnicos} />);
 
     const select = screen.getByRole<HTMLSelectElement>("combobox");
-    expect(select.value).toBe("t1");
+    expect(select.value).toBe("");
     expect(screen.getByRole("option", { name: "Sin asignar" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Diego Salas" })).toBeInTheDocument();
   });
 
-  it("defaults to 'Sin asignar' when the orden has no mecánico yet", () => {
-    render(<AsignarMecanicoForm ordenId="o1" mecanicoIdActual={null} tecnicos={tecnicos} />);
-
-    expect(screen.getByRole<HTMLSelectElement>("combobox").value).toBe("");
-  });
-
-  it("shows a success message after reassigning", async () => {
-    render(<AsignarMecanicoForm ordenId="o1" mecanicoIdActual={null} tecnicos={tecnicos} />);
+  it("submits the chosen mecánico via the Asignar button", async () => {
+    render(<AsignarMecanicoForm ordenId="o1" mecanico={null} tecnicos={tecnicos} />);
 
     await userEvent.selectOptions(screen.getByRole("combobox"), "t2");
-    await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    await userEvent.click(screen.getByRole("button", { name: "Asignar" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent("Mecánico actualizado");
+    expect(mockAsignarMecanicoAction).toHaveBeenCalled();
   });
 
-  it("shows the server error when the orden cannot be modified", async () => {
+  it("shows the server error when the assignment is refused", async () => {
     mockAsignarMecanicoAction.mockResolvedValue({
-      error: "No se puede modificar una orden en estado ENTREGADA.",
+      error: "Esta orden ya tiene un mecánico asignado y no se puede modificar.",
       success: false,
     });
-    render(<AsignarMecanicoForm ordenId="o1" mecanicoIdActual="t1" tecnicos={tecnicos} />);
+    render(<AsignarMecanicoForm ordenId="o1" mecanico={null} tecnicos={tecnicos} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    await userEvent.click(screen.getByRole("button", { name: "Asignar" }));
 
-    expect(await screen.findByText("No se puede modificar una orden en estado ENTREGADA.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Esta orden ya tiene un mecánico asignado y no se puede modificar."),
+    ).toBeInTheDocument();
   });
 });
