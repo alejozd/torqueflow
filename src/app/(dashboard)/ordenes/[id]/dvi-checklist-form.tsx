@@ -2,18 +2,29 @@
 
 import { useActionState } from "react";
 import { updateDviChecklistAction, type DviFormState } from "@/app/actions/dvi-actions";
-import { DVI_CHECKLIST_ITEMS, DVI_CHECKLIST_STATUSES, type DviChecklist } from "@/lib/dvi/checklist-items";
+import { DVI_CHECKLIST_ITEMS, DVI_CHECKLIST_STATUSES, type DviChecklist, type DviChecklistStatus } from "@/lib/dvi/checklist-items";
+import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 const initialState: DviFormState = { error: null, success: false };
 
-const ESTADO_LABELS: Record<(typeof DVI_CHECKLIST_STATUSES)[number], string> = {
+const ESTADO_LABELS: Record<DviChecklistStatus, string> = {
   OK: "OK",
   ATENCION: "Atención",
   CRITICO: "Crítico",
   NO_APLICA: "No aplica",
+};
+
+// Same tones as the estado badges elsewhere in this page (green/amber/red),
+// applied to a dot instead of a badge background.
+const ESTADO_DOT_COLOR: Record<DviChecklistStatus, string> = {
+  OK: "bg-[oklch(0.4_0.1_150)]",
+  ATENCION: "bg-[oklch(0.55_0.15_60)]",
+  CRITICO: "bg-[oklch(0.5_0.2_27)]",
+  NO_APLICA: "bg-muted-foreground",
 };
 
 export function DviChecklistForm({ ordenId, checklist }: { ordenId: string; checklist: DviChecklist | null }) {
@@ -22,36 +33,43 @@ export function DviChecklistForm({ ordenId, checklist }: { ordenId: string; chec
   const [state, formAction, isPending] = useActionState(saveChecklist, initialState);
 
   return (
-    <form action={formAction} className="flex flex-col gap-6">
-      {Array.from({ length: Math.ceil(DVI_CHECKLIST_ITEMS.length / 2) }, (_, rowIndex) =>
-        DVI_CHECKLIST_ITEMS.slice(rowIndex * 2, rowIndex * 2 + 2)
-      ).map((pair, rowIndex) => (
-        <div key={rowIndex} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {pair.map((item) => (
-            <div key={item.key} className="flex flex-col gap-1.5">
-              <Label htmlFor={item.key}>{item.label}</Label>
-              {/*
-                Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-                while closed) -- getByLabelText/value in the existing tests needs
-                a real <select>/<option> element. Styled by hand to match the
-                shadcn select trigger look (see seleccionar-sede-form.tsx).
-              */}
-              <select
-                id={item.key}
-                name={item.key}
-                defaultValue={current[item.key] ?? "OK"}
-                className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+    <form action={formAction} className="flex flex-col gap-4">
+      <FormGroup label="Checklist de 8 puntos">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {DVI_CHECKLIST_ITEMS.map((item) => {
+            const valor = current[item.key] ?? "OK";
+            return (
+              <div
+                key={item.key}
+                className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5"
               >
-                {DVI_CHECKLIST_STATUSES.map((estado) => (
-                  <option key={estado} value={estado}>
-                    {ESTADO_LABELS[estado]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
+                <span className={cn("size-1.5 shrink-0 rounded-full", ESTADO_DOT_COLOR[valor])} />
+                <Label htmlFor={item.key} className="flex-1 text-xs leading-tight font-normal">
+                  {item.label}
+                </Label>
+                {/*
+                  Native <select>, not shadcn's Select (Base UI, no DOM <option>s
+                  while closed) -- getByLabelText/value in the existing tests needs
+                  a real <select>/<option> element. Styled by hand to match the
+                  shadcn select trigger look (see seleccionar-sede-form.tsx).
+                */}
+                <select
+                  id={item.key}
+                  name={item.key}
+                  defaultValue={valor}
+                  className="h-7 w-[90px] shrink-0 rounded-md border border-input bg-transparent px-1.5 text-xs outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+                >
+                  {DVI_CHECKLIST_STATUSES.map((estado) => (
+                    <option key={estado} value={estado}>
+                      {ESTADO_LABELS[estado]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          })}
         </div>
-      ))}
+      </FormGroup>
 
       <Button type="submit" disabled={isPending} className="self-end">
         {isPending ? "Guardando..." : "Guardar checklist"}
