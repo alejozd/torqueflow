@@ -3,7 +3,9 @@ import { listFacturas, type FacturaWithDetalle } from "@/app/actions/factura-act
 import type { EstadoFactura } from "@/generated/prisma-tenant";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const ESTADOS_VALIDOS: EstadoFactura[] = ["PENDIENTE", "PAGADA"];
@@ -54,6 +56,14 @@ function inicioMesBogota(fecha: Date, offsetMeses = 0): Date {
   const anio = base.getUTCFullYear();
   const mes = String(base.getUTCMonth() + 1).padStart(2, "0");
   return new Date(`${anio}-${mes}-01T00:00:00-05:00`);
+}
+
+function construirHrefFacturas(base: { estado?: EstadoFactura; q?: string }): string {
+  const params = new URLSearchParams();
+  if (base.estado) params.set("estado", base.estado);
+  if (base.q) params.set("q", base.q);
+  const query = params.toString();
+  return query ? `/facturas?${query}` : "/facturas";
 }
 
 type FacturaRow = FacturaWithDetalle;
@@ -107,15 +117,24 @@ const COLUMNS: DataTableColumn<FacturaRow>[] = [
 export default async function FacturasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ estado?: string }>;
+  searchParams: Promise<{ estado?: string; q?: string }>;
 }) {
-  const { estado } = await searchParams;
+  const { estado, q } = await searchParams;
   const estadoFiltro = ESTADOS_VALIDOS.includes(estado as EstadoFactura) ? (estado as EstadoFactura) : undefined;
+  const busqueda = q?.trim().toLowerCase() ?? "";
 
   // Fetched once, unfiltered: the KPI cards summarize every factura of the
   // sede regardless of which estado the list below is currently filtered to.
   const facturas = await listFacturas();
-  const filtradas = estadoFiltro ? facturas.filter((factura) => factura.estado === estadoFiltro) : facturas;
+  const filtradas = facturas
+    .filter((factura) => !estadoFiltro || factura.estado === estadoFiltro)
+    .filter(
+      (factura) =>
+        !busqueda ||
+        String(factura.numero).includes(busqueda) ||
+        factura.cliente.nombre.toLowerCase().includes(busqueda) ||
+        factura.orden.vehiculo.placa.toLowerCase().includes(busqueda),
+    );
 
   const ahora = new Date();
   const inicioMes = inicioMesBogota(ahora);
@@ -177,33 +196,49 @@ export default async function FacturasPage({
           <CardTitle>Listado</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <nav aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
-            <Link
-              href="/facturas"
-              className={cn(
-                "rounded-full border px-3 py-1 text-sm transition-colors",
-                estadoFiltro === undefined
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
-              )}
-            >
-              Todas
-            </Link>
-            {ESTADOS_VALIDOS.map((value) => (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <nav aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
               <Link
-                key={value}
-                href={`/facturas?estado=${value}`}
+                href={construirHrefFacturas({ q })}
                 className={cn(
                   "rounded-full border px-3 py-1 text-sm transition-colors",
-                  estadoFiltro === value
+                  estadoFiltro === undefined
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
                 )}
               >
-                {ESTADO_LABELS[value]}
+                Todas
               </Link>
-            ))}
-          </nav>
+              {ESTADOS_VALIDOS.map((value) => (
+                <Link
+                  key={value}
+                  href={construirHrefFacturas({ estado: value, q })}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-sm transition-colors",
+                    estadoFiltro === value
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  {ESTADO_LABELS[value]}
+                </Link>
+              ))}
+            </nav>
+
+            <form role="search" className="flex items-center gap-2">
+              {estadoFiltro ? <input type="hidden" name="estado" value={estadoFiltro} /> : null}
+              <Input
+                type="search"
+                name="q"
+                defaultValue={q ?? ""}
+                placeholder="Buscar por número, cliente o placa…"
+                className="w-56"
+              />
+              <Button type="submit" variant="outline" size="sm">
+                Buscar
+              </Button>
+            </form>
+          </div>
 
           <DataTable
             columns={COLUMNS}
