@@ -187,19 +187,14 @@ const COLUMNS: DataTableColumn<CitaConDetalle>[] = [
   {
     header: "Fecha y hora",
     cell: (cita) => (
-      <Link
-        href={`/citas/${cita.id}`}
-        className="font-mono text-sm hover:underline"
-      >
-        <div className="flex flex-col">
-          <span className="font-mono text-sm font-medium">
-            {formatoHora.format(cita.fechaHora)}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {formatoFechaCorta.format(cita.fechaHora)}
-          </span>
-        </div>
-      </Link>
+      <div className="flex flex-col">
+        <span className="font-mono text-sm font-medium">
+          {formatoHora.format(cita.fechaHora)}
+        </span>
+        <span className="text-xs text-muted-foreground">
+          {formatoFechaCorta.format(cita.fechaHora)}
+        </span>
+      </div>
     ),
   },
   {
@@ -473,6 +468,7 @@ export default async function CitasPage({
               columns={COLUMNS}
               rows={filtradas}
               getRowKey={(cita) => cita.id}
+              rowHref={(cita) => `/citas/${cita.id}`}
               emptyMessage="No hay citas agendadas en esta sede."
             />
           ) : (
