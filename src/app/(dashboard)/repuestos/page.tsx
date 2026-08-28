@@ -1,9 +1,14 @@
 import Link from "next/link";
 import { listRepuestos, type RepuestoWithDetalle } from "@/app/actions/repuesto-actions";
+import { listBodegas } from "@/app/actions/bodega-actions";
+import { listProveedores } from "@/app/actions/proveedor-actions";
+import { EditarRepuestoDialog } from "./editar-repuesto-dialog";
+import type { RepuestoEditable } from "./editar-repuesto-form";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { Bodega, Proveedor } from "@/generated/prisma-tenant";
 
 const FILTROS_VALIDOS = ["stock-bajo", "sin-existencias"] as const;
 type Filtro = (typeof FILTROS_VALIDOS)[number];
@@ -31,51 +36,73 @@ function calcularMargen(repuesto: RepuestoWithDetalle): number | null {
   return (precioVenta - Number(repuesto.precioCompra)) / precioVenta;
 }
 
-const COLUMNS: DataTableColumn<RepuestoWithDetalle>[] = [
-  {
-    header: "Código",
-    cell: (repuesto) => <span className="font-mono text-sm">{repuesto.codigo}</span>,
-  },
-  {
-    header: "Repuesto",
-    cell: (repuesto) => <span className="font-medium">{repuesto.nombre}</span>,
-  },
-  {
-    header: "Bodega",
-    cell: (repuesto) => <span className="text-muted-foreground">{repuesto.bodega.nombre}</span>,
-  },
-  {
-    header: "Stock",
-    cell: (repuesto) => <span className="font-mono">{repuesto.stockActual}</span>,
-  },
-  {
-    header: "Mínimo",
-    cell: (repuesto) => (
-      <span className={cn("font-mono", esStockBajo(repuesto) && "font-medium text-[oklch(0.5_0.2_27)]")}>
-        {repuesto.stockMinimo}
-      </span>
-    ),
-  },
-  {
-    header: "P. compra",
-    cell: (repuesto) => <span className="font-mono">{formatoMoneda.format(Number(repuesto.precioCompra))}</span>,
-  },
-  {
-    header: "P. venta",
-    cell: (repuesto) => <span className="font-mono">{formatoMoneda.format(Number(repuesto.precioVenta))}</span>,
-  },
-  {
-    header: "Margen",
-    cell: (repuesto) => {
-      const margen = calcularMargen(repuesto);
-      return margen !== null ? (
-        <span className="font-mono text-sm">{formatoPorcentaje.format(margen)}</span>
-      ) : (
-        <span className="text-muted-foreground">—</span>
-      );
+function toEditable(repuesto: RepuestoWithDetalle): RepuestoEditable {
+  return {
+    id: repuesto.id,
+    codigo: repuesto.codigo,
+    nombre: repuesto.nombre,
+    descripcion: repuesto.descripcion,
+    precioCompra: Number(repuesto.precioCompra),
+    precioVenta: Number(repuesto.precioVenta),
+    stockMinimo: repuesto.stockMinimo,
+    bodegaId: repuesto.bodegaId,
+    proveedorId: repuesto.proveedorId,
+  };
+}
+
+function buildColumns(bodegas: Bodega[], proveedores: Proveedor[]): DataTableColumn<RepuestoWithDetalle>[] {
+  return [
+    {
+      header: "Código",
+      cell: (repuesto) => <span className="font-mono text-sm">{repuesto.codigo}</span>,
     },
-  },
-];
+    {
+      header: "Repuesto",
+      cell: (repuesto) => <span className="font-medium">{repuesto.nombre}</span>,
+    },
+    {
+      header: "Bodega",
+      cell: (repuesto) => <span className="text-muted-foreground">{repuesto.bodega.nombre}</span>,
+    },
+    {
+      header: "Stock",
+      cell: (repuesto) => <span className="font-mono">{repuesto.stockActual}</span>,
+    },
+    {
+      header: "Mínimo",
+      cell: (repuesto) => (
+        <span className={cn("font-mono", esStockBajo(repuesto) && "font-medium text-[oklch(0.5_0.2_27)]")}>
+          {repuesto.stockMinimo}
+        </span>
+      ),
+    },
+    {
+      header: "P. compra",
+      cell: (repuesto) => <span className="font-mono">{formatoMoneda.format(Number(repuesto.precioCompra))}</span>,
+    },
+    {
+      header: "P. venta",
+      cell: (repuesto) => <span className="font-mono">{formatoMoneda.format(Number(repuesto.precioVenta))}</span>,
+    },
+    {
+      header: "Margen",
+      cell: (repuesto) => {
+        const margen = calcularMargen(repuesto);
+        return margen !== null ? (
+          <span className="font-mono text-sm">{formatoPorcentaje.format(margen)}</span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        );
+      },
+    },
+    {
+      header: "Acciones",
+      cell: (repuesto) => (
+        <EditarRepuestoDialog repuesto={toEditable(repuesto)} bodegas={bodegas} proveedores={proveedores} />
+      ),
+    },
+  ];
+}
 
 export default async function RepuestosPage({
   searchParams,
@@ -87,7 +114,7 @@ export default async function RepuestosPage({
 
   // Fetched once, unfiltered: the KPI cards summarize every repuesto of la
   // sede regardless of which filtro the list below is currently applying.
-  const repuestos = await listRepuestos();
+  const [repuestos, bodegas, proveedores] = await Promise.all([listRepuestos(), listBodegas(), listProveedores()]);
   const filtrados =
     filtroActivo === "stock-bajo"
       ? repuestos.filter(esStockBajo)
@@ -101,6 +128,7 @@ export default async function RepuestosPage({
   );
   const stockBajo = repuestos.filter(esStockBajo);
   const sinExistencias = repuestos.filter((repuesto) => repuesto.stockActual === 0).length;
+  const columns = buildColumns(bodegas, proveedores);
 
   return (
     <main className="flex flex-col gap-6">
@@ -175,7 +203,7 @@ export default async function RepuestosPage({
           </nav>
 
           <DataTable
-            columns={COLUMNS}
+            columns={columns}
             rows={filtrados}
             getRowKey={(repuesto) => repuesto.id}
             emptyMessage="No hay repuestos en este filtro."

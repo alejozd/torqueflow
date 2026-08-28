@@ -25,6 +25,7 @@ import {
   createRepuestoAction,
   updateRepuestoAction,
   deleteRepuestoAction,
+  deleteRepuestoFormAction,
   listRepuestos,
   listRepuestoOptions,
   type RepuestoFormState,
@@ -201,6 +202,29 @@ describe("deleteRepuestoAction", () => {
     await expect(deleteRepuestoAction("r-otra-sede")).rejects.toThrow(
       "Repuesto no encontrado en tu sede activa.",
     );
+  });
+});
+
+describe("deleteRepuestoFormAction", () => {
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockDeleteMany.mockReset();
+  });
+
+  it("returns success after deleting the repuesto", async () => {
+    mockDeleteMany.mockResolvedValue({ count: 1 });
+
+    const result = await deleteRepuestoFormAction("r1", initialState);
+
+    expect(result).toEqual({ error: null, success: true });
+  });
+
+  it("returns the thrown error message instead of throwing", async () => {
+    mockDeleteMany.mockResolvedValue({ count: 0 });
+
+    const result = await deleteRepuestoFormAction("r-otra-sede", initialState);
+
+    expect(result).toEqual({ error: "Repuesto no encontrado en tu sede activa.", success: false });
   });
 });
 

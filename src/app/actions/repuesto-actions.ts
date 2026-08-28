@@ -183,3 +183,20 @@ export async function deleteRepuestoAction(id: string): Promise<void> {
   }
   revalidatePath("/repuestos");
 }
+
+/**
+ * useActionState-compatible wrapper for deleteRepuestoAction, which throws
+ * both on a wrong-sede id and on any underlying Prisma error -- same adapter
+ * shape as deleteSedeFormAction/deleteBodegaFormAction.
+ */
+export async function deleteRepuestoFormAction(
+  id: string,
+  prevState: RepuestoFormState,
+): Promise<RepuestoFormState> {
+  try {
+    await deleteRepuestoAction(id);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Error al eliminar el repuesto", success: false };
+  }
+  return { error: null, success: true };
+}
