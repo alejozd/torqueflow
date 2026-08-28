@@ -195,10 +195,12 @@ export default async function OrdenesPage({
       ? facturadas.reduce((suma, orden) => suma + Number(orden.factura!.total), 0) / facturadas.length
       : null;
 
-  // El tablero agrupa TODAS las órdenes en sus 5 columnas de estado, así que
-  // el filtro de estado (pensado para la tabla) no aplica aquí -- se oculta
-  // en esta vista en vez de filtrar columnas completas.
-  const columnas = agruparPorEstado(ordenes);
+  // El mismo filtro de estado que usa la tabla también recorta el tablero:
+  // con un estado elegido, agruparPorEstado(filtradas) solo deja cards en esa
+  // columna, así que se colapsa a mostrar únicamente esa columna en vez de
+  // 4 columnas vacías.
+  const columnasBase = agruparPorEstado(filtradas);
+  const columnas = estadoFiltro ? columnasBase.filter((columna) => columna.estado === estadoFiltro) : columnasBase;
 
   return (
     <main className="flex flex-col gap-6">
@@ -254,41 +256,34 @@ export default async function OrdenesPage({
           <CardTitle>Listado</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div
-            className={cn(
-              "flex flex-wrap items-center gap-3",
-              vistaActual === "tabla" ? "justify-between" : "justify-end",
-            )}
-          >
-            {vistaActual === "tabla" ? (
-              <nav aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <nav aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
+              <Link
+                href={construirHrefOrdenes({ vista: vistaActual })}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-sm transition-colors",
+                  estadoFiltro === undefined
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
+                )}
+              >
+                Todas
+              </Link>
+              {ESTADOS_VALIDOS.map((value) => (
                 <Link
-                  href={construirHrefOrdenes({ vista: vistaActual })}
+                  key={value}
+                  href={construirHrefOrdenes({ estado: value, vista: vistaActual })}
                   className={cn(
                     "rounded-full border px-3 py-1 text-sm transition-colors",
-                    estadoFiltro === undefined
+                    estadoFiltro === value
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
                   )}
                 >
-                  Todas
+                  {ESTADO_LABELS[value]}
                 </Link>
-                {ESTADOS_VALIDOS.map((value) => (
-                  <Link
-                    key={value}
-                    href={construirHrefOrdenes({ estado: value, vista: vistaActual })}
-                    className={cn(
-                      "rounded-full border px-3 py-1 text-sm transition-colors",
-                      estadoFiltro === value
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
-                    )}
-                  >
-                    {ESTADO_LABELS[value]}
-                  </Link>
-                ))}
-              </nav>
-            ) : null}
+              ))}
+            </nav>
 
             <div className="flex gap-1 rounded-full border border-input p-0.5">
               <Link
