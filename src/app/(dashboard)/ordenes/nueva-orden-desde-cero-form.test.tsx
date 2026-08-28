@@ -29,13 +29,20 @@ const clientes = [
   },
 ];
 
+// Cliente/Vehículo are Combobox controls now (search-as-you-type), not
+// native <select> -- options only mount in the DOM once the popup is open.
+async function selectCombobox(labelText: string, optionName: string) {
+  await userEvent.click(screen.getByLabelText(labelText));
+  await userEvent.click(await screen.findByRole("option", { name: optionName }));
+}
+
 describe("NuevaOrdenDesdeCeroForm", () => {
   beforeEach(() => {
     mockCreateOrdenDesdeVehiculoAction.mockReset();
     mockCreateOrdenDesdeVehiculoAction.mockResolvedValue({ error: null, success: true });
   });
 
-  it("renders cliente, vehiculo, kilometraje, sintomas, and mecanico fields", () => {
+  it("renders cliente, vehiculo, kilometraje, sintomas, and mecanico fields", async () => {
     render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
 
     expect(screen.getByLabelText("Cliente")).toBeInTheDocument();
@@ -43,7 +50,9 @@ describe("NuevaOrdenDesdeCeroForm", () => {
     expect(screen.getByLabelText("Kilometraje de ingreso")).toBeInTheDocument();
     expect(screen.getByLabelText("Síntomas reportados")).toBeInTheDocument();
     expect(screen.getByLabelText("Mecánico asignado")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Ana Pérez" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByLabelText("Cliente"));
+    expect(await screen.findByRole("option", { name: "Ana Pérez" })).toBeInTheDocument();
   });
 
   it("disables the vehiculo select until a cliente is chosen", () => {
@@ -55,10 +64,11 @@ describe("NuevaOrdenDesdeCeroForm", () => {
   it("narrows the vehiculo options to the selected cliente's own vehiculos", async () => {
     render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
 
-    await userEvent.selectOptions(screen.getByLabelText("Cliente"), "c1");
+    await selectCombobox("Cliente", "Ana Pérez");
 
     expect(screen.getByLabelText("Vehículo")).not.toBeDisabled();
-    expect(screen.getByRole("option", { name: "ABC123 · Toyota Corolla" })).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText("Vehículo"));
+    expect(await screen.findByRole("option", { name: "ABC123 · Toyota Corolla" })).toBeInTheDocument();
   });
 
   it("shows the vehículo's last known kilometraje once it is selected, as a hint for kilometraje de ingreso", async () => {
@@ -66,8 +76,8 @@ describe("NuevaOrdenDesdeCeroForm", () => {
 
     expect(screen.queryByText(/Último kilometraje registrado/)).not.toBeInTheDocument();
 
-    await userEvent.selectOptions(screen.getByLabelText("Cliente"), "c1");
-    await userEvent.selectOptions(screen.getByLabelText("Vehículo"), "v1");
+    await selectCombobox("Cliente", "Ana Pérez");
+    await selectCombobox("Vehículo", "ABC123 · Toyota Corolla");
 
     expect(screen.getByText("Último kilometraje registrado: 78.420 km")).toBeInTheDocument();
   });
@@ -75,7 +85,7 @@ describe("NuevaOrdenDesdeCeroForm", () => {
   it("shows a message instead of vehiculo options when the selected cliente has none", async () => {
     render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
 
-    await userEvent.selectOptions(screen.getByLabelText("Cliente"), "c2");
+    await selectCombobox("Cliente", "María Gómez");
 
     expect(screen.getByText("Este cliente no tiene vehículos registrados.")).toBeInTheDocument();
   });
@@ -93,8 +103,8 @@ describe("NuevaOrdenDesdeCeroForm", () => {
     const onCreated = vi.fn();
     render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} onCreated={onCreated} />);
 
-    await userEvent.selectOptions(screen.getByLabelText("Cliente"), "c1");
-    await userEvent.selectOptions(screen.getByLabelText("Vehículo"), "v1");
+    await selectCombobox("Cliente", "Ana Pérez");
+    await selectCombobox("Vehículo", "ABC123 · Toyota Corolla");
     await userEvent.click(screen.getByRole("button", { name: "Crear orden" }));
 
     await vi.waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
@@ -108,8 +118,8 @@ describe("NuevaOrdenDesdeCeroForm", () => {
   it("falls back to a visible success message when rendered without onCreated", async () => {
     render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
 
-    await userEvent.selectOptions(screen.getByLabelText("Cliente"), "c1");
-    await userEvent.selectOptions(screen.getByLabelText("Vehículo"), "v1");
+    await selectCombobox("Cliente", "Ana Pérez");
+    await selectCombobox("Vehículo", "ABC123 · Toyota Corolla");
     await userEvent.click(screen.getByRole("button", { name: "Crear orden" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Orden creada");
@@ -119,8 +129,8 @@ describe("NuevaOrdenDesdeCeroForm", () => {
     mockCreateOrdenDesdeVehiculoAction.mockResolvedValue({ error: "El vehículo seleccionado no existe.", success: false });
     render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
 
-    await userEvent.selectOptions(screen.getByLabelText("Cliente"), "c1");
-    await userEvent.selectOptions(screen.getByLabelText("Vehículo"), "v1");
+    await selectCombobox("Cliente", "Ana Pérez");
+    await selectCombobox("Vehículo", "ABC123 · Toyota Corolla");
     await userEvent.click(screen.getByRole("button", { name: "Crear orden" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("El vehículo seleccionado no existe.");

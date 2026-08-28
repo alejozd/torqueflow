@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -11,6 +11,7 @@ import type { ClienteParaOrden } from "@/app/actions/cliente-actions";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -57,16 +58,17 @@ export function NuevaOrdenDesdeCeroForm({
   const {
     register,
     handleSubmit,
-    watch,
-    resetField,
+    control,
     formState: { errors },
   } = useForm<OrdenDesdeCeroFormInput>({
     resolver: zodResolver(ordenDesdeCeroFormSchema),
     defaultValues: { clienteId: "", vehiculoId: "", kilometrajeIngreso: "", sintomas: "", mecanicoId: "" },
   });
+  const { field: clienteIdField } = useController({ name: "clienteId", control });
+  const { field: vehiculoIdField } = useController({ name: "vehiculoId", control });
 
-  const clienteIdSeleccionado = watch("clienteId");
-  const vehiculoIdSeleccionado = watch("vehiculoId");
+  const clienteIdSeleccionado = clienteIdField.value;
+  const vehiculoIdSeleccionado = vehiculoIdField.value;
   const vehiculosDisponibles = useMemo(
     () => clientes.find((cliente) => cliente.id === clienteIdSeleccionado)?.vehiculos ?? [],
     [clientes, clienteIdSeleccionado],
@@ -74,9 +76,26 @@ export function NuevaOrdenDesdeCeroForm({
   const kilometrajeActual = vehiculosDisponibles.find((vehiculo) => vehiculo.id === vehiculoIdSeleccionado)
     ?.kilometrajeActual;
 
-  function onValid() {
+  const clienteOptions: ComboboxOption[] = useMemo(
+    () => clientes.map((cliente) => ({ value: cliente.id, label: cliente.nombre })),
+    [clientes],
+  );
+  const vehiculoOptions: ComboboxOption[] = useMemo(
+    () =>
+      vehiculosDisponibles.map((vehiculo) => ({
+        value: vehiculo.id,
+        label: `${vehiculo.placa} · ${vehiculo.marca} ${vehiculo.modelo}`,
+      })),
+    [vehiculosDisponibles],
+  );
+
+  function onValid(data: { vehiculoId: string }) {
     startTransition(async () => {
       const formData = new FormData(formRef.current!);
+      // vehiculoId is a Combobox (react-hook-form-controlled, not a native
+      // <select name="..."> register()) -- it doesn't populate FormData on
+      // its own, so it must be set explicitly here before submitting.
+      formData.set("vehiculoId", data.vehiculoId);
       const result = await createOrdenDesdeVehiculoAction(initialState, formData);
       if (result.success) {
         toast.success("Orden creada");
@@ -95,29 +114,21 @@ export function NuevaOrdenDesdeCeroForm({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="clienteId">Cliente</Label>
-            {/*
-              Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-              while closed) -- keeps userEvent.selectOptions()/getByRole("option")
-              working, same reasoning as usuarios/nuevo-usuario-form.tsx.
-            */}
-            <select
+            <Combobox
               id="clienteId"
-              aria-invalid={errors.clienteId ? true : undefined}
-              aria-describedby={errors.clienteId ? "clienteId-error" : undefined}
-              className={SELECT_CLASSNAME}
-              {...register("clienteId", {
+              items={clienteOptions}
+              value={clienteIdField.value}
+              onValueChange={(value) => {
+                clienteIdField.onChange(value);
                 // A vehículo selected under the previous cliente must not survive
                 // the switch -- it would silently point at another client's car.
-                onChange: () => resetField("vehiculoId", { defaultValue: "" }),
-              })}
-            >
-              <option value="">Seleccionar...</option>
-              {clientes.map((cliente) => (
-                <option key={cliente.id} value={cliente.id}>
-                  {cliente.nombre}
-                </option>
-              ))}
-            </select>
+                vehiculoIdField.onChange("");
+              }}
+              placeholder="Buscar cliente..."
+              emptyMessage="Ningún cliente coincide"
+              aria-invalid={errors.clienteId ? true : undefined}
+              aria-describedby={errors.clienteId ? "clienteId-error" : undefined}
+            />
             {errors.clienteId ? (
               <p id="clienteId-error" className="text-xs text-destructive">
                 {errors.clienteId.message}
@@ -127,21 +138,17 @@ export function NuevaOrdenDesdeCeroForm({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="vehiculoId">Vehículo</Label>
-            <select
+            <Combobox
               id="vehiculoId"
               disabled={!clienteIdSeleccionado}
+              items={vehiculoOptions}
+              value={vehiculoIdField.value}
+              onValueChange={vehiculoIdField.onChange}
+              placeholder={clienteIdSeleccionado ? "Buscar vehículo..." : "Primero selecciona un cliente"}
+              emptyMessage="Ningún vehículo coincide"
               aria-invalid={errors.vehiculoId ? true : undefined}
               aria-describedby={errors.vehiculoId ? "vehiculoId-error" : undefined}
-              className={SELECT_CLASSNAME}
-              {...register("vehiculoId")}
-            >
-              <option value="">{clienteIdSeleccionado ? "Seleccionar..." : "Primero selecciona un cliente"}</option>
-              {vehiculosDisponibles.map((vehiculo) => (
-                <option key={vehiculo.id} value={vehiculo.id}>
-                  {vehiculo.placa} · {vehiculo.marca} {vehiculo.modelo}
-                </option>
-              ))}
-            </select>
+            />
             {clienteIdSeleccionado && vehiculosDisponibles.length === 0 ? (
               <p className="text-xs text-muted-foreground">Este cliente no tiene vehículos registrados.</p>
             ) : null}
