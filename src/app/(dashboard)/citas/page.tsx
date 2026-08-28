@@ -371,36 +371,34 @@ export default async function CitasPage({
                         {grupo.citas.length} {grupo.citas.length === 1 ? "cita" : "citas"}
                       </span>
                     </div>
-                    <div className="flex flex-col gap-4">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                       {grupo.citas.map((cita) => (
                         <Link key={cita.id} href={`/citas/${cita.id}`} className="block">
-                          <Card className="transition-colors hover:bg-accent/50">
-                            <CardContent className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                              <div className="flex items-center gap-4">
-                                <span className="w-14 shrink-0 font-mono text-lg font-semibold">
+                          <Card className="h-full transition-colors hover:bg-accent/50">
+                            <CardContent className="flex flex-col gap-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-mono text-lg font-semibold">
                                   {formatoHora.format(cita.fechaHora)}
                                 </span>
-                                <div>
-                                  <div className="flex flex-wrap items-center gap-1.5 text-sm">
-                                    <span className="font-mono">{cita.vehiculo.placa}</span>
-                                    <span className="text-muted-foreground">
-                                      · {cita.vehiculo.marca} {cita.vehiculo.modelo}
-                                      {cita.vehiculo.anio ? ` · ${cita.vehiculo.anio}` : ""}
-                                    </span>
-                                  </div>
-                                  <p className="text-sm">{cita.motivo}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {cita.cliente.nombre}
-                                    {cita.cliente.telefono ? ` · ${cita.cliente.telefono}` : ""}
-                                  </p>
-                                </div>
+                                <Badge
+                                  variant={ESTADO_BADGE_VARIANT[cita.estado]}
+                                  className={ESTADO_BADGE_CLASSNAME[cita.estado]}
+                                >
+                                  {ESTADO_LABELS[cita.estado]}
+                                </Badge>
                               </div>
-                              <Badge
-                                variant={ESTADO_BADGE_VARIANT[cita.estado]}
-                                className={ESTADO_BADGE_CLASSNAME[cita.estado]}
-                              >
-                                {ESTADO_LABELS[cita.estado]}
-                              </Badge>
+                              <div className="flex flex-wrap items-center gap-1.5 text-sm">
+                                <span className="font-mono">{cita.vehiculo.placa}</span>
+                                <span className="text-muted-foreground">
+                                  · {cita.vehiculo.marca} {cita.vehiculo.modelo}
+                                  {cita.vehiculo.anio ? ` · ${cita.vehiculo.anio}` : ""}
+                                </span>
+                              </div>
+                              <p className="text-sm">{cita.motivo}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {cita.cliente.nombre}
+                                {cita.cliente.telefono ? ` · ${cita.cliente.telefono}` : ""}
+                              </p>
                             </CardContent>
                           </Card>
                         </Link>
