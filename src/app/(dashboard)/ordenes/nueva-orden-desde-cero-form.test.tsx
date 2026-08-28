@@ -72,7 +72,23 @@ describe("NuevaOrdenDesdeCeroForm", () => {
     expect(mockCreateOrdenDesdeVehiculoAction).not.toHaveBeenCalled();
   });
 
-  it("submits the selected vehiculo and shows a success message", async () => {
+  it("submits the selected vehiculo and calls onCreated instead of leaving a stale form behind", async () => {
+    const onCreated = vi.fn();
+    render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} onCreated={onCreated} />);
+
+    await userEvent.selectOptions(screen.getByLabelText("Cliente"), "c1");
+    await userEvent.selectOptions(screen.getByLabelText("Vehículo"), "v1");
+    await userEvent.click(screen.getByRole("button", { name: "Crear orden" }));
+
+    await vi.waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+    // onCreated fires instead of a lingering success message -- there is
+    // nothing left on screen inviting a second, duplicate submit.
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    const formData = mockCreateOrdenDesdeVehiculoAction.mock.calls[0]![1] as FormData;
+    expect(formData.get("vehiculoId")).toBe("v1");
+  });
+
+  it("falls back to a visible success message when rendered without onCreated", async () => {
     render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
 
     await userEvent.selectOptions(screen.getByLabelText("Cliente"), "c1");
@@ -80,8 +96,6 @@ describe("NuevaOrdenDesdeCeroForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Crear orden" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Orden creada");
-    const formData = mockCreateOrdenDesdeVehiculoAction.mock.calls[0]![1] as FormData;
-    expect(formData.get("vehiculoId")).toBe("v1");
   });
 
   it("shows the error message when the action returns one", async () => {

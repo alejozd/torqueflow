@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useMemo, useRef } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -35,11 +35,23 @@ type OrdenDesdeCeroFormInput = z.input<typeof ordenDesdeCeroFormSchema>;
 export function NuevaOrdenDesdeCeroForm({
   clientes,
   tecnicos,
+  onCreated,
 }: {
   clientes: ClienteParaOrden[];
   tecnicos: TecnicoOption[];
+  /**
+   * Fired synchronously right after a successful create -- not driven by
+   * useActionState + a lingering "Orden creada" message: leaving the form
+   * mounted with its stale values and an enabled submit button let a user
+   * double-click "Crear orden" and create the same orden twice. Closing the
+   * dialog on success (same race documented in citas/nueva-cita-form.tsx)
+   * removes the possibility entirely instead of just disabling the button
+   * for the pending window.
+   */
+  onCreated?: () => void;
 }) {
-  const [state, formAction, isPending] = useActionState(createOrdenDesdeVehiculoAction, initialState);
+  const [state, setState] = useState<OrdenFormState>(initialState);
+  const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
   const {
     register,
@@ -58,13 +70,20 @@ export function NuevaOrdenDesdeCeroForm({
     [clientes, clienteIdSeleccionado],
   );
 
+  function onValid() {
+    startTransition(async () => {
+      const formData = new FormData(formRef.current!);
+      const result = await createOrdenDesdeVehiculoAction(initialState, formData);
+      if (result.success && onCreated) {
+        onCreated();
+      } else {
+        setState(result);
+      }
+    });
+  }
+
   return (
-    <form
-      noValidate
-      ref={formRef}
-      onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
-      className="flex flex-col gap-4"
-    >
+    <form noValidate ref={formRef} onSubmit={handleSubmit(onValid)} className="flex flex-col gap-4">
       <FormGroup label="Vehículo">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
@@ -92,7 +111,11 @@ export function NuevaOrdenDesdeCeroForm({
                 </option>
               ))}
             </select>
-            {errors.clienteId ? <p id="clienteId-error">{errors.clienteId.message}</p> : null}
+            {errors.clienteId ? (
+              <p id="clienteId-error" className="text-xs text-destructive">
+                {errors.clienteId.message}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -115,7 +138,11 @@ export function NuevaOrdenDesdeCeroForm({
             {clienteIdSeleccionado && vehiculosDisponibles.length === 0 ? (
               <p className="text-xs text-muted-foreground">Este cliente no tiene vehículos registrados.</p>
             ) : null}
-            {errors.vehiculoId ? <p id="vehiculoId-error">{errors.vehiculoId.message}</p> : null}
+            {errors.vehiculoId ? (
+              <p id="vehiculoId-error" className="text-xs text-destructive">
+                {errors.vehiculoId.message}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -130,7 +157,9 @@ export function NuevaOrdenDesdeCeroForm({
               {...register("kilometrajeIngreso")}
             />
             {errors.kilometrajeIngreso ? (
-              <p id="kilometrajeIngreso-error">{errors.kilometrajeIngreso.message}</p>
+              <p id="kilometrajeIngreso-error" className="text-xs text-destructive">
+                {errors.kilometrajeIngreso.message}
+              </p>
             ) : null}
           </div>
 
@@ -150,7 +179,11 @@ export function NuevaOrdenDesdeCeroForm({
                 </option>
               ))}
             </select>
-            {errors.mecanicoId ? <p id="mecanicoId-error">{errors.mecanicoId.message}</p> : null}
+            {errors.mecanicoId ? (
+              <p id="mecanicoId-error" className="text-xs text-destructive">
+                {errors.mecanicoId.message}
+              </p>
+            ) : null}
           </div>
         </div>
       </FormGroup>
@@ -164,7 +197,11 @@ export function NuevaOrdenDesdeCeroForm({
             aria-describedby={errors.sintomas ? "sintomas-error" : undefined}
             {...register("sintomas")}
           />
-          {errors.sintomas ? <p id="sintomas-error">{errors.sintomas.message}</p> : null}
+          {errors.sintomas ? (
+            <p id="sintomas-error" className="text-xs text-destructive">
+              {errors.sintomas.message}
+            </p>
+          ) : null}
         </div>
       </FormGroup>
 

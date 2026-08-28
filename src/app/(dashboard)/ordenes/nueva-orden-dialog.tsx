@@ -31,7 +31,7 @@ export function NuevaOrdenDialog({
           <DialogTitle>Nueva orden de trabajo</DialogTitle>
           <DialogDescription>Vehículo, responsable y diagnóstico inicial.</DialogDescription>
         </DialogHeader>
-        <NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />
+        <NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} onCreated={() => setOpen(false)} />
       </DialogContent>
     </Dialog>
   );
