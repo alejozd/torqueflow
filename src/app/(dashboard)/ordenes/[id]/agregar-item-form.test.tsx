@@ -17,11 +17,14 @@ describe("AgregarItemForm", () => {
     mockAddItemOrdenAction.mockResolvedValue({ error: null, success: true });
   });
 
-  it("renders the repuesto select alongside the manual fields", () => {
+  it("renders the repuesto select alongside the manual fields", async () => {
     render(<AgregarItemForm ordenId="o1" repuestos={repuestos} />);
 
     expect(screen.getByLabelText("Repuesto del inventario (opcional)")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /Filtro de aceite/ })).toBeInTheDocument();
+    // Repuesto is a Combobox now (search-as-you-type), not a native <select>
+    // -- options only mount in the DOM once the popup is open.
+    await userEvent.click(screen.getByLabelText("Repuesto del inventario (opcional)"));
+    expect(await screen.findByRole("option", { name: /Filtro de aceite/ })).toBeInTheDocument();
     expect(screen.getByLabelText("Descripción")).toBeInTheDocument();
   });
 

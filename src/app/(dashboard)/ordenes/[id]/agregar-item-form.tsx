@@ -1,7 +1,7 @@
 "use client";
 
-import { startTransition, useActionState, useRef } from "react";
-import { useForm } from "react-hook-form";
+import { startTransition, useActionState, useMemo, useRef } from "react";
+import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { addItemOrdenAction, type ItemOrdenFormState } from "@/app/actions/item-orden-actions";
@@ -10,6 +10,7 @@ import type { RepuestoOption } from "@/app/actions/repuesto-actions";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -36,44 +37,50 @@ export function AgregarItemForm({ ordenId, repuestos }: { ordenId: string; repue
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<ItemFormInput>({
     resolver: zodResolver(itemFormSchema),
     defaultValues: { repuestoId: "", descripcion: "", cantidad: "", precioUnitario: "" },
   });
+  const { field: repuestoIdField } = useController({ name: "repuestoId", control });
   // The .refine() above has no field path, so zodResolver keys it under "" --
   // not a real field, hence the cast (FieldErrors<T> only types known field keys).
   const formError = (errors as Record<string, { message?: string } | undefined>)[""]?.message;
+
+  const repuestoOptions: ComboboxOption[] = useMemo(
+    () => repuestos.map((repuesto) => ({ value: repuesto.id, label: `${repuesto.codigo} — ${repuesto.nombre}` })),
+    [repuestos],
+  );
 
   return (
     <form
       noValidate
       ref={formRef}
-      onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+      onSubmit={handleSubmit((data) =>
+        startTransition(() => {
+          const formData = new FormData(formRef.current!);
+          // repuestoId is a Combobox (react-hook-form-controlled, not a native
+          // <select name="..."> register()) -- it doesn't populate FormData on
+          // its own, so it must be set explicitly here before submitting.
+          formData.set("repuestoId", data.repuestoId ?? "");
+          formAction(formData);
+        }),
+      )}
       className="flex flex-col gap-4"
     >
       <FormGroup label="Repuesto">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="repuestoId">Repuesto del inventario (opcional)</Label>
-            {/*
-              Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-              while closed) -- userEvent.selectOptions()/getByRole("option")
-              in the existing tests need real <select>/<option> elements.
-              Styled by hand to match the shadcn select trigger look.
-            */}
-            <select
+            <Combobox
               id="repuestoId"
-              className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-              {...register("repuestoId")}
-            >
-              <option value="">Ítem manual (completa descripción y precio abajo)</option>
-              {repuestos.map((repuesto) => (
-                <option key={repuesto.id} value={repuesto.id}>
-                  {repuesto.codigo} — {repuesto.nombre}
-                </option>
-              ))}
-            </select>
+              items={repuestoOptions}
+              value={repuestoIdField.value ?? ""}
+              onValueChange={repuestoIdField.onChange}
+              placeholder="Ítem manual (completa descripción y precio abajo)"
+              emptyMessage="Ningún repuesto coincide"
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">
