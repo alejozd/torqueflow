@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import {
   updateCitaAction,
   type CitaConDetalle,
@@ -11,6 +11,7 @@ import {
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -50,6 +51,16 @@ export function EditarCitaForm({
   vehiculos: VehiculoOption[];
 }) {
   const [state, formAction, isPending] = useActionState(updateCitaAction.bind(null, cita.id), initialState);
+  const [vehiculoId, setVehiculoId] = useState(cita.vehiculo.id);
+
+  const vehiculoOptions: ComboboxOption[] = useMemo(
+    () =>
+      vehiculos.map((vehiculo) => ({
+        value: vehiculo.id,
+        label: `${vehiculo.placa} — ${vehiculo.marca} ${vehiculo.modelo} (${vehiculo.clienteNombre})`,
+      })),
+    [vehiculos],
+  );
 
   return (
     <form noValidate action={formAction} className="flex flex-col gap-4">
@@ -57,20 +68,23 @@ export function EditarCitaForm({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="vehiculoId">Vehículo</Label>
-            {/* Native <select>: matches nueva-cita-form.tsx's real <option> requirement for tests. */}
-            <select
+            <Combobox
               id="vehiculoId"
-              name="vehiculoId"
               required
-              defaultValue={cita.vehiculo.id}
-              className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-            >
-              {vehiculos.map((vehiculo) => (
-                <option key={vehiculo.id} value={vehiculo.id}>
-                  {`${vehiculo.placa} — ${vehiculo.marca} ${vehiculo.modelo} (${vehiculo.clienteNombre})`}
-                </option>
-              ))}
-            </select>
+              items={vehiculoOptions}
+              value={vehiculoId}
+              onValueChange={setVehiculoId}
+              placeholder="Buscar vehículo..."
+              emptyMessage="Ningún vehículo coincide"
+            />
+            {/*
+              This form submits via a native form action (useActionState), not
+              react-hook-form + manual FormData -- the Combobox is a
+              react-controlled <input>, not a native <select name="...">, so it
+              doesn't participate in the browser's own FormData construction.
+              This hidden input keeps vehiculoId in the native form submission.
+            */}
+            <input type="hidden" name="vehiculoId" value={vehiculoId} />
           </div>
 
           <div className="flex flex-col gap-1.5">
