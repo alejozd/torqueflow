@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/auth/guards";
-import { listCitas, listVehiculosParaCita, type CitaConDetalle } from "@/app/actions/cita-actions";
+import {
+  listCitas,
+  listVehiculosParaCita,
+  type CitaConDetalle,
+} from "@/app/actions/cita-actions";
 import { NuevaCitaDialog } from "./nueva-cita-dialog";
 import { ExportarCitasButton } from "./exportar-citas-button";
 import type { EstadoCita } from "@/generated/prisma-tenant";
@@ -11,7 +15,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-const ESTADOS_VALIDOS: EstadoCita[] = ["PROGRAMADA", "CONFIRMADA", "CANCELADA", "COMPLETADA"];
+const ESTADOS_VALIDOS: EstadoCita[] = [
+  "PROGRAMADA",
+  "CONFIRMADA",
+  "CANCELADA",
+  "COMPLETADA",
+];
 
 const ESTADO_LABELS: Record<EstadoCita, string> = {
   PROGRAMADA: "Programada",
@@ -26,12 +35,16 @@ const ESTADO_LABELS: Record<EstadoCita, string> = {
 // uses internally, matching the Ordenes module's convention.
 const ESTADO_BADGE_CLASSNAME: Record<EstadoCita, string> = {
   PROGRAMADA: "",
-  CONFIRMADA: "border-transparent bg-[oklch(0.44_0.12_250/0.1)] text-[oklch(0.44_0.12_250)]",
+  CONFIRMADA:
+    "border-transparent bg-[oklch(0.44_0.12_250/0.1)] text-[oklch(0.44_0.12_250)]",
   CANCELADA: "",
-  COMPLETADA: "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]",
+  COMPLETADA:
+    "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]",
 };
 
-const ESTADO_BADGE_VARIANT: Partial<Record<EstadoCita, "outline" | "destructive">> = {
+const ESTADO_BADGE_VARIANT: Partial<
+  Record<EstadoCita, "outline" | "destructive">
+> = {
   PROGRAMADA: "outline",
   CANCELADA: "destructive",
 };
@@ -56,9 +69,16 @@ const formatoFechaLarga = new Intl.DateTimeFormat("es-CO", {
   timeZone: "America/Bogota",
 });
 
-const formatoFechaCorta = new Intl.DateTimeFormat("es-CO", { dateStyle: "short", timeZone: "America/Bogota" });
+const formatoFechaCorta = new Intl.DateTimeFormat("es-CO", {
+  dateStyle: "short",
+  timeZone: "America/Bogota",
+});
 
-const formatoDiaMes = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "long", timeZone: "America/Bogota" });
+const formatoDiaMes = new Intl.DateTimeFormat("es-CO", {
+  day: "numeric",
+  month: "long",
+  timeZone: "America/Bogota",
+});
 
 /**
  * America/Bogota is a fixed UTC-5 offset with no daylight saving time (same
@@ -67,7 +87,9 @@ const formatoDiaMes = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: 
  * reconstruct that date's midnight as an explicit UTC-5 instant.
  */
 const OFFSET_TALLER = "-05:00";
-const formatoDiaBogota = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" });
+const formatoDiaBogota = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Bogota",
+});
 
 function inicioDiaBogota(fecha: Date): Date {
   return new Date(`${formatoDiaBogota.format(fecha)}T00:00:00${OFFSET_TALLER}`);
@@ -77,13 +99,17 @@ function rangoSemanaBogota(hoy: Date): { inicio: Date; fin: Date } {
   const inicioHoy = inicioDiaBogota(hoy);
   const diaSemana = inicioHoy.getUTCDay(); // 0=domingo..6=sábado
   const diasDesdeElLunes = diaSemana === 0 ? 6 : diaSemana - 1;
-  const inicio = new Date(inicioHoy.getTime() - diasDesdeElLunes * 24 * 60 * 60 * 1000);
+  const inicio = new Date(
+    inicioHoy.getTime() - diasDesdeElLunes * 24 * 60 * 60 * 1000,
+  );
   const fin = new Date(inicio.getTime() + 7 * 24 * 60 * 60 * 1000);
   return { inicio, fin };
 }
 
 function capitalizar(texto: string): string {
-  return texto.length > 0 ? texto.charAt(0).toUpperCase() + texto.slice(1) : texto;
+  return texto.length > 0
+    ? texto.charAt(0).toUpperCase() + texto.slice(1)
+    : texto;
 }
 
 interface GrupoDia {
@@ -112,7 +138,11 @@ function agruparPorDia(citas: CitaConDetalle[]): GrupoDia[] {
   }));
 }
 
-function construirHref(base: { estado?: EstadoCita; q?: string; vista?: "agenda" | "tabla" }): string {
+function construirHref(base: {
+  estado?: EstadoCita;
+  q?: string;
+  vista?: "agenda" | "tabla";
+}): string {
   const params = new URLSearchParams();
   if (base.estado) params.set("estado", base.estado);
   if (base.q) params.set("q", base.q);
@@ -126,7 +156,17 @@ function escaparCsv(valor: string): string {
 }
 
 function construirCsv(citas: CitaConDetalle[]): string {
-  const encabezado = ["Fecha", "Hora", "Placa", "Vehículo", "Cliente", "Teléfono", "Motivo", "Estado", "Notas"];
+  const encabezado = [
+    "Fecha",
+    "Hora",
+    "Placa",
+    "Vehículo",
+    "Cliente",
+    "Teléfono",
+    "Motivo",
+    "Estado",
+    "Notas",
+  ];
   const filas = citas.map((cita) => [
     formatoFechaCorta.format(cita.fechaHora),
     formatoHora.format(cita.fechaHora),
@@ -138,21 +178,42 @@ function construirCsv(citas: CitaConDetalle[]): string {
     ESTADO_LABELS[cita.estado],
     cita.notas ?? "",
   ]);
-  return [encabezado, ...filas].map((fila) => fila.map(escaparCsv).join(",")).join("\n");
+  return [encabezado, ...filas]
+    .map((fila) => fila.map(escaparCsv).join(","))
+    .join("\n");
 }
 
 const COLUMNS: DataTableColumn<CitaConDetalle>[] = [
   {
     header: "Fecha y hora",
     cell: (cita) => (
-      <Link href={`/citas/${cita.id}`} className="font-mono text-sm hover:underline">
-        {formatoFecha.format(cita.fechaHora)}
+      <Link
+        href={`/citas/${cita.id}`}
+        className="font-mono text-sm hover:underline"
+      >
+        <div className="flex flex-col">
+          <span className="font-mono text-sm font-medium">
+            {formatoHora.format(cita.fechaHora)}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {formatoFechaCorta.format(cita.fechaHora)}
+          </span>
+        </div>
       </Link>
     ),
   },
   {
     header: "Vehículo",
-    cell: (cita) => <span className="font-mono text-sm">{cita.vehiculo.placa}</span>,
+    cell: (cita) => (
+      <div className="flex flex-col">
+        <span className="font-mono text-sm font-medium">
+          {cita.vehiculo.placa}
+        </span>
+        <span className="text-xs text-muted-foreground">
+          {cita.vehiculo.marca} {cita.vehiculo.modelo}
+        </span>
+      </div>
+    ),
   },
   {
     header: "Cliente",
@@ -165,7 +226,10 @@ const COLUMNS: DataTableColumn<CitaConDetalle>[] = [
   {
     header: "Estado",
     cell: (cita) => (
-      <Badge variant={ESTADO_BADGE_VARIANT[cita.estado]} className={ESTADO_BADGE_CLASSNAME[cita.estado]}>
+      <Badge
+        variant={ESTADO_BADGE_VARIANT[cita.estado]}
+        className={ESTADO_BADGE_CLASSNAME[cita.estado]}
+      >
         {ESTADO_LABELS[cita.estado]}
       </Badge>
     ),
@@ -173,7 +237,11 @@ const COLUMNS: DataTableColumn<CitaConDetalle>[] = [
   {
     header: "Notas",
     cell: (cita) =>
-      cita.notas ? <span className="text-sm text-muted-foreground">{cita.notas}</span> : <span className="text-muted-foreground">—</span>,
+      cita.notas ? (
+        <span className="text-sm text-muted-foreground">{cita.notas}</span>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      ),
   },
 ];
 
@@ -183,8 +251,11 @@ export default async function CitasPage({
   searchParams: Promise<{ estado?: string; q?: string; vista?: string }>;
 }) {
   const { estado, q, vista } = await searchParams;
-  const estadoFiltro = ESTADOS_VALIDOS.includes(estado as EstadoCita) ? (estado as EstadoCita) : undefined;
-  const vistaActual: "agenda" | "tabla" = vista === "tabla" ? "tabla" : "agenda";
+  const estadoFiltro = ESTADOS_VALIDOS.includes(estado as EstadoCita)
+    ? (estado as EstadoCita)
+    : undefined;
+  const vistaActual: "agenda" | "tabla" =
+    vista === "tabla" ? "tabla" : "agenda";
   const busqueda = q?.trim().toLowerCase() ?? "";
 
   // requireSession() here is redundant with the one inside listCitas/listVehiculosParaCita
@@ -196,7 +267,10 @@ export default async function CitasPage({
   // are applied in exactly one place instead of being restated here. Fetched
   // once, unfiltered: the KPI cards summarize every cita of the sede
   // regardless of which estado/búsqueda the list below is currently filtered to.
-  const [citas, vehiculos] = await Promise.all([listCitas(), listVehiculosParaCita()]);
+  const [citas, vehiculos] = await Promise.all([
+    listCitas(),
+    listVehiculosParaCita(),
+  ]);
   const filtradas = citas
     .filter((cita) => !estadoFiltro || cita.estado === estadoFiltro)
     .filter(
@@ -214,13 +288,25 @@ export default async function CitasPage({
   const finHoy = new Date(inicioHoy.getTime() + 24 * 60 * 60 * 1000);
   const { inicio: inicioSemana, fin: finSemana } = rangoSemanaBogota(ahora);
 
-  const citasHoy = citas.filter((cita) => cita.fechaHora >= inicioHoy && cita.fechaHora < finHoy).length;
-  const citasSemana = citas.filter((cita) => cita.fechaHora >= inicioSemana && cita.fechaHora < finSemana);
-  const confirmadasSemana = citasSemana.filter((cita) => cita.estado === "CONFIRMADA").length;
-  const programadasSemana = citasSemana.filter((cita) => cita.estado === "PROGRAMADA").length;
-  const canceladasSemana = citasSemana.filter((cita) => cita.estado === "CANCELADA").length;
+  const citasHoy = citas.filter(
+    (cita) => cita.fechaHora >= inicioHoy && cita.fechaHora < finHoy,
+  ).length;
+  const citasSemana = citas.filter(
+    (cita) => cita.fechaHora >= inicioSemana && cita.fechaHora < finSemana,
+  );
+  const confirmadasSemana = citasSemana.filter(
+    (cita) => cita.estado === "CONFIRMADA",
+  ).length;
+  const programadasSemana = citasSemana.filter(
+    (cita) => cita.estado === "PROGRAMADA",
+  ).length;
+  const canceladasSemana = citasSemana.filter(
+    (cita) => cita.estado === "CANCELADA",
+  ).length;
   const porcentajeCanceladas =
-    citasSemana.length > 0 ? Math.round((canceladasSemana / citasSemana.length) * 100) : 0;
+    citasSemana.length > 0
+      ? Math.round((canceladasSemana / citasSemana.length) * 100)
+      : 0;
 
   const finSemanaMostrado = new Date(finSemana.getTime() - 24 * 60 * 60 * 1000);
   const rangoSemanaTexto = `${formatoDiaMes.format(inicioSemana)} al ${formatoDiaMes.format(finSemanaMostrado)}`;
@@ -233,7 +319,8 @@ export default async function CitasPage({
         <div>
           <h1 className="text-2xl font-semibold">Citas</h1>
           <p className="text-sm text-muted-foreground">
-            Agenda de {session.user.sedeActivaNombre} · semana del {rangoSemanaTexto}
+            Agenda de {session.user.sedeActivaNombre} · semana del{" "}
+            {rangoSemanaTexto}
           </p>
         </div>
         <NuevaCitaDialog vehiculos={vehiculos} />
@@ -242,7 +329,9 @@ export default async function CitasPage({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card size="sm">
           <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Hoy</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Hoy
+            </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
             <span className="font-mono text-2xl font-semibold">{citasHoy}</span>
@@ -252,22 +341,35 @@ export default async function CitasPage({
 
         <Card size="sm">
           <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Confirmadas</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Confirmadas
+            </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
-            <span className="font-mono text-2xl font-semibold">{confirmadasSemana}</span>
-            <p className="text-xs text-muted-foreground">esta semana · {programadasSemana} sin confirmar</p>
+            <span className="font-mono text-2xl font-semibold">
+              {confirmadasSemana}
+            </span>
+            <p className="text-xs text-muted-foreground">
+              esta semana · {programadasSemana} sin confirmar
+            </p>
           </CardContent>
         </Card>
 
         <Card size="sm">
           <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Canceladas</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Canceladas
+            </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
-            <span className="font-mono text-2xl font-semibold text-destructive">{canceladasSemana}</span>
+            <span className="font-mono text-2xl font-semibold text-destructive">
+              {canceladasSemana}
+            </span>
             <p className="text-xs text-muted-foreground">
-              esta semana{citasSemana.length > 0 ? ` · ${porcentajeCanceladas}% del total` : ""}
+              esta semana
+              {citasSemana.length > 0
+                ? ` · ${porcentajeCanceladas}% del total`
+                : ""}
             </p>
           </CardContent>
         </Card>
@@ -280,8 +382,12 @@ export default async function CitasPage({
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <form role="search" className="flex items-center gap-2">
-              {estadoFiltro ? <input type="hidden" name="estado" value={estadoFiltro} /> : null}
-              {vistaActual !== "agenda" ? <input type="hidden" name="vista" value={vistaActual} /> : null}
+              {estadoFiltro ? (
+                <input type="hidden" name="estado" value={estadoFiltro} />
+              ) : null}
+              {vistaActual !== "agenda" ? (
+                <input type="hidden" name="vista" value={vistaActual} />
+              ) : null}
               <Input
                 type="search"
                 name="q"
@@ -297,7 +403,11 @@ export default async function CitasPage({
             <div className="flex items-center gap-2">
               <div className="flex gap-1 rounded-full border border-input p-0.5">
                 <Link
-                  href={construirHref({ estado: estadoFiltro, q, vista: "agenda" })}
+                  href={construirHref({
+                    estado: estadoFiltro,
+                    q,
+                    vista: "agenda",
+                  })}
                   className={cn(
                     "rounded-full px-3 py-1 text-sm transition-colors",
                     vistaActual === "agenda"
@@ -308,7 +418,11 @@ export default async function CitasPage({
                   Agenda
                 </Link>
                 <Link
-                  href={construirHref({ estado: estadoFiltro, q, vista: "tabla" })}
+                  href={construirHref({
+                    estado: estadoFiltro,
+                    q,
+                    vista: "tabla",
+                  })}
                   className={cn(
                     "rounded-full px-3 py-1 text-sm transition-colors",
                     vistaActual === "tabla"
@@ -319,7 +433,10 @@ export default async function CitasPage({
                   Tabla
                 </Link>
               </div>
-              <ExportarCitasButton csv={construirCsv(filtradas)} filename={`citas-${estadoFiltro ?? "todas"}.csv`} />
+              <ExportarCitasButton
+                csv={construirCsv(filtradas)}
+                filename={`citas-${estadoFiltro ?? "todas"}.csv`}
+              />
             </div>
           </div>
 
@@ -361,19 +478,29 @@ export default async function CitasPage({
           ) : (
             <div className="flex flex-col gap-6">
               {grupos.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No hay citas agendadas en esta sede.</p>
+                <p className="text-sm text-muted-foreground">
+                  No hay citas agendadas en esta sede.
+                </p>
               ) : (
                 grupos.map((grupo) => (
                   <div key={grupo.clave} className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-muted-foreground">{grupo.etiqueta}</h3>
-                      <span className="text-xs text-muted-foreground">
-                        {grupo.citas.length} {grupo.citas.length === 1 ? "cita" : "citas"}
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-sm font-semibold text-muted-foreground whitespace-nowrap">
+                        {grupo.etiqueta}
+                      </h3>
+                      <div className="flex-1 border-t border-border" />
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {grupo.citas.length}{" "}
+                        {grupo.citas.length === 1 ? "cita" : "citas"}
                       </span>
                     </div>
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 max-w-6xl">
                       {grupo.citas.map((cita) => (
-                        <Link key={cita.id} href={`/citas/${cita.id}`} className="block">
+                        <Link
+                          key={cita.id}
+                          href={`/citas/${cita.id}`}
+                          className="block"
+                        >
                           <Card className="h-full transition-colors hover:bg-accent/50">
                             <CardContent className="flex flex-col gap-2">
                               <div className="flex items-center justify-between gap-2">
@@ -382,23 +509,33 @@ export default async function CitasPage({
                                 </span>
                                 <Badge
                                   variant={ESTADO_BADGE_VARIANT[cita.estado]}
-                                  className={ESTADO_BADGE_CLASSNAME[cita.estado]}
+                                  className={
+                                    ESTADO_BADGE_CLASSNAME[cita.estado]
+                                  }
                                 >
                                   {ESTADO_LABELS[cita.estado]}
                                 </Badge>
                               </div>
-                              <div className="flex flex-wrap items-center gap-1.5 text-sm">
-                                <span className="font-mono">{cita.vehiculo.placa}</span>
+                              <div className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
+                                <span className="font-mono">
+                                  {cita.vehiculo.placa}
+                                </span>
                                 <span className="text-muted-foreground">
                                   · {cita.vehiculo.marca} {cita.vehiculo.modelo}
-                                  {cita.vehiculo.anio ? ` · ${cita.vehiculo.anio}` : ""}
+                                  {cita.vehiculo.anio
+                                    ? ` · ${cita.vehiculo.anio}`
+                                    : ""}
                                 </span>
                               </div>
                               <p className="text-sm">{cita.motivo}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {cita.cliente.nombre}
-                                {cita.cliente.telefono ? ` · ${cita.cliente.telefono}` : ""}
-                              </p>
+                              <div className="flex items-center justify-between border-t border-border pt-2 mt-1 text-xs text-muted-foreground">
+                                <span>{cita.cliente.nombre}</span>
+                                {cita.cliente.telefono && (
+                                  <span className="font-mono">
+                                    {cita.cliente.telefono}
+                                  </span>
+                                )}
+                              </div>
                             </CardContent>
                           </Card>
                         </Link>
