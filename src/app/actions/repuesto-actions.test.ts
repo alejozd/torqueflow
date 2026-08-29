@@ -31,7 +31,7 @@ import {
   type RepuestoFormState,
 } from "./repuesto-actions";
 
-const initialState: RepuestoFormState = { error: null, success: false };
+const initialState: RepuestoFormState = { error: null, success: false, repuestoId: null };
 const SESSION_ADMIN = { user: { role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 const SESSION_RECEPCION = { user: { role: "RECEPCION", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 const SESSION_TECNICO = { user: { role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
@@ -62,6 +62,7 @@ describe("createRepuestoAction", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toBe("El código es obligatorio");
+    expect(result.repuestoId).toBeNull();
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
@@ -87,7 +88,7 @@ describe("createRepuestoAction", () => {
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
-  it("creates the repuesto with the given initial stock on valid input", async () => {
+  it("creates the repuesto with the given initial stock on valid input, returning the created id", async () => {
     mockCreate.mockResolvedValue({ id: "r1" });
     const formData = baseFormData();
     formData.set("stockActual", "20");
@@ -95,7 +96,7 @@ describe("createRepuestoAction", () => {
 
     const result = await createRepuestoAction(initialState, formData);
 
-    expect(result).toEqual({ error: null, success: true });
+    expect(result).toEqual({ error: null, success: true, repuestoId: "r1" });
     expect(mockCreate).toHaveBeenCalledWith({
       data: {
         codigo: "FRN-001",
@@ -139,6 +140,7 @@ describe("createRepuestoAction", () => {
     expect(result).toEqual({
       error: "La bodega seleccionada no pertenece a tu sede activa.",
       success: false,
+      repuestoId: null,
     });
     expect(mockCreate).not.toHaveBeenCalled();
     expect(mockBodegaFindFirst).toHaveBeenCalledWith({
@@ -155,14 +157,14 @@ describe("updateRepuestoAction", () => {
     mockBodegaFindFirst.mockReset().mockResolvedValue({ id: "b1" });
   });
 
-  it("updates the repuesto WITHOUT touching stockActual, even if the form somehow includes it", async () => {
+  it("updates the repuesto WITHOUT touching stockActual, even if the form somehow includes it, and reports no repuestoId", async () => {
     mockUpdateMany.mockResolvedValue({ count: 1 });
     const formData = baseFormData();
     formData.set("stockActual", "9999");
 
     const result = await updateRepuestoAction("r1", initialState, formData);
 
-    expect(result).toEqual({ error: null, success: true });
+    expect(result).toEqual({ error: null, success: true, repuestoId: null });
     const callArg = mockUpdateMany.mock.calls[0][0];
     expect(callArg.data).not.toHaveProperty("stockActual");
     expect(callArg).toEqual({
@@ -216,7 +218,7 @@ describe("deleteRepuestoFormAction", () => {
 
     const result = await deleteRepuestoFormAction("r1", initialState);
 
-    expect(result).toEqual({ error: null, success: true });
+    expect(result).toEqual({ error: null, success: true, repuestoId: null });
   });
 
   it("returns the thrown error message instead of throwing", async () => {
@@ -224,7 +226,7 @@ describe("deleteRepuestoFormAction", () => {
 
     const result = await deleteRepuestoFormAction("r-otra-sede", initialState);
 
-    expect(result).toEqual({ error: "Repuesto no encontrado en tu sede activa.", success: false });
+    expect(result).toEqual({ error: "Repuesto no encontrado en tu sede activa.", success: false, repuestoId: null });
   });
 });
 

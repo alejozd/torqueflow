@@ -11,6 +11,7 @@ import type { Prisma } from "@/generated/prisma-tenant";
 export interface RepuestoFormState {
   error: string | null;
   success: boolean;
+  repuestoId: string | null;
 }
 
 const REPUESTO_DETAIL_INCLUDE = {
@@ -80,12 +81,12 @@ export async function createRepuestoAction(
 ): Promise<RepuestoFormState> {
   const parsed = parseRepuestoFormData(formData);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false, repuestoId: null };
   }
 
   const parsedStock = stockInicialSchema.safeParse(formData.get("stockActual"));
   if (!parsedStock.success) {
-    return { error: parsedStock.error.issues[0]?.message ?? "Datos inválidos", success: false };
+    return { error: parsedStock.error.issues[0]?.message ?? "Datos inválidos", success: false, repuestoId: null };
   }
 
   const session = await requireRole(["ADMIN", "RECEPCION"]);
@@ -96,11 +97,12 @@ export async function createRepuestoAction(
     select: { id: true },
   });
   if (!bodega) {
-    return { error: BODEGA_AJENA, success: false };
+    return { error: BODEGA_AJENA, success: false, repuestoId: null };
   }
 
+  let creado: { id: string };
   try {
-    await tenantDb.repuesto.create({
+    creado = await tenantDb.repuesto.create({
       data: {
         codigo: parsed.data.codigo,
         nombre: parsed.data.nombre,
@@ -114,11 +116,11 @@ export async function createRepuestoAction(
       },
     });
   } catch (err) {
-    return { error: friendlyPrismaErrorMessage(err, "Error al crear el repuesto"), success: false };
+    return { error: friendlyPrismaErrorMessage(err, "Error al crear el repuesto"), success: false, repuestoId: null };
   }
 
   revalidatePath("/repuestos");
-  return { error: null, success: true };
+  return { error: null, success: true, repuestoId: creado.id };
 }
 
 export async function updateRepuestoAction(
@@ -128,7 +130,7 @@ export async function updateRepuestoAction(
 ): Promise<RepuestoFormState> {
   const parsed = parseRepuestoFormData(formData);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false, repuestoId: null };
   }
 
   const session = await requireRole(["ADMIN", "RECEPCION"]);
@@ -139,7 +141,7 @@ export async function updateRepuestoAction(
     select: { id: true },
   });
   if (!bodega) {
-    return { error: BODEGA_AJENA, success: false };
+    return { error: BODEGA_AJENA, success: false, repuestoId: null };
   }
 
   try {
@@ -157,14 +159,14 @@ export async function updateRepuestoAction(
       },
     });
     if (count === 0) {
-      return { error: REPUESTO_NO_ENCONTRADO, success: false };
+      return { error: REPUESTO_NO_ENCONTRADO, success: false, repuestoId: null };
     }
   } catch (err) {
-    return { error: friendlyPrismaErrorMessage(err, "Error al actualizar el repuesto"), success: false };
+    return { error: friendlyPrismaErrorMessage(err, "Error al actualizar el repuesto"), success: false, repuestoId: null };
   }
 
   revalidatePath("/repuestos");
-  return { error: null, success: true };
+  return { error: null, success: true, repuestoId: null };
 }
 
 export async function deleteRepuestoAction(id: string): Promise<void> {
@@ -199,7 +201,7 @@ export async function deleteRepuestoFormAction(
     if (typeof (err as { digest?: unknown })?.digest === "string" && (err as { digest: string }).digest.startsWith("NEXT_")) {
       throw err;
     }
-    return { error: err instanceof Error ? err.message : "Error al eliminar el repuesto", success: false };
+    return { error: err instanceof Error ? err.message : "Error al eliminar el repuesto", success: false, repuestoId: null };
   }
-  return { error: null, success: true };
+  return { error: null, success: true, repuestoId: null };
 }

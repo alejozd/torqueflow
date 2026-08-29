@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useMemo, useRef } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-const initialState: RepuestoFormState = { error: null, success: false };
+const initialState: RepuestoFormState = { error: null, success: false, repuestoId: null };
 
 const repuestoFormSchema = repuestoInputSchema.extend({ stockActual: repuestoStockInicialSchema });
 type RepuestoFormInput = z.input<typeof repuestoFormSchema>;
@@ -23,11 +23,23 @@ type RepuestoFormInput = z.input<typeof repuestoFormSchema>;
 export function NuevoRepuestoForm({
   bodegas,
   proveedores,
+  onCreated,
 }: {
   bodegas: Bodega[];
   proveedores: Proveedor[];
+  /**
+   * When provided (embedded in NuevoRepuestoDialog from AgregarItemForm),
+   * called with the created repuesto's id instead of showing the inline
+   * "Repuesto creado" status -- the caller closes the dialog and selects it.
+   * Manual useTransition + await, not useActionState + useEffect: same
+   * pattern as GenerarFacturaForm/NuevaCitaForm, so the callback fires
+   * synchronously with the action's result instead of racing a
+   * state-driven effect against a parent re-render.
+   */
+  onCreated?: (repuestoId: string) => void;
 }) {
-  const [state, formAction, isPending] = useActionState(createRepuestoAction, initialState);
+  const [state, setState] = useState<RepuestoFormState>(initialState);
+  const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
   const {
     register,
@@ -55,22 +67,25 @@ export function NuevoRepuestoForm({
     [proveedores],
   );
 
+  function onValid(data: { proveedorId?: string }) {
+    startTransition(async () => {
+      const formData = new FormData(formRef.current!);
+      // proveedorId is a Combobox (react-hook-form-controlled, not a
+      // native <select name="..."> register()) -- it doesn't populate
+      // FormData on its own, so it must be set explicitly here.
+      formData.set("proveedorId", data.proveedorId ?? "");
+      const result = await createRepuestoAction(initialState, formData);
+      if (result.success && result.repuestoId) {
+        if (onCreated) onCreated(result.repuestoId);
+        else setState(result);
+      } else {
+        setState(result);
+      }
+    });
+  }
+
   return (
-    <form
-      noValidate
-      ref={formRef}
-      onSubmit={handleSubmit((data) =>
-        startTransition(() => {
-          const formData = new FormData(formRef.current!);
-          // proveedorId is a Combobox (react-hook-form-controlled, not a
-          // native <select name="..."> register()) -- it doesn't populate
-          // FormData on its own, so it must be set explicitly here.
-          formData.set("proveedorId", data.proveedorId ?? "");
-          formAction(formData);
-        }),
-      )}
-      className="flex flex-col gap-4"
-    >
+    <form noValidate ref={formRef} onSubmit={handleSubmit(onValid)} className="flex flex-col gap-4">
       <FormGroup label="Identificación">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">

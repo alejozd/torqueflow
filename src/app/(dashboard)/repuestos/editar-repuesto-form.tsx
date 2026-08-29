@@ -21,7 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 type RepuestoFormInput = z.input<typeof repuestoInputSchema>;
 
-const initialState: RepuestoFormState = { error: null, success: false };
+const initialState: RepuestoFormState = { error: null, success: false, repuestoId: null };
 
 export interface RepuestoEditable {
   id: string;
