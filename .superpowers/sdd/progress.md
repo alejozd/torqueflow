@@ -800,3 +800,22 @@ Detalle completo de cada tarea en Engram, topic_key
 3. `check-duplicate-emails`/`backfill-tenant-user-index` quedan como scripts manuales (`npm run tenant:check-duplicate-emails` / `tenant:backfill-user-index`), sin programación periódica — no urgente mientras no exista alta de tenants self-serve.
 
 **Status: Fase 10 formalmente cerrada.**
+
+## Fase 3 — Editar y eliminar en Bodegas/Proveedores/Repuestos (2026-08-28)
+Plan: docs/superpowers/plans/2026-08-28-torqueflow-fase3-editar-eliminar-inventario.md
+
+Task 1 (Bodega): complete (commit 37ff0fe, pushed to origin/main, review APPROVED — no Critical/Important findings). Minor (non-blocking, noted for final review): editar-bodega-form.tsx update-success and delete-error messages can show simultaneously in the same dialog session; delete button label can wrap for long nombres.
+
+Task 2 (Proveedor): complete (commit 2983e0f, pushed to origin/main, review APPROVED — no Critical/Important findings). Minor (non-blocking, noted for final review): editar-proveedor-form.tsx has no inline error rendering for the telefono field (matches the brief verbatim, not an implementer deviation).
+
+Task 3 (Repuesto): complete (commit eedfb4a, pushed to origin/main, review APPROVED — no Critical/Important findings). repuestos/page.tsx COLUMNS became buildColumns(bodegas, proveedores); Promise.all now fetches listRepuestos+listBodegas+listProveedores. Minor (non-blocking): implementer's report said "exactly as specified" but editar-repuesto-form.tsx correctly used z.input<repuestoInputSchema> (matching nuevo-repuesto-form.tsx's real pattern) instead of the brief's simplified z.infer sample — a better choice, not a defect.
+
+All 3 tasks of docs/superpowers/plans/2026-08-28-torqueflow-fase3-editar-eliminar-inventario.md complete. Next: final whole-branch review (base 905081b..eedfb4a).
+
+Final whole-branch review (905081b..eedfb4a): Ready to merge with fixes. Found 1 real bug (all 3 delete{X}FormAction adapters rendered literal "NEXT_REDIRECT" instead of letting Next.js's redirect() signal propagate on auth failure — newly reachable because /bodegas, /proveedores, /repuestos are NOT role-gated in the sidebar, unlike the /sedes precedent this pattern was copied from) and 1 product-level gap (Proveedor/Repuesto delete has no confirmation and silently unlinks dependents via onDelete: SetNull, unlike Sede's onDelete: Restrict safety net).
+
+Fix 1 (commit ca5a75e, pushed): rethrow Next.js NEXT_* redirect signals before mapping to an error message in all 3 delete{X}FormAction adapters (bodega/proveedor/repuesto-actions.ts); also restored the missing Combobox/FormData comment in editar-repuesto-form.tsx and added missing inline error rendering for contacto/telefono in editar-proveedor-form.tsx. tsc clean, 34/34 tests passing.
+
+Fix 2 (commit 2b99e11, pushed): user chose "add warning in dialog" (not a new confirm modal, not blocking the delete) — DialogDescription in editar-proveedor-dialog.tsx and editar-repuesto-dialog.tsx now names the unlink consequence before the delete button. Bodega dialog untouched (its relations are Restrict, not SetNull).
+
+**Status: Fase 3 editar/eliminar inventario (Bodegas/Proveedores/Repuestos) complete, all fixes verified, ready for finishing-a-development-branch.**
