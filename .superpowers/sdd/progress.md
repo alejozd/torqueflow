@@ -819,3 +819,18 @@ Fix 1 (commit ca5a75e, pushed): rethrow Next.js NEXT_* redirect signals before m
 Fix 2 (commit 2b99e11, pushed): user chose "add warning in dialog" (not a new confirm modal, not blocking the delete) — DialogDescription in editar-proveedor-dialog.tsx and editar-repuesto-dialog.tsx now names the unlink consequence before the delete button. Bodega dialog untouched (its relations are Restrict, not SetNull).
 
 **Status: Fase 3 editar/eliminar inventario (Bodegas/Proveedores/Repuestos) complete, all fixes verified, ready for finishing-a-development-branch.**
+
+## Crear repuesto nuevo desde el ítem de orden (2026-08-28)
+Plan: docs/superpowers/plans/2026-08-28-torqueflow-crear-repuesto-inline-orden.md
+
+Task 1 (RepuestoFormState.repuestoId + NuevoRepuestoForm onCreated + NuevoRepuestoDialog): complete (commit 62d8cf6, pushed to origin/main, review APPROVED — no Critical/Important findings, all 12 RepuestoFormState return sites verified correct). Minor (non-blocking): editar-repuesto-form.tsx's initialState also needed repuestoId: null (necessary consequence of the field becoming required, not scope creep, not called out in the brief's file list).
+
+Task 2 ("+ Crear repuesto nuevo" en AgregarItemForm): complete (commit b071c6a, pushed to origin/main, review APPROVED — no Critical/Important findings; relative import, sentinel interception, filter parity, and Promise.all/destructuring order all independently verified). Minor (non-blocking): the toHaveValue("") assertion in the new dialog-flow test has no inline comment explaining why it doesn't assert the new label (documented in the brief, not in the test file itself).
+
+Both tasks of docs/superpowers/plans/2026-08-28-torqueflow-crear-repuesto-inline-orden.md complete. Next: final whole-branch review (base 827fb6d..b071c6a).
+
+Final whole-branch review (827fb6d..b071c6a): Ready to merge with fixes. Cross-task integration verified exact (NuevoRepuestoDialog prop interface, onCreated path traced end-to-end including Base UI Combobox re-sync mechanics); RepuestoFormState required-field migration confirmed exhaustive (3 literal sites, all correct, tsc clean). Found 2 Important bugs: (1) TECNICO role could open "+ Crear repuesto nuevo" but createRepuestoAction's requireRole(["ADMIN","RECEPCION"]) redirects to /login on failure instead of returning an error, losing the user's in-progress order item; (2) nuevo-repuesto-form.test.tsx's existing "success" test never got repuestoId added to its mock, so it was silently passing via the wrong (fallback) code branch, with zero coverage for the new onCreated callback path.
+
+Fix (commit 8b1c76b, pushed): AgregarItemForm gained puedeCrearRepuesto prop, wired from ordenes/[id]/page.tsx as session.user.role !== "TECNICO" (same pattern as the page's existing puedeReasignar); sentinel combo option only appears when true. nuevo-repuesto-form.test.tsx's success mock now includes repuestoId, plus 2 new tests (onCreated fires with the id and suppresses inline status; onCreated is not called on error, alert still renders). Folded in 2 Minor fixes: toast.success("Repuesto creado") feedback on inline create (matches NuevaCitaForm precedent), and an inline comment on agregar-item-form.test.tsx's toHaveValue("") assertion explaining why it doesn't assert the new label. Full suite: 707/720 (4 pre-existing DB provisioning failures, unrelated).
+
+**Status: Crear repuesto nuevo desde el ítem de orden — complete, all fixes verified, ready for finishing-a-development-branch.**
