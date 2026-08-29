@@ -30,7 +30,7 @@ export function EditarRepuestoDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Editar {repuesto.nombre}</DialogTitle>
-          <DialogDescription>Los cambios aplican de inmediato a este repuesto.</DialogDescription>
+          <DialogDescription>Los cambios aplican de inmediato a este repuesto. Al eliminarlo, quedará desvinculado de las órdenes de trabajo que lo hayan usado.</DialogDescription>
         </DialogHeader>
         <EditarRepuestoForm repuesto={repuesto} bodegas={bodegas} proveedores={proveedores} />
       </DialogContent>

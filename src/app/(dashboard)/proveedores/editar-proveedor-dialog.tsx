@@ -21,7 +21,7 @@ export function EditarProveedorDialog({ proveedor }: { proveedor: ProveedorEdita
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Editar {proveedor.nombre}</DialogTitle>
-          <DialogDescription>Los cambios aplican de inmediato a este proveedor.</DialogDescription>
+          <DialogDescription>Los cambios aplican de inmediato a este proveedor. Al eliminarlo, sus repuestos asociados quedarán sin proveedor asignado.</DialogDescription>
         </DialogHeader>
         <EditarProveedorForm proveedor={proveedor} />
       </DialogContent>
