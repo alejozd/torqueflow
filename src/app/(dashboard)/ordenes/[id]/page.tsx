@@ -243,6 +243,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
                   repuestos={repuestos}
                   bodegas={bodegas}
                   proveedores={proveedores}
+                  puedeCrearRepuesto={session.user.role !== "TECNICO"}
                 />
               )}
               <DataTable

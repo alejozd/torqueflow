@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { toast } from "sonner";
 import { addItemOrdenAction, type ItemOrdenFormState } from "@/app/actions/item-orden-actions";
 import { itemOrdenInputSchema } from "@/lib/validation/orden";
 import type { RepuestoOption } from "@/app/actions/repuesto-actions";
@@ -50,11 +51,13 @@ export function AgregarItemForm({
   repuestos,
   bodegas,
   proveedores,
+  puedeCrearRepuesto,
 }: {
   ordenId: string;
   repuestos: RepuestoOption[];
   bodegas: Bodega[];
   proveedores: Proveedor[];
+  puedeCrearRepuesto: boolean;
 }) {
   const router = useRouter();
   const addItem = addItemOrdenAction.bind(null, ordenId);
@@ -76,11 +79,14 @@ export function AgregarItemForm({
   const formError = (errors as Record<string, { message?: string } | undefined>)[""]?.message;
 
   const repuestoOptions: ComboboxOption[] = useMemo(
-    () => [
-      ...repuestos.map((repuesto) => ({ value: repuesto.id, label: `${repuesto.codigo} — ${repuesto.nombre}` })),
-      { value: CREAR_NUEVO_VALUE, label: "+ Crear repuesto nuevo" },
-    ],
-    [repuestos],
+    () => {
+      const options = repuestos.map((repuesto) => ({ value: repuesto.id, label: `${repuesto.codigo} — ${repuesto.nombre}` }));
+      if (puedeCrearRepuesto) {
+        options.push({ value: CREAR_NUEVO_VALUE, label: "+ Crear repuesto nuevo" });
+      }
+      return options;
+    },
+    [repuestos, puedeCrearRepuesto],
   );
 
   return (
@@ -200,6 +206,7 @@ export function AgregarItemForm({
         onCreated={(repuestoId) => {
           repuestoIdField.onChange(repuestoId);
           setCrearDialogOpen(false);
+          toast.success("Repuesto creado");
           // repuestos is a server-fetched prop (listRepuestoOptions() in
           // ordenes/[id]/page.tsx); createRepuestoAction only revalidates
           // "/repuestos", not this route, so this refresh is what makes the

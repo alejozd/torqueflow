@@ -32,7 +32,7 @@ describe("AgregarItemForm", () => {
   });
 
   it("renders the repuesto select alongside the manual fields", async () => {
-    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} />);
+    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} puedeCrearRepuesto={true} />);
 
     expect(screen.getByLabelText("Repuesto del inventario (opcional)")).toBeInTheDocument();
     // Repuesto is a Combobox now (search-as-you-type), not a native <select>
@@ -43,7 +43,7 @@ describe("AgregarItemForm", () => {
   });
 
   it("shows a success message after a successful submit with manual fields", async () => {
-    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} />);
+    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} puedeCrearRepuesto={true} />);
 
     await userEvent.type(screen.getByLabelText("Descripción"), "Filtro de aceite");
     await userEvent.type(screen.getByLabelText("Cantidad"), "2");
@@ -54,7 +54,7 @@ describe("AgregarItemForm", () => {
   });
 
   it("blocks submission and shows the cross-field error when neither a repuesto nor manual descripcion+precio is given", async () => {
-    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} />);
+    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} puedeCrearRepuesto={true} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Agregar ítem" }));
 
@@ -66,7 +66,7 @@ describe("AgregarItemForm", () => {
 
   it("shows the server error when the action refuses an otherwise valid submission", async () => {
     mockAddItemOrdenAction.mockResolvedValue({ error: "El repuesto seleccionado no tiene stock suficiente.", success: false });
-    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} />);
+    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} puedeCrearRepuesto={true} />);
 
     await userEvent.type(screen.getByLabelText("Descripción"), "Filtro de aceite");
     await userEvent.type(screen.getByLabelText("Cantidad"), "2");
@@ -77,7 +77,7 @@ describe("AgregarItemForm", () => {
   });
 
   it("shows a '+ Crear repuesto nuevo' option in the combo, which opens the create dialog instead of selecting it as a repuestoId", async () => {
-    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} />);
+    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} puedeCrearRepuesto={true} />);
 
     await userEvent.click(screen.getByLabelText("Repuesto del inventario (opcional)"));
     await userEvent.click(await screen.findByRole("option", { name: "+ Crear repuesto nuevo" }));
@@ -87,7 +87,7 @@ describe("AgregarItemForm", () => {
 
   it("selects the newly created repuesto, closes the dialog, and refreshes the route after creating one inline", async () => {
     mockCreateRepuestoAction.mockResolvedValue({ error: null, success: true, repuestoId: "r2" });
-    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} />);
+    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} puedeCrearRepuesto={true} />);
 
     await userEvent.click(screen.getByLabelText("Repuesto del inventario (opcional)"));
     await userEvent.click(await screen.findByRole("option", { name: "+ Crear repuesto nuevo" }));
@@ -98,8 +98,20 @@ describe("AgregarItemForm", () => {
     await userEvent.selectOptions(screen.getByLabelText("Bodega"), "b1");
     await userEvent.click(screen.getByRole("button", { name: "Crear repuesto" }));
 
+    // Empty, not the new repuesto's label: this test doesn't simulate a real
+    // router.refresh() re-fetch (would need new server-provided repuestos), so
+    // the Combobox's items list still only has the original fixture data --
+    // Base UI correctly shows no label for a selected id with no matching option.
     expect(await screen.findByLabelText("Repuesto del inventario (opcional)")).toHaveValue("");
     expect(screen.queryByRole("heading", { name: "Nuevo repuesto" })).not.toBeInTheDocument();
     expect(mockRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not show '+ Crear repuesto nuevo' option when puedeCrearRepuesto is false", async () => {
+    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} puedeCrearRepuesto={false} />);
+
+    await userEvent.click(screen.getByLabelText("Repuesto del inventario (opcional)"));
+    expect(screen.queryByRole("option", { name: "+ Crear repuesto nuevo" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: /Filtro de aceite/ })).toBeInTheDocument();
   });
 });

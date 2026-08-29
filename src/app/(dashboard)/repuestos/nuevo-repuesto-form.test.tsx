@@ -15,7 +15,7 @@ const proveedores = [{ id: "p1", nombre: "Repuestos El Motor" }] as never;
 describe("NuevoRepuestoForm", () => {
   beforeEach(() => {
     mockCreateRepuestoAction.mockReset();
-    mockCreateRepuestoAction.mockResolvedValue({ error: null, success: true });
+    mockCreateRepuestoAction.mockResolvedValue({ error: null, success: true, repuestoId: "r1" });
   });
 
   it("renders all Repuesto fields plus the bodega/proveedor selects", async () => {
@@ -72,5 +72,36 @@ describe("NuevoRepuestoForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Crear repuesto" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Ya existe un repuesto con ese código.");
+  });
+
+  it("calls onCreated with the repuestoId and does not show the inline success message when provided", async () => {
+    const mockOnCreated = vi.fn();
+    render(<NuevoRepuestoForm bodegas={bodegas} proveedores={proveedores} onCreated={mockOnCreated} />);
+
+    await userEvent.type(screen.getByLabelText("Código"), "FRN-001");
+    await userEvent.type(screen.getByLabelText("Nombre"), "Filtro de aceite");
+    await userEvent.type(screen.getByLabelText("Precio de compra"), "8");
+    await userEvent.type(screen.getByLabelText("Precio de venta"), "18.9");
+    await userEvent.selectOptions(screen.getByLabelText("Bodega"), "b1");
+    await userEvent.click(screen.getByRole("button", { name: "Crear repuesto" }));
+
+    await vi.waitFor(() => expect(mockOnCreated).toHaveBeenCalledWith("r1"));
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("does not call onCreated and shows the error alert when creation fails", async () => {
+    mockCreateRepuestoAction.mockResolvedValue({ error: "Ya existe un repuesto con ese código.", success: false, repuestoId: null });
+    const mockOnCreated = vi.fn();
+    render(<NuevoRepuestoForm bodegas={bodegas} proveedores={proveedores} onCreated={mockOnCreated} />);
+
+    await userEvent.type(screen.getByLabelText("Código"), "FRN-001");
+    await userEvent.type(screen.getByLabelText("Nombre"), "Filtro de aceite");
+    await userEvent.type(screen.getByLabelText("Precio de compra"), "8");
+    await userEvent.type(screen.getByLabelText("Precio de venta"), "18.9");
+    await userEvent.selectOptions(screen.getByLabelText("Bodega"), "b1");
+    await userEvent.click(screen.getByRole("button", { name: "Crear repuesto" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Ya existe un repuesto con ese código.");
+    expect(mockOnCreated).not.toHaveBeenCalled();
   });
 });
