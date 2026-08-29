@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { getOrden, listTecnicos } from "@/app/actions/orden-actions";
 import { requireSession } from "@/lib/auth/guards";
 import { listRepuestoOptions } from "@/app/actions/repuesto-actions";
+import { listBodegas } from "@/app/actions/bodega-actions";
+import { listProveedores } from "@/app/actions/proveedor-actions";
 import { AsignarMecanicoForm } from "./asignar-mecanico-form";
 import { CambiarEstadoForm } from "./cambiar-estado-form";
 import { AgregarItemForm } from "./agregar-item-form";
@@ -126,11 +128,13 @@ function InfoField({ label, value }: { label: string; value: ReactNode }) {
 
 export default async function OrdenDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [session, orden, repuestos, tecnicos] = await Promise.all([
+  const [session, orden, repuestos, tecnicos, bodegas, proveedores] = await Promise.all([
     requireSession(),
     getOrden(id),
     listRepuestoOptions(),
     listTecnicos(),
+    listBodegas(),
+    listProveedores(),
   ]);
 
   if (!orden) {
@@ -233,7 +237,14 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
               </CardAction>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              {!orden.factura && <AgregarItemForm ordenId={orden.id} repuestos={repuestos} />}
+              {!orden.factura && (
+                <AgregarItemForm
+                  ordenId={orden.id}
+                  repuestos={repuestos}
+                  bodegas={bodegas}
+                  proveedores={proveedores}
+                />
+              )}
               <DataTable
                 columns={ITEMS_COLUMNS}
                 rows={orden.items}
