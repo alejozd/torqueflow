@@ -17,7 +17,7 @@ export default async function SeleccionarSedePage() {
     redirect("/login");
   }
   if (session.user.sedeActivaId) {
-    redirect("/clientes");
+    redirect("/");
   }
 
   const tenantDb = getTenantDb(session.user.tenantSchema);

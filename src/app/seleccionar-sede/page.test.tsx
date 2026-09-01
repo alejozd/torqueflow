@@ -43,12 +43,12 @@ describe("SeleccionarSedePage", () => {
     await expect(SeleccionarSedePage()).rejects.toThrow("REDIRECT:/login");
   });
 
-  it("redirects to /clientes when the session already has a sedeActivaId", async () => {
+  it("redirects to / when the session already has a sedeActivaId", async () => {
     mockAuth.mockResolvedValue({
       user: { id: "u1", role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
     });
 
-    await expect(SeleccionarSedePage()).rejects.toThrow("REDIRECT:/clientes");
+    await expect(SeleccionarSedePage()).rejects.toThrow("REDIRECT:/");
   });
 
   it("renders the sede picker with the candidates for a session with no sede yet", async () => {

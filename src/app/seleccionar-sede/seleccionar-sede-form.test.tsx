@@ -48,18 +48,18 @@ describe("SeleccionarSedeForm", () => {
     expect(mockSeleccionarSedeAction).toHaveBeenCalledWith("sede-1");
   });
 
-  it("redirects to /clientes and refreshes the router cache after a successful selection", async () => {
+  it("redirects to / and refreshes the router cache after a successful selection", async () => {
     mockSeleccionarSedeAction.mockResolvedValue({ error: null });
     render(<SeleccionarSedeForm sedes={SEDES} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Continuar" }));
 
-    // router.refresh() matters here: /clientes was already visited once by
+    // router.refresh() matters here: "/" was already visited once by
     // this same navigation cycle (requireSession() redirected here from
-    // /clientes because sedeActivaId was still empty) -- without it, the
+    // "/" because sedeActivaId was still empty) -- without it, the
     // client Router Cache can serve that earlier redirect instead of
     // re-fetching with the now-updated session cookie.
-    expect(mockPush).toHaveBeenCalledWith("/clientes");
+    expect(mockPush).toHaveBeenCalledWith("/");
     expect(mockRefresh).toHaveBeenCalled();
   });
 

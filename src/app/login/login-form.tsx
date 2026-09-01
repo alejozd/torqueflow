@@ -29,7 +29,7 @@ export function LoginForm() {
     // whatever query string happens to be on the current page, and any
     // leftover "?error=..." from a previous redirect gets misread by
     // next-auth/react's signIn() as a fresh failure.
-    const result = await signIn("credentials", { email, password, redirect: false, callbackUrl: "/clientes" });
+    const result = await signIn("credentials", { email, password, redirect: false, callbackUrl: "/" });
     setIsPending(false);
 
     // NextAuth's credentials callback responds HTTP 200 even when the
@@ -47,7 +47,7 @@ export function LoginForm() {
 
     // requireSession() picks up from here: it redirects to /seleccionar-sede
     // on its own if this session's sede couldn't be auto-resolved at login.
-    router.push("/clientes");
+    router.push("/");
   }
 
   return (
