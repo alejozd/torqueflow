@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { listBodegas } from "@/app/actions/bodega-actions";
 import { listProveedores } from "@/app/actions/proveedor-actions";
 import { NuevoRepuestoForm } from "../nuevo-repuesto-form";
@@ -8,6 +10,11 @@ export default async function NuevoRepuestoPage() {
 
   return (
     <main className="flex flex-col gap-6">
+      <Link href="/repuestos" className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="size-4" />
+        Repuestos
+      </Link>
+
       <h1 className="text-2xl font-semibold">Nuevo repuesto</h1>
 
       <Card>

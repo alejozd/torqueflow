@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { listProveedores } from "@/app/actions/proveedor-actions";
 import { listBodegas } from "@/app/actions/bodega-actions";
 import { NuevaEntradaMercanciaForm } from "../nueva-entrada-mercancia-form";
@@ -8,6 +10,14 @@ export default async function NuevaEntradaMercanciaPage() {
 
   return (
     <main className="flex flex-col gap-6">
+      <Link
+        href="/entradas-mercancia"
+        className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="size-4" />
+        Entradas de mercancía
+      </Link>
+
       <h1 className="text-2xl font-semibold">Nueva entrada de mercancía</h1>
 
       <Card>
