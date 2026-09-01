@@ -834,3 +834,16 @@ Final whole-branch review (827fb6d..b071c6a): Ready to merge with fixes. Cross-t
 Fix (commit 8b1c76b, pushed): AgregarItemForm gained puedeCrearRepuesto prop, wired from ordenes/[id]/page.tsx as session.user.role !== "TECNICO" (same pattern as the page's existing puedeReasignar); sentinel combo option only appears when true. nuevo-repuesto-form.test.tsx's success mock now includes repuestoId, plus 2 new tests (onCreated fires with the id and suppresses inline status; onCreated is not called on error, alert still renders). Folded in 2 Minor fixes: toast.success("Repuesto creado") feedback on inline create (matches NuevaCitaForm precedent), and an inline comment on agregar-item-form.test.tsx's toHaveValue("") assertion explaining why it doesn't assert the new label. Full suite: 707/720 (4 pre-existing DB provisioning failures, unrelated).
 
 **Status: Crear repuesto nuevo desde el ítem de orden — complete, all fixes verified, ready for finishing-a-development-branch.**
+
+======================================================================
+FASE 3 (INVENTARIO, REPUESTOS Y PROVEEDORES): FORMALMENTE CERRADA (2026-09-01)
+======================================================================
+Cierre formal de Fase 3 confirmado por el usuario. Alcance completo:
+- Base (16 tareas, 2026-08-20): Bodega/Proveedor/Repuesto/EntradaMercancia CRUD + vínculo con ItemOrden. Whole-branch review: 1 Critical + 3 Important encontrados y corregidos (commit 8c45b54) — zero-price coercion, cross-bodega stock increment, cobertura de listRepuestoOptions.
+- Follow-up "Editar y eliminar en Bodegas/Proveedores/Repuestos" (2026-08-28, 3 tareas): review final con 1 fix real (NEXT_REDIRECT tragado) + 1 gap de producto (advertencia de desvinculación al eliminar), ambos corregidos y verificados.
+- Follow-up "Crear repuesto nuevo desde el ítem de orden" (2026-08-28, 2 tareas): review final con 2 Important corregidos (bloqueo de TECNICO perdía el ítem en progreso; cobertura de test para onCreated), verificados.
+Todo pusheado directo a main (sin rama/PR, convención del proyecto). Sin trabajo pendiente de Fase 3.
+
+Deuda técnica aceptada, no bloqueante (backlog, sin cambios desde el cierre de la base el 2026-08-20): revalidatePath gaps en 4 create actions; createBodegaAction usa la Sede más antigua sin selector; update/delete de Bodega/Proveedor/Repuesto sin UI salvo lo cubierto por los 2 follow-ups; entradaMercanciaItemInputSchema.cantidad sin límite superior; proveedorInputSchema.email usa la API zod-4-deprecated `.email()`.
+
+**Siguiente:** modernización de UI (shadcn Card + grid 2 columnas, mismo patrón de Fases 11-14) para los módulos de Bodegas, Proveedores, Repuestos y Entradas de mercancía — listas y formularios de creación.
