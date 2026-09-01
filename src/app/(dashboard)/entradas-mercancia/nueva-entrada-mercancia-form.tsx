@@ -103,7 +103,7 @@ export function NuevaEntradaMercanciaForm({
         </div>
       </FormGroup>
 
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} className="self-end">
         {isPending ? "Creando..." : "Crear entrada"}
       </Button>
 
