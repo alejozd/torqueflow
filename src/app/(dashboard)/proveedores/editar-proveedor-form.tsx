@@ -108,7 +108,7 @@ export function EditarProveedorForm({ proveedor }: { proveedor: ProveedorEditabl
           </div>
         </FormGroup>
 
-        <Button type="submit" disabled={isPending}>
+        <Button type="submit" disabled={isPending} className="self-end">
           {isPending ? "Guardando..." : "Guardar proveedor"}
         </Button>
 

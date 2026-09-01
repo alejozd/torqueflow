@@ -86,7 +86,7 @@ export function NuevoProveedorForm() {
         </div>
       </FormGroup>
 
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} className="self-end">
         {isPending ? "Guardando..." : "Crear proveedor"}
       </Button>
 
