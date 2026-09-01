@@ -59,7 +59,7 @@ export function EditarBodegaForm({ bodega }: { bodega: BodegaEditable }) {
           </div>
         </FormGroup>
 
-        <Button type="submit" disabled={isPending}>
+        <Button type="submit" disabled={isPending} className="self-end">
           {isPending ? "Guardando..." : "Guardar bodega"}
         </Button>
 

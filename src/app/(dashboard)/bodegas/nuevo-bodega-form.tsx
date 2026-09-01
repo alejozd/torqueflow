@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createBodegaAction, type BodegaFormState } from "@/app/actions/bodega-actions";
 import { bodegaInputSchema, type BodegaInput } from "@/lib/validation/inventario";
+import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,20 +27,22 @@ export function NuevoBodegaForm() {
       noValidate
       ref={formRef}
       onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
-      className="flex flex-col gap-6"
+      className="flex flex-col gap-4"
     >
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="nombre">Nombre</Label>
-        <Input
-          id="nombre"
-          aria-invalid={errors.nombre ? true : undefined}
-          aria-describedby={errors.nombre ? "nombre-error" : undefined}
-          {...register("nombre")}
-        />
-        {errors.nombre ? <p id="nombre-error">{errors.nombre.message}</p> : null}
-      </div>
+      <FormGroup label="Datos">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="nombre">Nombre</Label>
+          <Input
+            id="nombre"
+            aria-invalid={errors.nombre ? true : undefined}
+            aria-describedby={errors.nombre ? "nombre-error" : undefined}
+            {...register("nombre")}
+          />
+          {errors.nombre ? <p id="nombre-error">{errors.nombre.message}</p> : null}
+        </div>
+      </FormGroup>
 
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} className="self-end">
         {isPending ? "Guardando..." : "Crear bodega"}
       </Button>
 
