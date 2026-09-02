@@ -46,14 +46,27 @@ describe("addItemOrdenAction", () => {
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
-  it("returns a validation error when neither repuestoId nor manual descripcion+precio are given", async () => {
+  it("returns a validation error when neither repuestoId nor descripcion are given", async () => {
     const formData = new FormData();
+    formData.set("cantidad", "2");
+    formData.set("precioUnitario", "10");
+
+    const result = await addItemOrdenAction("o1", initialState, formData);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Selecciona un repuesto del inventario o completa la descripción manualmente");
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns a validation error when precioUnitario is missing", async () => {
+    const formData = new FormData();
+    formData.set("descripcion", "Filtro de aceite");
     formData.set("cantidad", "2");
 
     const result = await addItemOrdenAction("o1", initialState, formData);
 
     expect(result.success).toBe(false);
-    expect(result.error).toBe("Selecciona un repuesto del inventario o completa descripción y precio manualmente");
+    expect(result.error).toBe("El precio unitario es obligatorio");
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
@@ -73,12 +86,13 @@ describe("addItemOrdenAction", () => {
     });
   });
 
-  it("creates a catalog-linked item, deriving descripcion/precioUnitario from the Repuesto and ignoring manual fields", async () => {
+  it("creates a catalog-linked item, using descripcion from the Repuesto but the submitted precioUnitario (the suggested price is editable)", async () => {
     mockRepuestoFindFirst.mockResolvedValue({ id: "r1", nombre: "Filtro de aceite Bosch", precioVenta: 18.9 });
     mockCreate.mockResolvedValue({ id: "i1" });
     const formData = new FormData();
     formData.set("repuestoId", "r1");
     formData.set("cantidad", "3");
+    formData.set("precioUnitario", "20");
 
     const result = await addItemOrdenAction("o1", initialState, formData);
 
@@ -92,7 +106,7 @@ describe("addItemOrdenAction", () => {
         repuestoId: "r1",
         descripcion: "Filtro de aceite Bosch",
         cantidad: 3,
-        precioUnitario: 18.9,
+        precioUnitario: 20,
       },
     });
   });
@@ -102,6 +116,7 @@ describe("addItemOrdenAction", () => {
     const formData = new FormData();
     formData.set("repuestoId", "r-missing");
     formData.set("cantidad", "1");
+    formData.set("precioUnitario", "15");
 
     const result = await addItemOrdenAction("o1", initialState, formData);
 
@@ -116,6 +131,7 @@ describe("addItemOrdenAction", () => {
     const formData = new FormData();
     formData.set("repuestoId", "repuesto-de-otra-sede");
     formData.set("cantidad", "2");
+    formData.set("precioUnitario", "15");
 
     const result = await addItemOrdenAction("o1", initialState, formData);
 

@@ -46,7 +46,6 @@ export async function addItemOrdenAction(
   }
 
   let descripcion: string;
-  let precioUnitario: number;
 
   if (parsed.data.repuestoId) {
     const repuesto = await tenantDb.repuesto.findFirst({
@@ -56,11 +55,10 @@ export async function addItemOrdenAction(
       return { error: "Repuesto no encontrado", success: false };
     }
     descripcion = repuesto.nombre;
-    precioUnitario = Number(repuesto.precioVenta);
   } else {
     descripcion = parsed.data.descripcion as string;
-    precioUnitario = parsed.data.precioUnitario as number;
   }
+  const precioUnitario = parsed.data.precioUnitario;
 
   try {
     await tenantDb.itemOrden.create({

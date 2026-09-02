@@ -13,10 +13,12 @@ export const itemOrdenInputSchema = z
     repuestoId: z.string().optional().or(z.literal("")),
     descripcion: z.string().optional().or(z.literal("")),
     cantidad: z.coerce.number().int().min(1, "La cantidad debe ser al menos 1"),
-    precioUnitario: z.coerce.number().min(0, "El precio no puede ser negativo").optional(),
+    precioUnitario: z.coerce
+      .number({ error: "El precio unitario es obligatorio" })
+      .min(0, "El precio no puede ser negativo"),
   })
-  .refine((data) => Boolean(data.repuestoId) || (Boolean(data.descripcion) && data.precioUnitario !== undefined), {
-    message: "Selecciona un repuesto del inventario o completa descripción y precio manualmente",
+  .refine((data) => Boolean(data.repuestoId) || Boolean(data.descripcion), {
+    message: "Selecciona un repuesto del inventario o completa la descripción manualmente",
   });
 
 export type ItemOrdenInput = z.infer<typeof itemOrdenInputSchema>;
