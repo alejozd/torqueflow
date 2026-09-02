@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
+import userEvent from "@testing-library/user-event";
 
 const mockAuth = vi.fn();
 vi.mock("@/auth", () => ({ auth: () => mockAuth() }));
@@ -59,7 +60,11 @@ describe("SeleccionarSedePage", () => {
 
     render(await SeleccionarSedePage());
 
-    expect(screen.getByLabelText("Sede")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Sede principal" })).toBeInTheDocument();
+    // Sede is a Base UI Select/Combobox now, not a native <select> -- options
+    // only mount in the DOM once the popup is open.
+    const trigger = screen.getByRole("combobox", { name: "Sede" });
+    expect(trigger).toBeInTheDocument();
+    await userEvent.click(trigger);
+    expect(await screen.findByRole("option", { name: "Sede principal" })).toBeInTheDocument();
   });
 });

@@ -96,7 +96,8 @@ describe("AgregarItemForm", () => {
     await userEvent.type(screen.getByLabelText("Nombre"), "Bujía");
     await userEvent.type(screen.getByLabelText("Precio de compra"), "5");
     await userEvent.type(screen.getByLabelText("Precio de venta"), "9");
-    await userEvent.selectOptions(screen.getByLabelText("Bodega"), "b1");
+    await userEvent.click(screen.getByRole("combobox", { name: "Bodega" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Bodega principal" }));
     await userEvent.click(screen.getByRole("button", { name: "Crear repuesto" }));
 
     // Empty, not the new repuesto's label: this test doesn't simulate a real
@@ -186,7 +187,8 @@ describe("AgregarItemForm", () => {
     await userEvent.type(screen.getByLabelText("Nombre"), "Bujía");
     await userEvent.type(screen.getByLabelText("Precio de compra"), "5");
     await userEvent.type(screen.getByLabelText("Precio de venta"), "9");
-    await userEvent.selectOptions(screen.getByLabelText("Bodega"), "b1");
+    await userEvent.click(screen.getByRole("combobox", { name: "Bodega" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Bodega principal" }));
     await userEvent.click(screen.getByRole("button", { name: "Crear repuesto" }));
 
     expect(mockRefresh).toHaveBeenCalledTimes(1);
