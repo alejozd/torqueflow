@@ -1,5 +1,4 @@
 import { getTenantDb } from "@/lib/db/tenant-client";
-import type { Repuesto } from "@/generated/prisma-tenant";
 
 export interface SeedRepuestosInput {
   schemaName: string;
@@ -13,7 +12,7 @@ export interface SeedRepuestosResult {
 }
 
 // Spanish auto part categories
-const PARTES = [
+export const PARTES = [
   "Filtro de aceite",
   "Filtro de aire",
   "Filtro de combustible",
@@ -65,7 +64,7 @@ const PARTES = [
 ];
 
 // Real automotive brands
-const MARCAS = [
+export const MARCAS = [
   "Bosch",
   "Gates",
   "NGK",

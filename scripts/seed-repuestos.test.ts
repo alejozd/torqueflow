@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import { seedRepuestos } from "./seed-repuestos";
+import { seedRepuestos, PARTES, MARCAS } from "./seed-repuestos";
 
 vi.mock("@/lib/db/tenant-client");
 
@@ -81,7 +81,7 @@ describe("seedRepuestos", () => {
     expect(mockRepuestoUpsert.mock.calls[0][0].create.bodegaId).toBe("bodega-oldest");
   });
 
-  it("generates realistic nombres combining partes and marcas", async () => {
+  it("generates realistic nombres combining partes and marcas from vocabulary", async () => {
     const { getTenantDb } = await import("@/lib/db/tenant-client");
     const mockRepuestoUpsert = vi.fn().mockResolvedValue({ id: "rep-1" });
     const mockBodegaFindFirst = vi.fn().mockResolvedValue({ id: "bodega-1" });
@@ -99,17 +99,33 @@ describe("seedRepuestos", () => {
 
     const nombres = mockRepuestoUpsert.mock.calls.map((call) => call[0].create.nombre);
 
-    // Should have non-repeating names for at least first 5 rows
-    const uniqueNames = new Set(nombres);
-    expect(uniqueNames.size).toBeGreaterThanOrEqual(nombres.length - 1);
+    // Assert first few names match exact deterministic sequence from seeding function
+    // For i=1: parteIndex=(1-1)%PARTES.length=0, marcaIndex=floor((1-1)/PARTES.length)%MARCAS.length=0
+    // → PARTES[0] + " " + MARCAS[0]
+    expect(nombres[0]).toBe(`${PARTES[0]} ${MARCAS[0]}`);
+    expect(nombres[1]).toBe(`${PARTES[1]} ${MARCAS[0]}`);
+    expect(nombres[4]).toBe(`${PARTES[4]} ${MARCAS[0]}`);
 
-    // Names should contain realistic Spanish auto part categories and brands
+    // Verify all names are built from real vocabulary
+    // Format: "Parte Marca" where last word is the marca
+    const marcaSet = new Set(MARCAS);
     nombres.forEach((nombre) => {
-      expect(typeof nombre).toBe("string");
-      expect(nombre.length).toBeGreaterThan(0);
-      // Should have at least 2 words (parte + marca)
-      expect(nombre.split(" ").length).toBeGreaterThanOrEqual(2);
+      const lastSpaceIndex = nombre.lastIndexOf(" ");
+      expect(lastSpaceIndex).toBeGreaterThan(0);
+
+      const marca = nombre.substring(lastSpaceIndex + 1);
+      const parte = nombre.substring(0, lastSpaceIndex);
+
+      // Marca must be one from MARCAS array
+      expect(marcaSet.has(marca)).toBe(true);
+
+      // Parte must be one from PARTES array
+      expect(PARTES.includes(parte)).toBe(true);
     });
+
+    // Should have all unique names for 5 items (since we have 65 partes × 20 marcas = 1300 combinations)
+    const uniqueNames = new Set(nombres);
+    expect(uniqueNames.size).toBe(nombres.length);
   });
 
   it("generates realistic pricing with precioVenta as markup of precioCompra", async () => {
