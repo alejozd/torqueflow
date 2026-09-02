@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import { SelectField } from "@/components/ui/select-field";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 
 type FilaProductividad = Awaited<ReturnType<typeof getReporteProductividad>>["filas"][number];
@@ -67,20 +67,17 @@ export default async function ReportesPage({
               reading another sede's numbers is safe in a way that operating in it
               is not.
 
-              Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-              while closed) -- kept native for consistency with the rest of this
-              migration. Styled by hand to match the shadcn select trigger look
-              (see seleccionar-sede-form.tsx).
+              This selector now renders via SelectField (shadcn/Base UI select)
+              instead of a native <select>.
             */}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="sedeId">Sede</Label>
-              <NativeSelect id="sedeId" name="sedeId" defaultValue={rentabilidad.filtros.sedeId}>
-                {sedes.map((sede) => (
-                  <option key={sede.id} value={sede.id}>
-                    {sede.nombre}
-                  </option>
-                ))}
-              </NativeSelect>
+              <SelectField
+                id="sedeId"
+                name="sedeId"
+                defaultValue={rentabilidad.filtros.sedeId}
+                items={sedes.map((sede) => ({ value: sede.id, label: sede.nombre }))}
+              />
             </div>
 
             <Button type="submit">Aplicar</Button>

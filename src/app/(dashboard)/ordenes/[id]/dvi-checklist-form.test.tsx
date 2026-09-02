@@ -18,8 +18,10 @@ describe("DviChecklistForm", () => {
   it("renders one select per checklist item, defaulting to the saved status", () => {
     render(<DviChecklistForm ordenId="o1" checklist={{ frenos: "CRITICO" }} />);
 
-    expect(screen.getByLabelText("Frenos")).toHaveValue("CRITICO");
-    expect(screen.getByLabelText("Luces (altas, bajas, direccionales)")).toHaveValue("OK");
+    // SelectField (Base UI) isn't a native <select>, so its value shows up as
+    // the trigger's text content rather than an element .value.
+    expect(screen.getByLabelText("Frenos")).toHaveTextContent("Crítico");
+    expect(screen.getByLabelText("Luces (altas, bajas, direccionales)")).toHaveTextContent("OK");
   });
 
   it("shows a success message after a successful submit", async () => {

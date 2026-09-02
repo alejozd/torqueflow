@@ -7,7 +7,7 @@ import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import { SelectField } from "@/components/ui/select-field";
 import { cn } from "@/lib/utils";
 
 const initialState: DviFormState = { error: null, success: false };
@@ -48,24 +48,17 @@ export function DviChecklistForm({ ordenId, checklist }: { ordenId: string; chec
                 <Label htmlFor={item.key} className="flex-1 text-xs leading-tight font-normal">
                   {item.label}
                 </Label>
-                {/*
-                  Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-                  while closed) -- getByLabelText/value in the existing tests needs
-                  a real <select>/<option> element. Styled by hand to match the
-                  shadcn select trigger look (see seleccionar-sede-form.tsx).
-                */}
-                <NativeSelect
+                <SelectField
                   id={item.key}
                   name={item.key}
                   defaultValue={valor}
-                  className="h-7 w-[90px] shrink-0 rounded-md px-1.5 pr-6 text-xs"
-                >
-                  {DVI_CHECKLIST_STATUSES.map((estado) => (
-                    <option key={estado} value={estado}>
-                      {ESTADO_LABELS[estado]}
-                    </option>
-                  ))}
-                </NativeSelect>
+                  size="sm"
+                  className="h-7 w-[90px] shrink-0 px-1.5 text-xs"
+                  items={DVI_CHECKLIST_STATUSES.map((estado) => ({
+                    value: estado,
+                    label: ESTADO_LABELS[estado],
+                  }))}
+                />
               </div>
             );
           })}

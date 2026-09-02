@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import { SelectField } from "@/components/ui/select-field";
 
 const initialState: DviFormState = { error: null, success: false };
 
@@ -24,16 +24,16 @@ export function DviFotoForm({ ordenId, fotos }: { ordenId: string; fotos: DviFot
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="momento">Momento</Label>
-            {/*
-              Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-              while closed) -- getByLabelText in the existing tests needs a
-              real <select>/<option> element. Styled by hand to match the
-              shadcn select trigger look (see seleccionar-sede-form.tsx).
-            */}
-            <NativeSelect id="momento" name="momento" defaultValue="ANTES" className="w-28">
-              <option value="ANTES">Antes</option>
-              <option value="DESPUES">Después</option>
-            </NativeSelect>
+            <SelectField
+              id="momento"
+              name="momento"
+              defaultValue="ANTES"
+              className="w-28"
+              items={[
+                { value: "ANTES", label: "Antes" },
+                { value: "DESPUES", label: "Después" },
+              ]}
+            />
           </div>
 
           <div className="flex min-w-[200px] flex-1 flex-col gap-1.5">
