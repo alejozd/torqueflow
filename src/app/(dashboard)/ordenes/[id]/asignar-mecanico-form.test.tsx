@@ -28,19 +28,21 @@ describe("AsignarMecanicoForm", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
-  it("shows the picker with 'Sin asignar' selected when no mecánico is assigned yet", () => {
+  it("shows the picker with 'Sin asignar' selected when no mecánico is assigned yet", async () => {
     render(<AsignarMecanicoForm ordenId="o1" mecanico={null} tecnicos={tecnicos} />);
 
-    const select = screen.getByRole<HTMLSelectElement>("combobox");
-    expect(select.value).toBe("");
-    expect(screen.getByRole("option", { name: "Sin asignar" })).toBeInTheDocument();
+    const trigger = screen.getByRole("combobox");
+    expect(trigger).toHaveTextContent("Sin asignar");
+    await userEvent.click(trigger);
+    expect(await screen.findByRole("option", { name: "Sin asignar" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Diego Salas" })).toBeInTheDocument();
   });
 
   it("submits the chosen mecánico via the Asignar button", async () => {
     render(<AsignarMecanicoForm ordenId="o1" mecanico={null} tecnicos={tecnicos} />);
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "t2");
+    await userEvent.click(screen.getByRole("combobox"));
+    await userEvent.click(await screen.findByRole("option", { name: "Diego Salas" }));
     await userEvent.click(screen.getByRole("button", { name: "Asignar" }));
 
     expect(mockAsignarMecanicoAction).toHaveBeenCalled();
@@ -56,11 +58,12 @@ describe("AsignarMecanicoForm", () => {
       />,
     );
 
-    const select = screen.getByRole<HTMLSelectElement>("combobox");
-    expect(select.value).toBe("t1");
+    const trigger = screen.getByRole("combobox");
+    expect(trigger).toHaveTextContent("Carlos Ruiz");
     expect(screen.getByRole("button", { name: "Guardar" })).toBeInTheDocument();
 
-    await userEvent.selectOptions(select, "t2");
+    await userEvent.click(trigger);
+    await userEvent.click(await screen.findByRole("option", { name: "Diego Salas" }));
     await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(mockAsignarMecanicoAction).toHaveBeenCalled();

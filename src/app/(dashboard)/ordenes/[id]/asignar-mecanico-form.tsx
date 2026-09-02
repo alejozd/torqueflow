@@ -7,7 +7,7 @@ import {
   type TecnicoOption,
 } from "@/app/actions/orden-actions";
 import { Button } from "@/components/ui/button";
-import { NativeSelect } from "@/components/ui/native-select";
+import { SelectField } from "@/components/ui/select-field";
 
 const initialState: AsignarMecanicoFormState = { error: null, success: false };
 
@@ -39,12 +39,7 @@ export function AsignarMecanicoForm({
         <label htmlFor="mecanicoId" className="sr-only">
           Mecánico asignado
         </label>
-        {/*
-          Native <select>, not shadcn's Select -- matches this page's other
-          selects (see cambiar-estado-form.tsx) and keeps getByRole("option")
-          working in tests.
-        */}
-        <NativeSelect
+        <SelectField
           // defaultValue only applies on mount -- if ADMIN corrects an
           // already-assigned mecánico, this component stays mounted across
           // the revalidatePath re-render, so a plain defaultValue would
@@ -53,15 +48,18 @@ export function AsignarMecanicoForm({
           id="mecanicoId"
           name="mecanicoId"
           defaultValue={mecanico?.id ?? ""}
-          className="h-7 min-w-0 flex-1 rounded-md px-1.5 pr-6 text-xs"
-        >
-          <option value="">Sin asignar</option>
-          {tecnicos.map((tecnico) => (
-            <option key={tecnico.id} value={tecnico.id}>
-              {tecnico.nombre}
-            </option>
-          ))}
-        </NativeSelect>
+          // Base UI's Select treats an empty-string value as "no selection"
+          // (hasSelectedValue is false), so the trigger falls back to the
+          // placeholder text rather than the "Sin asignar" item's own label
+          // -- set it explicitly so the trigger reads the same either way.
+          placeholder="Sin asignar"
+          size="sm"
+          className="h-7 min-w-0 flex-1 px-1.5 text-xs"
+          items={[
+            { value: "", label: "Sin asignar" },
+            ...tecnicos.map((tecnico) => ({ value: tecnico.id, label: tecnico.nombre })),
+          ]}
+        />
         <Button type="submit" size="sm" variant="outline" disabled={isPending} className="h-7 shrink-0 px-2 text-xs">
           {isPending ? "..." : mecanico ? "Guardar" : "Asignar"}
         </Button>
