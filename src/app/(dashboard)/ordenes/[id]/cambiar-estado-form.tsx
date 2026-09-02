@@ -7,7 +7,7 @@ import type { EstadoOrden } from "@/generated/prisma-tenant";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import { SelectField } from "@/components/ui/select-field";
 
 const initialState: EstadoFormState = { error: null, advertencia: null };
 
@@ -32,19 +32,12 @@ export function CambiarEstadoForm({ ordenId, estadoActual }: { ordenId: string; 
     <form action={formAction} className="flex flex-col gap-6">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="estado">Cambiar estado a</Label>
-        {/*
-          Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-          while closed) -- getByRole("option") in the existing tests needs
-          real <select>/<option> elements. Styled by hand to match the
-          shadcn select trigger look (see seleccionar-sede-form.tsx).
-        */}
-        <NativeSelect id="estado" name="estado" defaultValue={opciones[0]}>
-          {opciones.map((estado) => (
-            <option key={estado} value={estado}>
-              {ESTADO_LABELS[estado]}
-            </option>
-          ))}
-        </NativeSelect>
+        <SelectField
+          id="estado"
+          name="estado"
+          defaultValue={opciones[0]}
+          items={opciones.map((estado) => ({ value: estado, label: ESTADO_LABELS[estado] }))}
+        />
       </div>
 
       <Button type="submit" disabled={isPending} className="self-end">

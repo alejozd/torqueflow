@@ -36,7 +36,9 @@ describe("TenantRowActions", () => {
   it("submits the new plan when the select changes and the form is submitted", async () => {
     render(<TenantRowActions tenantId="t1" estadoActual="ACTIVO" planIdActual="plan_basico" planes={PLANES} />);
 
-    await userEvent.selectOptions(screen.getByLabelText("Plan"), "plan_estandar");
+    const trigger = screen.getByRole("combobox", { name: "Plan" });
+    await userEvent.click(trigger);
+    await userEvent.click(await screen.findByRole("option", { name: "Estándar" }));
     await userEvent.click(screen.getByRole("button", { name: "Guardar plan" }));
 
     expect(mockCambiarPlanTenantAction).toHaveBeenCalledWith("t1", expect.anything(), expect.any(FormData));

@@ -15,10 +15,12 @@ describe("CambiarEstadoForm", () => {
     mockUpdateEstadoOrdenAction.mockResolvedValue({ error: null });
   });
 
-  it("offers only the valid next states for BORRADOR (EN_PROCESO, ANULADA)", () => {
+  it("offers only the valid next states for BORRADOR (EN_PROCESO, ANULADA)", async () => {
     render(<CambiarEstadoForm ordenId="o1" estadoActual="BORRADOR" />);
 
-    expect(screen.getByRole("option", { name: "En proceso" })).toBeInTheDocument();
+    const trigger = screen.getByRole("combobox", { name: /cambiar estado a/i });
+    await userEvent.click(trigger);
+    expect(await screen.findByRole("option", { name: "En proceso" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Anulada" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Terminada" })).not.toBeInTheDocument();
   });

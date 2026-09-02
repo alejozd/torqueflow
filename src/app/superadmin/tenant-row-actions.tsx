@@ -9,7 +9,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import { SelectField } from "@/components/ui/select-field";
 
 const initialState: SuperAdminFormState = { error: null, success: false };
 
@@ -47,19 +47,12 @@ export function TenantRowActions({
 
       <form action={planFormAction} className="flex flex-col gap-1.5">
         <Label htmlFor={`plan-${tenantId}`}>Plan</Label>
-        {/*
-          Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-          while closed) -- userEvent.selectOptions() in the existing test
-          needs a real <select>/<option> element. Styled by hand to match
-          the shadcn select trigger look (see seleccionar-sede-form.tsx).
-        */}
-        <NativeSelect id={`plan-${tenantId}`} name="planId" defaultValue={planIdActual}>
-          {planes.map((plan) => (
-            <option key={plan.id} value={plan.id}>
-              {plan.nombre}
-            </option>
-          ))}
-        </NativeSelect>
+        <SelectField
+          id={`plan-${tenantId}`}
+          name="planId"
+          defaultValue={planIdActual}
+          items={planes.map((plan) => ({ value: plan.id, label: plan.nombre }))}
+        />
         <Button type="submit" variant="outline" size="sm" disabled={planPending}>
           Guardar plan
         </Button>
