@@ -4,7 +4,7 @@ import * as React from "react"
 import { Combobox as ComboboxPrimitive } from "@base-ui/react/combobox"
 import { cn } from "@/lib/utils"
 import { normalizeForSearch } from "@/lib/search"
-import { CheckIcon } from "lucide-react"
+import { CheckIcon, ChevronDownIcon } from "lucide-react"
 
 export interface ComboboxOption {
   value: string
@@ -75,16 +75,19 @@ function Combobox({
       disabled={disabled}
       required={required}
     >
-      <ComboboxPrimitive.Input
-        id={id}
-        placeholder={placeholder}
-        aria-invalid={ariaInvalid}
-        aria-describedby={ariaDescribedBy}
-        className={cn(
-          "flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30",
-          className,
-        )}
-      />
+      <ComboboxPrimitive.InputGroup className="relative">
+        <ComboboxPrimitive.Input
+          id={id}
+          placeholder={placeholder}
+          aria-invalid={ariaInvalid}
+          aria-describedby={ariaDescribedBy}
+          className={cn(
+            "flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 pr-7 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30",
+            className,
+          )}
+        />
+        <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-2 size-4 -translate-y-1/2 text-muted-foreground" />
+      </ComboboxPrimitive.InputGroup>
       <ComboboxPrimitive.Portal>
         <ComboboxPrimitive.Positioner className="isolate z-50" sideOffset={4}>
           <ComboboxPrimitive.Popup className="relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 overflow-x-hidden overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10">
