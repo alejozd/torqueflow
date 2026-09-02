@@ -32,6 +32,15 @@ const initialState: ItemOrdenFormState = { error: null, success: false };
  */
 const CREAR_NUEVO_VALUE = "__crear_nuevo__";
 
+/**
+ * Sentinel repuestoId value for a pinned "Ítem manual" row -- always visible
+ * in the combo regardless of what's typed, so a user typing e.g. "tornillo"
+ * (a part with no catalog entry) sees an explicit way out instead of a
+ * dead-end filtered list. Selecting it clears the field, same end state as
+ * never selecting a repuesto at all.
+ */
+const ITEM_MANUAL_VALUE = "__item_manual__";
+
 type ItemFormInput = z.input<typeof itemOrdenInputSchema>;
 
 export function AgregarItemForm({
@@ -69,7 +78,10 @@ export function AgregarItemForm({
 
   const repuestoOptions: ComboboxOption[] = useMemo(
     () => {
-      const options = repuestos.map((repuesto) => ({ value: repuesto.id, label: `${repuesto.codigo} — ${repuesto.nombre}` }));
+      const options: ComboboxOption[] = [
+        { value: ITEM_MANUAL_VALUE, label: "Ítem manual (sin repuesto)" },
+        ...repuestos.map((repuesto) => ({ value: repuesto.id, label: `${repuesto.codigo} — ${repuesto.nombre}` })),
+      ];
       if (puedeCrearRepuesto) {
         options.push({ value: CREAR_NUEVO_VALUE, label: "+ Crear repuesto nuevo" });
       }
@@ -134,16 +146,21 @@ export function AgregarItemForm({
                     setCrearDialogOpen(true);
                     return;
                   }
+                  if (value === ITEM_MANUAL_VALUE) {
+                    repuestoIdField.onChange("");
+                    return;
+                  }
                   repuestoIdField.onChange(value);
                 }}
                 placeholder="Ítem manual (completa descripción y precio abajo)"
                 emptyMessage="Ningún repuesto coincide"
-                // "+ Crear repuesto nuevo" stays visible no matter what the
-                // user typed -- it's always reachable, not just when nothing
-                // else matches. Reimplements Combobox's own diacritic-
-                // insensitive default filter for every other row.
+                // "+ Crear repuesto nuevo" and "Ítem manual" stay visible no
+                // matter what the user typed -- they're always reachable, not
+                // just when nothing else matches. Reimplements Combobox's own
+                // diacritic-insensitive default filter for every other row.
                 filter={(item, query) =>
                   item.value === CREAR_NUEVO_VALUE ||
+                  item.value === ITEM_MANUAL_VALUE ||
                   normalizeForSearch(item.label).includes(normalizeForSearch(query))
                 }
               />

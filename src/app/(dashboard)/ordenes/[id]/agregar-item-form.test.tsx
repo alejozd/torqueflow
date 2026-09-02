@@ -210,4 +210,40 @@ describe("AgregarItemForm", () => {
 
     expect(await screen.findByLabelText("Precio unitario")).toHaveValue(9);
   });
+
+  it("shows the 'Ítem manual (sin repuesto)' option in the combo's default option list", async () => {
+    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} puedeCrearRepuesto={true} />);
+
+    await userEvent.click(screen.getByLabelText("Repuesto del inventario (opcional)"));
+    expect(await screen.findByRole("option", { name: "Ítem manual (sin repuesto)" })).toBeInTheDocument();
+  });
+
+  it("keeps the 'Ítem manual (sin repuesto)' option visible when typing something that doesn't match any repuesto", async () => {
+    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} puedeCrearRepuesto={true} />);
+
+    await userEvent.click(screen.getByLabelText("Repuesto del inventario (opcional)"));
+    await userEvent.type(screen.getByLabelText("Repuesto del inventario (opcional)"), "tornillo");
+
+    expect(await screen.findByRole("option", { name: "Ítem manual (sin repuesto)" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /Filtro de aceite/ })).not.toBeInTheDocument();
+  });
+
+  it("clears the repuesto field when 'Ítem manual (sin repuesto)' is selected after a repuesto was already selected", async () => {
+    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} puedeCrearRepuesto={true} />);
+
+    // First, select a repuesto
+    await userEvent.click(screen.getByLabelText("Repuesto del inventario (opcional)"));
+    await userEvent.click(await screen.findByRole("option", { name: /Filtro de aceite/ }));
+
+    // Verify Descripción is hidden
+    expect(screen.queryByLabelText("Descripción")).not.toBeInTheDocument();
+
+    // Now select "Ítem manual (sin repuesto)"
+    await userEvent.click(screen.getByLabelText("Repuesto del inventario (opcional)"));
+    await userEvent.click(await screen.findByRole("option", { name: "Ítem manual (sin repuesto)" }));
+
+    // Verify repuesto field is now empty and Descripción reappears
+    expect(screen.getByLabelText("Repuesto del inventario (opcional)")).toHaveValue("");
+    expect(screen.getByLabelText("Descripción")).toBeInTheDocument();
+  });
 });
