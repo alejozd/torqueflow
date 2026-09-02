@@ -173,4 +173,41 @@ describe("AgregarItemForm", () => {
 
     expect(screen.getByLabelText("Precio unitario")).toHaveValue(20);
   });
+
+  it("prefills the suggested price for a newly created repuesto once it arrives via the post-refresh repuestos prop", async () => {
+    mockCreateRepuestoAction.mockResolvedValue({ error: null, success: true, repuestoId: "r2" });
+    const { rerender } = render(
+      <AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} puedeCrearRepuesto={true} />,
+    );
+
+    await userEvent.click(screen.getByLabelText("Repuesto del inventario (opcional)"));
+    await userEvent.click(await screen.findByRole("option", { name: "+ Crear repuesto nuevo" }));
+    await userEvent.type(await screen.findByLabelText("Código"), "FRN-002");
+    await userEvent.type(screen.getByLabelText("Nombre"), "Bujía");
+    await userEvent.type(screen.getByLabelText("Precio de compra"), "5");
+    await userEvent.type(screen.getByLabelText("Precio de venta"), "9");
+    await userEvent.selectOptions(screen.getByLabelText("Bodega"), "b1");
+    await userEvent.click(screen.getByRole("button", { name: "Crear repuesto" }));
+
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+
+    // Simulate the router.refresh() completing: the server page re-fetches
+    // and hands down a new `repuestos` array that now includes the
+    // just-created repuesto.
+    const refreshedRepuestos = [
+      { id: "r1", codigo: "FRN-001", nombre: "Filtro de aceite", precioVenta: 12.5 },
+      { id: "r2", codigo: "FRN-002", nombre: "Bujía", precioVenta: 9 },
+    ] as never;
+    rerender(
+      <AgregarItemForm
+        ordenId="o1"
+        repuestos={refreshedRepuestos}
+        bodegas={bodegas}
+        proveedores={proveedores}
+        puedeCrearRepuesto={true}
+      />,
+    );
+
+    expect(await screen.findByLabelText("Precio unitario")).toHaveValue(9);
+  });
 });

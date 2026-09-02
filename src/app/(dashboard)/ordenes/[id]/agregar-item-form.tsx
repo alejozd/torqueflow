@@ -81,20 +81,28 @@ export function AgregarItemForm({
   const repuestoSeleccionado = repuestos.find((repuesto) => repuesto.id === repuestoIdField.value) ?? null;
   const repuestoIdValue = repuestoIdField.value;
 
-  // Deliberately keyed on the selected id (a primitive), not on
-  // repuestoSeleccionado's object identity: a sibling form on this page
-  // (mano de obra, cambiar estado) can revalidatePath this route while this
-  // form is still mounted, handing down a brand-new `repuestos` array with
-  // new element identities for the same underlying data. Depending on the
-  // array itself would re-fire this effect on that refresh and silently
-  // stomp a price the user already overrode by hand.
+  // Tracks which repuestoId we've already applied a suggested-price prefill
+  // for. Lets this effect depend on `repuestos` (needed so the "+ Crear
+  // repuesto nuevo" flow's post-router.refresh() arrival of the new repuesto
+  // still triggers a prefill) without re-stomping a price the user already
+  // overrode by hand when a sibling form's revalidatePath hands down a new
+  // `repuestos` array identity for a repuesto that was already selected.
+  const prefilledForIdRef = useRef<string | null>(null);
+
   useEffect(() => {
+    if (!repuestoIdValue) {
+      prefilledForIdRef.current = null;
+      return;
+    }
+    if (prefilledForIdRef.current === repuestoIdValue) {
+      return;
+    }
     const seleccionado = repuestos.find((repuesto) => repuesto.id === repuestoIdValue);
     if (seleccionado) {
       setValue("precioUnitario", String(seleccionado.precioVenta));
+      prefilledForIdRef.current = repuestoIdValue;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repuestoIdValue, setValue]);
+  }, [repuestoIdValue, repuestos, setValue]);
 
   return (
     <>
