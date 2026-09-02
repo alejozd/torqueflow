@@ -270,4 +270,21 @@ describe("listRepuestoOptions", () => {
       orderBy: { nombre: "asc" },
     });
   });
+
+  it("converts precioVenta from Decimal to number", async () => {
+    mockFindMany.mockResolvedValue([
+      { id: "r1", codigo: "FRN-001", nombre: "Filtro de aceite", precioVenta: { toString: () => "12.5" } as any },
+    ]);
+
+    const result = await listRepuestoOptions();
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      id: "r1",
+      codigo: "FRN-001",
+      nombre: "Filtro de aceite",
+      precioVenta: expect.any(Number),
+    });
+    expect(typeof result[0].precioVenta).toBe("number");
+  });
 });

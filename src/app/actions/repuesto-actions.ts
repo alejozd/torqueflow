@@ -25,7 +25,7 @@ export interface RepuestoOption {
   id: string;
   codigo: string;
   nombre: string;
-  precioVenta: Prisma.Decimal;
+  precioVenta: number;
 }
 
 const BODEGA_AJENA = "La bodega seleccionada no pertenece a tu sede activa.";
@@ -57,7 +57,7 @@ export async function listRepuestos(): Promise<RepuestoWithDetalle[]> {
 export async function listRepuestoOptions(bodegaId?: string): Promise<RepuestoOption[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  return tenantDb.repuesto.findMany({
+  const rows = await tenantDb.repuesto.findMany({
     where: {
       ...(bodegaId ? { bodegaId } : {}),
       ...scopeRepuesto(session.user.sedeActivaId),
@@ -65,6 +65,7 @@ export async function listRepuestoOptions(bodegaId?: string): Promise<RepuestoOp
     select: { id: true, codigo: true, nombre: true, precioVenta: true },
     orderBy: { nombre: "asc" },
   });
+  return rows.map((row) => ({ ...row, precioVenta: Number(row.precioVenta) }));
 }
 
 export async function getRepuesto(id: string): Promise<RepuestoWithDetalle | null> {
