@@ -25,6 +25,7 @@ export interface RepuestoOption {
   id: string;
   codigo: string;
   nombre: string;
+  precioVenta: Prisma.Decimal;
 }
 
 const BODEGA_AJENA = "La bodega seleccionada no pertenece a tu sede activa.";
@@ -61,7 +62,7 @@ export async function listRepuestoOptions(bodegaId?: string): Promise<RepuestoOp
       ...(bodegaId ? { bodegaId } : {}),
       ...scopeRepuesto(session.user.sedeActivaId),
     },
-    select: { id: true, codigo: true, nombre: true },
+    select: { id: true, codigo: true, nombre: true, precioVenta: true },
     orderBy: { nombre: "asc" },
   });
 }

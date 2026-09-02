@@ -256,7 +256,7 @@ describe("listRepuestoOptions", () => {
 
     expect(mockFindMany).toHaveBeenCalledWith({
       where: { bodegaId: "b1", bodega: { sedeId: "sede-1" } },
-      select: { id: true, codigo: true, nombre: true },
+      select: { id: true, codigo: true, nombre: true, precioVenta: true },
       orderBy: { nombre: "asc" },
     });
   });
@@ -266,7 +266,7 @@ describe("listRepuestoOptions", () => {
 
     expect(mockFindMany).toHaveBeenCalledWith({
       where: { bodega: { sedeId: "sede-1" } },
-      select: { id: true, codigo: true, nombre: true },
+      select: { id: true, codigo: true, nombre: true, precioVenta: true },
       orderBy: { nombre: "asc" },
     });
   });
