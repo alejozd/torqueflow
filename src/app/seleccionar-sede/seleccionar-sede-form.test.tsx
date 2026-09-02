@@ -33,7 +33,9 @@ describe("SeleccionarSedeForm", () => {
     mockSeleccionarSedeAction.mockResolvedValue({ error: null });
     render(<SeleccionarSedeForm sedes={SEDES} />);
 
-    await userEvent.selectOptions(screen.getByLabelText("Sede"), "sede-2");
+    const trigger = screen.getByRole("combobox", { name: "Sede" });
+    await userEvent.click(trigger);
+    await userEvent.click(await screen.findByRole("option", { name: "Sede norte" }));
     await userEvent.click(screen.getByRole("button", { name: "Continuar" }));
 
     expect(mockSeleccionarSedeAction).toHaveBeenCalledWith("sede-2");

@@ -7,7 +7,7 @@ import type { SedeActiva } from "@/lib/auth/sede-access";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import { SelectField } from "@/components/ui/select-field";
 
 export function SeleccionarSedeForm({ sedes }: { sedes: SedeActiva[] }) {
   const router = useRouter();
@@ -46,18 +46,20 @@ export function SeleccionarSedeForm({ sedes }: { sedes: SedeActiva[] }) {
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="sedeId">Sede</Label>
         {/*
-          Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-          while closed) -- userEvent.selectOptions()/getByRole("option")
-          in the existing tests need real <select>/<option> elements.
-          Styled by hand to match the shadcn select trigger look.
+          Uncontrolled SelectField (name + defaultValue, no value/
+          onValueChange) -- this form has no react-hook-form, it reads
+          FormData straight off the submitted <form> element, so it relies
+          on Base UI Select's hidden <input name="sedeId"> to participate
+          in that FormData the same way a native <select name="sedeId">
+          used to.
         */}
-        <NativeSelect id="sedeId" name="sedeId" required defaultValue={sedes[0]?.id ?? ""}>
-          {sedes.map((sede) => (
-            <option key={sede.id} value={sede.id}>
-              {sede.nombre}
-            </option>
-          ))}
-        </NativeSelect>
+        <SelectField
+          id="sedeId"
+          name="sedeId"
+          required
+          defaultValue={sedes[0]?.id ?? ""}
+          items={sedes.map((sede) => ({ value: sede.id, label: sede.nombre }))}
+        />
       </div>
 
       <Button type="submit" disabled={isPending || sinSedes} className="w-full">

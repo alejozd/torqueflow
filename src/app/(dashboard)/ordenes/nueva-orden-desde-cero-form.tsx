@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import { SelectField } from "@/components/ui/select-field";
 import { Textarea } from "@/components/ui/textarea";
 
 const initialState: OrdenFormState = { error: null, success: false };
@@ -64,6 +64,7 @@ export function NuevaOrdenDesdeCeroForm({
   });
   const { field: clienteIdField } = useController({ name: "clienteId", control });
   const { field: vehiculoIdField } = useController({ name: "vehiculoId", control });
+  const { field: mecanicoIdField } = useController({ name: "mecanicoId", control });
 
   const clienteIdSeleccionado = clienteIdField.value;
   const vehiculoIdSeleccionado = vehiculoIdField.value;
@@ -87,13 +88,18 @@ export function NuevaOrdenDesdeCeroForm({
     [vehiculosDisponibles],
   );
 
-  function onValid(data: { vehiculoId: string }) {
+  function onValid(data: { vehiculoId: string; mecanicoId?: string }) {
     startTransition(async () => {
       const formData = new FormData(formRef.current!);
       // vehiculoId is a Combobox (react-hook-form-controlled, not a native
       // <select name="..."> register()) -- it doesn't populate FormData on
       // its own, so it must be set explicitly here before submitting.
       formData.set("vehiculoId", data.vehiculoId);
+      // mecanicoId is a SelectField (react-hook-form-controlled, not a
+      // native <select name="..."> register()) -- it doesn't populate
+      // FormData on its own, so it must be set explicitly here before
+      // submitting.
+      formData.set("mecanicoId", data.mecanicoId ?? "");
       const result = await createOrdenDesdeVehiculoAction(initialState, formData);
       if (result.success) {
         toast.success("Orden creada");
@@ -182,19 +188,18 @@ export function NuevaOrdenDesdeCeroForm({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="mecanicoId">Mecánico asignado</Label>
-            <NativeSelect
+            <SelectField
               id="mecanicoId"
               aria-invalid={errors.mecanicoId ? true : undefined}
               aria-describedby={errors.mecanicoId ? "mecanicoId-error" : undefined}
-              {...register("mecanicoId")}
-            >
-              <option value="">Sin asignar</option>
-              {tecnicos.map((tecnico) => (
-                <option key={tecnico.id} value={tecnico.id}>
-                  {tecnico.nombre}
-                </option>
-              ))}
-            </NativeSelect>
+              value={mecanicoIdField.value ?? ""}
+              onValueChange={mecanicoIdField.onChange}
+              placeholder="Sin asignar"
+              items={[
+                { value: "", label: "Sin asignar" },
+                ...tecnicos.map((tecnico) => ({ value: tecnico.id, label: tecnico.nombre })),
+              ]}
+            />
             {errors.mecanicoId ? (
               <p id="mecanicoId-error" className="text-xs text-destructive">
                 {errors.mecanicoId.message}
