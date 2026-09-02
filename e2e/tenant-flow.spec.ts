@@ -107,7 +107,7 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   await expect(page.getByRole("status").filter({ hasText: "Ítem agregado" })).toBeVisible();
   await expect(page.getByText("Pastillas de freno")).toBeVisible();
 
-  // --- Fase 3: link a catalog Repuesto to this same order — trusted server-side pricing, no stock deduction ---
+  // --- Fase 3: link a catalog Repuesto to this same order — price comes from the client's prefilled/submitted value, which the server accepts as-is (not re-derived server-side); no stock deduction ---
 
   await page.getByLabel("Repuesto del inventario (opcional)").selectOption({ label: "FRN-001 — Filtro de aceite" });
   await page.getByLabel("Cantidad").fill("2");

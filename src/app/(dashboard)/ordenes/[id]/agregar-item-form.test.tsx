@@ -141,4 +141,36 @@ describe("AgregarItemForm", () => {
     const submittedFormData = mockAddItemOrdenAction.mock.calls[0][2] as FormData;
     expect(submittedFormData.get("precioUnitario")).toBe("20");
   });
+
+  it("keeps a user-overridden price after the repuestos prop is replaced with a new array of the same underlying data", async () => {
+    const { rerender } = render(
+      <AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} puedeCrearRepuesto={true} />,
+    );
+
+    await userEvent.click(screen.getByLabelText("Repuesto del inventario (opcional)"));
+    await userEvent.click(await screen.findByRole("option", { name: /Filtro de aceite/ }));
+
+    const precioInput = screen.getByLabelText("Precio unitario");
+    await userEvent.clear(precioInput);
+    await userEvent.type(precioInput, "20");
+    expect(precioInput).toHaveValue(20);
+
+    // Simulate a sibling form on the same page (mano de obra, cambiar estado)
+    // calling revalidatePath -- the server page re-fetches and hands down a
+    // brand-new `repuestos` array with new object identities for the same
+    // underlying repuesto (same id, same precioVenta). The effect must not
+    // key off that object identity and stomp the price the user just typed.
+    const refreshedRepuestos = [{ id: "r1", codigo: "FRN-001", nombre: "Filtro de aceite", precioVenta: 12.5 }] as never;
+    rerender(
+      <AgregarItemForm
+        ordenId="o1"
+        repuestos={refreshedRepuestos}
+        bodegas={bodegas}
+        proveedores={proveedores}
+        puedeCrearRepuesto={true}
+      />,
+    );
+
+    expect(screen.getByLabelText("Precio unitario")).toHaveValue(20);
+  });
 });

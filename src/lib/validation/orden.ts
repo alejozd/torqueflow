@@ -13,9 +13,14 @@ export const itemOrdenInputSchema = z
     repuestoId: z.string().optional().or(z.literal("")),
     descripcion: z.string().optional().or(z.literal("")),
     cantidad: z.coerce.number().int().min(1, "La cantidad debe ser al menos 1"),
-    precioUnitario: z.coerce
-      .number({ error: "El precio unitario es obligatorio" })
-      .min(0, "El precio no puede ser negativo"),
+    // "" and null must not silently coerce to 0 (z.coerce.number() treats
+    // both as valid input -> 0) -- same pitfall manoDeObraInputSchema.valor
+    // exists to avoid, applied here so the schema itself guarantees this
+    // instead of relying on every caller to pre-sanitize independently.
+    precioUnitario: z.preprocess(
+      (v) => (v === "" || v === null || v === undefined ? undefined : v),
+      z.coerce.number({ error: "El precio unitario es obligatorio" }).min(0, "El precio no puede ser negativo"),
+    ),
   })
   .refine((data) => Boolean(data.repuestoId) || Boolean(data.descripcion), {
     message: "Selecciona un repuesto del inventario o completa la descripción manualmente",

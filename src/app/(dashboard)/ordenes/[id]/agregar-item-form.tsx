@@ -4,7 +4,7 @@ import { startTransition, useActionState, useEffect, useMemo, useRef, useState }
 import { useRouter } from "next/navigation";
 import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import type { z } from "zod";
 import { toast } from "sonner";
 import { addItemOrdenAction, type ItemOrdenFormState } from "@/app/actions/item-orden-actions";
 import { itemOrdenInputSchema } from "@/lib/validation/orden";
@@ -32,19 +32,7 @@ const initialState: ItemOrdenFormState = { error: null, success: false };
  */
 const CREAR_NUEVO_VALUE = "__crear_nuevo__";
 
-/**
- * itemOrdenInputSchema carries a cross-field .refine() (repuesto OR manual
- * descripcion+precio), so `.safeExtend()` -- not `.extend()` -- is required
- * in zod 4 to add a field override without dropping that refinement.
- * precioUnitario needs the same "" -> undefined preprocessing
- * addItemOrdenAction already applies before parsing
- * (`formData.get("precioUnitario") || undefined`) -- `.optional()` alone
- * does not treat "" as absent.
- */
-const itemFormSchema = itemOrdenInputSchema.safeExtend({
-  precioUnitario: z.preprocess((v) => (v === "" ? undefined : v), itemOrdenInputSchema.shape.precioUnitario),
-});
-type ItemFormInput = z.input<typeof itemFormSchema>;
+type ItemFormInput = z.input<typeof itemOrdenInputSchema>;
 
 export function AgregarItemForm({
   ordenId,
@@ -71,7 +59,7 @@ export function AgregarItemForm({
     setValue,
     formState: { errors },
   } = useForm<ItemFormInput>({
-    resolver: zodResolver(itemFormSchema),
+    resolver: zodResolver(itemOrdenInputSchema),
     defaultValues: { repuestoId: "", descripcion: "", cantidad: "", precioUnitario: "" },
   });
   const { field: repuestoIdField } = useController({ name: "repuestoId", control });
@@ -91,15 +79,22 @@ export function AgregarItemForm({
   );
 
   const repuestoSeleccionado = repuestos.find((repuesto) => repuesto.id === repuestoIdField.value) ?? null;
+  const repuestoIdValue = repuestoIdField.value;
 
-  // Only the initial pick prefills the field -- once it's set, further
-  // renders (e.g. the user editing Cantidad) must not stomp on a value the
-  // user may have already overridden by hand.
+  // Deliberately keyed on the selected id (a primitive), not on
+  // repuestoSeleccionado's object identity: a sibling form on this page
+  // (mano de obra, cambiar estado) can revalidatePath this route while this
+  // form is still mounted, handing down a brand-new `repuestos` array with
+  // new element identities for the same underlying data. Depending on the
+  // array itself would re-fire this effect on that refresh and silently
+  // stomp a price the user already overrode by hand.
   useEffect(() => {
-    if (repuestoSeleccionado) {
-      setValue("precioUnitario", String(repuestoSeleccionado.precioVenta));
+    const seleccionado = repuestos.find((repuesto) => repuesto.id === repuestoIdValue);
+    if (seleccionado) {
+      setValue("precioUnitario", String(seleccionado.precioVenta));
     }
-  }, [repuestoSeleccionado, setValue]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [repuestoIdValue, setValue]);
 
   return (
     <>
