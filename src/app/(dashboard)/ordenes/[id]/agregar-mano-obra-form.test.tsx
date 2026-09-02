@@ -54,15 +54,16 @@ describe("AgregarManoObraForm", () => {
   it("lets a técnico be picked per línea, independent of the orden's own mecánico", async () => {
     render(<AgregarManoObraForm ordenId="o1" tecnicos={tecnicos} />);
 
-    const select = screen.getByLabelText<HTMLSelectElement>("Mecánico");
-    expect(select.value).toBe("");
-    await userEvent.selectOptions(select, "t2");
-    expect(select.value).toBe("t2");
+    const trigger = screen.getByRole("combobox", { name: "Mecánico" });
+    expect(trigger).toHaveTextContent("Sin asignar");
+    await userEvent.click(trigger);
+    await userEvent.click(await screen.findByRole("option", { name: "Diego Salas" }));
+    expect(trigger).toHaveTextContent("Diego Salas");
   });
 
   it("preselects the orden's mecánico as a discreet default, still changeable", () => {
     render(<AgregarManoObraForm ordenId="o1" tecnicos={tecnicos} mecanicoIdHeader="t1" />);
 
-    expect(screen.getByLabelText<HTMLSelectElement>("Mecánico").value).toBe("t1");
+    expect(screen.getByRole("combobox", { name: "Mecánico" })).toHaveTextContent("Carlos Ruiz");
   });
 });

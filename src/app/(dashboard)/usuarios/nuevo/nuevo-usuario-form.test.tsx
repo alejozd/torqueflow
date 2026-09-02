@@ -15,10 +15,12 @@ describe("NuevoUsuarioForm", () => {
     mockCreateUsuarioAction.mockResolvedValue({ error: null, success: false });
   });
 
-  it("renders the three roles as options", () => {
+  it("renders the three roles as options", async () => {
     render(<NuevoUsuarioForm />);
 
-    expect(screen.getByRole("option", { name: "ADMIN" })).toBeInTheDocument();
+    const trigger = screen.getByRole("combobox", { name: /rol/i });
+    await userEvent.click(trigger);
+    expect(await screen.findByRole("option", { name: "ADMIN" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "TECNICO" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "RECEPCION" })).toBeInTheDocument();
   });

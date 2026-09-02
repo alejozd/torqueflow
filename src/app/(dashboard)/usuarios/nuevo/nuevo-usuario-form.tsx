@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useActionState, useRef } from "react";
-import { useForm } from "react-hook-form";
+import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createUsuarioAction, type UsuarioFormState } from "@/app/actions/usuario-actions";
 import { usuarioCreateInputSchema, type UsuarioCreateInput } from "@/lib/validation/usuario";
@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import { SelectField } from "@/components/ui/select-field";
 
 const initialState: UsuarioFormState = { error: null, success: false };
 
@@ -20,17 +20,28 @@ export function NuevoUsuarioForm() {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<UsuarioCreateInput>({
     resolver: zodResolver(usuarioCreateInputSchema),
     defaultValues: { nombre: "", email: "", password: "", role: "TECNICO" },
   });
+  const { field: roleField } = useController({ name: "role", control });
 
   return (
     <form
       noValidate
       ref={formRef}
-      onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+      onSubmit={handleSubmit((data) =>
+        startTransition(() => {
+          const formData = new FormData(formRef.current!);
+          // role is a SelectField (react-hook-form-controlled, not a native
+          // <select name="..."> register()) -- it doesn't populate FormData
+          // on its own, so it must be set explicitly here before submitting.
+          formData.set("role", data.role ?? "");
+          formAction(formData);
+        }),
+      )}
       className="flex flex-col gap-4"
     >
       <FormGroup label="Persona">
@@ -80,17 +91,16 @@ export function NuevoUsuarioForm() {
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="role">Rol</Label>
-            {/*
-              Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-              while closed) -- userEvent.selectOptions()/getByRole("option")
-              in the existing tests need real <select>/<option> elements.
-              Styled by hand to match the shadcn select trigger look.
-            */}
-            <NativeSelect id="role" {...register("role")}>
-              <option value="ADMIN">ADMIN</option>
-              <option value="TECNICO">TECNICO</option>
-              <option value="RECEPCION">RECEPCION</option>
-            </NativeSelect>
+            <SelectField
+              id="role"
+              value={roleField.value ?? ""}
+              onValueChange={roleField.onChange}
+              items={[
+                { value: "ADMIN", label: "ADMIN" },
+                { value: "TECNICO", label: "TECNICO" },
+                { value: "RECEPCION", label: "RECEPCION" },
+              ]}
+            />
           </div>
         </div>
       </FormGroup>

@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useActionState, useRef } from "react";
-import { useForm } from "react-hook-form";
+import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { addManoDeObraAction, type ManoDeObraFormState } from "@/app/actions/mano-de-obra-actions";
@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import { SelectField } from "@/components/ui/select-field";
 
 const initialState: ManoDeObraFormState = { error: null, success: false };
 
@@ -35,17 +35,29 @@ export function AgregarManoObraForm({
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<ManoDeObraFormInput>({
     resolver: zodResolver(manoDeObraInputSchema),
     defaultValues: { descripcion: "", valor: "", mecanicoId: mecanicoIdHeader ?? "" },
   });
+  const { field: mecanicoIdField } = useController({ name: "mecanicoId", control });
 
   return (
     <form
       noValidate
       ref={formRef}
-      onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+      onSubmit={handleSubmit((data) =>
+        startTransition(() => {
+          const formData = new FormData(formRef.current!);
+          // mecanicoId is a SelectField (react-hook-form-controlled, not a
+          // native <select name="..."> register()) -- it doesn't populate
+          // FormData on its own, so it must be set explicitly here before
+          // submitting.
+          formData.set("mecanicoId", data.mecanicoId ?? "");
+          formAction(formData);
+        }),
+      )}
       className="flex flex-col gap-4"
     >
       <FormGroup label="Trabajo">
@@ -79,24 +91,18 @@ export function AgregarManoObraForm({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="manoObraMecanico">Mecánico</Label>
-            {/*
-              Native <select>, not shadcn's Select -- keeps
-              userEvent.selectOptions()/getByRole("option") working, same
-              reasoning as asignar-mecanico-form.tsx.
-            */}
-            <NativeSelect
+            <SelectField
               id="manoObraMecanico"
               aria-invalid={errors.mecanicoId ? true : undefined}
               aria-describedby={errors.mecanicoId ? "manoObraMecanico-error" : undefined}
-              {...register("mecanicoId")}
-            >
-              <option value="">Sin asignar</option>
-              {tecnicos.map((tecnico) => (
-                <option key={tecnico.id} value={tecnico.id}>
-                  {tecnico.nombre}
-                </option>
-              ))}
-            </NativeSelect>
+              value={mecanicoIdField.value ?? ""}
+              onValueChange={mecanicoIdField.onChange}
+              placeholder="Sin asignar"
+              items={[
+                { value: "", label: "Sin asignar" },
+                ...tecnicos.map((tecnico) => ({ value: tecnico.id, label: tecnico.nombre })),
+              ]}
+            />
             {errors.mecanicoId ? <p id="manoObraMecanico-error">{errors.mecanicoId.message}</p> : null}
           </div>
         </div>
