@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useMemo, useRef, useState } from "react";
+import { startTransition, useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -68,6 +68,7 @@ export function AgregarItemForm({
     register,
     handleSubmit,
     control,
+    setValue,
     formState: { errors },
   } = useForm<ItemFormInput>({
     resolver: zodResolver(itemFormSchema),
@@ -88,6 +89,17 @@ export function AgregarItemForm({
     },
     [repuestos, puedeCrearRepuesto],
   );
+
+  const repuestoSeleccionado = repuestos.find((repuesto) => repuesto.id === repuestoIdField.value) ?? null;
+
+  // Only the initial pick prefills the field -- once it's set, further
+  // renders (e.g. the user editing Cantidad) must not stomp on a value the
+  // user may have already overridden by hand.
+  useEffect(() => {
+    if (repuestoSeleccionado) {
+      setValue("precioUnitario", String(repuestoSeleccionado.precioVenta));
+    }
+  }, [repuestoSeleccionado, setValue]);
 
   return (
     <>
@@ -135,21 +147,6 @@ export function AgregarItemForm({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="itemDescripcion">Descripción</Label>
-              <Input
-                id="itemDescripcion"
-                aria-invalid={errors.descripcion ? true : undefined}
-                aria-describedby={errors.descripcion ? "itemDescripcion-error" : undefined}
-                {...register("descripcion")}
-              />
-              {errors.descripcion ? <p id="itemDescripcion-error">{errors.descripcion.message}</p> : null}
-            </div>
-          </div>
-        </FormGroup>
-
-        <FormGroup label="Cantidad y precio">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
               <Label htmlFor="itemCantidad">Cantidad</Label>
               <Input
                 id="itemCantidad"
@@ -163,6 +160,23 @@ export function AgregarItemForm({
               />
               {errors.cantidad ? <p id="itemCantidad-error">{errors.cantidad.message}</p> : null}
             </div>
+          </div>
+        </FormGroup>
+
+        <FormGroup label="Descripción y precio">
+          <div className={repuestoSeleccionado ? "grid grid-cols-1 gap-4" : "grid grid-cols-1 gap-4 sm:grid-cols-2"}>
+            {repuestoSeleccionado ? null : (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="itemDescripcion">Descripción</Label>
+                <Input
+                  id="itemDescripcion"
+                  aria-invalid={errors.descripcion ? true : undefined}
+                  aria-describedby={errors.descripcion ? "itemDescripcion-error" : undefined}
+                  {...register("descripcion")}
+                />
+                {errors.descripcion ? <p id="itemDescripcion-error">{errors.descripcion.message}</p> : null}
+              </div>
+            )}
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="itemPrecioUnitario">Precio unitario</Label>
@@ -180,7 +194,9 @@ export function AgregarItemForm({
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Si seleccionas un repuesto del inventario, la descripción y el precio se completan automáticamente.
+            {repuestoSeleccionado
+              ? "El precio se sugiere desde el inventario, pero puedes ajustarlo para este ítem."
+              : "Completa la descripción y el precio para un ítem que no está en el inventario."}
           </p>
         </FormGroup>
 

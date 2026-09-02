@@ -19,7 +19,7 @@ vi.mock("@/app/actions/repuesto-actions", () => ({
 
 import { AgregarItemForm } from "./agregar-item-form";
 
-const repuestos = [{ id: "r1", codigo: "FRN-001", nombre: "Filtro de aceite" }] as never;
+const repuestos = [{ id: "r1", codigo: "FRN-001", nombre: "Filtro de aceite", precioVenta: 12.5 }] as never;
 const bodegas = [{ id: "b1", nombre: "Bodega principal" }] as never;
 const proveedores = [{ id: "p1", nombre: "Repuestos El Motor" }] as never;
 
@@ -53,13 +53,14 @@ describe("AgregarItemForm", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("Ítem agregado");
   });
 
-  it("blocks submission and shows the cross-field error when neither a repuesto nor manual descripcion+precio is given", async () => {
+  it("blocks submission and shows the cross-field error when neither a repuesto nor descripcion is given", async () => {
     render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} puedeCrearRepuesto={true} />);
 
+    await userEvent.type(screen.getByLabelText("Precio unitario"), "10");
     await userEvent.click(screen.getByRole("button", { name: "Agregar ítem" }));
 
     expect(
-      await screen.findByText("Selecciona un repuesto del inventario o completa descripción y precio manualmente"),
+      await screen.findByText("Selecciona un repuesto del inventario o completa la descripción manualmente"),
     ).toBeInTheDocument();
     expect(mockAddItemOrdenAction).not.toHaveBeenCalled();
   });
@@ -113,5 +114,31 @@ describe("AgregarItemForm", () => {
     await userEvent.click(screen.getByLabelText("Repuesto del inventario (opcional)"));
     expect(screen.queryByRole("option", { name: "+ Crear repuesto nuevo" })).not.toBeInTheDocument();
     expect(await screen.findByRole("option", { name: /Filtro de aceite/ })).toBeInTheDocument();
+  });
+
+  it("hides Descripción and prefills Precio unitario with the repuesto's suggested price when a repuesto is selected", async () => {
+    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} puedeCrearRepuesto={true} />);
+
+    await userEvent.click(screen.getByLabelText("Repuesto del inventario (opcional)"));
+    await userEvent.click(await screen.findByRole("option", { name: /Filtro de aceite/ }));
+
+    expect(screen.queryByLabelText("Descripción")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Precio unitario")).toHaveValue(12.5);
+  });
+
+  it("submits the price the user typed after overriding the prefilled suggested price", async () => {
+    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} puedeCrearRepuesto={true} />);
+
+    await userEvent.click(screen.getByLabelText("Repuesto del inventario (opcional)"));
+    await userEvent.click(await screen.findByRole("option", { name: /Filtro de aceite/ }));
+    await userEvent.type(screen.getByLabelText("Cantidad"), "2");
+    const precioInput = screen.getByLabelText("Precio unitario");
+    await userEvent.clear(precioInput);
+    await userEvent.type(precioInput, "20");
+    await userEvent.click(screen.getByRole("button", { name: "Agregar ítem" }));
+
+    await screen.findByRole("status");
+    const submittedFormData = mockAddItemOrdenAction.mock.calls[0][2] as FormData;
+    expect(submittedFormData.get("precioUnitario")).toBe("20");
   });
 });
