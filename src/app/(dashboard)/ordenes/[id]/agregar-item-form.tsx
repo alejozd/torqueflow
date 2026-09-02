@@ -66,6 +66,7 @@ export function AgregarItemForm({
     handleSubmit,
     control,
     setValue,
+    reset,
     formState: { errors },
   } = useForm<ItemFormInput>({
     resolver: zodResolver(itemOrdenInputSchema),
@@ -116,6 +117,12 @@ export function AgregarItemForm({
     }
   }, [repuestoIdValue, repuestos, setValue]);
 
+  useEffect(() => {
+    if (state.success) {
+      reset();
+    }
+  }, [state, reset]);
+
   return (
     <>
       <form
@@ -134,7 +141,7 @@ export function AgregarItemForm({
         className="flex flex-col gap-4"
       >
         <FormGroup label="Repuesto">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[2fr_1fr]">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="repuestoId">Repuesto del inventario (opcional)</Label>
               <Combobox

@@ -246,4 +246,24 @@ describe("AgregarItemForm", () => {
     expect(screen.getByLabelText("Repuesto del inventario (opcional)")).toHaveValue("");
     expect(screen.getByLabelText("Descripción")).toBeInTheDocument();
   });
+
+  it("clears all form fields after a successful manual item submission", async () => {
+    render(<AgregarItemForm ordenId="o1" repuestos={repuestos} bodegas={bodegas} proveedores={proveedores} puedeCrearRepuesto={true} />);
+
+    // Fill in manual item fields
+    await userEvent.type(screen.getByLabelText("Descripción"), "Filtro de aceite");
+    await userEvent.type(screen.getByLabelText("Cantidad"), "2");
+    await userEvent.type(screen.getByLabelText("Precio unitario"), "15.5");
+
+    // Submit the form
+    await userEvent.click(screen.getByRole("button", { name: "Agregar ítem" }));
+
+    // Wait for success state to resolve
+    await screen.findByRole("status");
+
+    // Assert fields are cleared back to empty
+    expect(screen.getByLabelText("Descripción")).toHaveValue("");
+    expect(screen.getByLabelText("Cantidad")).toHaveValue(null);
+    expect(screen.getByLabelText("Precio unitario")).toHaveValue(null);
+  });
 });
