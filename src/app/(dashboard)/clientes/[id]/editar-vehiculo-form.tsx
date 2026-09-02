@@ -24,6 +24,7 @@ export function EditarVehiculoForm({ vehiculo }: { vehiculo: Vehiculo }) {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<VehiculoFormInput>({
     resolver: zodResolver(vehiculoFormSchema),
@@ -44,10 +45,21 @@ export function EditarVehiculoForm({ vehiculo }: { vehiculo: Vehiculo }) {
     <form
       noValidate
       ref={formRef}
-      onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+      onSubmit={handleSubmit((data) =>
+        startTransition(() => {
+          const formData = new FormData(formRef.current!);
+          // combustible and transmision are SelectFields (react-hook-form-
+          // controlled, not native <select name="..."> register()) -- they
+          // don't populate FormData on their own, so they must be set
+          // explicitly here before submitting.
+          formData.set("combustible", (data.combustible as string | undefined) ?? "");
+          formData.set("transmision", (data.transmision as string | undefined) ?? "");
+          formAction(formData);
+        }),
+      )}
       className="flex flex-col gap-5"
     >
-      <VehiculoFormFields register={register} errors={errors} />
+      <VehiculoFormFields register={register} errors={errors} control={control} />
 
       {state.error ? (
         <Alert variant="destructive">

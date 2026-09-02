@@ -38,10 +38,10 @@ describe("EditarVehiculoForm", () => {
     expect(screen.getByLabelText("Marca")).toHaveValue("Toyota");
     expect(screen.getByLabelText("Modelo")).toHaveValue("Corolla");
     expect(screen.getByLabelText("Año")).toHaveValue(2020);
-    expect(screen.getByLabelText("Combustible")).toHaveValue("GASOLINA");
+    expect(screen.getByRole("combobox", { name: "Combustible" })).toHaveTextContent("Gasolina");
     expect(screen.getByLabelText("Kilometraje")).toHaveValue(45000);
     expect(screen.getByLabelText("Próximo mantenimiento")).toHaveValue("2026-12-01");
-    expect(screen.getByLabelText("Transmisión")).toHaveValue("AUTOMATICA");
+    expect(screen.getByRole("combobox", { name: "Transmisión" })).toHaveTextContent("Automática");
     expect(screen.getByLabelText("Observaciones del vehículo")).toHaveValue("Rines de posventa");
   });
 

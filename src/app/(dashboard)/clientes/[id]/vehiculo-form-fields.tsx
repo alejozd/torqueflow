@@ -1,12 +1,13 @@
 "use client";
 
 import { z } from "zod";
-import type { FieldErrors, UseFormRegister } from "react-hook-form";
+import { useController } from "react-hook-form";
+import type { Control, FieldErrors, UseFormRegister } from "react-hook-form";
 import { vehiculoInputSchema } from "@/lib/validation/vehiculo";
 import { FormGroup } from "@/components/form-group";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import { SelectField } from "@/components/ui/select-field";
 import { Textarea } from "@/components/ui/textarea";
 
 // createVehiculoAction/updateVehiculoAction read these fields with `|| undefined`
@@ -28,10 +29,15 @@ export type VehiculoFormInput = z.input<typeof vehiculoFormSchema>;
 export function VehiculoFormFields({
   register,
   errors,
+  control,
 }: {
   register: UseFormRegister<VehiculoFormInput>;
   errors: FieldErrors<VehiculoFormInput>;
+  control: Control<VehiculoFormInput>;
 }) {
+  const { field: combustibleField } = useController({ name: "combustible", control });
+  const { field: transmisionField } = useController({ name: "transmision", control });
+
   return (
     <>
       <FormGroup label="Identificación">
@@ -91,18 +97,19 @@ export function VehiculoFormFields({
 
           <div className="flex flex-col gap-1.5 sm:col-span-1">
             <Label htmlFor="combustible">Combustible</Label>
-            {/*
-              Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-              while closed) -- keeps userEvent.selectOptions()/getByRole("option")
-              working, same reasoning as usuarios/nuevo-usuario-form.tsx.
-            */}
-            <NativeSelect id="combustible" {...register("combustible")}>
-              <option value="">Seleccionar...</option>
-              <option value="GASOLINA">Gasolina</option>
-              <option value="DIESEL">Diésel</option>
-              <option value="HIBRIDO">Híbrido</option>
-              <option value="ELECTRICO">Eléctrico</option>
-            </NativeSelect>
+            <SelectField
+              id="combustible"
+              value={(combustibleField.value as string | undefined) ?? ""}
+              onValueChange={combustibleField.onChange}
+              placeholder="Seleccionar..."
+              items={[
+                { value: "", label: "Seleccionar..." },
+                { value: "GASOLINA", label: "Gasolina" },
+                { value: "DIESEL", label: "Diésel" },
+                { value: "HIBRIDO", label: "Híbrido" },
+                { value: "ELECTRICO", label: "Eléctrico" },
+              ]}
+            />
           </div>
         </div>
       </FormGroup>
@@ -139,11 +146,17 @@ export function VehiculoFormFields({
 
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="transmision">Transmisión</Label>
-            <NativeSelect id="transmision" {...register("transmision")}>
-              <option value="">Seleccionar...</option>
-              <option value="AUTOMATICA">Automática</option>
-              <option value="MECANICA">Mecánica</option>
-            </NativeSelect>
+            <SelectField
+              id="transmision"
+              value={(transmisionField.value as string | undefined) ?? ""}
+              onValueChange={transmisionField.onChange}
+              placeholder="Seleccionar..."
+              items={[
+                { value: "", label: "Seleccionar..." },
+                { value: "AUTOMATICA", label: "Automática" },
+                { value: "MECANICA", label: "Mecánica" },
+              ]}
+            />
           </div>
         </div>
       </FormGroup>

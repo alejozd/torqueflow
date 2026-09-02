@@ -40,10 +40,12 @@ describe("NuevoVehiculoForm", () => {
     await userEvent.type(screen.getByLabelText("Placa"), "ABC123");
     await userEvent.type(screen.getByLabelText("Marca"), "Toyota");
     await userEvent.type(screen.getByLabelText("Modelo"), "Corolla");
-    await userEvent.selectOptions(screen.getByLabelText("Combustible"), "GASOLINA");
+    await userEvent.click(screen.getByRole("combobox", { name: "Combustible" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Gasolina" }));
     await userEvent.type(screen.getByLabelText("Kilometraje"), "78420");
     await userEvent.type(screen.getByLabelText("Próximo mantenimiento"), "2026-12-01");
-    await userEvent.selectOptions(screen.getByLabelText("Transmisión"), "AUTOMATICA");
+    await userEvent.click(screen.getByRole("combobox", { name: "Transmisión" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Automática" }));
     await userEvent.type(
       screen.getByLabelText("Observaciones del vehículo"),
       "Rines de posventa, llave de repuesto en recepción",
