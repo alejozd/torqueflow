@@ -29,10 +29,12 @@ describe("NuevoRepuestoForm", () => {
     expect(screen.getByLabelText("Stock inicial")).toBeInTheDocument();
     expect(screen.getByLabelText("Stock mínimo")).toBeInTheDocument();
     expect(screen.getByLabelText("Bodega")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Bodega principal" })).toBeInTheDocument();
     expect(screen.getByLabelText("Proveedor")).toBeInTheDocument();
-    // Proveedor is a Combobox now (search-as-you-type), not a native <select>
-    // -- options only mount in the DOM once the popup is open.
+    // Bodega and Proveedor are both Base UI Select/Combobox now, not native
+    // <select>/<option> -- options only mount in the DOM once each popup is
+    // open.
+    await userEvent.click(screen.getByRole("combobox", { name: "Bodega" }));
+    expect(await screen.findByRole("option", { name: "Bodega principal" })).toBeInTheDocument();
     await userEvent.click(screen.getByLabelText("Proveedor"));
     expect(await screen.findByRole("option", { name: "Repuestos El Motor" })).toBeInTheDocument();
   });
@@ -44,7 +46,8 @@ describe("NuevoRepuestoForm", () => {
     await userEvent.type(screen.getByLabelText("Nombre"), "Filtro de aceite");
     await userEvent.type(screen.getByLabelText("Precio de compra"), "8");
     await userEvent.type(screen.getByLabelText("Precio de venta"), "18.9");
-    await userEvent.selectOptions(screen.getByLabelText("Bodega"), "b1");
+    await userEvent.click(screen.getByRole("combobox", { name: "Bodega" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Bodega principal" }));
     await userEvent.click(screen.getByRole("button", { name: "Crear repuesto" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Repuesto creado");
@@ -68,7 +71,8 @@ describe("NuevoRepuestoForm", () => {
     await userEvent.type(screen.getByLabelText("Nombre"), "Filtro de aceite");
     await userEvent.type(screen.getByLabelText("Precio de compra"), "8");
     await userEvent.type(screen.getByLabelText("Precio de venta"), "18.9");
-    await userEvent.selectOptions(screen.getByLabelText("Bodega"), "b1");
+    await userEvent.click(screen.getByRole("combobox", { name: "Bodega" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Bodega principal" }));
     await userEvent.click(screen.getByRole("button", { name: "Crear repuesto" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Ya existe un repuesto con ese código.");
@@ -82,7 +86,8 @@ describe("NuevoRepuestoForm", () => {
     await userEvent.type(screen.getByLabelText("Nombre"), "Filtro de aceite");
     await userEvent.type(screen.getByLabelText("Precio de compra"), "8");
     await userEvent.type(screen.getByLabelText("Precio de venta"), "18.9");
-    await userEvent.selectOptions(screen.getByLabelText("Bodega"), "b1");
+    await userEvent.click(screen.getByRole("combobox", { name: "Bodega" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Bodega principal" }));
     await userEvent.click(screen.getByRole("button", { name: "Crear repuesto" }));
 
     await vi.waitFor(() => expect(mockOnCreated).toHaveBeenCalledWith("r1"));
@@ -98,7 +103,8 @@ describe("NuevoRepuestoForm", () => {
     await userEvent.type(screen.getByLabelText("Nombre"), "Filtro de aceite");
     await userEvent.type(screen.getByLabelText("Precio de compra"), "8");
     await userEvent.type(screen.getByLabelText("Precio de venta"), "18.9");
-    await userEvent.selectOptions(screen.getByLabelText("Bodega"), "b1");
+    await userEvent.click(screen.getByRole("combobox", { name: "Bodega" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Bodega principal" }));
     await userEvent.click(screen.getByRole("button", { name: "Crear repuesto" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Ya existe un repuesto con ese código.");

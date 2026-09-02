@@ -30,10 +30,13 @@ describe("NuevaEntradaMercanciaForm", () => {
 
     expect(screen.getByLabelText("Proveedor")).toBeInTheDocument();
     expect(screen.getByLabelText("Bodega")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Bodega principal" })).toBeInTheDocument();
 
-    // Proveedor's popup marks the rest of the page inert while open, so this
-    // check must run last, after every other assertion in this test.
+    // Both Bodega (Select) and Proveedor's (Combobox) popups mark the rest of
+    // the page inert while open, so each check must run on its own, and the
+    // Proveedor check must run last, after every other assertion in this test.
+    await userEvent.click(screen.getByRole("combobox", { name: "Bodega" }));
+    expect(await screen.findByRole("option", { name: "Bodega principal" })).toBeInTheDocument();
+
     await userEvent.click(screen.getByLabelText("Proveedor"));
     expect(await screen.findByRole("option", { name: "Repuestos El Motor" })).toBeInTheDocument();
   });
@@ -42,7 +45,9 @@ describe("NuevaEntradaMercanciaForm", () => {
     render(<NuevaEntradaMercanciaForm proveedores={proveedores} bodegas={bodegas} />);
 
     await selectCombobox("Proveedor", "Repuestos El Motor");
-    await userEvent.selectOptions(screen.getByLabelText("Bodega"), "b1");
+    const bodegaTrigger = screen.getByRole("combobox", { name: "Bodega" });
+    await userEvent.click(bodegaTrigger);
+    await userEvent.click(await screen.findByRole("option", { name: "Bodega principal" }));
     await userEvent.click(screen.getByRole("button", { name: "Crear entrada" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Entrada creada");
@@ -62,7 +67,9 @@ describe("NuevaEntradaMercanciaForm", () => {
     render(<NuevaEntradaMercanciaForm proveedores={proveedores} bodegas={bodegas} />);
 
     await selectCombobox("Proveedor", "Repuestos El Motor");
-    await userEvent.selectOptions(screen.getByLabelText("Bodega"), "b1");
+    const bodegaTrigger = screen.getByRole("combobox", { name: "Bodega" });
+    await userEvent.click(bodegaTrigger);
+    await userEvent.click(await screen.findByRole("option", { name: "Bodega principal" }));
     await userEvent.click(screen.getByRole("button", { name: "Crear entrada" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Tu plan no permite más bodegas.");

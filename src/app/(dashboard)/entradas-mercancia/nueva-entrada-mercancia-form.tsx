@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import { SelectField } from "@/components/ui/select-field";
 
 const initialState: EntradaFormState = { error: null, success: false };
 
@@ -25,7 +25,6 @@ export function NuevaEntradaMercanciaForm({
   const [state, formAction, isPending] = useActionState(createEntradaMercanciaAction, initialState);
   const formRef = useRef<HTMLFormElement>(null);
   const {
-    register,
     handleSubmit,
     control,
     formState: { errors },
@@ -34,6 +33,7 @@ export function NuevaEntradaMercanciaForm({
     defaultValues: { proveedorId: "", bodegaId: "" },
   });
   const { field: proveedorIdField } = useController({ name: "proveedorId", control });
+  const { field: bodegaIdField } = useController({ name: "bodegaId", control });
 
   const proveedorOptions: ComboboxOption[] = useMemo(
     () => proveedores.map((proveedor) => ({ value: proveedor.id, label: proveedor.nombre })),
@@ -47,10 +47,12 @@ export function NuevaEntradaMercanciaForm({
       onSubmit={handleSubmit((data) =>
         startTransition(() => {
           const formData = new FormData(formRef.current!);
-          // proveedorId is a Combobox (react-hook-form-controlled, not a
-          // native <select name="..."> register()) -- it doesn't populate
-          // FormData on its own, so it must be set explicitly here.
+          // proveedorId and bodegaId are Combobox/SelectField
+          // (react-hook-form-controlled, not native <select name="..."> register())
+          // -- they don't populate FormData on their own, so they must be set
+          // explicitly here.
           formData.set("proveedorId", data.proveedorId ?? "");
+          formData.set("bodegaId", data.bodegaId ?? "");
           formAction(formData);
         }),
       )}
@@ -76,28 +78,16 @@ export function NuevaEntradaMercanciaForm({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="bodegaId">Bodega</Label>
-            {/*
-              Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-              while closed) -- userEvent.selectOptions()/getByRole("option")
-              in the existing tests need real <select>/<option> elements.
-              Styled by hand to match the shadcn select trigger look.
-            */}
-            <NativeSelect
+            <SelectField
               id="bodegaId"
               required
               aria-invalid={errors.bodegaId ? true : undefined}
               aria-describedby={errors.bodegaId ? "bodegaId-error" : undefined}
-              {...register("bodegaId")}
-            >
-              <option value="" disabled>
-                Selecciona una bodega
-              </option>
-              {bodegas.map((bodega) => (
-                <option key={bodega.id} value={bodega.id}>
-                  {bodega.nombre}
-                </option>
-              ))}
-            </NativeSelect>
+              value={bodegaIdField.value ?? ""}
+              onValueChange={bodegaIdField.onChange}
+              placeholder="Selecciona una bodega"
+              items={bodegas.map((bodega) => ({ value: bodega.id, label: bodega.nombre }))}
+            />
             {errors.bodegaId ? <p id="bodegaId-error">{errors.bodegaId.message}</p> : null}
           </div>
         </div>
