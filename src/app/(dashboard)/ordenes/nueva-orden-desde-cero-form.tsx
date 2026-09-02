@@ -14,12 +14,10 @@ import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 
 const initialState: OrdenFormState = { error: null, success: false };
-
-const SELECT_CLASSNAME =
-  "flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30";
 
 // clienteId only narrows the Vehículo options client-side -- the server
 // action (createOrdenDesdeVehiculoAction) never reads it, it derives the real
@@ -184,11 +182,10 @@ export function NuevaOrdenDesdeCeroForm({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="mecanicoId">Mecánico asignado</Label>
-            <select
+            <NativeSelect
               id="mecanicoId"
               aria-invalid={errors.mecanicoId ? true : undefined}
               aria-describedby={errors.mecanicoId ? "mecanicoId-error" : undefined}
-              className={SELECT_CLASSNAME}
               {...register("mecanicoId")}
             >
               <option value="">Sin asignar</option>
@@ -197,7 +194,7 @@ export function NuevaOrdenDesdeCeroForm({
                   {tecnico.nombre}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
             {errors.mecanicoId ? (
               <p id="mecanicoId-error" className="text-xs text-destructive">
                 {errors.mecanicoId.message}

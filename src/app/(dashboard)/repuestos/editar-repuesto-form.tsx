@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 
 type RepuestoFormInput = z.input<typeof repuestoInputSchema>;
@@ -139,11 +140,10 @@ export function EditarRepuestoForm({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor={`bodegaId-${repuesto.id}`}>Bodega</Label>
-              <select
+              <NativeSelect
                 id={`bodegaId-${repuesto.id}`}
                 aria-invalid={errors.bodegaId ? true : undefined}
                 aria-describedby={errors.bodegaId ? `bodegaId-${repuesto.id}-error` : undefined}
-                className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
                 {...register("bodegaId")}
               >
                 {bodegas.map((bodega) => (
@@ -151,7 +151,7 @@ export function EditarRepuestoForm({
                     {bodega.nombre}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
               {errors.bodegaId ? <p id={`bodegaId-${repuesto.id}-error`}>{errors.bodegaId.message}</p> : null}
             </div>
 

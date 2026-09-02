@@ -7,6 +7,7 @@ import type { SedeActiva } from "@/lib/auth/sede-access";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 
 export function SeleccionarSedeForm({ sedes }: { sedes: SedeActiva[] }) {
   const router = useRouter();
@@ -50,19 +51,13 @@ export function SeleccionarSedeForm({ sedes }: { sedes: SedeActiva[] }) {
           in the existing tests need real <select>/<option> elements.
           Styled by hand to match the shadcn select trigger look.
         */}
-        <select
-          id="sedeId"
-          name="sedeId"
-          required
-          defaultValue={sedes[0]?.id ?? ""}
-          className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-        >
+        <NativeSelect id="sedeId" name="sedeId" required defaultValue={sedes[0]?.id ?? ""}>
           {sedes.map((sede) => (
             <option key={sede.id} value={sede.id}>
               {sede.nombre}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
 
       <Button type="submit" disabled={isPending || sinSedes} className="w-full">

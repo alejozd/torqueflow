@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 
 const initialState: UsuarioFormState = { error: null, success: false };
 
@@ -85,15 +86,11 @@ export function NuevoUsuarioForm() {
               in the existing tests need real <select>/<option> elements.
               Styled by hand to match the shadcn select trigger look.
             */}
-            <select
-              id="role"
-              className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-              {...register("role")}
-            >
+            <NativeSelect id="role" {...register("role")}>
               <option value="ADMIN">ADMIN</option>
               <option value="TECNICO">TECNICO</option>
               <option value="RECEPCION">RECEPCION</option>
-            </select>
+            </NativeSelect>
           </div>
         </div>
       </FormGroup>

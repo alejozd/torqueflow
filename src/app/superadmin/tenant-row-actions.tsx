@@ -9,6 +9,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 
 const initialState: SuperAdminFormState = { error: null, success: false };
 
@@ -52,18 +53,13 @@ export function TenantRowActions({
           needs a real <select>/<option> element. Styled by hand to match
           the shadcn select trigger look (see seleccionar-sede-form.tsx).
         */}
-        <select
-          id={`plan-${tenantId}`}
-          name="planId"
-          defaultValue={planIdActual}
-          className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-        >
+        <NativeSelect id={`plan-${tenantId}`} name="planId" defaultValue={planIdActual}>
           {planes.map((plan) => (
             <option key={plan.id} value={plan.id}>
               {plan.nombre}
             </option>
           ))}
-        </select>
+        </NativeSelect>
         <Button type="submit" variant="outline" size="sm" disabled={planPending}>
           Guardar plan
         </Button>

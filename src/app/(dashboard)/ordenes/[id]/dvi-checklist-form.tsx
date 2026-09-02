@@ -7,6 +7,7 @@ import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
 
 const initialState: DviFormState = { error: null, success: false };
@@ -53,18 +54,18 @@ export function DviChecklistForm({ ordenId, checklist }: { ordenId: string; chec
                   a real <select>/<option> element. Styled by hand to match the
                   shadcn select trigger look (see seleccionar-sede-form.tsx).
                 */}
-                <select
+                <NativeSelect
                   id={item.key}
                   name={item.key}
                   defaultValue={valor}
-                  className="h-7 w-[90px] shrink-0 rounded-md border border-input bg-transparent px-1.5 text-xs outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+                  className="h-7 w-[90px] shrink-0 rounded-md px-1.5 pr-6 text-xs"
                 >
                   {DVI_CHECKLIST_STATUSES.map((estado) => (
                     <option key={estado} value={estado}>
                       {ESTADO_LABELS[estado]}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
             );
           })}

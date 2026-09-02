@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 
 type FilaProductividad = Awaited<ReturnType<typeof getReporteProductividad>>["filas"][number];
@@ -73,18 +74,13 @@ export default async function ReportesPage({
             */}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="sedeId">Sede</Label>
-              <select
-                id="sedeId"
-                name="sedeId"
-                defaultValue={rentabilidad.filtros.sedeId}
-                className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-              >
+              <NativeSelect id="sedeId" name="sedeId" defaultValue={rentabilidad.filtros.sedeId}>
                 {sedes.map((sede) => (
                   <option key={sede.id} value={sede.id}>
                     {sede.nombre}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
 
             <Button type="submit">Aplicar</Button>

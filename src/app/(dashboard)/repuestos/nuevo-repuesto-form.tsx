@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 
 const initialState: RepuestoFormState = { error: null, success: false, repuestoId: null };
@@ -134,11 +135,10 @@ export function NuevoRepuestoForm({
               in the existing tests need real <select>/<option> elements.
               Styled by hand to match the shadcn select trigger look.
             */}
-            <select
+            <NativeSelect
               id="bodegaId"
               aria-invalid={errors.bodegaId ? true : undefined}
               aria-describedby={errors.bodegaId ? "bodegaId-error" : undefined}
-              className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
               {...register("bodegaId")}
             >
               <option value="" disabled>
@@ -149,7 +149,7 @@ export function NuevoRepuestoForm({
                   {bodega.nombre}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
             {errors.bodegaId ? <p id="bodegaId-error">{errors.bodegaId.message}</p> : null}
           </div>
 

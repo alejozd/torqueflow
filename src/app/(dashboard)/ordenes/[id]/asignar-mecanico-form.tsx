@@ -7,6 +7,7 @@ import {
   type TecnicoOption,
 } from "@/app/actions/orden-actions";
 import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
 
 const initialState: AsignarMecanicoFormState = { error: null, success: false };
 
@@ -43,7 +44,7 @@ export function AsignarMecanicoForm({
           selects (see cambiar-estado-form.tsx) and keeps getByRole("option")
           working in tests.
         */}
-        <select
+        <NativeSelect
           // defaultValue only applies on mount -- if ADMIN corrects an
           // already-assigned mecánico, this component stays mounted across
           // the revalidatePath re-render, so a plain defaultValue would
@@ -52,7 +53,7 @@ export function AsignarMecanicoForm({
           id="mecanicoId"
           name="mecanicoId"
           defaultValue={mecanico?.id ?? ""}
-          className="flex h-7 min-w-0 flex-1 items-center justify-between rounded-md border border-input bg-transparent px-1.5 text-xs outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+          className="h-7 min-w-0 flex-1 rounded-md px-1.5 pr-6 text-xs"
         >
           <option value="">Sin asignar</option>
           {tecnicos.map((tecnico) => (
@@ -60,7 +61,7 @@ export function AsignarMecanicoForm({
               {tecnico.nombre}
             </option>
           ))}
-        </select>
+        </NativeSelect>
         <Button type="submit" size="sm" variant="outline" disabled={isPending} className="h-7 shrink-0 px-2 text-xs">
           {isPending ? "..." : mecanico ? "Guardar" : "Asignar"}
         </Button>

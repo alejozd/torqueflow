@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 
 const initialState: ManoDeObraFormState = { error: null, success: false };
 
@@ -83,11 +84,10 @@ export function AgregarManoObraForm({
               userEvent.selectOptions()/getByRole("option") working, same
               reasoning as asignar-mecanico-form.tsx.
             */}
-            <select
+            <NativeSelect
               id="manoObraMecanico"
               aria-invalid={errors.mecanicoId ? true : undefined}
               aria-describedby={errors.mecanicoId ? "manoObraMecanico-error" : undefined}
-              className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
               {...register("mecanicoId")}
             >
               <option value="">Sin asignar</option>
@@ -96,7 +96,7 @@ export function AgregarManoObraForm({
                   {tecnico.nombre}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
             {errors.mecanicoId ? <p id="manoObraMecanico-error">{errors.mecanicoId.message}</p> : null}
           </div>
         </div>

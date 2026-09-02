@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 
 const initialState: DviFormState = { error: null, success: false };
 
@@ -29,15 +30,10 @@ export function DviFotoForm({ ordenId, fotos }: { ordenId: string; fotos: DviFot
               real <select>/<option> element. Styled by hand to match the
               shadcn select trigger look (see seleccionar-sede-form.tsx).
             */}
-            <select
-              id="momento"
-              name="momento"
-              defaultValue="ANTES"
-              className="flex h-8 w-28 items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-            >
+            <NativeSelect id="momento" name="momento" defaultValue="ANTES" className="w-28">
               <option value="ANTES">Antes</option>
               <option value="DESPUES">Después</option>
-            </select>
+            </NativeSelect>
           </div>
 
           <div className="flex min-w-[200px] flex-1 flex-col gap-1.5">

@@ -6,6 +6,7 @@ import { vehiculoInputSchema } from "@/lib/validation/vehiculo";
 import { FormGroup } from "@/components/form-group";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 
 // createVehiculoAction/updateVehiculoAction read these fields with `|| undefined`
@@ -95,17 +96,13 @@ export function VehiculoFormFields({
               while closed) -- keeps userEvent.selectOptions()/getByRole("option")
               working, same reasoning as usuarios/nuevo-usuario-form.tsx.
             */}
-            <select
-              id="combustible"
-              className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-              {...register("combustible")}
-            >
+            <NativeSelect id="combustible" {...register("combustible")}>
               <option value="">Seleccionar...</option>
               <option value="GASOLINA">Gasolina</option>
               <option value="DIESEL">Diésel</option>
               <option value="HIBRIDO">Híbrido</option>
               <option value="ELECTRICO">Eléctrico</option>
-            </select>
+            </NativeSelect>
           </div>
         </div>
       </FormGroup>
@@ -142,15 +139,11 @@ export function VehiculoFormFields({
 
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="transmision">Transmisión</Label>
-            <select
-              id="transmision"
-              className="flex h-8 w-full items-center justify-between rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-              {...register("transmision")}
-            >
+            <NativeSelect id="transmision" {...register("transmision")}>
               <option value="">Seleccionar...</option>
               <option value="AUTOMATICA">Automática</option>
               <option value="MECANICA">Mecánica</option>
-            </select>
+            </NativeSelect>
           </div>
         </div>
       </FormGroup>
