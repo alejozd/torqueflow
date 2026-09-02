@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useActionState, useRef } from "react";
-import { useForm } from "react-hook-form";
+import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { registrarPagoAction, type PagoFormState } from "@/app/actions/pago-actions";
 import { pagoInputSchema } from "@/lib/validation/factura";
@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import { SelectField } from "@/components/ui/select-field";
 
 const initialState: PagoFormState = { error: null, success: false };
 
@@ -25,11 +25,13 @@ export function RegistrarPagoForm({ facturaId, estado }: { facturaId: string; es
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<PagoFormInput>({
     resolver: zodResolver(pagoInputSchema),
     defaultValues: { monto: "", metodoPago: "EFECTIVO", referencia: "" },
   });
+  const { field: metodoPagoField } = useController({ name: "metodoPago", control });
 
   if (estado === "PAGADA") {
     return <p role="status">Factura pagada</p>;
@@ -39,7 +41,17 @@ export function RegistrarPagoForm({ facturaId, estado }: { facturaId: string; es
     <form
       noValidate
       ref={formRef}
-      onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+      onSubmit={handleSubmit((data) =>
+        startTransition(() => {
+          const formData = new FormData(formRef.current!);
+          // metodoPago is a SelectField (react-hook-form-controlled, not a
+          // native <select name="..."> register()) -- it doesn't populate
+          // FormData on its own, so it must be set explicitly here before
+          // submitting.
+          formData.set("metodoPago", data.metodoPago ?? "");
+          formAction(formData);
+        }),
+      )}
       className="flex flex-col gap-4"
     >
       <FormGroup label="Pago">
@@ -62,23 +74,19 @@ export function RegistrarPagoForm({ facturaId, estado }: { facturaId: string; es
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="metodoPago">Método de pago</Label>
-            {/*
-              Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-              while closed) -- userEvent.selectOptions()/getByRole("option")
-              in the existing tests need real <select>/<option> elements.
-              Styled by hand to match the shadcn select trigger look.
-            */}
-            <NativeSelect
+            <SelectField
               id="metodoPago"
               aria-invalid={errors.metodoPago ? true : undefined}
               aria-describedby={errors.metodoPago ? "metodoPago-error" : undefined}
-              {...register("metodoPago")}
-            >
-              <option value="EFECTIVO">Efectivo</option>
-              <option value="TARJETA">Tarjeta</option>
-              <option value="TRANSFERENCIA">Transferencia</option>
-              <option value="OTRO">Otro</option>
-            </NativeSelect>
+              value={metodoPagoField.value ?? ""}
+              onValueChange={metodoPagoField.onChange}
+              items={[
+                { value: "EFECTIVO", label: "Efectivo" },
+                { value: "TARJETA", label: "Tarjeta" },
+                { value: "TRANSFERENCIA", label: "Transferencia" },
+                { value: "OTRO", label: "Otro" },
+              ]}
+            />
             {errors.metodoPago ? <p id="metodoPago-error">{errors.metodoPago.message}</p> : null}
           </div>
 

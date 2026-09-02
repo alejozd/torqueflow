@@ -17,13 +17,15 @@ describe("NuevaOrdenForm", () => {
     mockCreateOrdenAction.mockResolvedValue({ error: null, success: true });
   });
 
-  it("renders the kilometraje, síntomas, and mecánico fields", () => {
+  it("renders the kilometraje, síntomas, and mecánico fields", async () => {
     render(<NuevaOrdenForm clienteId="c1" vehiculoId="v1" tecnicos={tecnicos} />);
 
     expect(screen.getByLabelText("Kilometraje de ingreso")).toBeInTheDocument();
     expect(screen.getByLabelText("Síntomas reportados")).toBeInTheDocument();
-    expect(screen.getByLabelText("Mecánico asignado")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Carlos Ruiz" })).toBeInTheDocument();
+    const trigger = screen.getByRole("combobox", { name: "Mecánico asignado" });
+    expect(trigger).toBeInTheDocument();
+    await userEvent.click(trigger);
+    expect(await screen.findByRole("option", { name: "Carlos Ruiz" })).toBeInTheDocument();
   });
 
   it("shows a success message after a successful submit when no onCreated callback is given", async () => {

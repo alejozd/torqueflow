@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createOrdenAction, type OrdenFormState, type TecnicoOption } from "@/app/actions/orden-actions";
@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import { SelectField } from "@/components/ui/select-field";
 import { Textarea } from "@/components/ui/textarea";
 
 const initialState: OrdenFormState = { error: null, success: false };
@@ -55,15 +55,21 @@ export function NuevaOrdenForm({
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<OrdenFormInput>({
     resolver: zodResolver(ordenFormSchema),
     defaultValues: { kilometrajeIngreso: "", sintomas: "", mecanicoId: "" },
   });
+  const { field: mecanicoIdField } = useController({ name: "mecanicoId", control });
 
-  function onValid() {
+  function onValid(data: OrdenFormInput) {
     startTransition(async () => {
       const formData = new FormData(formRef.current!);
+      // mecanicoId is a SelectField (react-hook-form-controlled, not a native
+      // <select name="..."> register()) -- it doesn't populate FormData on
+      // its own, so it must be set explicitly here before submitting.
+      formData.set("mecanicoId", data.mecanicoId ?? "");
       const result = await createOrdenAction(clienteId, vehiculoId, initialState, formData);
       if (result.success && result.ordenId && onCreated) {
         onCreated(result.ordenId);
@@ -95,25 +101,18 @@ export function NuevaOrdenForm({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="mecanicoId">Mecánico asignado</Label>
-            {/*
-              Native <select>, not shadcn's Select (Base UI, no DOM <option>s
-              while closed) -- userEvent.selectOptions()/getByRole("option")
-              in the existing tests need real <select>/<option> elements.
-              Styled by hand to match the shadcn select trigger look.
-            */}
-            <NativeSelect
+            <SelectField
               id="mecanicoId"
               aria-invalid={errors.mecanicoId ? true : undefined}
               aria-describedby={errors.mecanicoId ? "mecanicoId-error" : undefined}
-              {...register("mecanicoId")}
-            >
-              <option value="">Sin asignar</option>
-              {tecnicos.map((tecnico) => (
-                <option key={tecnico.id} value={tecnico.id}>
-                  {tecnico.nombre}
-                </option>
-              ))}
-            </NativeSelect>
+              value={mecanicoIdField.value ?? ""}
+              onValueChange={mecanicoIdField.onChange}
+              placeholder="Sin asignar"
+              items={[
+                { value: "", label: "Sin asignar" },
+                ...tecnicos.map((tecnico) => ({ value: tecnico.id, label: tecnico.nombre })),
+              ]}
+            />
             {errors.mecanicoId ? <p id="mecanicoId-error">{errors.mecanicoId.message}</p> : null}
           </div>
         </div>
