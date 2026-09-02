@@ -15,6 +15,7 @@
     "tenant:check-duplicate-emails": "tsx scripts/cli/check-duplicate-emails.ts",
     "tenant:backfill-user-index": "tsx scripts/cli/backfill-tenant-user-index.ts",
     "repuestos:seed": "tsx scripts/cli/seed-repuestos.ts",
+    "clientes:seed": "tsx scripts/cli/seed-clientes.ts",
     "superadmin:seed": "tsx scripts/cli/seed-super-admin.ts"
   },
   "dependencies": {
