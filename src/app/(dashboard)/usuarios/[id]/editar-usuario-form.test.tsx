@@ -25,7 +25,7 @@ describe("EditarUsuarioForm", () => {
 
     expect(screen.getByLabelText("Nombre")).toHaveValue("Ana Pérez");
     expect(screen.getByLabelText("Correo")).toHaveValue("ana@taller.test");
-    expect(screen.getByLabelText("Rol")).toHaveValue("TECNICO");
+    expect(screen.getByRole("combobox", { name: "Rol" })).toHaveTextContent("TECNICO");
     expect(screen.getByLabelText("Contraseña")).toHaveValue("");
   });
 
