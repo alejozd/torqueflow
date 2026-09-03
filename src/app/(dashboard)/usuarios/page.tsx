@@ -45,6 +45,7 @@ function buildColumns(sedesPorId: Map<string, string>, sedeOptions: SedeOption[]
           <span className="text-xs text-muted-foreground">{usuario.email}</span>
         </div>
       ),
+      searchValue: (usuario) => `${usuario.nombre} ${usuario.email}`,
     },
     {
       header: "Rol",
@@ -185,6 +186,9 @@ export default async function UsuariosPage({
             rows={filtrados}
             getRowKey={(usuario) => usuario.id}
             emptyMessage="No hay usuarios registrados."
+            searchable
+            searchPlaceholder="Buscar por nombre o correo..."
+            pageSize={10}
           />
         </CardContent>
       </Card>

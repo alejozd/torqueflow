@@ -55,14 +55,17 @@ function buildColumns(bodegas: Bodega[], proveedores: Proveedor[]): DataTableCol
     {
       header: "Código",
       cell: (repuesto) => <span className="font-mono text-sm">{repuesto.codigo}</span>,
+      searchValue: (repuesto) => repuesto.codigo,
     },
     {
       header: "Repuesto",
       cell: (repuesto) => <span className="font-medium">{repuesto.nombre}</span>,
+      searchValue: (repuesto) => repuesto.nombre,
     },
     {
       header: "Bodega",
       cell: (repuesto) => <span className="text-muted-foreground">{repuesto.bodega.nombre}</span>,
+      searchValue: (repuesto) => repuesto.bodega.nombre,
     },
     {
       header: "Stock",
@@ -212,6 +215,9 @@ export default async function RepuestosPage({
             rows={filtrados}
             getRowKey={(repuesto) => repuesto.id}
             emptyMessage="No hay repuestos en este filtro."
+            searchable
+            searchPlaceholder="Buscar por código, repuesto o bodega..."
+            pageSize={50}
           />
         </CardContent>
       </Card>
