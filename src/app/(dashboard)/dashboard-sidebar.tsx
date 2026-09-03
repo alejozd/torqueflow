@@ -136,13 +136,13 @@ export function DashboardSidebar({
 
   return (
     <div className="dark">
-      <Sidebar>
+      <Sidebar collapsible="icon">
         <SidebarHeader className="px-2 py-3">
           <div className="flex items-center gap-2.5 px-1">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary">
               <Wrench className="size-4 text-primary-foreground" />
             </div>
-            <div className="flex min-w-0 flex-col">
+            <div className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
               <span className="truncate text-sm font-semibold text-sidebar-foreground">TorqueFlow</span>
               <span className="truncate font-mono text-[0.6875rem] text-sidebar-foreground/50">{tenantSlug}</span>
             </div>
@@ -161,7 +161,7 @@ export function DashboardSidebar({
           {esAdmin ? <NavGroupSection group={ADMINISTRACION} pathname={pathname} /> : null}
         </SidebarContent>
         {plan ? (
-          <SidebarFooter className="gap-2 border-t border-sidebar-border px-3 py-3">
+          <SidebarFooter className="gap-2 border-t border-sidebar-border px-3 py-3 group-data-[collapsible=icon]:hidden">
             <div className="flex items-center justify-between text-xs text-sidebar-foreground/70">
               <span>
                 Plan <span className="font-medium text-sidebar-foreground">{plan.nombre}</span>
