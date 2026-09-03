@@ -23,11 +23,7 @@ function calcularCostoTotal(entrada: EntradaWithDetalle): number {
 const COLUMNS: DataTableColumn<EntradaWithDetalle>[] = [
   {
     header: "Entrada",
-    cell: (entrada) => (
-      <Link href={`/entradas-mercancia/${entrada.id}`} className="font-mono text-sm font-medium hover:underline">
-        #{entrada.id.slice(-8).toUpperCase()}
-      </Link>
-    ),
+    cell: (entrada) => <span className="font-mono text-sm font-medium">#{entrada.id.slice(-8).toUpperCase()}</span>,
   },
   {
     header: "Fecha",
@@ -106,6 +102,7 @@ export default async function EntradasMercanciaPage() {
             columns={COLUMNS}
             rows={entradas}
             getRowKey={(entrada) => entrada.id}
+            rowHref={(entrada) => `/entradas-mercancia/${entrada.id}`}
             emptyMessage="No hay entradas de mercancía registradas."
           />
         </CardContent>
