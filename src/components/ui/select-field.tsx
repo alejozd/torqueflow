@@ -16,8 +16,8 @@ export interface SelectFieldOption {
 }
 
 /**
- * Styled replacement for a plain <select> (native-select.tsx) when the
- * OS-native popup chrome is undesirable. Speaks in plain string values like
+ * Styled replacement for a plain <select> when the OS-native popup chrome
+ * is undesirable. Speaks in plain string values like
  * every other form field here, mirroring combobox.tsx's API shape
  * (items/value/onValueChange/name) so the two stay consistent to use
  * side by side.

@@ -152,6 +152,7 @@ export function EditarRepuestoForm({
                 value={bodegaIdField.value ?? ""}
                 onValueChange={bodegaIdField.onChange}
                 items={bodegaOptions}
+                placeholder="Selecciona una bodega"
                 aria-invalid={errors.bodegaId ? true : undefined}
                 aria-describedby={errors.bodegaId ? `bodegaId-${repuesto.id}-error` : undefined}
               />
