@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { DataTable, type DataTableColumn } from "./data-table";
 
 type Row = { id: string; name: string; amount: string };
@@ -115,5 +116,75 @@ describe("DataTable", () => {
     // elsewhere in the pre-rendered tree.
     const row = screen.getByRole("row", { name: /Item A/ });
     expect(row.contains(link)).toBe(true);
+  });
+
+  it("does not render a search input when searchable is omitted (default false), even if a column sets searchValue", () => {
+    const columns: DataTableColumn<Row>[] = [
+      { header: "Nombre", cell: (row) => row.name, searchValue: (row) => row.name },
+    ];
+    render(<DataTable columns={columns} rows={buildRows(3)} getRowKey={(row) => row.id} emptyMessage="Sin datos" />);
+
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+  });
+
+  it("filters rows down to only the matches when searchable is true and a column defines searchValue", async () => {
+    const user = userEvent.setup();
+    const columns: DataTableColumn<Row>[] = [
+      { header: "Nombre", cell: (row) => row.name, searchValue: (row) => row.name },
+    ];
+    render(
+      <DataTable
+        columns={columns}
+        rows={buildRows(3)}
+        getRowKey={(row) => row.id}
+        emptyMessage="Sin datos"
+        searchable
+      />,
+    );
+
+    await user.type(screen.getByRole("searchbox"), "Item 2");
+
+    expect(screen.getByRole("cell", { name: "Item 2" })).toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: "Item 1" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: "Item 3" })).not.toBeInTheDocument();
+  });
+
+  it("shows the empty message instead of the table when the search query matches no row", async () => {
+    const user = userEvent.setup();
+    const columns: DataTableColumn<Row>[] = [
+      { header: "Nombre", cell: (row) => row.name, searchValue: (row) => row.name },
+    ];
+    render(
+      <DataTable
+        columns={columns}
+        rows={buildRows(3)}
+        getRowKey={(row) => row.id}
+        emptyMessage="Sin datos"
+        searchable
+      />,
+    );
+
+    await user.type(screen.getByRole("searchbox"), "no existe ningun item asi");
+
+    expect(screen.getByText("Sin datos")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("applies the searchPlaceholder prop to the search input", () => {
+    const columns: DataTableColumn<Row>[] = [
+      { header: "Nombre", cell: (row) => row.name, searchValue: (row) => row.name },
+    ];
+    render(
+      <DataTable
+        columns={columns}
+        rows={buildRows(3)}
+        getRowKey={(row) => row.id}
+        emptyMessage="Sin datos"
+        searchable
+        searchPlaceholder="Buscar cliente..."
+      />,
+    );
+
+    expect(screen.getByPlaceholderText("Buscar cliente...")).toBeInTheDocument();
   });
 });

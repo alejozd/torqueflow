@@ -11,10 +11,8 @@ export type DataTableColumn<T> = {
   className?: string;
   /**
    * Plain-text representation of this column's value for a row, used by
-   * DataTableInteractive's client-side search filter. Unused for now --
-   * `DataTable` doesn't expose a `searchable` prop yet, so every caller's
-   * `searchTexts` entry is currently just `""`. Wired through end-to-end by
-   * a later task.
+   * DataTableInteractive's client-side search filter when the caller opts
+   * in via `DataTable`'s `searchable` prop.
    */
   searchValue?: (row: T) => string;
 };
@@ -26,6 +24,8 @@ export function DataTable<T>({
   emptyMessage,
   rowHref,
   pageSize = 20,
+  searchable = false,
+  searchPlaceholder = "Buscar...",
 }: {
   columns: DataTableColumn<T>[];
   rows: T[];
@@ -45,6 +45,14 @@ export function DataTable<T>({
   rowHref?: (row: T) => string;
   /** Rows per page for the client-side pagination footer. Defaults to 20. */
   pageSize?: number;
+  /**
+   * Enables the client-side search box in DataTableInteractive. Only
+   * meaningful when at least one column defines `searchValue`. Defaults to
+   * `false` -- zero visible change for callers that don't opt in.
+   */
+  searchable?: boolean;
+  /** Placeholder text for the search box. Only used when `searchable` is true. */
+  searchPlaceholder?: string;
 }) {
   if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
@@ -92,7 +100,8 @@ export function DataTable<T>({
       searchTexts={searchTexts}
       rowCount={rows.length}
       pageSize={pageSize}
-      searchable={false}
+      searchable={searchable}
+      searchPlaceholder={searchPlaceholder}
       emptyMessage={emptyMessage}
     />
   );
