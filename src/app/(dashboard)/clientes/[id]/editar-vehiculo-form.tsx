@@ -8,6 +8,7 @@ import { VehiculoFormFields, vehiculoFormSchema, type VehiculoFormInput } from "
 import type { Vehiculo } from "@/generated/prisma-tenant";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { DialogClose } from "@/components/ui/dialog";
 
 const initialState: VehiculoFormState = { error: null, success: false };
 
@@ -70,9 +71,14 @@ export function EditarVehiculoForm({ vehiculo }: { vehiculo: Vehiculo }) {
 
       <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
         <span className="text-xs text-muted-foreground">Placa, marca y modelo son obligatorios</span>
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "Guardando..." : "Guardar cambios"}
-        </Button>
+        <div className="flex justify-end gap-2">
+          <DialogClose render={<Button type="button" variant="outline" />}>
+            Cancelar
+          </DialogClose>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? "Guardando..." : "Guardar cambios"}
+          </Button>
+        </div>
       </div>
     </form>
   );

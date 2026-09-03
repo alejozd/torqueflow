@@ -9,6 +9,7 @@ import { ordenTrabajoInputSchema } from "@/lib/validation/orden";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
@@ -138,9 +139,14 @@ export function NuevaOrdenForm({
       ) : null}
       {state.success ? <p role="status">Orden creada</p> : null}
 
-      <Button type="submit" disabled={isPending}>
-        {isPending ? "Creando..." : "Crear orden"}
-      </Button>
+      <div className="flex justify-end gap-2">
+        <DialogClose render={<Button type="button" variant="outline" />}>
+          Cancelar
+        </DialogClose>
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Creando..." : "Crear orden"}
+        </Button>
+      </div>
     </form>
   );
 }

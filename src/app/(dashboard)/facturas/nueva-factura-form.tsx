@@ -12,6 +12,7 @@ import { facturarOrdenInputSchema } from "@/lib/validation/factura";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
+import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -123,9 +124,14 @@ export function NuevaFacturaForm({ ordenes }: { ordenes: OrdenFacturableOption[]
         {errors.descuento ? <p id="descuento-error">{errors.descuento.message}</p> : null}
       </div>
 
-      <Button type="submit" disabled={isPending} className="self-end">
-        {isPending ? "Generando..." : "Generar factura"}
-      </Button>
+      <div className="flex justify-end gap-2">
+        <DialogClose render={<Button type="button" variant="outline" />}>
+          Cancelar
+        </DialogClose>
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Generando..." : "Generar factura"}
+        </Button>
+      </div>
 
       {state.error ? (
         <Alert variant="destructive">

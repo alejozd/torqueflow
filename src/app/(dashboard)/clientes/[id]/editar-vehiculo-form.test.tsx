@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Dialog } from "@/components/ui/dialog";
 
 const mockUpdateVehiculoAction = vi.fn();
 vi.mock("@/app/actions/vehiculo-actions", () => ({
@@ -8,6 +9,13 @@ vi.mock("@/app/actions/vehiculo-actions", () => ({
 }));
 
 import { EditarVehiculoForm } from "./editar-vehiculo-form";
+
+// EditarVehiculoForm renders a DialogClose-wrapped Cancel button that
+// requires a Dialog ancestor (same as every dialog-only form in this app) --
+// render through a real Dialog instead of the bare component.
+function renderInDialog(ui: Parameters<typeof render>[0]) {
+  return render(<Dialog open>{ui}</Dialog>);
+}
 
 const vehiculo = {
   id: "v1",
@@ -32,7 +40,7 @@ describe("EditarVehiculoForm", () => {
   });
 
   it("prefills every field with the vehiculo's current values", () => {
-    render(<EditarVehiculoForm vehiculo={vehiculo} />);
+    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} />);
 
     expect(screen.getByLabelText("Placa")).toHaveValue("ABC123");
     expect(screen.getByLabelText("Marca")).toHaveValue("Toyota");
@@ -46,7 +54,7 @@ describe("EditarVehiculoForm", () => {
   });
 
   it("shows a success message after a successful submit", async () => {
-    render(<EditarVehiculoForm vehiculo={vehiculo} />);
+    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
 
@@ -55,7 +63,7 @@ describe("EditarVehiculoForm", () => {
 
   it("shows the error message when the action returns one", async () => {
     mockUpdateVehiculoAction.mockResolvedValue({ error: "Ya existe un registro con ese valor.", success: false });
-    render(<EditarVehiculoForm vehiculo={vehiculo} />);
+    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
 

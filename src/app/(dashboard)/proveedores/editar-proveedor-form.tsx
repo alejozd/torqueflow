@@ -12,6 +12,7 @@ import { proveedorInputSchema, type ProveedorInput } from "@/lib/validation/inve
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -108,9 +109,14 @@ export function EditarProveedorForm({ proveedor }: { proveedor: ProveedorEditabl
           </div>
         </FormGroup>
 
-        <Button type="submit" disabled={isPending} className="self-end">
-          {isPending ? "Guardando..." : "Guardar proveedor"}
-        </Button>
+        <div className="flex justify-end gap-2">
+          <DialogClose render={<Button type="button" variant="outline" />}>
+            Cancelar
+          </DialogClose>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? "Guardando..." : "Guardar proveedor"}
+          </Button>
+        </div>
 
         {state.error ? (
           <Alert variant="destructive">

@@ -11,6 +11,7 @@ import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
+import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -146,9 +147,14 @@ export function NuevaCitaForm({
         </div>
       </FormGroup>
 
-      <Button type="submit" disabled={isPending} className="self-end">
-        {isPending ? "Guardando..." : "Agendar cita"}
-      </Button>
+      <div className="flex justify-end gap-2">
+        <DialogClose render={<Button type="button" variant="outline" />}>
+          Cancelar
+        </DialogClose>
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Guardando..." : "Agendar cita"}
+        </Button>
+      </div>
 
       {state.error ? (
         <Alert variant="destructive">

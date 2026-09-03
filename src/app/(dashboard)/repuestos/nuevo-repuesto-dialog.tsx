@@ -30,7 +30,12 @@ export function NuevoRepuestoDialog({
           <DialogTitle>Nuevo repuesto</DialogTitle>
           <DialogDescription>Se agrega al inventario y queda seleccionado en este ítem.</DialogDescription>
         </DialogHeader>
-        <NuevoRepuestoForm bodegas={bodegas} proveedores={proveedores} onCreated={onCreated} />
+        <NuevoRepuestoForm
+          bodegas={bodegas}
+          proveedores={proveedores}
+          onCreated={onCreated}
+          showCancelButton
+        />
       </DialogContent>
     </Dialog>
   );

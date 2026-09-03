@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Dialog } from "@/components/ui/dialog";
 
 const mockCreateVehiculoAction = vi.fn();
 vi.mock("@/app/actions/vehiculo-actions", () => ({
@@ -9,6 +10,13 @@ vi.mock("@/app/actions/vehiculo-actions", () => ({
 
 import { NuevoVehiculoForm } from "./nuevo-vehiculo-form";
 
+// NuevoVehiculoForm renders a DialogClose-wrapped Cancel button that
+// requires a Dialog ancestor (same as every dialog-only form in this app) --
+// render through a real Dialog instead of the bare component.
+function renderInDialog(ui: Parameters<typeof render>[0]) {
+  return render(<Dialog open>{ui}</Dialog>);
+}
+
 describe("NuevoVehiculoForm", () => {
   beforeEach(() => {
     mockCreateVehiculoAction.mockReset();
@@ -16,7 +24,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("renders placa, marca, modelo, anio fields", () => {
-    render(<NuevoVehiculoForm clienteId="c1" />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" />);
 
     expect(screen.getByLabelText("Placa")).toBeInTheDocument();
     expect(screen.getByLabelText("Marca")).toBeInTheDocument();
@@ -25,7 +33,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("renders the vehicle detail fields (combustible, kilometraje, proximo mantenimiento, transmision, observaciones)", () => {
-    render(<NuevoVehiculoForm clienteId="c1" />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" />);
 
     expect(screen.getByLabelText("Combustible")).toBeInTheDocument();
     expect(screen.getByLabelText("Kilometraje")).toBeInTheDocument();
@@ -35,7 +43,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("submits the detail fields to createVehiculoAction when filled", async () => {
-    render(<NuevoVehiculoForm clienteId="c1" />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" />);
 
     await userEvent.type(screen.getByLabelText("Placa"), "ABC123");
     await userEvent.type(screen.getByLabelText("Marca"), "Toyota");
@@ -62,7 +70,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("shows a success message after a successful submit", async () => {
-    render(<NuevoVehiculoForm clienteId="c1" />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" />);
 
     await userEvent.type(screen.getByLabelText("Placa"), "ABC123");
     await userEvent.type(screen.getByLabelText("Marca"), "Toyota");
@@ -73,7 +81,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("blocks submission and shows field errors when required fields are empty, without calling the server", async () => {
-    render(<NuevoVehiculoForm clienteId="c1" />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" />);
 
     await userEvent.click(screen.getByRole("button", { name: "Agregar vehículo" }));
 

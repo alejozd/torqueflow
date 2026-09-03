@@ -11,6 +11,7 @@ import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
+import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
@@ -25,6 +26,7 @@ export function NuevoRepuestoForm({
   bodegas,
   proveedores,
   onCreated,
+  showCancelButton = false,
 }: {
   bodegas: Bodega[];
   proveedores: Proveedor[];
@@ -38,6 +40,14 @@ export function NuevoRepuestoForm({
    * state-driven effect against a parent re-render.
    */
   onCreated?: (repuestoId: string) => void;
+  /**
+   * Renders a Cancel button (via DialogClose) next to the submit button.
+   * Only safe when this form is rendered inside a Dialog ancestor (e.g.
+   * NuevoRepuestoDialog) -- defaults to false because this same form is
+   * also rendered standalone on /repuestos/nuevo with no Dialog ancestor,
+   * where DialogClose would throw.
+   */
+  showCancelButton?: boolean;
 }) {
   const [state, setState] = useState<RepuestoFormState>(initialState);
   const [isPending, startTransition] = useTransition();
@@ -223,9 +233,16 @@ export function NuevoRepuestoForm({
         </div>
       </FormGroup>
 
-      <Button type="submit" disabled={isPending} className="self-end">
-        {isPending ? "Guardando..." : "Crear repuesto"}
-      </Button>
+      <div className="flex justify-end gap-2">
+        {showCancelButton ? (
+          <DialogClose render={<Button type="button" variant="outline" />}>
+            Cancelar
+          </DialogClose>
+        ) : null}
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Guardando..." : "Crear repuesto"}
+        </Button>
+      </div>
 
       {state.error ? (
         <Alert variant="destructive">

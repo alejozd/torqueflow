@@ -7,6 +7,7 @@ import { createVehiculoAction, type VehiculoFormState } from "@/app/actions/vehi
 import { VehiculoFormFields, vehiculoFormSchema, type VehiculoFormInput } from "./vehiculo-form-fields";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { DialogClose } from "@/components/ui/dialog";
 
 const initialState: VehiculoFormState = { error: null, success: false };
 
@@ -63,9 +64,14 @@ export function NuevoVehiculoForm({ clienteId }: { clienteId: string }) {
 
       <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
         <span className="text-xs text-muted-foreground">Placa, marca y modelo son obligatorios</span>
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "Guardando..." : "Agregar vehículo"}
-        </Button>
+        <div className="flex justify-end gap-2">
+          <DialogClose render={<Button type="button" variant="outline" />}>
+            Cancelar
+          </DialogClose>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? "Guardando..." : "Agregar vehículo"}
+          </Button>
+        </div>
       </div>
     </form>
   );

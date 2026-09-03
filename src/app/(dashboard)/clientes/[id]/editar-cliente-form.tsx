@@ -9,6 +9,7 @@ import type { Cliente } from "@/generated/prisma-tenant";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -105,9 +106,14 @@ export function EditarClienteForm({ cliente }: { cliente: Cliente }) {
 
       <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
         <span className="text-xs text-muted-foreground">Solo el nombre es obligatorio</span>
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "Guardando..." : "Guardar cambios"}
-        </Button>
+        <div className="flex justify-end gap-2">
+          <DialogClose render={<Button type="button" variant="outline" />}>
+            Cancelar
+          </DialogClose>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? "Guardando..." : "Guardar cambios"}
+          </Button>
+        </div>
       </div>
     </form>
   );

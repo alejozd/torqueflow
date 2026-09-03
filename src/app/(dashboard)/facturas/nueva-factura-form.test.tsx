@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Dialog } from "@/components/ui/dialog";
 
 const mockPush = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -14,6 +15,13 @@ vi.mock("@/app/actions/factura-actions", () => ({
 
 import { NuevaFacturaForm } from "./nueva-factura-form";
 
+// NuevaFacturaForm renders a DialogClose-wrapped Cancel button that requires
+// a Dialog ancestor (same as every dialog-only form in this app) -- render
+// through a real Dialog instead of the bare component.
+function renderInDialog(ui: Parameters<typeof render>[0]) {
+  return render(<Dialog open>{ui}</Dialog>);
+}
+
 const ordenes = [
   { id: "o1", placa: "WGT-451", clienteNombre: "María Gómez", clienteDocumento: "43128905", total: 890000 },
   { id: "o2", placa: "PLR-902", clienteNombre: "Jorge Cardona", clienteDocumento: "79445210", total: 320000 },
@@ -26,7 +34,7 @@ describe("NuevaFacturaForm", () => {
   });
 
   it("shows the empty-state message instead of a useless empty picker", () => {
-    render(<NuevaFacturaForm ordenes={[]} />);
+    renderInDialog(<NuevaFacturaForm ordenes={[]} />);
 
     expect(
       screen.getByText("No hay órdenes terminadas o entregadas pendientes de facturar."),
@@ -35,7 +43,7 @@ describe("NuevaFacturaForm", () => {
   });
 
   it("lists every orden by placa, cliente, and total once the picker is open", async () => {
-    render(<NuevaFacturaForm ordenes={ordenes} />);
+    renderInDialog(<NuevaFacturaForm ordenes={ordenes} />);
 
     await userEvent.click(screen.getByRole("combobox"));
 
@@ -44,7 +52,7 @@ describe("NuevaFacturaForm", () => {
   });
 
   it("filters the orden options by cliente, cédula, or placa as you type", async () => {
-    render(<NuevaFacturaForm ordenes={ordenes} />);
+    renderInDialog(<NuevaFacturaForm ordenes={ordenes} />);
 
     await userEvent.type(screen.getByRole("combobox"), "79445210");
 
@@ -54,7 +62,7 @@ describe("NuevaFacturaForm", () => {
 
   it("submits the selected ordenId and navigates to the new factura on success", async () => {
     mockCrearFacturaAction.mockResolvedValue({ error: null, success: true, facturaId: "f1" });
-    render(<NuevaFacturaForm ordenes={ordenes} />);
+    renderInDialog(<NuevaFacturaForm ordenes={ordenes} />);
 
     await userEvent.click(screen.getByRole("combobox"));
     await userEvent.click(await screen.findByRole("option", { name: /PLR-902 — Jorge Cardona/ }));
@@ -70,7 +78,7 @@ describe("NuevaFacturaForm", () => {
 
   it("shows the server error and does not navigate when the action fails", async () => {
     mockCrearFacturaAction.mockResolvedValue({ error: "Orden no encontrada", success: false, facturaId: null });
-    render(<NuevaFacturaForm ordenes={ordenes} />);
+    renderInDialog(<NuevaFacturaForm ordenes={ordenes} />);
 
     await userEvent.click(screen.getByRole("combobox"));
     await userEvent.click(await screen.findByRole("option", { name: /WGT-451 — María Gómez/ }));

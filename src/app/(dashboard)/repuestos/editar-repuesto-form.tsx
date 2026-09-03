@@ -15,6 +15,7 @@ import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
+import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
@@ -232,9 +233,14 @@ export function EditarRepuestoForm({
           </div>
         </FormGroup>
 
-        <Button type="submit" disabled={isPending} className="self-end">
-          {isPending ? "Guardando..." : "Guardar repuesto"}
-        </Button>
+        <div className="flex justify-end gap-2">
+          <DialogClose render={<Button type="button" variant="outline" />}>
+            Cancelar
+          </DialogClose>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? "Guardando..." : "Guardar repuesto"}
+          </Button>
+        </div>
 
         {state.error ? (
           <Alert variant="destructive">

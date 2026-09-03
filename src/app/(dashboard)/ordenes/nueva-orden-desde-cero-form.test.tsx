@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Dialog } from "@/components/ui/dialog";
 
 const mockCreateOrdenDesdeVehiculoAction = vi.fn();
 vi.mock("@/app/actions/orden-actions", () => ({
@@ -8,6 +9,13 @@ vi.mock("@/app/actions/orden-actions", () => ({
 }));
 
 import { NuevaOrdenDesdeCeroForm } from "./nueva-orden-desde-cero-form";
+
+// NuevaOrdenDesdeCeroForm renders a DialogClose-wrapped Cancel button that
+// requires a Dialog ancestor (same as every dialog-only form in this app) --
+// render through a real Dialog instead of the bare component.
+function renderInDialog(ui: Parameters<typeof render>[0]) {
+  return render(<Dialog open>{ui}</Dialog>);
+}
 
 const tecnicos = [{ id: "t1", nombre: "Carlos Ruiz" }];
 const clientes = [
@@ -43,7 +51,7 @@ describe("NuevaOrdenDesdeCeroForm", () => {
   });
 
   it("renders cliente, vehiculo, kilometraje, sintomas, and mecanico fields", async () => {
-    render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
 
     expect(screen.getByLabelText("Cliente")).toBeInTheDocument();
     expect(screen.getByLabelText("Vehículo")).toBeInTheDocument();
@@ -56,13 +64,13 @@ describe("NuevaOrdenDesdeCeroForm", () => {
   });
 
   it("disables the vehiculo select until a cliente is chosen", () => {
-    render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
 
     expect(screen.getByLabelText("Vehículo")).toBeDisabled();
   });
 
   it("narrows the vehiculo options to the selected cliente's own vehiculos", async () => {
-    render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
 
     await selectCombobox("Cliente", "Ana Pérez");
 
@@ -72,7 +80,7 @@ describe("NuevaOrdenDesdeCeroForm", () => {
   });
 
   it("shows the vehículo's last known kilometraje once it is selected, as a hint for kilometraje de ingreso", async () => {
-    render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
 
     expect(screen.queryByText(/Último kilometraje registrado/)).not.toBeInTheDocument();
 
@@ -83,7 +91,7 @@ describe("NuevaOrdenDesdeCeroForm", () => {
   });
 
   it("shows a message instead of vehiculo options when the selected cliente has none", async () => {
-    render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
 
     await selectCombobox("Cliente", "María Gómez");
 
@@ -91,7 +99,7 @@ describe("NuevaOrdenDesdeCeroForm", () => {
   });
 
   it("blocks submission without a cliente/vehiculo selection, without calling the server", async () => {
-    render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Crear orden" }));
 
@@ -101,7 +109,7 @@ describe("NuevaOrdenDesdeCeroForm", () => {
 
   it("submits the selected vehiculo and calls onCreated instead of leaving a stale form behind", async () => {
     const onCreated = vi.fn();
-    render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} onCreated={onCreated} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} onCreated={onCreated} />);
 
     await selectCombobox("Cliente", "Ana Pérez");
     await selectCombobox("Vehículo", "ABC123 · Toyota Corolla");
@@ -116,7 +124,7 @@ describe("NuevaOrdenDesdeCeroForm", () => {
   });
 
   it("falls back to a visible success message when rendered without onCreated", async () => {
-    render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
 
     await selectCombobox("Cliente", "Ana Pérez");
     await selectCombobox("Vehículo", "ABC123 · Toyota Corolla");
@@ -127,7 +135,7 @@ describe("NuevaOrdenDesdeCeroForm", () => {
 
   it("shows the error message when the action returns one", async () => {
     mockCreateOrdenDesdeVehiculoAction.mockResolvedValue({ error: "El vehículo seleccionado no existe.", success: false });
-    render(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} />);
 
     await selectCombobox("Cliente", "Ana Pérez");
     await selectCombobox("Vehículo", "ABC123 · Toyota Corolla");
