@@ -32,10 +32,12 @@ const COLUMNS: DataTableColumn<EntradaWithDetalle>[] = [
   {
     header: "Proveedor",
     cell: (entrada) => entrada.proveedor.nombre,
+    searchValue: (entrada) => entrada.proveedor.nombre,
   },
   {
     header: "Bodega",
     cell: (entrada) => <span className="text-muted-foreground">{entrada.bodega.nombre}</span>,
+    searchValue: (entrada) => entrada.bodega.nombre,
   },
   {
     header: "Ítems",
@@ -107,6 +109,9 @@ export default async function EntradasMercanciaPage() {
             getRowKey={(entrada) => entrada.id}
             rowHref={(entrada) => `/entradas-mercancia/${entrada.id}`}
             emptyMessage="No hay entradas de mercancía registradas."
+            searchable
+            searchPlaceholder="Buscar por proveedor o bodega..."
+            pageSize={20}
           />
         </CardContent>
       </Card>

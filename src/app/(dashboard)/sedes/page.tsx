@@ -13,6 +13,7 @@ const COLUMNS: DataTableColumn<SedeConMetricas>[] = [
         <span className="text-xs text-muted-foreground">{sede.direccion ?? "—"}</span>
       </div>
     ),
+    searchValue: (sede) => sede.nombre,
   },
   {
     header: "Usuarios asignados",
@@ -94,6 +95,9 @@ export default async function SedesPage() {
             rows={sedes}
             getRowKey={(sede) => sede.id}
             emptyMessage="No hay sedes registradas."
+            searchable
+            searchPlaceholder="Buscar por sede..."
+            pageSize={10}
           />
         </CardContent>
       </Card>

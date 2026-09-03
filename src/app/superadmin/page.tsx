@@ -20,7 +20,7 @@ export default async function SuperAdminPage() {
   const [tenants, planes] = await Promise.all([listTenantsConPlan(), listPlanes()]);
 
   const columns: DataTableColumn<TenantConPlan>[] = [
-    { header: "Taller", cell: (tenant) => tenant.slug },
+    { header: "Taller", cell: (tenant) => tenant.slug, searchValue: (tenant) => tenant.slug },
     {
       header: "Estado",
       cell: (tenant) => (
@@ -63,6 +63,9 @@ export default async function SuperAdminPage() {
             rows={tenants}
             getRowKey={(tenant) => tenant.id}
             emptyMessage="No hay talleres registrados."
+            searchable
+            searchPlaceholder="Buscar por taller..."
+            pageSize={10}
           />
         </CardContent>
       </Card>
