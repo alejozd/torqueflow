@@ -157,4 +157,74 @@ describe("Pagination", () => {
     await user.click(screen.getByRole("combobox"));
     expect(await screen.findByRole("option", { name: "100 por página" })).toBeInTheDocument();
   });
+
+  it("renders the count label with legible text styling instead of muted", () => {
+    render(<Pagination page={1} pageCount={1} pageSize={10} total={5} onPageChange={vi.fn()} />);
+    const label = screen.getByText("Mostrando 1-5 de 5 registros");
+    expect(label.className).toContain("text-foreground");
+    expect(label.className).toContain("font-medium");
+    expect(label.className).not.toContain("text-muted-foreground");
+  });
+
+  describe("numbered page buttons", () => {
+    it("renders every page with no ellipsis when pageCount is 3 (<= 5)", () => {
+      render(<Pagination page={2} pageCount={3} pageSize={10} total={30} onPageChange={vi.fn()} />);
+      expect(screen.getByRole("button", { name: "Página 1" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 2" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 3" })).toBeInTheDocument();
+      expect(screen.queryByText("…")).not.toBeInTheDocument();
+    });
+
+    it("windows around the current page with ellipsis on both sides (pageCount=10, page=5)", () => {
+      render(<Pagination page={5} pageCount={10} pageSize={10} total={100} onPageChange={vi.fn()} />);
+      expect(screen.getByRole("button", { name: "Página 1" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 4" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 5" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 6" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 10" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Página 2" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Página 9" })).not.toBeInTheDocument();
+      expect(screen.getAllByText("…")).toHaveLength(2);
+    });
+
+    it("collapses only the trailing gap with a single ellipsis when on page 1 (pageCount=10, page=1)", () => {
+      render(<Pagination page={1} pageCount={10} pageSize={10} total={100} onPageChange={vi.fn()} />);
+      expect(screen.getByRole("button", { name: "Página 1" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 2" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 10" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Página 3" })).not.toBeInTheDocument();
+      expect(screen.getAllByText("…")).toHaveLength(1);
+    });
+
+    it("collapses only the leading gap with a single ellipsis when on the last page (pageCount=10, page=10)", () => {
+      render(<Pagination page={10} pageCount={10} pageSize={10} total={100} onPageChange={vi.fn()} />);
+      expect(screen.getByRole("button", { name: "Página 1" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 9" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 10" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Página 8" })).not.toBeInTheDocument();
+      expect(screen.getAllByText("…")).toHaveLength(1);
+    });
+
+    it("marks the active page's button with aria-current=page and no others", () => {
+      render(<Pagination page={5} pageCount={10} pageSize={10} total={100} onPageChange={vi.fn()} />);
+      expect(screen.getByRole("button", { name: "Página 5" })).toHaveAttribute("aria-current", "page");
+      expect(screen.getByRole("button", { name: "Página 1" })).not.toHaveAttribute("aria-current");
+      expect(screen.getByRole("button", { name: "Página 4" })).not.toHaveAttribute("aria-current");
+      expect(screen.getByRole("button", { name: "Página 6" })).not.toHaveAttribute("aria-current");
+      expect(screen.getByRole("button", { name: "Página 10" })).not.toHaveAttribute("aria-current");
+    });
+
+    it("calls onPageChange(n) when a numbered page button is clicked", async () => {
+      const user = userEvent.setup();
+      const onPageChange = vi.fn();
+      render(<Pagination page={5} pageCount={10} pageSize={10} total={100} onPageChange={onPageChange} />);
+      await user.click(screen.getByRole("button", { name: "Página 6" }));
+      expect(onPageChange).toHaveBeenCalledWith(6);
+    });
+
+    it("does not render numbered page buttons when pageCount <= 1", () => {
+      render(<Pagination page={1} pageCount={1} pageSize={10} total={5} onPageChange={vi.fn()} />);
+      expect(screen.queryByRole("button", { name: "Página 1" })).not.toBeInTheDocument();
+    });
+  });
 });

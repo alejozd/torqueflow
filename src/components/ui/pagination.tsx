@@ -33,15 +33,21 @@ function Pagination({
 }) {
   const start = total === 0 ? 0 : (page - 1) * pageSize + 1
   const end = total === 0 ? 0 : Math.min(page * pageSize, total)
+  const pageItems = getPageItems(page, pageCount)
 
   return (
-    <div className={cn("flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground", className)}>
-      <span>
+    <div
+      className={cn(
+        "flex flex-col items-center gap-3 border-t border-border pt-4 pb-2 text-sm",
+        className,
+      )}
+    >
+      <span className="font-medium text-foreground">
         {total === 0
           ? "Mostrando 0 de 0 registros"
           : `Mostrando ${start}-${end} de ${total} registros`}
       </span>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-2">
         {onPageSizeChange ? (
           <SelectField
             items={pageSizeOptions.map((size) => ({
@@ -50,7 +56,6 @@ function Pagination({
             }))}
             value={String(pageSize)}
             onValueChange={(value) => onPageSizeChange(Number(value))}
-            size="sm"
           />
         ) : null}
         {pageCount > 1 ? (
@@ -75,9 +80,24 @@ function Pagination({
             >
               <ChevronLeft />
             </Button>
-            <span className="font-mono text-xs">
-              {page}/{pageCount}
-            </span>
+            {pageItems.map((item, index) =>
+              item === "ellipsis" ? (
+                <span key={`ellipsis-${index}`} className="px-1 text-xs text-muted-foreground">
+                  …
+                </span>
+              ) : (
+                <Button
+                  key={item}
+                  variant={item === page ? "default" : "outline"}
+                  size="icon-sm"
+                  aria-label={`Página ${item}`}
+                  aria-current={item === page ? "page" : undefined}
+                  onClick={() => onPageChange(item)}
+                >
+                  {item}
+                </Button>
+              ),
+            )}
             <Button
               variant="outline"
               size="icon-sm"
@@ -103,6 +123,36 @@ function Pagination({
       </div>
     </div>
   )
+}
+
+/**
+ * Builds the numbered-page-button sequence with ellipsis windowing:
+ * always page 1 and the last page, the current page plus one neighbor on
+ * each side, and any gap of 2+ collapsed into a single "ellipsis" marker
+ * (never more than one consecutive ellipsis per side).
+ */
+function getPageItems(page: number, pageCount: number): (number | "ellipsis")[] {
+  if (pageCount <= 5) {
+    return Array.from({ length: pageCount }, (_, i) => i + 1)
+  }
+
+  const items: (number | "ellipsis")[] = []
+  const windowStart = Math.max(2, page - 1)
+  const windowEnd = Math.min(pageCount - 1, page + 1)
+
+  items.push(1)
+  if (windowStart > 2) {
+    items.push("ellipsis")
+  }
+  for (let p = windowStart; p <= windowEnd; p++) {
+    items.push(p)
+  }
+  if (windowEnd < pageCount - 1) {
+    items.push("ellipsis")
+  }
+  items.push(pageCount)
+
+  return items
 }
 
 export { Pagination }
