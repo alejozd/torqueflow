@@ -163,13 +163,13 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
 
       <div>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-xl font-semibold tracking-tight">Orden — {orden.vehiculo.placa}</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Orden — #{orden.id.slice(-8).toUpperCase()}</h1>
           <Badge variant={ESTADO_BADGE_VARIANT[orden.estado]} className={ESTADO_BADGE_CLASSNAME[orden.estado]}>
             {ESTADO_LABELS[orden.estado]}
           </Badge>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          {orden.vehiculo.marca} {orden.vehiculo.modelo}
+          {orden.vehiculo.placa} · {orden.vehiculo.marca} {orden.vehiculo.modelo}
           {orden.vehiculo.anio ? ` ${orden.vehiculo.anio}` : ""} · {orden.cliente.nombre}
         </p>
       </div>

@@ -96,7 +96,11 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   await expect(page.getByRole("status").filter({ hasText: "Orden creada" })).toBeVisible();
 
   await page.getByRole("link", { name: /EN_PROCESO|BORRADOR/ }).first().click();
-  await expect(page.getByRole("heading", { name: /Orden — ABC123/ })).toBeVisible();
+  // Heading now shows the orden's own short code (last 8 chars of its cuid
+  // id, uppercased), not the vehículo's placa -- the placa moved to the
+  // subtitle line alongside marca/modelo/cliente.
+  await expect(page.getByRole("heading", { name: /Orden — #[A-Z0-9]{8}/ })).toBeVisible();
+  await expect(page.getByText(/ABC123 · Toyota Corolla/)).toBeVisible();
   // Captured here (Sede principal) for Fase 6's direct-URL cross-sede check.
   const ordenAbc123Url = page.url();
 
