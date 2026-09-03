@@ -1116,3 +1116,9 @@ Fase E: `searchable` enabled on 7 tables (Bodegas, Proveedores, Repuestos, Usuar
 11/11 tasks complete. All individually reviewed; one task (Task 8) had its subagent reviewer blocked twice by the Claude Code auto-mode classifier (transient -- Task 9's identical dispatch pattern worked fine immediately after), so Task 8 was reviewed directly by the controller against the raw diff instead of via subagent. Two Opus 529-server-overload retries on Task 3 (the highest-risk task) before falling back to Sonnet for both its implementer and reviewer -- Sonnet handled it well, reviewer independently verified the RSC boundary reasoning and rowHref preservation rather than trusting the report. tsc clean throughout every task. Full suite clean apart from the long-documented pre-existing DB-provisioning-contention flake (membership varies run-to-run, always isolated-clean). Browser-verified live against `taller-dev` (and superadmin) at every phase boundary.
 
 **Status: plan fully complete, all phases done and reviewed, ready for the user's review.**
+
+======================================================================
+DATATABLE UX PLAN: skeleton loaders + mejoras de paginacion (2026-09-03)
+======================================================================
+Plan: docs/superpowers/plans/2026-09-03-datatable-ux-skeletons-pagination.md (commit ea87137)
+7 tasks. Starting Task 1 (Pagination First/Last buttons + pageSize wiring).
