@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { listOrdenes, listTecnicos, type OrdenWithDetalle } from "@/app/actions/orden-actions";
 import { listClientesParaOrden } from "@/app/actions/cliente-actions";
 import { NuevaOrdenDialog } from "./nueva-orden-dialog";
@@ -9,6 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 const ESTADOS_VALIDOS: EstadoOrden[] = ["BORRADOR", "EN_PROCESO", "TERMINADA", "ENTREGADA", "ANULADA"];
+
+type SortKey = "fecha" | "total" | "estado" | "cliente";
+type SortOrder = "asc" | "desc";
+const SORT_KEYS: SortKey[] = ["fecha", "total", "estado", "cliente"];
 
 const ESTADO_LABELS: Record<EstadoOrden, string> = {
   BORRADOR: "Borrador",
@@ -101,69 +106,140 @@ function agruparPorEstado(ordenes: OrdenRow[]): ColumnaKanban[] {
   }));
 }
 
-function construirHrefOrdenes(base: { estado?: EstadoOrden; vista?: "tabla" | "tablero" }): string {
+function construirHrefOrdenes(base: {
+  estado?: EstadoOrden;
+  vista?: "tabla" | "tablero";
+  sort?: SortKey;
+  order?: SortOrder;
+}): string {
   const params = new URLSearchParams();
   if (base.estado) params.set("estado", base.estado);
   if (base.vista && base.vista !== "tabla") params.set("vista", base.vista);
+  if (base.sort) params.set("sort", base.sort);
+  if (base.sort && base.order === "asc") params.set("order", "asc");
   const query = params.toString();
   return query ? `/ordenes?${query}` : "/ordenes";
 }
 
 /**
+ * Header link for the 4 sortable columns: toggles order when the same
+ * column is clicked again, and resets to "desc" default when switching to a
+ * different column (nextOrder only flips when this column is already active).
+ */
+function SortableHeader({
+  label,
+  sortKey,
+  sortActual,
+  orderActual,
+  estadoFiltro,
+  vistaActual,
+}: {
+  label: string;
+  sortKey: SortKey;
+  sortActual: SortKey | undefined;
+  orderActual: SortOrder;
+  estadoFiltro: EstadoOrden | undefined;
+  vistaActual: "tabla" | "tablero";
+}) {
+  const isActive = sortActual === sortKey;
+  const nextOrder: SortOrder = isActive && orderActual === "desc" ? "asc" : "desc";
+  return (
+    <Link
+      href={construirHrefOrdenes({ estado: estadoFiltro, vista: vistaActual, sort: sortKey, order: nextOrder })}
+      className="inline-flex items-center gap-1 hover:text-foreground"
+    >
+      {label}
+      {isActive ? (orderActual === "desc" ? <ArrowDown className="size-3.5" /> : <ArrowUp className="size-3.5" />) : null}
+    </Link>
+  );
+}
+
+function compararOrdenes(a: OrdenRow, b: OrdenRow, sort: SortKey, order: SortOrder): number {
+  let cmp = 0;
+  switch (sort) {
+    case "fecha":
+      cmp = a.createdAt.getTime() - b.createdAt.getTime();
+      break;
+    case "total":
+      cmp = calcularTotalOrden(a) - calcularTotalOrden(b);
+      break;
+    case "estado":
+      cmp = a.estado.localeCompare(b.estado);
+      break;
+    case "cliente":
+      cmp = a.cliente.nombre.localeCompare(b.cliente.nombre);
+      break;
+  }
+  return order === "asc" ? cmp : -cmp;
+}
+
+/**
  * The whole row is clickable via DataTable's rowHref (a stretched link),
  * not a per-cell <Link> -- one unified hover/cursor/click target instead of
- * fragmented underlines per cell.
+ * fragmented underlines per cell. A function (not a module-level constant)
+ * because the 4 sortable columns' headers depend on the current sort/filter
+ * state to render their SortableHeader link with the right href/indicator.
  */
-const COLUMNS: DataTableColumn<OrdenRow>[] = [
-  {
-    header: "Orden",
-    cell: (orden) => <span className="font-mono text-sm font-medium">#{orden.id.slice(-8).toUpperCase()}</span>,
-  },
-  {
-    header: "Vehículo",
-    cell: (orden) => <span className="font-mono text-sm">{orden.vehiculo.placa}</span>,
-  },
-  {
-    header: "Cliente",
-    cell: (orden) => orden.cliente.nombre,
-  },
-  {
-    header: "Estado",
-    cell: (orden) => (
-      <Badge variant={ESTADO_BADGE_VARIANT[orden.estado]} className={ESTADO_BADGE_CLASSNAME[orden.estado]}>
-        {ESTADO_LABELS[orden.estado]}
-      </Badge>
-    ),
-  },
-  {
-    header: "Mecánico",
-    cell: (orden) =>
-      orden.mecanico ? orden.mecanico.nombre : <span className="text-muted-foreground">Sin asignar</span>,
-  },
-  {
-    header: "Ingreso",
-    cell: (orden) => <span className="text-sm text-muted-foreground">{formatoFecha.format(orden.createdAt)}</span>,
-  },
-  {
-    header: "Ítems",
-    className: "text-right",
-    cell: (orden) => <span className="font-mono">{contarItems(orden)}</span>,
-  },
-  {
-    header: "Total",
-    className: "text-right",
-    cell: (orden) => <span className="font-mono font-medium">{formatoMoneda.format(calcularTotalOrden(orden))}</span>,
-  },
-];
+function buildColumns(
+  sortActual: SortKey | undefined,
+  orderActual: SortOrder,
+  estadoFiltro: EstadoOrden | undefined,
+  vistaActual: "tabla" | "tablero",
+): DataTableColumn<OrdenRow>[] {
+  const sortableHeaderProps = { sortActual, orderActual, estadoFiltro, vistaActual };
+  return [
+    {
+      header: "Orden",
+      cell: (orden) => <span className="font-mono text-sm font-medium">#{orden.id.slice(-8).toUpperCase()}</span>,
+    },
+    {
+      header: "Vehículo",
+      cell: (orden) => <span className="font-mono text-sm">{orden.vehiculo.placa}</span>,
+    },
+    {
+      header: <SortableHeader label="Cliente" sortKey="cliente" {...sortableHeaderProps} />,
+      cell: (orden) => orden.cliente.nombre,
+    },
+    {
+      header: <SortableHeader label="Estado" sortKey="estado" {...sortableHeaderProps} />,
+      cell: (orden) => (
+        <Badge variant={ESTADO_BADGE_VARIANT[orden.estado]} className={ESTADO_BADGE_CLASSNAME[orden.estado]}>
+          {ESTADO_LABELS[orden.estado]}
+        </Badge>
+      ),
+    },
+    {
+      header: "Mecánico",
+      cell: (orden) =>
+        orden.mecanico ? orden.mecanico.nombre : <span className="text-muted-foreground">Sin asignar</span>,
+    },
+    {
+      header: <SortableHeader label="Ingreso" sortKey="fecha" {...sortableHeaderProps} />,
+      cell: (orden) => <span className="text-sm text-muted-foreground">{formatoFecha.format(orden.createdAt)}</span>,
+    },
+    {
+      header: "Ítems",
+      className: "text-right",
+      cell: (orden) => <span className="font-mono">{contarItems(orden)}</span>,
+    },
+    {
+      header: <SortableHeader label="Total" sortKey="total" {...sortableHeaderProps} />,
+      className: "text-right",
+      cell: (orden) => <span className="font-mono font-medium">{formatoMoneda.format(calcularTotalOrden(orden))}</span>,
+    },
+  ];
+}
 
 export default async function OrdenesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ estado?: string; vista?: string }>;
+  searchParams: Promise<{ estado?: string; vista?: string; sort?: string; order?: string }>;
 }) {
-  const { estado, vista } = await searchParams;
+  const { estado, vista, sort, order } = await searchParams;
   const estadoFiltro = ESTADOS_VALIDOS.includes(estado as EstadoOrden) ? (estado as EstadoOrden) : undefined;
   const vistaActual: "tabla" | "tablero" = vista === "tablero" ? "tablero" : "tabla";
+  const sortActual = SORT_KEYS.includes(sort as SortKey) ? (sort as SortKey) : undefined;
+  const orderActual: SortOrder = order === "asc" ? "asc" : "desc";
 
   // Fetched once, unfiltered: the KPI cards summarize every orden of the sede
   // regardless of which estado the list below is currently filtered to, so a
@@ -259,7 +335,7 @@ export default async function OrdenesPage({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <nav aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
               <Link
-                href={construirHrefOrdenes({ vista: vistaActual })}
+                href={construirHrefOrdenes({ vista: vistaActual, sort: sortActual, order: orderActual })}
                 className={cn(
                   "rounded-full border px-3 py-1 text-sm transition-colors",
                   estadoFiltro === undefined
@@ -272,7 +348,7 @@ export default async function OrdenesPage({
               {ESTADOS_VALIDOS.map((value) => (
                 <Link
                   key={value}
-                  href={construirHrefOrdenes({ estado: value, vista: vistaActual })}
+                  href={construirHrefOrdenes({ estado: value, vista: vistaActual, sort: sortActual, order: orderActual })}
                   className={cn(
                     "rounded-full border px-3 py-1 text-sm transition-colors",
                     estadoFiltro === value
@@ -287,7 +363,7 @@ export default async function OrdenesPage({
 
             <div className="flex gap-1 rounded-full border border-input p-0.5">
               <Link
-                href={construirHrefOrdenes({ estado: estadoFiltro, vista: "tablero" })}
+                href={construirHrefOrdenes({ estado: estadoFiltro, vista: "tablero", sort: sortActual, order: orderActual })}
                 className={cn(
                   "rounded-full px-3 py-1 text-sm transition-colors",
                   vistaActual === "tablero"
@@ -298,7 +374,7 @@ export default async function OrdenesPage({
                 Tablero
               </Link>
               <Link
-                href={construirHrefOrdenes({ estado: estadoFiltro, vista: "tabla" })}
+                href={construirHrefOrdenes({ estado: estadoFiltro, vista: "tabla", sort: sortActual, order: orderActual })}
                 className={cn(
                   "rounded-full px-3 py-1 text-sm transition-colors",
                   vistaActual === "tabla"
@@ -313,8 +389,8 @@ export default async function OrdenesPage({
 
           {vistaActual === "tabla" ? (
             <DataTable
-              columns={COLUMNS}
-              rows={filtradas}
+              columns={buildColumns(sortActual, orderActual, estadoFiltro, vistaActual)}
+              rows={sortActual ? [...filtradas].sort((a, b) => compararOrdenes(a, b, sortActual, orderActual)) : filtradas}
               getRowKey={(orden) => orden.id}
               rowHref={(orden) => `/ordenes/${orden.id}`}
               emptyMessage="No hay órdenes de trabajo en este estado."
