@@ -1,13 +1,37 @@
 import { listTenantsConPlan, listPlanes, type TenantConPlan } from "@/app/actions/super-admin-actions";
 import { TenantRowActions } from "./tenant-row-actions";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+// Same green/destructive convention as /ordenes and /usuarios: ACTIVO reuses
+// the "done"/positive tone, SUSPENDIDO uses the Badge destructive variant.
+const ESTADO_LABELS: Record<"ACTIVO" | "SUSPENDIDO", string> = {
+  ACTIVO: "Activo",
+  SUSPENDIDO: "Suspendido",
+};
+
+const ESTADO_BADGE_CLASSNAME: Record<"ACTIVO" | "SUSPENDIDO", string> = {
+  ACTIVO: "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]",
+  SUSPENDIDO: "",
+};
 
 export default async function SuperAdminPage() {
   const [tenants, planes] = await Promise.all([listTenantsConPlan(), listPlanes()]);
 
   const columns: DataTableColumn<TenantConPlan>[] = [
     { header: "Taller", cell: (tenant) => tenant.slug },
-    { header: "Estado", cell: (tenant) => tenant.estado },
+    {
+      header: "Estado",
+      cell: (tenant) => (
+        <Badge
+          variant={tenant.estado === "SUSPENDIDO" ? "destructive" : undefined}
+          className={ESTADO_BADGE_CLASSNAME[tenant.estado]}
+        >
+          {ESTADO_LABELS[tenant.estado]}
+        </Badge>
+      ),
+    },
     { header: "Plan", cell: (tenant) => tenant.plan.nombre },
     {
       header: "Acciones",
@@ -23,14 +47,25 @@ export default async function SuperAdminPage() {
   ];
 
   return (
-    <main>
-      <h1>Talleres</h1>
-      <DataTable
-        columns={columns}
-        rows={tenants}
-        getRowKey={(tenant) => tenant.id}
-        emptyMessage="No hay talleres registrados."
-      />
+    <main className="flex flex-col gap-6">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-semibold">Talleres</h1>
+        <p className="text-sm text-muted-foreground">{tenants.length} talleres registrados</p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Listado</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={columns}
+            rows={tenants}
+            getRowKey={(tenant) => tenant.id}
+            emptyMessage="No hay talleres registrados."
+          />
+        </CardContent>
+      </Card>
     </main>
   );
 }

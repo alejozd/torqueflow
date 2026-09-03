@@ -1,5 +1,6 @@
 import { requireSession } from "@/lib/auth/guards";
 import { listClientes } from "@/app/actions/cliente-actions";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NuevoClienteDialog } from "./nuevo-cliente-dialog";
 import { ClientesTable, type ClienteRow } from "./clientes-table";
 
@@ -39,7 +40,14 @@ export default async function ClientesPage() {
         <NuevoClienteDialog />
       </div>
 
-      <ClientesTable clientes={filas} />
+      <Card>
+        <CardHeader>
+          <CardTitle>Listado</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ClientesTable clientes={filas} />
+        </CardContent>
+      </Card>
     </main>
   );
 }
