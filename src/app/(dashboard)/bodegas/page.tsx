@@ -33,10 +33,12 @@ const COLUMNS: DataTableColumn<BodegaRow>[] = [
   {
     header: "Bodega",
     cell: (bodega) => <span className="font-medium">{bodega.nombre}</span>,
+    searchValue: (bodega) => bodega.nombre,
   },
   {
     header: "Sede",
     cell: (bodega) => <span className="text-muted-foreground">{bodega.sedeNombre}</span>,
+    searchValue: (bodega) => bodega.sedeNombre,
   },
   {
     header: "Referencias",
@@ -100,6 +102,9 @@ export default async function BodegasPage() {
             rows={filas}
             getRowKey={(bodega) => bodega.id}
             emptyMessage="No hay bodegas registradas."
+            searchable
+            searchPlaceholder="Buscar por bodega o sede..."
+            pageSize={10}
           />
         </CardContent>
       </Card>

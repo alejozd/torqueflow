@@ -11,18 +11,22 @@ const COLUMNS: DataTableColumn<ProveedorConInventario>[] = [
   {
     header: "Proveedor",
     cell: (proveedor) => <span className="font-medium">{proveedor.nombre}</span>,
+    searchValue: (proveedor) => proveedor.nombre,
   },
   {
     header: "Contacto",
     cell: (proveedor) => proveedor.contacto ?? <span className="text-muted-foreground">—</span>,
+    searchValue: (proveedor) => proveedor.contacto ?? "",
   },
   {
     header: "Teléfono",
     cell: (proveedor) => <span className="font-mono text-sm">{proveedor.telefono ?? "—"}</span>,
+    searchValue: (proveedor) => proveedor.telefono ?? "",
   },
   {
     header: "Correo",
     cell: (proveedor) => <span className="text-muted-foreground">{proveedor.email ?? "—"}</span>,
+    searchValue: (proveedor) => proveedor.email ?? "",
   },
   {
     header: "Referencias",
@@ -79,6 +83,9 @@ export default async function ProveedoresPage() {
             rows={proveedores}
             getRowKey={(proveedor) => proveedor.id}
             emptyMessage="No hay proveedores registrados."
+            searchable
+            searchPlaceholder="Buscar por proveedor, contacto, teléfono o correo..."
+            pageSize={10}
           />
         </CardContent>
       </Card>
