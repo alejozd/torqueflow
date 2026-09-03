@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { listFacturas, listOrdenesFacturables, type FacturaWithDetalle } from "@/app/actions/factura-actions";
 import { NuevaFacturaDialog } from "./nueva-factura-dialog";
 import type { EstadoFactura } from "@/generated/prisma-tenant";
@@ -10,6 +11,10 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const ESTADOS_VALIDOS: EstadoFactura[] = ["PENDIENTE", "PAGADA"];
+
+type SortKey = "fecha" | "total" | "saldo" | "estado";
+type SortOrder = "asc" | "desc";
+const SORT_KEYS: SortKey[] = ["fecha", "total", "saldo", "estado"];
 
 const ESTADO_LABELS: Record<EstadoFactura, string> = {
   PENDIENTE: "Pendiente",
@@ -59,68 +64,132 @@ function inicioMesBogota(fecha: Date, offsetMeses = 0): Date {
   return new Date(`${anio}-${mes}-01T00:00:00-05:00`);
 }
 
-function construirHrefFacturas(base: { estado?: EstadoFactura; q?: string }): string {
+function construirHrefFacturas(base: { estado?: EstadoFactura; q?: string; sort?: SortKey; order?: SortOrder }): string {
   const params = new URLSearchParams();
   if (base.estado) params.set("estado", base.estado);
   if (base.q) params.set("q", base.q);
+  if (base.sort) params.set("sort", base.sort);
+  if (base.sort && base.order === "asc") params.set("order", "asc");
   const query = params.toString();
   return query ? `/facturas?${query}` : "/facturas";
 }
 
 type FacturaRow = FacturaWithDetalle;
 
-const COLUMNS: DataTableColumn<FacturaRow>[] = [
-  {
-    header: "Factura",
-    cell: (factura) => <span className="font-mono text-sm font-medium">#{factura.numero}</span>,
-  },
-  {
-    header: "Cliente",
-    cell: (factura) => factura.cliente.nombre,
-  },
-  {
-    header: "Vehículo",
-    cell: (factura) => <span className="font-mono text-sm">{factura.orden.vehiculo.placa}</span>,
-  },
-  {
-    header: "Emitida",
-    cell: (factura) => <span className="text-sm text-muted-foreground">{formatoFecha.format(factura.createdAt)}</span>,
-  },
-  {
-    header: "Estado",
-    cell: (factura) => (
-      <Badge variant={ESTADO_BADGE_VARIANT[factura.estado]} className={ESTADO_BADGE_CLASSNAME[factura.estado]}>
-        {ESTADO_LABELS[factura.estado]}
-      </Badge>
-    ),
-  },
-  {
-    header: "Total",
-    className: "text-right",
-    cell: (factura) => <span className="font-mono font-medium">{formatoMoneda.format(Number(factura.total))}</span>,
-  },
-  {
-    header: "Saldo",
-    className: "text-right",
-    cell: (factura) =>
-      Number(factura.saldoPendiente) > 0 ? (
-        <span className="font-mono font-medium text-[oklch(0.5_0.2_27)]">
-          {formatoMoneda.format(Number(factura.saldoPendiente))}
-        </span>
-      ) : (
-        <span className="text-muted-foreground">—</span>
+/**
+ * Header link for the 4 sortable columns: toggles order when the same
+ * column is clicked again, and resets to "desc" default when switching to a
+ * different column (nextOrder only flips when this column is already active).
+ */
+function SortableHeader({
+  label,
+  sortKey,
+  sortActual,
+  orderActual,
+  estadoFiltro,
+  q,
+}: {
+  label: string;
+  sortKey: SortKey;
+  sortActual: SortKey | undefined;
+  orderActual: SortOrder;
+  estadoFiltro: EstadoFactura | undefined;
+  q: string | undefined;
+}) {
+  const isActive = sortActual === sortKey;
+  const nextOrder: SortOrder = isActive && orderActual === "desc" ? "asc" : "desc";
+  return (
+    <Link
+      href={construirHrefFacturas({ estado: estadoFiltro, q, sort: sortKey, order: nextOrder })}
+      className="inline-flex items-center gap-1 hover:text-foreground"
+    >
+      {label}
+      {isActive ? (orderActual === "desc" ? <ArrowDown className="size-3.5" /> : <ArrowUp className="size-3.5" />) : null}
+    </Link>
+  );
+}
+
+function compararFacturas(a: FacturaRow, b: FacturaRow, sort: SortKey, order: SortOrder): number {
+  let cmp = 0;
+  switch (sort) {
+    case "fecha":
+      cmp = a.createdAt.getTime() - b.createdAt.getTime();
+      break;
+    case "total":
+      cmp = Number(a.total) - Number(b.total);
+      break;
+    case "saldo":
+      cmp = Number(a.saldoPendiente) - Number(b.saldoPendiente);
+      break;
+    case "estado":
+      cmp = a.estado.localeCompare(b.estado);
+      break;
+  }
+  return order === "asc" ? cmp : -cmp;
+}
+
+function buildColumns(
+  sortActual: SortKey | undefined,
+  orderActual: SortOrder,
+  estadoFiltro: EstadoFactura | undefined,
+  q: string | undefined,
+): DataTableColumn<FacturaRow>[] {
+  const sortableHeaderProps = { sortActual, orderActual, estadoFiltro, q };
+  return [
+    {
+      header: "Factura",
+      cell: (factura) => <span className="font-mono text-sm font-medium">#{factura.numero}</span>,
+    },
+    {
+      header: "Cliente",
+      cell: (factura) => factura.cliente.nombre,
+    },
+    {
+      header: "Vehículo",
+      cell: (factura) => <span className="font-mono text-sm">{factura.orden.vehiculo.placa}</span>,
+    },
+    {
+      header: <SortableHeader label="Emitida" sortKey="fecha" {...sortableHeaderProps} />,
+      cell: (factura) => <span className="text-sm text-muted-foreground">{formatoFecha.format(factura.createdAt)}</span>,
+    },
+    {
+      header: <SortableHeader label="Estado" sortKey="estado" {...sortableHeaderProps} />,
+      cell: (factura) => (
+        <Badge variant={ESTADO_BADGE_VARIANT[factura.estado]} className={ESTADO_BADGE_CLASSNAME[factura.estado]}>
+          {ESTADO_LABELS[factura.estado]}
+        </Badge>
       ),
-  },
-];
+    },
+    {
+      header: <SortableHeader label="Total" sortKey="total" {...sortableHeaderProps} />,
+      className: "text-right",
+      cell: (factura) => <span className="font-mono font-medium">{formatoMoneda.format(Number(factura.total))}</span>,
+    },
+    {
+      header: <SortableHeader label="Saldo" sortKey="saldo" {...sortableHeaderProps} />,
+      className: "text-right",
+      cell: (factura) =>
+        Number(factura.saldoPendiente) > 0 ? (
+          <span className="font-mono font-medium text-[oklch(0.5_0.2_27)]">
+            {formatoMoneda.format(Number(factura.saldoPendiente))}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+    },
+  ];
+}
 
 export default async function FacturasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ estado?: string; q?: string }>;
+  searchParams: Promise<{ estado?: string; q?: string; sort?: string; order?: string }>;
 }) {
-  const { estado, q } = await searchParams;
+  const { estado, q, sort, order } = await searchParams;
   const estadoFiltro = ESTADOS_VALIDOS.includes(estado as EstadoFactura) ? (estado as EstadoFactura) : undefined;
   const busqueda = q?.trim().toLowerCase() ?? "";
+  const sortActual = SORT_KEYS.includes(sort as SortKey) ? (sort as SortKey) : undefined;
+  const orderActual: SortOrder = order === "asc" ? "asc" : "desc";
 
   // Fetched once, unfiltered: the KPI cards summarize every factura of the
   // sede regardless of which estado the list below is currently filtered to.
@@ -201,7 +270,7 @@ export default async function FacturasPage({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <nav aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
               <Link
-                href={construirHrefFacturas({ q })}
+                href={construirHrefFacturas({ q, sort: sortActual, order: orderActual })}
                 className={cn(
                   "rounded-full border px-3 py-1 text-sm transition-colors",
                   estadoFiltro === undefined
@@ -214,7 +283,7 @@ export default async function FacturasPage({
               {ESTADOS_VALIDOS.map((value) => (
                 <Link
                   key={value}
-                  href={construirHrefFacturas({ estado: value, q })}
+                  href={construirHrefFacturas({ estado: value, q, sort: sortActual, order: orderActual })}
                   className={cn(
                     "rounded-full border px-3 py-1 text-sm transition-colors",
                     estadoFiltro === value
@@ -229,6 +298,8 @@ export default async function FacturasPage({
 
             <form role="search" className="flex items-center gap-2">
               {estadoFiltro ? <input type="hidden" name="estado" value={estadoFiltro} /> : null}
+              {sortActual ? <input type="hidden" name="sort" value={sortActual} /> : null}
+              {sortActual && orderActual === "asc" ? <input type="hidden" name="order" value="asc" /> : null}
               <Input
                 type="search"
                 name="q"
@@ -243,8 +314,8 @@ export default async function FacturasPage({
           </div>
 
           <DataTable
-            columns={COLUMNS}
-            rows={filtradas}
+            columns={buildColumns(sortActual, orderActual, estadoFiltro, q)}
+            rows={sortActual ? [...filtradas].sort((a, b) => compararFacturas(a, b, sortActual, orderActual)) : filtradas}
             getRowKey={(factura) => factura.id}
             rowHref={(factura) => `/facturas/${factura.id}`}
             emptyMessage="No hay facturas en este estado."
