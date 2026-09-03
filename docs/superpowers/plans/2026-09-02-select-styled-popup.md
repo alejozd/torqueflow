@@ -1214,3 +1214,9 @@ EOF
 )"
 git push origin main
 ```
+
+---
+
+## Final whole-branch review (2026-09-02)
+
+Status: **COMPLETE — Ready to merge.** All 11 tasks done, task-scoped-reviewed, and this closing whole-branch review (opus, `184a21a..89c7750`, 24 commits) found 0 Critical, 0 Important, 4 Minor. `tsc --noEmit` clean, `npx vitest run` 736/736 passing (5 test files failing only on the pre-existing DB-provisioning-contention flake, exact same file membership the ledger already documents). Full findings recorded in `.superpowers/sdd/progress.md` under "Final whole-branch review" — none applied yet, pending user triage per their explicit "report only, don't fix" instruction.
