@@ -83,7 +83,7 @@ export function LoginForm() {
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
-            className="absolute top-1/2 right-3 flex -translate-y-1/2 items-center gap-1 text-[11px] font-semibold text-primary"
+            className="absolute top-1/2 right-3 flex -translate-y-1/2 cursor-pointer items-center gap-1 text-[11px] font-semibold text-primary"
           >
             {showPassword ? (
               <>
