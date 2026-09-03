@@ -226,5 +226,40 @@ describe("Pagination", () => {
       render(<Pagination page={1} pageCount={1} pageSize={10} total={5} onPageChange={vi.fn()} />);
       expect(screen.queryByRole("button", { name: "Página 1" })).not.toBeInTheDocument();
     });
+
+    it("shows page 2's own number instead of an ellipsis when only one page is hidden near the start (pageCount=10, page=4)", () => {
+      render(<Pagination page={4} pageCount={10} pageSize={10} total={100} onPageChange={vi.fn()} />);
+      expect(screen.getByRole("button", { name: "Página 1" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 2" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 3" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 4" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 5" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 10" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Página 6" })).not.toBeInTheDocument();
+      expect(screen.getAllByText("…")).toHaveLength(1);
+    });
+
+    it("shows the hidden page's own number instead of an ellipsis when only one page is hidden near the end (pageCount=10, page=7)", () => {
+      render(<Pagination page={7} pageCount={10} pageSize={10} total={100} onPageChange={vi.fn()} />);
+      expect(screen.getByRole("button", { name: "Página 1" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 6" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 7" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 8" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 9" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 10" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Página 5" })).not.toBeInTheDocument();
+      expect(screen.getAllByText("…")).toHaveLength(1);
+    });
+
+    it("renders every page with no ellipsis when both gaps are exactly one page (pageCount=6, page=3)", () => {
+      render(<Pagination page={3} pageCount={6} pageSize={10} total={60} onPageChange={vi.fn()} />);
+      expect(screen.getByRole("button", { name: "Página 1" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 2" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 3" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 4" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 5" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Página 6" })).toBeInTheDocument();
+      expect(screen.queryByText("…")).not.toBeInTheDocument();
+    });
   });
 });

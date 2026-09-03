@@ -140,15 +140,25 @@ function getPageItems(page: number, pageCount: number): (number | "ellipsis")[] 
   const windowStart = Math.max(2, page - 1)
   const windowEnd = Math.min(pageCount - 1, page + 1)
 
+  // Number of pages hidden between page 1 and windowStart. A gap of exactly
+  // one page is shown by its own number rather than collapsed into "…" —
+  // only gaps of 2+ pages get an ellipsis.
+  const leadingGap = windowStart - 2
+  const trailingGap = pageCount - windowEnd - 1
+
   items.push(1)
-  if (windowStart > 2) {
+  if (leadingGap >= 2) {
     items.push("ellipsis")
+  } else if (leadingGap === 1) {
+    items.push(windowStart - 1)
   }
   for (let p = windowStart; p <= windowEnd; p++) {
     items.push(p)
   }
-  if (windowEnd < pageCount - 1) {
+  if (trailingGap >= 2) {
     items.push("ellipsis")
+  } else if (trailingGap === 1) {
+    items.push(windowEnd + 1)
   }
   items.push(pageCount)
 
