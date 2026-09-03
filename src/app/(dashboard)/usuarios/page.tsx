@@ -77,6 +77,7 @@ function buildColumns(sedesPorId: Map<string, string>, sedeOptions: SedeOption[]
     },
     {
       header: "Órdenes activas",
+      className: "text-right",
       cell: (usuario) => <span className="font-mono">{usuario.ordenesActivas}</span>,
     },
     {

@@ -16,10 +16,12 @@ const COLUMNS: DataTableColumn<SedeConMetricas>[] = [
   },
   {
     header: "Usuarios asignados",
+    className: "text-right",
     cell: (sede) => <span className="font-mono">{sede.usuariosAsignados}</span>,
   },
   {
     header: "Órdenes abiertas",
+    className: "text-right",
     cell: (sede) =>
       sede.ordenesAbiertas > 0 ? (
         <span className="font-mono font-medium text-[oklch(0.55_0.15_60)]">{sede.ordenesAbiertas}</span>

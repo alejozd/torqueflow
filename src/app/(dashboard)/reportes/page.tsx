@@ -15,10 +15,24 @@ import { DataTable, type DataTableColumn } from "@/components/data-table";
 
 type FilaProductividad = Awaited<ReturnType<typeof getReporteProductividad>>["filas"][number];
 
+const formatoMoneda = new Intl.NumberFormat("es-CO", {
+  style: "currency",
+  currency: "COP",
+  maximumFractionDigits: 0,
+});
+
 const COLUMNS: DataTableColumn<FilaProductividad>[] = [
   { header: "Técnico", cell: (fila) => fila.mecanicoNombre },
-  { header: "Órdenes entregadas", cell: (fila) => fila.ordenesCompletadas },
-  { header: "Mano de obra", cell: (fila) => fila.montoManoDeObra },
+  {
+    header: "Órdenes entregadas",
+    className: "text-right",
+    cell: (fila) => <span className="font-mono">{fila.ordenesCompletadas}</span>,
+  },
+  {
+    header: "Mano de obra",
+    className: "text-right",
+    cell: (fila) => <span className="font-mono font-medium">{formatoMoneda.format(fila.montoManoDeObra)}</span>,
+  },
 ];
 
 export default async function ReportesPage({
