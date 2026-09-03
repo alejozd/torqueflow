@@ -37,7 +37,17 @@ describe("SelectField", () => {
   });
 
   it("supports uncontrolled usage via name + defaultValue for native form submission", () => {
-    render(<SelectField items={ITEMS} name="campo" defaultValue="a" />);
+    render(
+      <form data-testid="form">
+        <SelectField items={ITEMS} name="campo" defaultValue="a" />
+      </form>,
+    );
     expect(screen.getByText("Opción A")).toBeInTheDocument();
+
+    // The whole point of this wiring mode is that Base UI's hidden <input
+    // name=...> really participates in native FormData -- prove that, not
+    // just that the trigger shows the right label.
+    const form = screen.getByTestId("form") as HTMLFormElement;
+    expect(new FormData(form).get("campo")).toBe("a");
   });
 });

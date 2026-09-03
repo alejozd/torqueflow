@@ -46,6 +46,8 @@ describe("AsignarMecanicoForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Asignar" }));
 
     expect(mockAsignarMecanicoAction).toHaveBeenCalled();
+    const formData = mockAsignarMecanicoAction.mock.calls[0][2] as FormData;
+    expect(formData.get("mecanicoId")).toBe("t2");
   });
 
   it("still shows the editable picker to ADMIN (puedeReasignar) after a mecánico is assigned", async () => {

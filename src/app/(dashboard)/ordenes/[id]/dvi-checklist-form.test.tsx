@@ -24,6 +24,18 @@ describe("DviChecklistForm", () => {
     expect(screen.getByLabelText("Luces (altas, bajas, direccionales)")).toHaveTextContent("OK");
   });
 
+  it("submits the status the user actually picked for a given item, not just its default", async () => {
+    render(<DviChecklistForm ordenId="o1" checklist={{ frenos: "OK" }} />);
+
+    await userEvent.click(screen.getByLabelText("Frenos"));
+    await userEvent.click(await screen.findByRole("option", { name: "Atención" }));
+    await userEvent.click(screen.getByRole("button", { name: "Guardar checklist" }));
+
+    expect(mockUpdateDviChecklistAction).toHaveBeenCalled();
+    const formData = mockUpdateDviChecklistAction.mock.calls[0][2] as FormData;
+    expect(formData.get("frenos")).toBe("ATENCION");
+  });
+
   it("shows a success message after a successful submit", async () => {
     render(<DviChecklistForm ordenId="o1" checklist={null} />);
 

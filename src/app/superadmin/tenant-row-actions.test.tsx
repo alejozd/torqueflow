@@ -42,5 +42,7 @@ describe("TenantRowActions", () => {
     await userEvent.click(screen.getByRole("button", { name: "Guardar plan" }));
 
     expect(mockCambiarPlanTenantAction).toHaveBeenCalledWith("t1", expect.anything(), expect.any(FormData));
+    const formData = mockCambiarPlanTenantAction.mock.calls[0][2] as FormData;
+    expect(formData.get("planId")).toBe("plan_estandar");
   });
 });

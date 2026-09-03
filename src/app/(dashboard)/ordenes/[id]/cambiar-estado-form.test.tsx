@@ -41,6 +41,20 @@ describe("CambiarEstadoForm", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("No se puede cambiar de BORRADOR a TERMINADA");
   });
 
+  it("submits the estado the user actually selected, not just the default", async () => {
+    mockUpdateEstadoOrdenAction.mockResolvedValue({ error: null });
+    render(<CambiarEstadoForm ordenId="o1" estadoActual="BORRADOR" />);
+
+    const trigger = screen.getByRole("combobox", { name: /cambiar estado a/i });
+    await userEvent.click(trigger);
+    await userEvent.click(await screen.findByRole("option", { name: "Anulada" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cambiar estado" }));
+
+    expect(mockUpdateEstadoOrdenAction).toHaveBeenCalled();
+    const formData = mockUpdateEstadoOrdenAction.mock.calls[0][2] as FormData;
+    expect(formData.get("estado")).toBe("ANULADA");
+  });
+
   it("shows the advertencia message when the action succeeds but flags a notification issue", async () => {
     mockUpdateEstadoOrdenAction.mockResolvedValue({
       error: null,

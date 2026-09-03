@@ -22,6 +22,21 @@ describe("DviFotoForm", () => {
     expect(screen.getByLabelText("Foto")).toBeInTheDocument();
   });
 
+  it("submits the momento the user actually picked, not just the default", async () => {
+    render(<DviFotoForm ordenId="o1" fotos={[]} />);
+
+    await userEvent.click(screen.getByLabelText("Momento"));
+    await userEvent.click(await screen.findByRole("option", { name: "Después" }));
+
+    const file = new File(["x"], "foto.jpg", { type: "image/jpeg" });
+    await userEvent.upload(screen.getByLabelText("Foto"), file);
+    await userEvent.click(screen.getByRole("button", { name: "Subir foto" }));
+
+    expect(mockAddDviFotoAction).toHaveBeenCalled();
+    const formData = mockAddDviFotoAction.mock.calls[0][2] as FormData;
+    expect(formData.get("momento")).toBe("DESPUES");
+  });
+
   it("shows the error message when the action returns one", async () => {
     mockAddDviFotoAction.mockResolvedValue({ error: "Primero guarda el checklist de inspección", success: false });
     render(<DviFotoForm ordenId="o1" fotos={[]} />);
