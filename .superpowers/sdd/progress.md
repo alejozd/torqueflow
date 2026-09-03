@@ -1045,3 +1045,21 @@ Task 14: complete (commit 3d801ef..a949bce, review APPROVED first pass). Column 
 Task 15: complete (commit 6fd1c9f..61566da, review APPROVED first pass). Column sorting added to `facturas/page.tsx`: sortable Emitida/Total/Saldo/Estado headers, exact mirror of Task 14's approved ordenes/page.tsx pattern (same SortableHeader shape, same ArrowUp/ArrowDown icon reuse, same order-omitted-when-desc convention). Search form's existing conditional `estado` hidden input got two new siblings (sort, order) so submitting a text search preserves the active sort. Reviewer cross-diffed SortableHeader byte-for-byte against the approved ordenes/page.tsx version. tsc clean.
 
 **Status: FASE 3 conversion tasks (13-15) all complete and reviewed. Task 16 (Fase 3 + final plan verification) next.**
+
+Task 16 (Fase 3 + final plan verification): complete, no fixes needed.
+- `npx tsc --noEmit`: clean.
+- `npx vitest run`: 742 passed, 17 skipped, 5 test files failed -- same long-documented pre-existing DB-provisioning flake, unrelated.
+- Manual browser verification (live against `taller-dev`, port 3025): `/ordenes` -- clicked "Total" header, URL became `?sort=total` and rows re-sorted to descending total; clicked again, URL became `?sort=total&order=asc`, rows re-sorted ascending, "Total ↑" indicator shown correctly. `/facturas` -- clicked "Saldo" header, URL became `?sort=saldo`, rows re-sorted descending (200.000, 148.750, 109.480, then the two zero-saldo paid facturas), "Saldo ↓" indicator shown correctly.
+
+======================================================================
+DATATABLE MODERNIZATION PLAN: ALL 3 FASES COMPLETE (2026-09-03)
+======================================================================
+Fase 1 (fila completa clicable): 4 tables converted to rowHref (ordenes, facturas, entradas-mercancia, clientes), e2e locator fixed in the same commit as the table that broke it.
+Fase 2 (alineacion numerica): DataTable's TableHead now honors column.className (previously cell-only); 36 numeric/monetary columns right-aligned across 9 files; reportes/page.tsx's 2 columns also gained real formatting for the first time (previously raw unstyled numbers).
+Fase 3 (ordenamiento por columna): DataTableColumn.header widened to ReactNode; ordenes/page.tsx (4 sortable columns, table view only, kanban explicitly unaffected) and facturas/page.tsx (4 sortable columns, search-form-preserving) both got URL-driven, bookmarkable column sorting via a SortableHeader component.
+
+16/16 tasks complete, every task individually reviewed and approved on first pass (zero fix loops needed across the entire plan). tsc clean throughout. Full suite clean apart from the long-documented pre-existing DB-provisioning-contention flake (membership varies run-to-run, always isolated-clean). Browser-verified live against `taller-dev` at every phase boundary.
+
+Bonus fix (not in original plan, user-authorized mid-execution): `playwright.config.ts` had a stale port (3000) that never matched `package.json`'s actual `next dev -p 3025` -- fixed, confirmed the e2e webServer now connects and applies migrations (previously 0 tests ever ran). A SEPARATE, deeper pre-existing issue was found once the port was fixed: e2e login redirects to `/api/auth/error` (NextAuth credentials-callback issue, unrelated to any change in this plan, occurs before any DataTable-touched page is ever reached) -- flagged to the user as a new backlog item, not chased further per RULES.md #7 (out of this plan's scope) and confirmed non-blocking since Fase 1/2/3 were all independently verified via live manual browser testing throughout.
+
+**Status: plan fully complete, all phases done and reviewed, ready for the user's review. No further action planned unless the user wants the e2e login-failure backlog item investigated separately.**
