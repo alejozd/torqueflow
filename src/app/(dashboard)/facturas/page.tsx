@@ -72,11 +72,7 @@ type FacturaRow = FacturaWithDetalle;
 const COLUMNS: DataTableColumn<FacturaRow>[] = [
   {
     header: "Factura",
-    cell: (factura) => (
-      <Link href={`/facturas/${factura.id}`} className="font-mono text-sm font-medium hover:underline">
-        #{factura.numero}
-      </Link>
-    ),
+    cell: (factura) => <span className="font-mono text-sm font-medium">#{factura.numero}</span>,
   },
   {
     header: "Cliente",
@@ -248,6 +244,7 @@ export default async function FacturasPage({
             columns={COLUMNS}
             rows={filtradas}
             getRowKey={(factura) => factura.id}
+            rowHref={(factura) => `/facturas/${factura.id}`}
             emptyMessage="No hay facturas en este estado."
           />
         </CardContent>
