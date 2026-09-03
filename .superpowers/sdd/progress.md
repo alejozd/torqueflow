@@ -1067,3 +1067,6 @@ Bonus fix (not in original plan, user-authorized mid-execution): `playwright.con
 # DataTable pagination + search plan (2026-09-03, new plan)
 
 Task 1: complete (commit fb8a9e1..7048739, review APPROVED first pass). New standalone `src/components/ui/pagination.tsx` component: page/pageCount/pageSize/total/onPageChange/onPageSizeChange?/pageSizeOptions?/className? props, matches select-field.tsx/combobox.tsx conventions. "Mostrando X-Y de Z registros" text (correct 0-total edge case), Prev/Next via Button icon-sm + ChevronLeft/ChevronRight with aria-labels, page-size selector via SelectField (only when onPageSizeChange provided), pageCount<=1 hides Prev/Next but keeps count line. Kept a {page}/{pageCount} indicator mirroring clientes-table.tsx's existing footer -- reviewer independently verified this against the real clientes-table.tsx precedent, not scope creep. 12/12 tests (TDD RED/GREEN), tsc clean. Not wired to DataTable yet (Fase B's job).
+Task 2 (Fase A verification): complete, no fixes needed. tsc clean, pagination.test.tsx 12/12 passing. Not wired anywhere yet, no browser check needed at this stage.
+
+**Status: FASE A (componente Pagination) COMPLETE. Starting Fase B (integrar paginacion en DataTable) -- Task 3 is the highest-risk task in this plan (RSC Server/Client split, must preserve rowHref).**
