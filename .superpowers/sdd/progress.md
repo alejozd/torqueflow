@@ -1031,3 +1031,10 @@ Task 10: complete (commit 930734f..87d052f, review APPROVED first pass). `client
 Task 11: complete (commit 4f9efd8..51157a6, review APPROVED first pass). `ordenes/[id]/page.tsx`'s ITEMS_COLUMNS (Cant., Unitario, Importe) + MANO_OBRA_COLUMNS (Valor) right-aligned. tsc clean.
 
 **Status: FASE 2 conversion tasks (6-11) all complete and reviewed. Task 12 (Fase 2 verification) next.**
+
+Task 12 (Fase 2 verification): complete, no fixes needed.
+- `npx tsc --noEmit`: clean.
+- `npx vitest run`: 741 passed, 17 skipped, 5 test files failed -- same long-documented pre-existing DB-provisioning flake, all failing at beforeAll, none related to any file touched in Tasks 6-11.
+- Manual browser verification (live against `taller-dev`, port 3025): confirmed header+cell right-alignment together (Task 6's TableHead fix working correctly) on `/ordenes` (Items, Total), `/facturas` (Total, Saldo), `/repuestos` (Stock, Minimo, P. compra, P. venta, Margen), and `/reportes` (Ordenes entregadas, Mano de obra -- confirmed the new currency formatting renders correctly as "$ 0" style, not raw numbers, after loading a date range with real data).
+
+**Status: FASE 2 (alineacion numerica) COMPLETE. All 6 conversion tasks (6-11) done, reviewed, approved. tsc/tests/browser all verified clean. Starting Fase 3 (ordenamiento por columna) next -- per standing user authorization, proceeding without further approval checkpoints, including the previously-flagged DataTableColumn.header type-widening decision.**
