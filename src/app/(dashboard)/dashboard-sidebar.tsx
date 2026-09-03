@@ -29,6 +29,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 
@@ -138,14 +139,18 @@ export function DashboardSidebar({
     <div className="dark">
       <Sidebar collapsible="icon">
         <SidebarHeader className="px-2 py-3">
-          <div className="flex items-center gap-2.5 px-1">
+          {/* items-center works for both the default row layout and the
+              collapsed column layout below -- it maps to align-items, which
+              centers cross-axis regardless of flex-direction. */}
+          <div className="flex items-center gap-2.5 px-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary">
               <Wrench className="size-4 text-primary-foreground" />
             </div>
-            <div className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
+            <div className="flex min-w-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">
               <span className="truncate text-sm font-semibold text-sidebar-foreground">TorqueFlow</span>
               <span className="truncate font-mono text-[0.6875rem] text-sidebar-foreground/50">{tenantSlug}</span>
             </div>
+            <SidebarTrigger />
           </div>
         </SidebarHeader>
         <SidebarContent>

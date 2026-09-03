@@ -7,8 +7,7 @@ import { SignOutButton } from "./sign-out-button";
 import { CambiarSedeButton } from "./cambiar-sede-button";
 import { DashboardSessionProvider } from "./dashboard-session-provider";
 import { DashboardSidebar, type SidebarPlanInfo } from "./dashboard-sidebar";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -49,8 +48,6 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           <DashboardSidebar esAdmin={esAdmin} tenantSlug={session.user.tenantSlug} plan={plan} />
           <SidebarInset>
             <header className="flex flex-wrap items-center gap-3 border-b bg-background px-4 py-3">
-              <SidebarTrigger />
-              <Separator orientation="vertical" className="h-5" />
               <div className="flex flex-1 flex-wrap items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
                   <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[oklch(0.62_0.19_45/0.14)] text-[10.5px] font-semibold text-[oklch(0.42_0.14_45)]">
