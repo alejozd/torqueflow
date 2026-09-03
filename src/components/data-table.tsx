@@ -43,7 +43,9 @@ export function DataTable<T>({
       <TableHeader>
         <TableRow>
           {columns.map((column) => (
-            <TableHead key={column.header}>{column.header}</TableHead>
+            <TableHead key={column.header} className={column.className}>
+              {column.header}
+            </TableHead>
           ))}
         </TableRow>
       </TableHeader>
