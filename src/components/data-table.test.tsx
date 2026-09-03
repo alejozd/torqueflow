@@ -38,4 +38,15 @@ describe("DataTable", () => {
     expect(header.className).toContain("text-right");
     expect(cell.className).toContain("text-right");
   });
+
+  it("renders a ReactNode header (e.g. a <span>) instead of plain text", () => {
+    const columns: DataTableColumn<Row>[] = [
+      { header: "Nombre", cell: (row) => row.name },
+      { header: <span data-testid="monto-header">Monto</span>, cell: (row) => row.amount },
+    ];
+    render(<DataTable columns={columns} rows={ROWS} getRowKey={(row) => row.id} emptyMessage="Sin datos" />);
+
+    const header = screen.getByRole("columnheader", { name: "Monto" });
+    expect(header.querySelector('[data-testid="monto-header"]')).not.toBeNull();
+  });
 });

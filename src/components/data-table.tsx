@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn } from "@/lib/utils";
 
 export type DataTableColumn<T> = {
-  header: string;
+  header: ReactNode;
   cell: (row: T) => ReactNode;
   className?: string;
 };
@@ -42,8 +42,8 @@ export function DataTable<T>({
     <Table>
       <TableHeader>
         <TableRow>
-          {columns.map((column) => (
-            <TableHead key={column.header} className={column.className}>
+          {columns.map((column, index) => (
+            <TableHead key={index} className={column.className}>
               {column.header}
             </TableHead>
           ))}
@@ -53,7 +53,7 @@ export function DataTable<T>({
         {rows.map((row) => (
           <TableRow key={getRowKey(row)} className={cn("hover:bg-border", rowHref && "relative cursor-pointer")}>
             {columns.map((column, index) => (
-              <TableCell key={column.header} className={column.className}>
+              <TableCell key={index} className={column.className}>
                 {rowHref && index === 0 ? (
                   <Link href={rowHref(row)} className="absolute inset-0 z-10">
                     <span className="sr-only">Ver detalle</span>
