@@ -70,7 +70,7 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   await page.getByRole("button", { name: "Crear cliente" }).click();
   await expect(page.getByRole("status")).toHaveText("Cliente creado");
 
-  await page.getByRole("link", { name: "Juan Pérez" }).click();
+  await page.getByRole("row", { name: /Juan Pérez/ }).click();
   await expect(page.getByRole("heading", { name: "Juan Pérez" })).toBeVisible();
 
   await page.getByLabel("Placa").fill("ABC123");
@@ -353,7 +353,7 @@ test("login through Inventario, Orden de trabajo, and DVI, end to end", async ({
   await expect(page.getByText("Sede: Sede norte")).toBeVisible();
 
   // Clientes stay tenant-wide by design -- Juan Pérez is still here.
-  await expect(page.getByRole("link", { name: "Juan Pérez" })).toBeVisible();
+  await expect(page.getByText("Juan Pérez")).toBeVisible();
 
   // Everything sede-scoped is empty: the ABC123 orden, its factura, the
   // bodegas and FRN-001 all live in Sede principal.

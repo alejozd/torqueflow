@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,10 +55,10 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
     {
       header: "Cliente",
       cell: (cliente) => (
-        <Link href={`/clientes/${cliente.id}`} className="flex flex-col gap-0.5">
+        <div className="flex flex-col gap-0.5">
           <span className="font-medium">{cliente.nombre}</span>
           <span className="text-xs text-muted-foreground">{cliente.documento ?? "—"}</span>
-        </Link>
+        </div>
       ),
     },
     {
@@ -121,6 +120,7 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
         columns={COLUMNS}
         rows={visibles}
         getRowKey={(cliente) => cliente.id}
+        rowHref={(cliente) => `/clientes/${cliente.id}`}
         emptyMessage={
           clientes.length === 0
             ? "No hay clientes registrados."
