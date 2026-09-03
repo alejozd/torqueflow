@@ -152,6 +152,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
         ) : (
           <span className="text-muted-foreground">—</span>
         ),
+      className: "text-right",
     },
   ];
 

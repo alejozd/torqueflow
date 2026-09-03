@@ -91,6 +91,7 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
     {
       header: "Órdenes",
       cell: (cliente) => <span className="font-mono">{cliente.ordenesCount}</span>,
+      className: "text-right",
     },
     {
       header: "Saldo",
@@ -100,6 +101,7 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
         ) : (
           <span className="text-muted-foreground">—</span>
         ),
+      className: "text-right",
     },
   ];
 

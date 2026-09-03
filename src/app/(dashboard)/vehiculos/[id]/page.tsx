@@ -105,6 +105,7 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
       cell: (orden) => (
         <span className="font-mono font-medium">{formatoMoneda.format(calcularTotalOrden(orden))}</span>
       ),
+      className: "text-right",
     },
   ];
 
