@@ -26,6 +26,7 @@ const COLUMNS: DataTableColumn<ProveedorConInventario>[] = [
   },
   {
     header: "Referencias",
+    className: "text-right",
     cell: (proveedor) => <span className="font-mono">{proveedor.repuestos.length}</span>,
   },
   {

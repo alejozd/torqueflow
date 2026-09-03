@@ -40,18 +40,22 @@ const COLUMNS: DataTableColumn<BodegaRow>[] = [
   },
   {
     header: "Referencias",
+    className: "text-right",
     cell: (bodega) => <span className="font-mono">{bodega.repuestos.length}</span>,
   },
   {
     header: "Unidades",
+    className: "text-right",
     cell: (bodega) => <span className="font-mono">{sumarUnidades(bodega)}</span>,
   },
   {
     header: "Valor inventario",
+    className: "text-right",
     cell: (bodega) => <span className="font-mono font-medium">{formatoMoneda.format(calcularValorInventario(bodega))}</span>,
   },
   {
     header: "Stock bajo",
+    className: "text-right",
     cell: (bodega) => {
       const bajo = contarStockBajo(bodega);
       return bajo > 0 ? (

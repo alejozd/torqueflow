@@ -39,14 +39,17 @@ const COLUMNS: DataTableColumn<EntradaWithDetalle>[] = [
   },
   {
     header: "Ítems",
+    className: "text-right",
     cell: (entrada) => <span className="font-mono">{entrada.items.length}</span>,
   },
   {
     header: "Unidades",
+    className: "text-right",
     cell: (entrada) => <span className="font-mono">{sumarUnidades(entrada)}</span>,
   },
   {
     header: "Costo total",
+    className: "text-right",
     cell: (entrada) => <span className="font-mono font-medium">{formatoMoneda.format(calcularCostoTotal(entrada))}</span>,
   },
 ];

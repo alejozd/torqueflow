@@ -66,10 +66,12 @@ function buildColumns(bodegas: Bodega[], proveedores: Proveedor[]): DataTableCol
     },
     {
       header: "Stock",
+      className: "text-right",
       cell: (repuesto) => <span className="font-mono">{repuesto.stockActual}</span>,
     },
     {
       header: "Mínimo",
+      className: "text-right",
       cell: (repuesto) => (
         <span className={cn("font-mono", esStockBajo(repuesto) && "font-medium text-[oklch(0.5_0.2_27)]")}>
           {repuesto.stockMinimo}
@@ -78,14 +80,17 @@ function buildColumns(bodegas: Bodega[], proveedores: Proveedor[]): DataTableCol
     },
     {
       header: "P. compra",
+      className: "text-right",
       cell: (repuesto) => <span className="font-mono">{formatoMoneda.format(Number(repuesto.precioCompra))}</span>,
     },
     {
       header: "P. venta",
+      className: "text-right",
       cell: (repuesto) => <span className="font-mono">{formatoMoneda.format(Number(repuesto.precioVenta))}</span>,
     },
     {
       header: "Margen",
+      className: "text-right",
       cell: (repuesto) => {
         const margen = calcularMargen(repuesto);
         return margen !== null ? (
