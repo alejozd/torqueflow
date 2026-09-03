@@ -1,13 +1,22 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTableInteractive } from "@/components/data-table-interactive";
+import { TableCell, TableHead, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
 export type DataTableColumn<T> = {
   header: ReactNode;
   cell: (row: T) => ReactNode;
   className?: string;
+  /**
+   * Plain-text representation of this column's value for a row, used by
+   * DataTableInteractive's client-side search filter. Unused for now --
+   * `DataTable` doesn't expose a `searchable` prop yet, so every caller's
+   * `searchTexts` entry is currently just `""`. Wired through end-to-end by
+   * a later task.
+   */
+  searchValue?: (row: T) => string;
 };
 
 export function DataTable<T>({
@@ -16,6 +25,7 @@ export function DataTable<T>({
   getRowKey,
   emptyMessage,
   rowHref,
+  pageSize = 20,
 }: {
   columns: DataTableColumn<T>[];
   rows: T[];
@@ -33,38 +43,57 @@ export function DataTable<T>({
    * clickable would be a false affordance.
    */
   rowHref?: (row: T) => string;
+  /** Rows per page for the client-side pagination footer. Defaults to 20. */
+  pageSize?: number;
 }) {
   if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
   }
 
+  // Everything below calls the raw function props (`cell`, `getRowKey`,
+  // `rowHref`) -- exactly the calls that aren't serializable across the
+  // Server->Client boundary -- so it must happen here, in the Server
+  // Component, producing plain already-rendered elements. Only those
+  // elements (and the derived searchTexts strings) cross into
+  // DataTableInteractive, which is a Client Component that owns pagination
+  // state but never needs to call `cell`/`getRowKey`/`rowHref` itself.
+  const headerCells = columns.map((column, index) => (
+    <TableHead key={index} className={column.className}>
+      {column.header}
+    </TableHead>
+  ));
+
+  const rowElements = rows.map((row) => (
+    <TableRow key={getRowKey(row)} className={cn("hover:bg-border", rowHref && "relative cursor-pointer")}>
+      {columns.map((column, index) => (
+        <TableCell key={index} className={column.className}>
+          {rowHref && index === 0 ? (
+            <Link href={rowHref(row)} className="absolute inset-0 z-10">
+              <span className="sr-only">Ver detalle</span>
+            </Link>
+          ) : null}
+          {column.cell(row)}
+        </TableCell>
+      ))}
+    </TableRow>
+  ));
+
+  const searchTexts = rows.map((row) =>
+    columns
+      .map((column) => column.searchValue?.(row) ?? "")
+      .join(" ")
+      .toLowerCase(),
+  );
+
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          {columns.map((column, index) => (
-            <TableHead key={index} className={column.className}>
-              {column.header}
-            </TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((row) => (
-          <TableRow key={getRowKey(row)} className={cn("hover:bg-border", rowHref && "relative cursor-pointer")}>
-            {columns.map((column, index) => (
-              <TableCell key={index} className={column.className}>
-                {rowHref && index === 0 ? (
-                  <Link href={rowHref(row)} className="absolute inset-0 z-10">
-                    <span className="sr-only">Ver detalle</span>
-                  </Link>
-                ) : null}
-                {column.cell(row)}
-              </TableCell>
-            ))}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <DataTableInteractive
+      headerCells={headerCells}
+      rowElements={rowElements}
+      searchTexts={searchTexts}
+      rowCount={rows.length}
+      pageSize={pageSize}
+      searchable={false}
+      emptyMessage={emptyMessage}
+    />
   );
 }
