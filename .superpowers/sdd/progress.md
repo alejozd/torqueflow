@@ -1097,3 +1097,22 @@ Task 9: complete (commit 3a7f7dc..c73c3c0, review APPROVED first pass -- classif
 Task 10: complete (commit 1007299..dff1a2f, review APPROVED first pass). `sedes/page.tsx` (searchValue on Sede) + `entradas-mercancia/page.tsx` (searchValue on Proveedor+Bodega, existing rowHref confirmed untouched -- reviewer verified it appears only as unchanged context) + `superadmin/page.tsx` (searchValue on Taller, inline columns structure handled correctly without hoisting to a module constant). Critical exclusion verified: facturas/page.tsx and citas/page.tsx do NOT appear anywhere in the diff. tsc clean.
 
 **Status: FASE E (searchable en 7 tablas) all 3 search-enabling tasks (8,9,10) COMPLETE and reviewed. Task 11 (final Fase E + whole-plan verification) next.**
+
+Task 11 (Fase E + final plan verification): complete, no fixes needed.
+- `npx tsc --noEmit`: clean.
+- `npx vitest run`: 764 passed, 13 skipped, 5 test files failed -- same long-documented pre-existing DB-provisioning flake, unrelated.
+- `git diff a9a65f1..HEAD --stat -- facturas/page.tsx citas/page.tsx`: empty -- confirmed both files untouched across the entirety of Fase E.
+- Manual browser verification (live against `taller-dev` + superadmin session, port 3025): all 7 Fase E files show a correctly-placeholdered search box where they have data (Bodegas, Repuestos, Usuarios, Sedes, Superadmin); Proveedores and Entradas de mercancia correctly show their empty-state message instead (DataTable's rows.length===0 short-circuit, no search/pagination furniture on a genuinely empty table -- expected, not a bug). Existing URL-driven filter pills (Repuestos' stock filtro, Usuarios' rol filtro) confirmed coexisting correctly with the new client-side search. Typed "taller-dev" into Superadmin's search box -- correctly filtered 3 rows down to 1 ("Mostrando 1-1 de 1 registros").
+
+======================================================================
+DATATABLE PAGINATION + SEARCH PLAN: ALL 5 FASES COMPLETE (2026-09-03)
+======================================================================
+Fase A: new reusable `Pagination` component (src/components/ui/pagination.tsx), matching select-field.tsx/combobox.tsx conventions.
+Fase B: DataTable split into a Server-safe `data-table.tsx` (pre-renders row/header JSX) + new Client `data-table-interactive.tsx` (owns page/query state, slices pre-rendered elements) -- resolves the core RSC constraint (16/17 consumers are Server Components passing non-serializable function props). rowHref explicitly verified to survive the split via a dedicated regression test AND live browser checks at every phase boundary.
+Fase C: `searchable`/`searchPlaceholder` + `DataTableColumn.searchValue?` API added, opt-in (default false), zero visible change until a page opts in.
+Fase D: `clientes-table.tsx` migrated off its hand-rolled pagination/search (the only duplicate implementation in the codebase) onto DataTable's native support -- faithful 1:1 field-mapping migration, "use client" directive dropped (no longer needed).
+Fase E: `searchable` enabled on 7 tables (Bodegas, Proveedores, Repuestos, Usuarios, Sedes, Entradas de mercancia, Superadmin) with per-table pageSize (10 for small tables, 50 for Repuestos' 152 rows, 20 default for Entradas). Facturas/Citas deliberately excluded (already have server-side ?q= search) -- confirmed untouched via git diff across the whole phase.
+
+11/11 tasks complete. All individually reviewed; one task (Task 8) had its subagent reviewer blocked twice by the Claude Code auto-mode classifier (transient -- Task 9's identical dispatch pattern worked fine immediately after), so Task 8 was reviewed directly by the controller against the raw diff instead of via subagent. Two Opus 529-server-overload retries on Task 3 (the highest-risk task) before falling back to Sonnet for both its implementer and reviewer -- Sonnet handled it well, reviewer independently verified the RSC boundary reasoning and rowHref preservation rather than trusting the report. tsc clean throughout every task. Full suite clean apart from the long-documented pre-existing DB-provisioning-contention flake (membership varies run-to-run, always isolated-clean). Browser-verified live against `taller-dev` (and superadmin) at every phase boundary.
+
+**Status: plan fully complete, all phases done and reviewed, ready for the user's review.**
