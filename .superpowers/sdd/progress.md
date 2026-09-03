@@ -1122,3 +1122,4 @@ DATATABLE UX PLAN: skeleton loaders + mejoras de paginacion (2026-09-03)
 ======================================================================
 Plan: docs/superpowers/plans/2026-09-03-datatable-ux-skeletons-pagination.md (commit ea87137)
 7 tasks. Starting Task 1 (Pagination First/Last buttons + pageSize wiring).
+Task 1: complete (commit 094f2d8..911dcb7, review APPROVED first pass, no fixes needed). Pagination: pageSizeOptions default -> [10,20,50,100], Primera/Ultima buttons (ChevronsLeft/ChevronsRight) gated on pageCount>5 with correct disabled states. DataTableInteractive: pageSize lifted into own useState (seeded from prop via shadowing), onPageSizeChange wired, resets to page 1 on size change. Reviewer independently verified all 8 real DataTable pageSize call sites (10/20/50) are covered by the new default options. tsc clean, 28/28 focused tests + full suite 766 passed.
