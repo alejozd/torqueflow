@@ -20,7 +20,7 @@ export function DataTableInteractive({
   rowElements,
   searchTexts,
   rowCount,
-  pageSize,
+  pageSize: initialPageSize,
   searchable,
   searchPlaceholder,
   emptyMessage,
@@ -29,12 +29,14 @@ export function DataTableInteractive({
   rowElements: ReactNode[];
   searchTexts: string[];
   rowCount: number;
+  /** Initial rows-per-page; the user can change it afterwards via the Pagination page-size selector. */
   pageSize: number;
   searchable: boolean;
   searchPlaceholder?: string;
   emptyMessage: string;
 }) {
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(initialPageSize);
   const [query, setQuery] = useState("");
 
   const normalizedQuery = query.trim().toLowerCase();
@@ -52,6 +54,11 @@ export function DataTableInteractive({
 
   function handleQueryChange(value: string) {
     setQuery(value);
+    setPage(1);
+  }
+
+  function handlePageSizeChange(value: number) {
+    setPageSize(value);
     setPage(1);
   }
 
@@ -82,6 +89,7 @@ export function DataTableInteractive({
             pageSize={pageSize}
             total={total}
             onPageChange={setPage}
+            onPageSizeChange={handlePageSizeChange}
           />
         </>
       )}

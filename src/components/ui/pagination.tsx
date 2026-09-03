@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SelectField } from "@/components/ui/select-field"
 import { cn } from "@/lib/utils"
@@ -19,7 +19,7 @@ function Pagination({
   total,
   onPageChange,
   onPageSizeChange,
-  pageSizeOptions = [10, 20, 50],
+  pageSizeOptions = [10, 20, 50, 100],
   className,
 }: {
   page: number
@@ -55,6 +55,17 @@ function Pagination({
         ) : null}
         {pageCount > 1 ? (
           <div className="flex items-center gap-2">
+            {pageCount > 5 ? (
+              <Button
+                variant="outline"
+                size="icon-sm"
+                aria-label="Primera página"
+                disabled={page <= 1}
+                onClick={() => onPageChange(1)}
+              >
+                <ChevronsLeft />
+              </Button>
+            ) : null}
             <Button
               variant="outline"
               size="icon-sm"
@@ -76,6 +87,17 @@ function Pagination({
             >
               <ChevronRight />
             </Button>
+            {pageCount > 5 ? (
+              <Button
+                variant="outline"
+                size="icon-sm"
+                aria-label="Última página"
+                disabled={page >= pageCount}
+                onClick={() => onPageChange(pageCount)}
+              >
+                <ChevronsRight />
+              </Button>
+            ) : null}
           </div>
         ) : null}
       </div>

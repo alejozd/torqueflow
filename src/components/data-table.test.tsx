@@ -170,6 +170,28 @@ describe("DataTable", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
+  it("changing the page-size selector re-slices rows, updates the counter, and resets to page 1", async () => {
+    const user = userEvent.setup();
+    const columns: DataTableColumn<Row>[] = [{ header: "Nombre", cell: (row) => row.name }];
+    render(
+      <DataTable columns={columns} rows={buildRows(25)} getRowKey={(row) => row.id} emptyMessage="Sin datos" />,
+    );
+
+    // Default pageSize is 20 -- move to page 2 first so we can verify the
+    // pageSize change resets back to page 1.
+    await user.click(screen.getByRole("button", { name: "Página siguiente" }));
+    expect(screen.getByRole("cell", { name: "Item 21" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("combobox"));
+    await user.click(await screen.findByRole("option", { name: "10 por página" }));
+
+    // 1 header row + 10 data rows -- back on page 1 with the new pageSize.
+    expect(screen.getAllByRole("row")).toHaveLength(11);
+    expect(screen.getByRole("cell", { name: "Item 1" })).toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: "Item 11" })).not.toBeInTheDocument();
+    expect(screen.getByText("Mostrando 1-10 de 25 registros")).toBeInTheDocument();
+  });
+
   it("applies the searchPlaceholder prop to the search input", () => {
     const columns: DataTableColumn<Row>[] = [
       { header: "Nombre", cell: (row) => row.name, searchValue: (row) => row.name },

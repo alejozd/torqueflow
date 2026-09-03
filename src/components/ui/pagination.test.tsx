@@ -107,4 +107,54 @@ describe("Pagination", () => {
     );
     expect(screen.getByRole("combobox")).toBeInTheDocument();
   });
+
+  it("does not render First/Last buttons when pageCount <= 5", () => {
+    render(<Pagination page={1} pageCount={5} pageSize={10} total={50} onPageChange={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Primera página" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Última página" })).not.toBeInTheDocument();
+  });
+
+  it("renders First/Last buttons when pageCount > 5, disabled at the corresponding boundary", () => {
+    const { rerender } = render(
+      <Pagination page={1} pageCount={6} pageSize={10} total={60} onPageChange={vi.fn()} />,
+    );
+    expect(screen.getByRole("button", { name: "Primera página" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Última página" })).not.toBeDisabled();
+
+    rerender(<Pagination page={6} pageCount={6} pageSize={10} total={60} onPageChange={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Primera página" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Última página" })).toBeDisabled();
+  });
+
+  it("calls onPageChange(pageCount) when Última is clicked", async () => {
+    const user = userEvent.setup();
+    const onPageChange = vi.fn();
+    render(<Pagination page={2} pageCount={6} pageSize={10} total={60} onPageChange={onPageChange} />);
+    await user.click(screen.getByRole("button", { name: "Última página" }));
+    expect(onPageChange).toHaveBeenCalledWith(6);
+  });
+
+  it("calls onPageChange(1) when Primera is clicked", async () => {
+    const user = userEvent.setup();
+    const onPageChange = vi.fn();
+    render(<Pagination page={4} pageCount={6} pageSize={10} total={60} onPageChange={onPageChange} />);
+    await user.click(screen.getByRole("button", { name: "Primera página" }));
+    expect(onPageChange).toHaveBeenCalledWith(1);
+  });
+
+  it("includes 100 in the default pageSizeOptions", async () => {
+    const user = userEvent.setup();
+    render(
+      <Pagination
+        page={1}
+        pageCount={3}
+        pageSize={10}
+        total={30}
+        onPageChange={vi.fn()}
+        onPageSizeChange={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole("combobox"));
+    expect(await screen.findByRole("option", { name: "100 por página" })).toBeInTheDocument();
+  });
 });
