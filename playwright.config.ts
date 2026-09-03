@@ -12,12 +12,15 @@ export default defineConfig({
   globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",
   use: {
-    baseURL: "http://localhost:3000",
+    // package.json's "dev" script pins Next to port 3025 (avoids clashing
+    // with other local apps on 3000) -- must match here or webServer never
+    // becomes reachable and every e2e run times out with 0 tests executed.
+    baseURL: "http://localhost:3025",
     trace: "retain-on-failure",
   },
   webServer: {
     command: "npm run dev",
-    url: "http://localhost:3000",
+    url: "http://localhost:3025",
     reuseExistingServer: !process.env.CI,
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
