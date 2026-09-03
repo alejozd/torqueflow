@@ -96,10 +96,12 @@ const COLUMNS: DataTableColumn<FacturaRow>[] = [
   },
   {
     header: "Total",
+    className: "text-right",
     cell: (factura) => <span className="font-mono font-medium">{formatoMoneda.format(Number(factura.total))}</span>,
   },
   {
     header: "Saldo",
+    className: "text-right",
     cell: (factura) =>
       Number(factura.saldoPendiente) > 0 ? (
         <span className="font-mono font-medium text-[oklch(0.5_0.2_27)]">

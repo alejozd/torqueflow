@@ -146,10 +146,12 @@ const COLUMNS: DataTableColumn<OrdenRow>[] = [
   },
   {
     header: "Ítems",
+    className: "text-right",
     cell: (orden) => <span className="font-mono">{contarItems(orden)}</span>,
   },
   {
     header: "Total",
+    className: "text-right",
     cell: (orden) => <span className="font-mono font-medium">{formatoMoneda.format(calcularTotalOrden(orden))}</span>,
   },
 ];
