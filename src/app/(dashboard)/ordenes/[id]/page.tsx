@@ -78,10 +78,12 @@ const ITEMS_COLUMNS: DataTableColumn<ItemRow>[] = [
   },
   {
     header: "Cant.",
+    className: "text-right",
     cell: (item) => <span className="font-mono text-sm">{item.cantidad}</span>,
   },
   {
     header: "Unitario",
+    className: "text-right",
     cell: (item) => (
       <span className="font-mono text-sm text-muted-foreground">
         {formatoMoneda.format(Number(item.precioUnitario))}
@@ -90,6 +92,7 @@ const ITEMS_COLUMNS: DataTableColumn<ItemRow>[] = [
   },
   {
     header: "Importe",
+    className: "text-right",
     cell: (item) => (
       <span className="font-mono text-sm font-medium">
         {formatoMoneda.format(item.cantidad * Number(item.precioUnitario))}
@@ -111,6 +114,7 @@ const MANO_OBRA_COLUMNS: DataTableColumn<ManoObraRow>[] = [
   },
   {
     header: "Valor",
+    className: "text-right",
     cell: (linea) => (
       <span className="font-mono text-sm font-medium">{formatoMoneda.format(Number(linea.valor))}</span>
     ),
