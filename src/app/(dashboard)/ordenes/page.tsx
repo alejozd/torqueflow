@@ -109,14 +109,15 @@ function construirHrefOrdenes(base: { estado?: EstadoOrden; vista?: "tabla" | "t
   return query ? `/ordenes?${query}` : "/ordenes";
 }
 
+/**
+ * The whole row is clickable via DataTable's rowHref (a stretched link),
+ * not a per-cell <Link> -- one unified hover/cursor/click target instead of
+ * fragmented underlines per cell.
+ */
 const COLUMNS: DataTableColumn<OrdenRow>[] = [
   {
     header: "Orden",
-    cell: (orden) => (
-      <Link href={`/ordenes/${orden.id}`} className="font-mono text-sm font-medium hover:underline">
-        #{orden.id.slice(-8).toUpperCase()}
-      </Link>
-    ),
+    cell: (orden) => <span className="font-mono text-sm font-medium">#{orden.id.slice(-8).toUpperCase()}</span>,
   },
   {
     header: "Vehículo",
@@ -313,6 +314,7 @@ export default async function OrdenesPage({
               columns={COLUMNS}
               rows={filtradas}
               getRowKey={(orden) => orden.id}
+              rowHref={(orden) => `/ordenes/${orden.id}`}
               emptyMessage="No hay órdenes de trabajo en este estado."
             />
           ) : (
