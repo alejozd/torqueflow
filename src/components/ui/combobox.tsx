@@ -107,7 +107,7 @@ function Combobox({
                 <ComboboxPrimitive.Item
                   key={item.value}
                   value={item}
-                  className="relative flex w-full cursor-default items-center gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground"
+                  className="relative flex w-full cursor-default items-center gap-1.5 rounded-md py-2 pr-8 pl-1.5 text-sm outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground"
                 >
                   {renderOption ? renderOption(item) : item.label}
                   <ComboboxPrimitive.ItemIndicator className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">

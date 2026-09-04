@@ -33,7 +33,7 @@ export function NuevaOrdenDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button />}>Nueva orden</DialogTrigger>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Nueva orden de trabajo</DialogTitle>
           <DialogDescription>Vehículo, responsable y diagnóstico inicial.</DialogDescription>

@@ -114,7 +114,7 @@ export function NuevaOrdenDesdeCeroForm({
   return (
     <form noValidate ref={formRef} onSubmit={handleSubmit(onValid)} className="flex flex-col gap-4">
       <FormGroup label="Vehículo">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr]">
           <ClientVehicleSelector
             clientes={clientes}
             onClientesChange={setClientes}

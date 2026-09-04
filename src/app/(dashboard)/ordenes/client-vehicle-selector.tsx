@@ -79,30 +79,52 @@ export function ClientVehicleSelector({
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="clienteId">Cliente</Label>
         <div className="flex items-center gap-1.5">
-          <Combobox
-            id="clienteId"
-            items={clienteOptions}
-            value={clienteId}
-            onValueChange={seleccionarCliente}
-            placeholder="Buscar cliente..."
-            emptyMessage="Ningún cliente coincide"
-            aria-invalid={clienteError ? true : undefined}
-            aria-describedby={clienteError ? "clienteId-error" : undefined}
-            renderOption={(item) => {
-              const count = clientesPorId.get(item.value)?.vehiculos.length ?? 0;
-              return (
-                <span className="flex w-full items-center justify-between gap-2">
-                  <span>{item.label}</span>
-                  <span className={cn("text-xs", count === 0 ? KPI_TONE.warning.icon : "text-muted-foreground")}>
-                    {count === 0 ? "Sin vehículos" : `${count} vehículo${count === 1 ? "" : "s"}`}
+          {/*
+            Combobox's Root renders as a plain block element -- it fills a
+            column parent's width by default, but as a flex-row sibling of
+            the "crear cliente" button it wouldn't grow past its own content
+            (flex items don't stretch along the main axis without
+            flex-grow). This wrapper is the one that actually grows.
+          */}
+          <div className="min-w-0 flex-1">
+            <Combobox
+              id="clienteId"
+              items={clienteOptions}
+              value={clienteId}
+              onValueChange={seleccionarCliente}
+              placeholder="Buscar cliente..."
+              emptyMessage="Ningún cliente coincide"
+              aria-invalid={clienteError ? true : undefined}
+              aria-describedby={clienteError ? "clienteId-error" : undefined}
+              renderOption={(item) => {
+                const count = clientesPorId.get(item.value)?.vehiculos.length ?? 0;
+                return (
+                  <span className="flex w-full min-w-0 items-center justify-between gap-3">
+                    <span className="min-w-0 truncate" title={item.label}>
+                      {item.label}
+                    </span>
+                    <span
+                      className={cn(
+                        "shrink-0 text-xs",
+                        count === 0 ? KPI_TONE.warning.icon : "text-muted-foreground",
+                      )}
+                    >
+                      {count === 0 ? "Sin vehículos" : `${count} vehículo${count === 1 ? "" : "s"}`}
+                    </span>
                   </span>
-                </span>
-              );
-            }}
-          />
-          <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => setCrearClienteOpen(true)}>
+                );
+              }}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="size-8 shrink-0"
+            title="Crear cliente nuevo"
+            onClick={() => setCrearClienteOpen(true)}
+          >
             <Plus className="size-3.5" />
-            Crear cliente nuevo
           </Button>
         </div>
         {clienteError ? (
