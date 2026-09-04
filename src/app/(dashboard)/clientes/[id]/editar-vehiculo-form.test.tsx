@@ -26,13 +26,16 @@ function renderInDialog(ui: Parameters<typeof render>[0]) {
   return render(<Dialog open>{ui}</Dialog>);
 }
 
+const marcas = [{ id: "m1", nombre: "Toyota", createdAt: new Date() }] as never;
+const modelos = [{ id: "mo1", marcaId: "m1", nombre: "Corolla", createdAt: new Date() }] as never;
+
 const vehiculo = {
   id: "v1",
   placa: "ABC123",
   marca: "Toyota",
   modelo: "Corolla",
-  marcaId: null,
-  modeloId: null,
+  marcaId: "m1",
+  modeloId: "mo1",
   color: "Rojo",
   anio: 2020,
   combustible: "GASOLINA" as const,
@@ -52,11 +55,11 @@ describe("EditarVehiculoForm", () => {
   });
 
   it("prefills every field with the vehiculo's current values", () => {
-    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} marcas={[]} modelos={[]} esAdmin={false} />);
+    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} marcas={marcas} modelos={modelos} esAdmin={false} />);
 
     expect(screen.getByLabelText("Placa")).toHaveValue("ABC123");
-    expect(screen.getByLabelText("Marca")).toHaveValue("Toyota");
-    expect(screen.getByLabelText("Modelo")).toHaveValue("Corolla");
+    expect(screen.getByRole("combobox", { name: "Marca" })).toHaveValue("Toyota");
+    expect(screen.getByRole("combobox", { name: "Modelo" })).toHaveValue("Corolla");
     expect(screen.getByLabelText("Año")).toHaveValue(2020);
     expect(screen.getByRole("combobox", { name: "Combustible" })).toHaveTextContent("Gasolina");
     expect(screen.getByLabelText("Kilometraje")).toHaveValue(45000);
@@ -66,7 +69,7 @@ describe("EditarVehiculoForm", () => {
   });
 
   it("shows a success message after a successful submit", async () => {
-    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} marcas={[]} modelos={[]} esAdmin={false} />);
+    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} marcas={marcas} modelos={modelos} esAdmin={false} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
 
@@ -75,7 +78,7 @@ describe("EditarVehiculoForm", () => {
 
   it("shows the error message when the action returns one", async () => {
     mockUpdateVehiculoAction.mockResolvedValue({ error: "Ya existe un registro con ese valor.", success: false });
-    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} marcas={[]} modelos={[]} esAdmin={false} />);
+    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} marcas={marcas} modelos={modelos} esAdmin={false} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
 

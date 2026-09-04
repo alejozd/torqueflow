@@ -74,9 +74,6 @@ export function VehiculoFormFields({
     [modelosLocal, marcaIdField.value],
   );
 
-  const marcaRegister = register("marca");
-  const modeloRegister = register("modelo");
-
   // Takes the object directly (not just an id) so a freshly created
   // marca/modelo -- not yet in marcasLocal/modelosLocal's state at the point
   // its own onCreated callback fires -- can still be applied without relying
@@ -126,29 +123,18 @@ export function VehiculoFormFields({
       <FormGroup label="Vehículo">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-7">
           <div className="flex flex-col gap-1.5 sm:col-span-2">
-            <Label htmlFor="marca">Marca</Label>
-            <Input
-              id="marca"
-              aria-invalid={errors.marca ? true : undefined}
-              aria-describedby={errors.marca ? "marca-error" : undefined}
-              {...marcaRegister}
-              onChange={(event) => {
-                marcaRegister.onChange(event);
-                // Hand-editing the text after a catalog pick means it no
-                // longer necessarily matches marcaId's row -- drop the
-                // reference rather than submit a mismatched one.
-                if (marcaIdField.value) marcaIdField.onChange("");
-              }}
-            />
-            {errors.marca ? <p id="marca-error">{errors.marca.message}</p> : null}
+            <Label htmlFor="marca-combobox">Marca</Label>
+            <input type="hidden" {...register("marca")} />
             <div className="flex items-center gap-1.5">
               <Combobox
+                id="marca-combobox"
                 items={marcaOptions}
                 value={marcaIdField.value ?? ""}
                 onValueChange={seleccionarMarca}
-                placeholder="Buscar en catálogo…"
+                placeholder="Buscar marca…"
                 emptyMessage="Ninguna marca coincide"
-                className="h-8 text-xs"
+                aria-invalid={errors.marca ? true : undefined}
+                aria-describedby={errors.marca ? "marca-error" : undefined}
               />
               {esAdmin ? (
                 <Button
@@ -163,30 +149,23 @@ export function VehiculoFormFields({
                 </Button>
               ) : null}
             </div>
+            {errors.marca ? <p id="marca-error">{errors.marca.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5 sm:col-span-2">
-            <Label htmlFor="modelo">Modelo</Label>
-            <Input
-              id="modelo"
-              aria-invalid={errors.modelo ? true : undefined}
-              aria-describedby={errors.modelo ? "modelo-error" : undefined}
-              {...modeloRegister}
-              onChange={(event) => {
-                modeloRegister.onChange(event);
-                if (modeloIdField.value) modeloIdField.onChange("");
-              }}
-            />
-            {errors.modelo ? <p id="modelo-error">{errors.modelo.message}</p> : null}
+            <Label htmlFor="modelo-combobox">Modelo</Label>
+            <input type="hidden" {...register("modelo")} />
             <div className="flex items-center gap-1.5">
               <Combobox
+                id="modelo-combobox"
                 items={modeloOptions}
                 value={modeloIdField.value ?? ""}
                 onValueChange={seleccionarModelo}
-                placeholder={marcaIdField.value ? "Buscar en catálogo…" : "Elige una marca primero"}
+                placeholder={marcaIdField.value ? "Buscar modelo…" : "Elige una marca primero"}
                 emptyMessage="Ningún modelo coincide"
                 disabled={!marcaIdField.value}
-                className="h-8 text-xs"
+                aria-invalid={errors.modelo ? true : undefined}
+                aria-describedby={errors.modelo ? "modelo-error" : undefined}
               />
               {esAdmin && marcaIdField.value ? (
                 <Button
@@ -201,6 +180,7 @@ export function VehiculoFormFields({
                 </Button>
               ) : null}
             </div>
+            {errors.modelo ? <p id="modelo-error">{errors.modelo.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5 sm:col-span-1">
