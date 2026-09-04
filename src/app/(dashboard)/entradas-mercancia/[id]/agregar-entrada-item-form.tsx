@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useMemo, useRef } from "react";
+import { startTransition, useActionState, useEffect, useMemo, useRef } from "react";
 import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { addEntradaItemAction, type EntradaFormState } from "@/app/actions/entrada-mercancia-actions";
@@ -32,6 +32,7 @@ export function AgregarEntradaItemForm({
     register,
     handleSubmit,
     control,
+    reset,
     formState: { errors },
   } = useForm<EntradaItemFormInput>({
     resolver: zodResolver(entradaMercanciaItemInputSchema),
@@ -43,6 +44,16 @@ export function AgregarEntradaItemForm({
     () => repuestos.map((repuesto) => ({ value: repuesto.id, label: `${repuesto.codigo} — ${repuesto.nombre}` })),
     [repuestos],
   );
+
+  // Clears repuesto/cantidad/precio after each successful registro -- entradas
+  // typically receive several repuestos in one visit, so leaving the previous
+  // item's values in place would just make it easy to double-submit the same
+  // line by accident (same pattern as ordenes/[id]/agregar-item-form.tsx).
+  useEffect(() => {
+    if (state.success) {
+      reset();
+    }
+  }, [state, reset]);
 
   return (
     <form
@@ -115,7 +126,7 @@ export function AgregarEntradaItemForm({
         </div>
       </FormGroup>
 
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} className="self-end">
         {isPending ? "Registrando..." : "Registrar ítem"}
       </Button>
 
