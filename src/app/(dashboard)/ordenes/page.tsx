@@ -8,6 +8,7 @@ import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
+import { inferirColorVehiculo } from "@/lib/color-vehiculo";
 import { formatoFechaCorta, formatoFechaRelativa, inicioMesBogota, inicioSemanaBogota } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
 
@@ -195,9 +196,14 @@ function buildColumns(
     },
     {
       header: "Vehículo",
-      cell: (orden) => (
+      cell: (orden) => {
+        const tono = inferirColorVehiculo(orden.vehiculo.color);
+        return (
         <div className="flex flex-col gap-1">
-          <Badge variant="outline" className="w-fit font-mono text-xs tracking-wider">
+          <Badge
+            variant="outline"
+            className={cn("w-fit font-mono text-xs tracking-wider", tono && "border-transparent", tono?.bg, tono?.text)}
+          >
             {orden.vehiculo.placa.toUpperCase()}
           </Badge>
           <span className="text-xs text-muted-foreground">
@@ -205,7 +211,8 @@ function buildColumns(
             {orden.vehiculo.color ? ` · ${orden.vehiculo.color}` : ""}
           </span>
         </div>
-      ),
+        );
+      },
     },
     {
       header: <SortableHeader label="Cliente" sortKey="cliente" {...sortableHeaderProps} />,

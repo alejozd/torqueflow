@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
+import { inferirColorVehiculo } from "@/lib/color-vehiculo";
 import { cn } from "@/lib/utils";
 
 const ESTADOS_VALIDOS: EstadoCita[] = [
@@ -211,17 +212,23 @@ const COLUMNS: DataTableColumn<CitaConDetalle>[] = [
   },
   {
     header: "Vehículo",
-    cell: (cita) => (
-      <div className="flex flex-col gap-1">
-        <Badge variant="outline" className="w-fit font-mono text-xs tracking-wider">
-          {cita.vehiculo.placa.toUpperCase()}
-        </Badge>
-        <span className="text-xs text-muted-foreground">
-          {cita.vehiculo.marca} {cita.vehiculo.modelo}
-          {cita.vehiculo.color ? ` · ${cita.vehiculo.color}` : ""}
-        </span>
-      </div>
-    ),
+    cell: (cita) => {
+      const tono = inferirColorVehiculo(cita.vehiculo.color);
+      return (
+        <div className="flex flex-col gap-1">
+          <Badge
+            variant="outline"
+            className={cn("w-fit font-mono text-xs tracking-wider", tono && "border-transparent", tono?.bg, tono?.text)}
+          >
+            {cita.vehiculo.placa.toUpperCase()}
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            {cita.vehiculo.marca} {cita.vehiculo.modelo}
+            {cita.vehiculo.color ? ` · ${cita.vehiculo.color}` : ""}
+          </span>
+        </div>
+      );
+    },
   },
   {
     header: "Cliente",

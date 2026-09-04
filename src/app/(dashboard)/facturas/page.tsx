@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
+import { inferirColorVehiculo } from "@/lib/color-vehiculo";
 import { formatoFechaCorta, formatoFechaRelativa, inicioMesBogota } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
 
@@ -140,17 +141,23 @@ function buildColumns(
     },
     {
       header: "Vehículo",
-      cell: (factura) => (
-        <div className="flex flex-col gap-1">
-          <Badge variant="outline" className="w-fit font-mono text-xs tracking-wider">
-            {factura.orden.vehiculo.placa.toUpperCase()}
-          </Badge>
-          <span className="text-xs text-muted-foreground">
-            {factura.orden.vehiculo.marca} {factura.orden.vehiculo.modelo}
-            {factura.orden.vehiculo.color ? ` · ${factura.orden.vehiculo.color}` : ""}
-          </span>
-        </div>
-      ),
+      cell: (factura) => {
+        const tono = inferirColorVehiculo(factura.orden.vehiculo.color);
+        return (
+          <div className="flex flex-col gap-1">
+            <Badge
+              variant="outline"
+              className={cn("w-fit font-mono text-xs tracking-wider", tono && "border-transparent", tono?.bg, tono?.text)}
+            >
+              {factura.orden.vehiculo.placa.toUpperCase()}
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              {factura.orden.vehiculo.marca} {factura.orden.vehiculo.modelo}
+              {factura.orden.vehiculo.color ? ` · ${factura.orden.vehiculo.color}` : ""}
+            </span>
+          </div>
+        );
+      },
     },
     {
       header: <SortableHeader label="Emitida" sortKey="fecha" {...sortableHeaderProps} />,
