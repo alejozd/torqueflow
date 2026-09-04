@@ -7,6 +7,7 @@ import {
 import { listSedes } from "@/app/actions/sede-actions";
 import { rangoMesActual } from "@/lib/reportes/rango-fechas";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -59,7 +60,12 @@ export default async function ReportesPage({
 
   return (
     <main className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Reportes</h1>
+      <div className="flex flex-wrap items-center gap-2.5">
+        <h1 className="text-2xl font-semibold">Reportes</h1>
+        <Badge variant="outline" className="font-normal text-muted-foreground">
+          {productividad.filas.length} {productividad.filas.length === 1 ? "técnico" : "técnicos"} con órdenes
+        </Badge>
+      </div>
 
       <Card>
         <CardHeader>
@@ -176,6 +182,7 @@ export default async function ReportesPage({
             rows={productividad.filas}
             getRowKey={(fila) => fila.mecanicoId ?? "sin-asignar"}
             emptyMessage="No hay órdenes entregadas en este rango."
+            headerClassName="bg-muted"
           />
         </CardContent>
       </Card>

@@ -50,6 +50,13 @@ const ROLE_ICON: Record<Role, typeof ShieldCheck> = {
   RECEPCION: Headset,
 };
 
+// Same literal colors as ROLE_BADGE_CLASSNAME, for the filter pills' dots.
+const ROLE_DOT_COLOR: Record<Role, string> = {
+  ADMIN: "var(--primary)",
+  TECNICO: "oklch(0.44 0.12 250)",
+  RECEPCION: "oklch(0.4 0.1 150)",
+};
+
 type SedeOption = { id: string; nombre: string };
 
 function buildColumns(sedesPorId: Map<string, string>, sedeOptions: SedeOption[]): DataTableColumn<UsuarioConMetricas>[] {
@@ -136,11 +143,22 @@ export default async function UsuariosPage({
     {} as Record<Role, number>,
   );
 
+  // ADMIN bypasses UsuarioSede entirely (see the "Sedes asignadas" column
+  // below), so an empty sedeIds list only signals a gap for non-ADMIN roles.
+  const sinSedeAsignada = usuarios.filter(
+    (usuario) => usuario.role !== "ADMIN" && usuario.sedeIds.length === 0,
+  ).length;
+
   return (
     <main className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold">Usuarios</h1>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-2xl font-semibold">Usuarios</h1>
+            <Badge variant="outline" className="font-normal text-muted-foreground">
+              {sinSedeAsignada} sin sede asignada
+            </Badge>
+          </div>
           <p className="text-sm text-muted-foreground">{usuarios.length} usuarios registrados</p>
         </div>
         <Link href="/usuarios/nuevo" className={buttonVariants({})}>
@@ -191,12 +209,16 @@ export default async function UsuariosPage({
                 key={role}
                 href={`/usuarios?rol=${role}`}
                 className={cn(
-                  "rounded-full border px-3 py-1 text-sm transition-colors",
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors",
                   rolFiltro === role
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
                 )}
               >
+                <span
+                  className="size-1.5 shrink-0 rounded-full"
+                  style={{ background: rolFiltro === role ? "currentColor" : ROLE_DOT_COLOR[role] }}
+                />
                 {ROLE_LABELS[role]}
               </Link>
             ))}
@@ -210,6 +232,7 @@ export default async function UsuariosPage({
             searchable
             searchPlaceholder="Buscar por nombre o correo..."
             pageSize={10}
+            headerClassName="bg-muted"
           />
         </CardContent>
       </Card>

@@ -3,6 +3,7 @@ import { listSedesConMetricas, type SedeConMetricas } from "@/app/actions/sede-a
 import { NuevaSedeDialog } from "./nueva-sede-dialog";
 import { EditarSedeDialog } from "./editar-sede-dialog";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
@@ -44,12 +45,18 @@ export default async function SedesPage() {
 
   const totalUsuariosAsignados = sedes.reduce((suma, sede) => suma + sede.usuariosAsignados, 0);
   const totalOrdenesAbiertas = sedes.reduce((suma, sede) => suma + sede.ordenesAbiertas, 0);
+  const sedesConOrdenes = sedes.filter((sede) => sede.ordenesAbiertas > 0).length;
 
   return (
     <main className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold">Sedes</h1>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-2xl font-semibold">Sedes</h1>
+            <Badge variant="outline" className="font-normal text-muted-foreground">
+              {sedesConOrdenes} con órdenes abiertas
+            </Badge>
+          </div>
           <p className="text-sm text-muted-foreground">{sedes.length} sedes registradas</p>
         </div>
         <NuevaSedeDialog />
@@ -99,6 +106,7 @@ export default async function SedesPage() {
             searchable
             searchPlaceholder="Buscar por sede..."
             pageSize={10}
+            headerClassName="bg-muted"
           />
         </CardContent>
       </Card>
