@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertCircle, ArrowDown, ArrowUp, Clock, DollarSign, Wrench } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, DollarSign, UserPlus, Wrench } from "lucide-react";
 import { listOrdenes, listTecnicos, type OrdenWithDetalle } from "@/app/actions/orden-actions";
 import { listClientesParaOrden } from "@/app/actions/cliente-actions";
 import { NuevaOrdenDialog } from "./nueva-orden-dialog";
@@ -255,16 +255,11 @@ export default async function OrdenesPage({
   const enProceso = ordenes.filter((orden) => orden.estado === "EN_PROCESO").length;
   const terminadasSinFacturar = ordenes.filter((orden) => orden.estado === "TERMINADA" && !orden.factura).length;
 
-  const entregadas = ordenes.filter((orden) => orden.entregadaAt !== null);
-  const tiempoMedioDias =
-    entregadas.length > 0
-      ? entregadas.reduce(
-          (suma, orden) => suma + (orden.entregadaAt!.getTime() - orden.createdAt.getTime()),
-          0,
-        ) /
-        entregadas.length /
-        (1000 * 60 * 60 * 24)
-      : null;
+  // Only BORRADOR/EN_PROCESO orders need a mecánico assigned to move forward
+  // -- TERMINADA/ENTREGADA/ANULADA are past that step.
+  const porAsignarMecanico = ordenes.filter(
+    (orden) => (orden.estado === "BORRADOR" || orden.estado === "EN_PROCESO") && !orden.mecanico,
+  ).length;
 
   const facturadas = ordenes.filter((orden) => orden.factura !== null);
   const ticketMedio =
@@ -288,7 +283,7 @@ export default async function OrdenesPage({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <KpiCard
-          title="En proceso"
+          title="En bahía"
           value={enProceso}
           icon={<Wrench className={cn("size-5", KPI_TONE.info.icon)} />}
           iconBgColor={KPI_TONE.info.bg}
@@ -303,10 +298,11 @@ export default async function OrdenesPage({
         />
 
         <KpiCard
-          title="Tiempo medio"
-          value={tiempoMedioDias !== null ? `${tiempoMedioDias.toFixed(1)}d` : "—"}
-          icon={<Clock className={cn("size-5", KPI_TONE.neutral.icon)} />}
-          iconBgColor={KPI_TONE.neutral.bg}
+          title="Por asignar mecánico"
+          value={porAsignarMecanico}
+          valueColor="warning"
+          icon={<UserPlus className={cn("size-5", KPI_TONE.warning.icon)} />}
+          iconBgColor={KPI_TONE.warning.bg}
         />
 
         <KpiCard

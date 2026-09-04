@@ -79,12 +79,27 @@ export function KpiCard({
         <div className="flex min-w-0 flex-col gap-1.5">
           <p className="truncate text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</p>
           <p className={cn("font-mono text-2xl font-semibold", ACCENT_COLOR_CLASSNAME[valueColor])}>{value}</p>
-          {subtitle ? (
-            <p className={cn("flex items-center gap-1 text-xs", SUBTITLE_ACCENT_COLOR_CLASSNAME[subtitleColor])}>
-              <SubtitleIcon icon={subtitleIcon} />
-              {subtitle}
-            </p>
-          ) : null}
+          {/*
+            Always rendered (invisible when there is no subtitle) so every
+            card reserves the same line of height -- otherwise cards without
+            a subtitle (or whose subtitle only appears conditionally, like
+            Dashboard's "En el taller") render shorter than their siblings.
+          */}
+          <p
+            className={cn(
+              "flex items-center gap-1 text-xs",
+              subtitle ? SUBTITLE_ACCENT_COLOR_CLASSNAME[subtitleColor] : "invisible",
+            )}
+          >
+            {subtitle ? (
+              <>
+                <SubtitleIcon icon={subtitleIcon} />
+                {subtitle}
+              </>
+            ) : (
+              " "
+            )}
+          </p>
         </div>
         <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-full", iconBgColor)}>
           {icon}
