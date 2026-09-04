@@ -22,8 +22,8 @@ export interface VehiculoOption {
 }
 
 const CITA_DETALLE_INCLUDE = {
-  cliente: { select: { id: true, nombre: true, telefono: true, email: true } },
-  vehiculo: { select: { id: true, placa: true, marca: true, modelo: true, anio: true, kilometraje: true } },
+  cliente: { select: { id: true, nombre: true, telefono: true, email: true, documento: true } },
+  vehiculo: { select: { id: true, placa: true, marca: true, modelo: true, color: true, anio: true, kilometraje: true } },
   creadoPor: { select: { id: true, nombre: true } },
 } satisfies Prisma.CitaInclude;
 

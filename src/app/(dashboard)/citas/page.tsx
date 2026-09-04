@@ -51,6 +51,16 @@ const ESTADO_BADGE_VARIANT: Partial<
   CANCELADA: "destructive",
 };
 
+// Same tones as ESTADO_BADGE_CLASSNAME/Badge's own variants -- every one of
+// these badges is a light tint (not a solid fill), so each dot just reuses
+// the badge's own text color.
+const ESTADO_DOT_COLOR: Record<EstadoCita, string> = {
+  PROGRAMADA: "oklch(0.7 0 0)",
+  CONFIRMADA: "oklch(0.44 0.12 250)",
+  CANCELADA: "var(--destructive)",
+  COMPLETADA: "oklch(0.4 0.1 150)",
+};
+
 const formatoFecha = new Intl.DateTimeFormat("es-CO", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -202,19 +212,25 @@ const COLUMNS: DataTableColumn<CitaConDetalle>[] = [
   {
     header: "Vehículo",
     cell: (cita) => (
-      <div className="flex flex-col">
-        <span className="font-mono text-sm font-medium">
-          {cita.vehiculo.placa}
-        </span>
+      <div className="flex flex-col gap-1">
+        <Badge variant="outline" className="w-fit font-mono text-xs tracking-wider">
+          {cita.vehiculo.placa.toUpperCase()}
+        </Badge>
         <span className="text-xs text-muted-foreground">
           {cita.vehiculo.marca} {cita.vehiculo.modelo}
+          {cita.vehiculo.color ? ` · ${cita.vehiculo.color}` : ""}
         </span>
       </div>
     ),
   },
   {
     header: "Cliente",
-    cell: (cita) => cita.cliente.nombre,
+    cell: (cita) => (
+      <div className="flex flex-col gap-0.5">
+        <span>{cita.cliente.nombre}</span>
+        <span className="text-xs text-muted-foreground">{cita.cliente.documento ?? "Sin documento"}</span>
+      </div>
+    ),
   },
   {
     header: "Motivo",
@@ -225,8 +241,12 @@ const COLUMNS: DataTableColumn<CitaConDetalle>[] = [
     cell: (cita) => (
       <Badge
         variant={ESTADO_BADGE_VARIANT[cita.estado]}
-        className={ESTADO_BADGE_CLASSNAME[cita.estado]}
+        className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[cita.estado])}
       >
+        <span
+          className="size-1.5 shrink-0 rounded-full"
+          style={{ background: ESTADO_DOT_COLOR[cita.estado] }}
+        />
         {ESTADO_LABELS[cita.estado]}
       </Badge>
     ),
@@ -322,7 +342,12 @@ export default async function CitasPage({
     <main className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Citas</h1>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-2xl font-semibold">Citas</h1>
+            <Badge variant="outline" className="font-normal text-muted-foreground">
+              {citasSemana.length} {citasSemana.length === 1 ? "cita" : "citas"} esta semana
+            </Badge>
+          </div>
           <p className="text-sm text-muted-foreground">
             Agenda de {session.user.sedeActivaNombre} · semana del{" "}
             {rangoSemanaTexto}
@@ -471,6 +496,7 @@ export default async function CitasPage({
               getRowKey={(cita) => cita.id}
               rowHref={(cita) => `/citas/${cita.id}`}
               emptyMessage="No hay citas agendadas en esta sede."
+              headerClassName="bg-muted"
             />
           ) : (
             <div className="flex flex-col gap-6">
