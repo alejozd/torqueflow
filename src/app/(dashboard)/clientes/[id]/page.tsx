@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, History } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Gauge, Wrench } from "lucide-react";
 import { getCliente } from "@/app/actions/cliente-actions";
 import { listTecnicos } from "@/app/actions/orden-actions";
 import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/vehiculo-marca-modelo-actions";
@@ -203,32 +203,54 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
               ) : (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {vehiculosResumen.map(({ vehiculo, enTaller, kilometraje, ordenesCount }) => (
-                    <div key={vehiculo.id} className="flex flex-col gap-2 rounded-lg border border-border p-4">
+                    <div
+                      key={vehiculo.id}
+                      className="flex flex-col gap-2 rounded-lg border border-border p-4 shadow-sm"
+                    >
                       <div className="flex items-start justify-between gap-2">
-                        <span className="font-mono text-sm font-medium">{vehiculo.placa}</span>
-                        <Badge
-                          variant={enTaller ? undefined : "outline"}
-                          className={enTaller ? "border-transparent bg-[oklch(0.7_0.15_60/0.15)] text-[oklch(0.55_0.15_60)]" : ""}
-                        >
-                          {enTaller ? "En taller" : "Sin novedad"}
+                        <Badge className="border-transparent bg-amber-100 font-mono text-amber-900 dark:bg-amber-500/20 dark:text-amber-300">
+                          {vehiculo.placa}
                         </Badge>
+                        {enTaller ? (
+                          <Badge className="border-transparent bg-[oklch(0.7_0.15_60/0.15)] text-[oklch(0.55_0.15_60)]">
+                            <Wrench />
+                            En taller
+                          </Badge>
+                        ) : (
+                          <Badge className="border border-green-200 bg-green-50 text-green-700 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-400">
+                            <CheckCircle2 />
+                            Sin novedad
+                          </Badge>
+                        )}
                       </div>
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-base font-semibold text-foreground">
                         {vehiculo.marca} {vehiculo.modelo} {vehiculo.anio ?? ""}
                       </span>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Kilometraje: {kilometraje !== null ? `${kilometraje.toLocaleString("es-CO")} km` : "—"}</span>
+                        <span className="flex items-center gap-1">
+                          <Gauge className="size-3.5" />
+                          {kilometraje !== null ? `${kilometraje.toLocaleString("es-CO")} km` : "—"}
+                        </span>
                         <span>{ordenesCount} órdenes</span>
                       </div>
 
                       <div className="mt-1 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2">
                         <div className="flex items-center gap-1.5">
-                          <EditarVehiculoDialog vehiculo={vehiculo} marcas={marcas} modelos={modelos} esAdmin={esAdmin} />
+                          <EditarVehiculoDialog
+                            vehiculo={vehiculo}
+                            marcas={marcas}
+                            modelos={modelos}
+                            esAdmin={esAdmin}
+                            triggerClassName="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20"
+                          />
                           <Link
                             href={`/vehiculos/${vehiculo.id}`}
-                            className={buttonVariants({ variant: "outline", size: "sm" })}
+                            className={cn(
+                              buttonVariants({ variant: "outline", size: "sm" }),
+                              "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20",
+                            )}
                           >
-                            <History />
+                            <Clock />
                             Historial
                           </Link>
                         </div>

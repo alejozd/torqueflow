@@ -19,17 +19,20 @@ export function EditarVehiculoDialog({
   marcas,
   modelos,
   esAdmin,
+  triggerClassName,
 }: {
   vehiculo: Vehiculo;
   marcas: MarcaVehiculo[];
   modelos: ModeloVehiculo[];
   esAdmin: boolean;
+  /** Overrides the trigger's default outline look -- e.g. clientes/[id]'s vehicle cards use a soft amber style. */
+  triggerClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="outline" size="sm" />}>
+      <DialogTrigger render={<Button variant="outline" size="sm" className={triggerClassName} />}>
         <Pencil />
         Editar
       </DialogTrigger>
