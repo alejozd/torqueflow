@@ -1,12 +1,11 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getEntrada } from "@/app/actions/entrada-mercancia-actions";
+import { getEntrada, listEntradas } from "@/app/actions/entrada-mercancia-actions";
 import { listRepuestoOptions } from "@/app/actions/repuesto-actions";
 import { AgregarEntradaItemForm } from "./agregar-entrada-item-form";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatoFechaCorta } from "@/lib/fecha-bogota";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatoFechaCorta, inicioMesBogota } from "@/lib/fecha-bogota";
 
 type Entrada = NonNullable<Awaited<ReturnType<typeof getEntrada>>>;
 type ItemRow = Entrada["items"][number];
@@ -17,15 +16,12 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", {
   maximumFractionDigits: 0,
 });
 
-// Same convention as ordenes/[id]/page.tsx's InfoField -- kept local here too
-// rather than extracted to a shared module neither page asked for.
-function InfoField({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div>
-      <div className="text-[10px] tracking-wide text-muted-foreground uppercase">{label}</div>
-      <div className="mt-0.5 text-sm">{value}</div>
-    </div>
-  );
+function sumarUnidades(entrada: Entrada): number {
+  return entrada.items.reduce((suma, item) => suma + item.cantidad, 0);
+}
+
+function calcularCostoTotal(entrada: Entrada): number {
+  return entrada.items.reduce((suma, item) => suma + item.cantidad * Number(item.precioCompraUnitario), 0);
 }
 
 const ITEMS_COLUMNS: DataTableColumn<ItemRow>[] = [
@@ -63,12 +59,14 @@ const ITEMS_COLUMNS: DataTableColumn<ItemRow>[] = [
   },
 ];
 
-function sumarUnidades(entrada: Entrada): number {
-  return entrada.items.reduce((suma, item) => suma + item.cantidad, 0);
-}
-
-function calcularCostoTotal(entrada: Entrada): number {
-  return entrada.items.reduce((suma, item) => suma + item.cantidad * Number(item.precioCompraUnitario), 0);
+function KpiColumn({ label, value, caption }: { label: string; value: string; caption?: string }) {
+  return (
+    <div className="min-w-[150px] flex-1 border-r border-border p-3 last:border-r-0">
+      <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">{label}</p>
+      <p className="mt-1 font-mono text-xl font-semibold tracking-tight">{value}</p>
+      {caption ? <p className="mt-0.5 text-[10.5px] text-muted-foreground">{caption}</p> : null}
+    </div>
+  );
 }
 
 export default async function EntradaMercanciaDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -79,9 +77,24 @@ export default async function EntradaMercanciaDetailPage({ params }: { params: P
     notFound();
   }
 
-  const repuestos = await listRepuestoOptions(entrada.bodegaId);
+  // Fetched alongside the entrada (not just its own items) so the "Costo
+  // total" KPI can show what share of this month's compras this one entrada
+  // represents -- a real, cheap-to-derive number instead of a static caption.
+  const [repuestos, todasLasEntradas] = await Promise.all([
+    listRepuestoOptions(entrada.bodegaId),
+    listEntradas(),
+  ]);
+
   const costoTotal = calcularCostoTotal(entrada);
   const unidades = sumarUnidades(entrada);
+  const costoPorUnidad = unidades > 0 ? costoTotal / unidades : 0;
+
+  const inicioMes = inicioMesBogota(entrada.createdAt);
+  const finMes = inicioMesBogota(entrada.createdAt, 1);
+  const costoTotalMes = todasLasEntradas
+    .filter((e) => e.createdAt >= inicioMes && e.createdAt < finMes)
+    .reduce((suma, e) => suma + calcularCostoTotal(e), 0);
+  const pctDelMes = costoTotalMes > 0 ? Math.round((costoTotal / costoTotalMes) * 100) : 0;
 
   return (
     <main className="flex flex-col gap-4">
@@ -95,45 +108,54 @@ export default async function EntradaMercanciaDetailPage({ params }: { params: P
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Entrada — #{entrada.id.slice(-8).toUpperCase()}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {entrada.proveedor.nombre} · {entrada.bodega.nombre}
+          {formatoFechaCorta.format(entrada.createdAt)} · {entrada.proveedor.nombre} · {entrada.bodega.nombre} ·
+          registró {entrada.creadoPor.nombre}
         </p>
+      </div>
+
+      <div className="flex flex-wrap overflow-hidden rounded-xl border border-border bg-card">
+        <KpiColumn label="Referencias" value={String(entrada.items.length)} caption="repuestos distintos" />
+        <KpiColumn label="Unidades" value={String(unidades)} caption="en total" />
+        <KpiColumn
+          label="Costo total"
+          value={formatoMoneda.format(costoTotal)}
+          caption={costoTotalMes > 0 ? `${pctDelMes}% de las compras del mes` : undefined}
+        />
+        <KpiColumn label="Costo medio unidad" value={formatoMoneda.format(costoPorUnidad)} caption="por unidad recibida" />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Información de la entrada</CardTitle>
+          <CardTitle>Agregar repuesto</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <InfoField label="Proveedor" value={entrada.proveedor.nombre} />
-            <InfoField label="Bodega" value={entrada.bodega.nombre} />
-            <InfoField label="Fecha" value={formatoFechaCorta.format(entrada.createdAt)} />
-            <InfoField label="Registrada por" value={entrada.creadoPor.nombre} />
-          </div>
+          <AgregarEntradaItemForm entradaId={entrada.id} repuestos={repuestos} />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>
-            Ítems recibidos{" "}
-            <span className="font-normal text-muted-foreground">
-              · {entrada.items.length} {entrada.items.length === 1 ? "ítem" : "ítems"} · {unidades}{" "}
-              {unidades === 1 ? "unidad" : "unidades"}
-            </span>
-          </CardTitle>
-          <CardAction>
-            <span className="font-mono text-sm text-muted-foreground">{formatoMoneda.format(costoTotal)}</span>
-          </CardAction>
+          <CardTitle>Ítems recibidos</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <AgregarEntradaItemForm entradaId={entrada.id} repuestos={repuestos} />
+        <CardContent className="flex flex-col gap-3">
           <DataTable
             columns={ITEMS_COLUMNS}
             rows={entrada.items}
             getRowKey={(item) => item.id}
             emptyMessage="Esta entrada no tiene ítems registrados."
           />
+          {entrada.items.length > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+              <span>
+                {entrada.items.length} {entrada.items.length === 1 ? "referencia" : "referencias"} · {unidades}{" "}
+                {unidades === 1 ? "unidad" : "unidades"}
+              </span>
+              <span className="font-mono font-medium text-foreground">{formatoMoneda.format(costoTotal)}</span>
+            </div>
+          ) : null}
+          <p className="text-xs text-muted-foreground">
+            Cada ítem genera un movimiento de inventario en {entrada.bodega.nombre}.
+          </p>
         </CardContent>
       </Card>
     </main>
