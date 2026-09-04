@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertCircle, ArrowDown, ArrowUp, CheckCircle, FileText, Zap } from "lucide-react";
+import { AlertCircle, CheckCircle, DollarSign, ArrowDown, ArrowUp, FileText } from "lucide-react";
 import { listFacturas, listOrdenesFacturables, type FacturaWithDetalle } from "@/app/actions/factura-actions";
 import { NuevaFacturaDialog } from "./nueva-factura-dialog";
 import type { EstadoFactura } from "@/generated/prisma-tenant";
@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { KpiCard } from "@/components/ui/kpi-card";
+import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
+import { formatoFechaCorta, formatoFechaRelativa, inicioMesBogota } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
 
 const ESTADOS_VALIDOS: EstadoFactura[] = ["PENDIENTE", "PAGADA"];
@@ -35,35 +36,21 @@ const ESTADO_BADGE_CLASSNAME: Record<EstadoFactura, string> = {
   PAGADA: "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]",
 };
 
-const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" });
+// PENDIENTE's badge is a SOLID --primary fill (Badge's own "default"
+// variant), so its dot uses --primary-foreground (the badge's own text
+// color) for contrast -- a --primary dot would be invisible on a --primary
+// background. PAGADA's badge is a light tint, so its dot reuses the same
+// green oklch as its text, same technique ordenes/page.tsx uses.
+const ESTADO_DOT_COLOR: Record<EstadoFactura, string> = {
+  PENDIENTE: "var(--primary-foreground)",
+  PAGADA: "oklch(0.4 0.1 150)",
+};
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", {
   style: "currency",
   currency: "COP",
   maximumFractionDigits: 0,
 });
-
-/**
- * America/Bogota is a fixed UTC-5 offset with no daylight saving time (same
- * assumption citas/page.tsx documents), so "this month" is derived without a
- * timezone library: read the Bogota calendar month, then reconstruct that
- * month's first instant as an explicit UTC-5 timestamp. Date.UTC normalizes
- * month overflow, so passing offsetMeses: 1 safely rolls December into the
- * next January.
- */
-const formatoMesBogota = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "America/Bogota",
-  year: "numeric",
-  month: "2-digit",
-});
-
-function inicioMesBogota(fecha: Date, offsetMeses = 0): Date {
-  const [anioStr, mesStr] = formatoMesBogota.format(fecha).split("-");
-  const base = new Date(Date.UTC(Number(anioStr), Number(mesStr) - 1 + offsetMeses, 1));
-  const anio = base.getUTCFullYear();
-  const mes = String(base.getUTCMonth() + 1).padStart(2, "0");
-  return new Date(`${anio}-${mes}-01T00:00:00-05:00`);
-}
 
 function construirHrefFacturas(base: { estado?: EstadoFactura; q?: string; sort?: SortKey; order?: SortOrder }): string {
   const params = new URLSearchParams();
@@ -134,6 +121,7 @@ function buildColumns(
   orderActual: SortOrder,
   estadoFiltro: EstadoFactura | undefined,
   q: string | undefined,
+  ahora: Date,
 ): DataTableColumn<FacturaRow>[] {
   const sortableHeaderProps = { sortActual, orderActual, estadoFiltro, q };
   return [
@@ -143,20 +131,47 @@ function buildColumns(
     },
     {
       header: "Cliente",
-      cell: (factura) => factura.cliente.nombre,
+      cell: (factura) => (
+        <div className="flex flex-col gap-0.5">
+          <span>{factura.cliente.nombre}</span>
+          <span className="text-xs text-muted-foreground">{factura.cliente.documento ?? "Sin documento"}</span>
+        </div>
+      ),
     },
     {
       header: "Vehículo",
-      cell: (factura) => <span className="font-mono text-sm">{factura.orden.vehiculo.placa}</span>,
+      cell: (factura) => (
+        <div className="flex flex-col gap-1">
+          <Badge variant="outline" className="w-fit font-mono text-xs tracking-wider">
+            {factura.orden.vehiculo.placa.toUpperCase()}
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            {factura.orden.vehiculo.marca} {factura.orden.vehiculo.modelo}
+            {factura.orden.vehiculo.color ? ` · ${factura.orden.vehiculo.color}` : ""}
+          </span>
+        </div>
+      ),
     },
     {
       header: <SortableHeader label="Emitida" sortKey="fecha" {...sortableHeaderProps} />,
-      cell: (factura) => <span className="text-sm text-muted-foreground">{formatoFecha.format(factura.createdAt)}</span>,
+      cell: (factura) => (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm">{formatoFechaCorta.format(factura.createdAt)}</span>
+          <span className="text-xs text-muted-foreground">{formatoFechaRelativa(factura.createdAt, ahora)}</span>
+        </div>
+      ),
     },
     {
       header: <SortableHeader label="Estado" sortKey="estado" {...sortableHeaderProps} />,
       cell: (factura) => (
-        <Badge variant={ESTADO_BADGE_VARIANT[factura.estado]} className={ESTADO_BADGE_CLASSNAME[factura.estado]}>
+        <Badge
+          variant={ESTADO_BADGE_VARIANT[factura.estado]}
+          className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[factura.estado])}
+        >
+          <span
+            className="size-1.5 shrink-0 rounded-full"
+            style={{ background: ESTADO_DOT_COLOR[factura.estado] }}
+          />
           {ESTADO_LABELS[factura.estado]}
         </Badge>
       ),
@@ -224,7 +239,12 @@ export default async function FacturasPage({
   return (
     <main className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Facturas</h1>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h1 className="text-2xl font-semibold">Facturas</h1>
+          <Badge variant="outline" className="font-normal text-muted-foreground">
+            {emitidasMes.length} {emitidasMes.length === 1 ? "factura" : "facturas"} este mes
+          </Badge>
+        </div>
         <NuevaFacturaDialog ordenes={ordenesFacturables} />
       </div>
 
@@ -233,7 +253,9 @@ export default async function FacturasPage({
           title="Emitidas en el mes"
           value={emitidasMes.length}
           subtitle={`${emitidasMes.length} ${emitidasMes.length === 1 ? "factura" : "facturas"} este mes`}
-          icon={<FileText className="size-5 text-primary" />}
+          icon={<FileText className={cn("size-5", KPI_TONE.info.icon)} />}
+          iconBgColor={KPI_TONE.info.iconBg}
+          className={KPI_TONE.info.cardBg}
         />
 
         <KpiCard
@@ -244,7 +266,9 @@ export default async function FacturasPage({
           subtitleColor="warning"
           subtitleIcon="dot"
           highlight={pendientes.length > 0}
-          icon={<AlertCircle className="size-5 text-primary" />}
+          icon={<AlertCircle className={cn("size-5", KPI_TONE.warning.icon)} />}
+          iconBgColor={KPI_TONE.warning.iconBg}
+          className={KPI_TONE.warning.cardBg}
         />
 
         <KpiCard
@@ -254,16 +278,19 @@ export default async function FacturasPage({
           subtitle={`${pagadas.length} ${pagadas.length === 1 ? "factura pagada" : "facturas pagadas"}`}
           subtitleColor="success"
           subtitleIcon="up"
-          icon={<CheckCircle className="size-5 text-[oklch(0.4_0.1_150)]" />}
-          iconBgColor="bg-[oklch(0.4_0.1_150/0.1)]"
+          icon={<CheckCircle className={cn("size-5", KPI_TONE.success.icon)} />}
+          iconBgColor={KPI_TONE.success.iconBg}
+          className={KPI_TONE.success.cardBg}
         />
 
         <KpiCard
           title="Ticket promedio"
           value={pagadas.length > 0 ? formatoMoneda.format(ticketPromedio) : "—"}
+          valueColor="success"
           subtitle={pagadas.length > 0 ? `sobre ${pagadas.length} ${pagadas.length === 1 ? "factura pagada" : "facturas pagadas"}` : "Sin facturas pagadas aún"}
-          icon={<Zap className="size-5 text-violet-600" />}
-          iconBgColor="bg-violet-500/10"
+          icon={<DollarSign className={cn("size-5", KPI_TONE.success.icon)} />}
+          iconBgColor={KPI_TONE.success.iconBg}
+          className={KPI_TONE.success.cardBg}
         />
       </div>
 
@@ -319,11 +346,12 @@ export default async function FacturasPage({
           </div>
 
           <DataTable
-            columns={buildColumns(sortActual, orderActual, estadoFiltro, q)}
+            columns={buildColumns(sortActual, orderActual, estadoFiltro, q, ahora)}
             rows={sortActual ? [...filtradas].sort((a, b) => compararFacturas(a, b, sortActual, orderActual)) : filtradas}
             getRowKey={(factura) => factura.id}
             rowHref={(factura) => `/facturas/${factura.id}`}
             emptyMessage="No hay facturas en este estado."
+            headerClassName="bg-muted"
           />
         </CardContent>
       </Card>

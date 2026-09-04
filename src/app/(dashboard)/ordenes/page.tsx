@@ -8,6 +8,7 @@ import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
+import { formatoFechaCorta, formatoFechaRelativa, inicioMesBogota, inicioSemanaBogota } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
 
 const ESTADOS_VALIDOS: EstadoOrden[] = ["BORRADOR", "EN_PROCESO", "TERMINADA", "ENTREGADA", "ANULADA"];
@@ -52,62 +53,11 @@ const ESTADO_DOT_COLOR: Record<EstadoOrden, string> = {
   ANULADA: "oklch(0.5 0.2 27)",
 };
 
-const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" });
-
 const formatoMoneda = new Intl.NumberFormat("es-CO", {
   style: "currency",
   currency: "COP",
   maximumFractionDigits: 0,
 });
-
-/**
- * America/Bogota is a fixed UTC-5 offset with no daylight saving time (same
- * assumption citas/page.tsx and facturas/page.tsx document), so "this month"
- * is derived without a timezone library: read the Bogota calendar month, then
- * reconstruct that month's first instant as an explicit UTC-5 timestamp.
- */
-const formatoMesBogota = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "America/Bogota",
-  year: "numeric",
-  month: "2-digit",
-});
-
-function inicioMesBogota(fecha: Date): Date {
-  const [anioStr, mesStr] = formatoMesBogota.format(fecha).split("-");
-  return new Date(`${anioStr}-${mesStr}-01T00:00:00-05:00`);
-}
-
-const formatoDiaBogota = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" });
-
-/**
- * "Hoy" only for the just-created case (<1min, where "Hace 0 minutos" would
- * read oddly); every other same-day order shows "Hace X horas" instead of a
- * flat "Hoy" so recency inside the day stays visible. Orders 7+ days old fall
- * back to the absolute date -- "Hace 34 días" is harder to place mentally.
- */
-function formatoFechaRelativa(fecha: Date, ahora: Date): string {
-  const diffMs = ahora.getTime() - fecha.getTime();
-  const diffMin = Math.floor(diffMs / (60 * 1000));
-  if (diffMin < 1) return "Hoy";
-  if (diffMin < 60) return `Hace ${diffMin} ${diffMin === 1 ? "minuto" : "minutos"}`;
-
-  const mismoDia = formatoDiaBogota.format(fecha) === formatoDiaBogota.format(ahora);
-  const diffHoras = Math.floor(diffMin / 60);
-  if (mismoDia) return `Hace ${diffHoras} ${diffHoras === 1 ? "hora" : "horas"}`;
-
-  const diffDias = Math.floor(diffHoras / 24);
-  if (diffDias < 7) return `Hace ${diffDias} ${diffDias === 1 ? "día" : "días"}`;
-
-  return formatoFecha.format(fecha);
-}
-
-// Same Monday-start week convention as citas/page.tsx's rangoSemanaBogota.
-function inicioSemanaBogota(fecha: Date): Date {
-  const inicioHoy = new Date(`${formatoDiaBogota.format(fecha)}T00:00:00-05:00`);
-  const diaSemana = inicioHoy.getUTCDay();
-  const diasDesdeElLunes = diaSemana === 0 ? 6 : diaSemana - 1;
-  return new Date(inicioHoy.getTime() - diasDesdeElLunes * 24 * 60 * 60 * 1000);
-}
 
 type OrdenRow = OrdenWithDetalle;
 
@@ -300,7 +250,7 @@ function buildColumns(
       header: <SortableHeader label="Ingreso" sortKey="fecha" {...sortableHeaderProps} />,
       cell: (orden) => (
         <div className="flex flex-col gap-0.5">
-          <span className="text-sm">{formatoFecha.format(orden.createdAt)}</span>
+          <span className="text-sm">{formatoFechaCorta.format(orden.createdAt)}</span>
           <span className="text-xs text-muted-foreground">{formatoFechaRelativa(orden.createdAt, ahora)}</span>
         </div>
       ),
