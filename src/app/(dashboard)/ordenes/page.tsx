@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertCircle, ArrowDown, ArrowUp, DollarSign, UserPlus, Wrench } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowDown, ArrowUp, DollarSign, UserPlus, Wrench } from "lucide-react";
 import { listOrdenes, listTecnicos, type OrdenWithDetalle } from "@/app/actions/orden-actions";
 import { listClientesParaOrden } from "@/app/actions/cliente-actions";
 import { NuevaOrdenDialog } from "./nueva-orden-dialog";
@@ -99,6 +99,14 @@ function formatoFechaRelativa(fecha: Date, ahora: Date): string {
   if (diffDias < 7) return `Hace ${diffDias} ${diffDias === 1 ? "día" : "días"}`;
 
   return formatoFecha.format(fecha);
+}
+
+// Same Monday-start week convention as citas/page.tsx's rangoSemanaBogota.
+function inicioSemanaBogota(fecha: Date): Date {
+  const inicioHoy = new Date(`${formatoDiaBogota.format(fecha)}T00:00:00-05:00`);
+  const diaSemana = inicioHoy.getUTCDay();
+  const diasDesdeElLunes = diaSemana === 0 ? 6 : diaSemana - 1;
+  return new Date(inicioHoy.getTime() - diasDesdeElLunes * 24 * 60 * 60 * 1000);
 }
 
 type OrdenRow = OrdenWithDetalle;
@@ -237,16 +245,35 @@ function buildColumns(
     },
     {
       header: "Vehículo",
-      cell: (orden) => <span className="font-mono text-sm">{orden.vehiculo.placa}</span>,
+      cell: (orden) => (
+        <div className="flex flex-col gap-1">
+          <Badge variant="outline" className="w-fit font-mono text-xs tracking-wider">
+            {orden.vehiculo.placa.toUpperCase()}
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            {orden.vehiculo.marca} {orden.vehiculo.modelo}
+            {orden.vehiculo.color ? ` · ${orden.vehiculo.color}` : ""}
+          </span>
+        </div>
+      ),
     },
     {
       header: <SortableHeader label="Cliente" sortKey="cliente" {...sortableHeaderProps} />,
-      cell: (orden) => orden.cliente.nombre,
+      cell: (orden) => (
+        <div className="flex flex-col gap-0.5">
+          <span>{orden.cliente.nombre}</span>
+          <span className="text-xs text-muted-foreground">{orden.cliente.documento ?? "Sin documento"}</span>
+        </div>
+      ),
     },
     {
       header: <SortableHeader label="Estado" sortKey="estado" {...sortableHeaderProps} />,
       cell: (orden) => (
-        <Badge variant={ESTADO_BADGE_VARIANT[orden.estado]} className={ESTADO_BADGE_CLASSNAME[orden.estado]}>
+        <Badge
+          variant={ESTADO_BADGE_VARIANT[orden.estado]}
+          className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[orden.estado])}
+        >
+          <span className="size-1.5 shrink-0 rounded-full" style={{ background: ESTADO_DOT_COLOR[orden.estado] }} />
           {ESTADO_LABELS[orden.estado]}
         </Badge>
       ),
@@ -254,12 +281,28 @@ function buildColumns(
     {
       header: "Mecánico",
       cell: (orden) =>
-        orden.mecanico ? orden.mecanico.nombre : <span className="text-muted-foreground">Sin asignar</span>,
+        orden.mecanico ? (
+          <span className="inline-flex items-center gap-1.5">
+            <Wrench className="size-3.5 shrink-0 text-muted-foreground" />
+            {orden.mecanico.nombre}
+          </span>
+        ) : (
+          <Badge
+            variant="outline"
+            className="gap-1 border-transparent bg-[oklch(0.7_0.15_60/0.15)] text-[oklch(0.55_0.15_60)]"
+          >
+            <AlertTriangle className="size-3.5 shrink-0" />
+            Sin asignar
+          </Badge>
+        ),
     },
     {
       header: <SortableHeader label="Ingreso" sortKey="fecha" {...sortableHeaderProps} />,
       cell: (orden) => (
-        <span className="text-sm text-muted-foreground">{formatoFechaRelativa(orden.createdAt, ahora)}</span>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm">{formatoFecha.format(orden.createdAt)}</span>
+          <span className="text-xs text-muted-foreground">{formatoFechaRelativa(orden.createdAt, ahora)}</span>
+        </div>
       ),
     },
     {
@@ -301,6 +344,11 @@ export default async function OrdenesPage({
   const ordenesMes = ordenes.filter((orden) => orden.createdAt >= inicioMes).length;
 
   const enProceso = ordenes.filter((orden) => orden.estado === "EN_PROCESO").length;
+  // TERMINADA orders are still physically in the shop (done working, not yet
+  // picked up), so "En bahía" counts both -- billing status doesn't affect
+  // whether the car occupies a bay.
+  const terminadasTotal = ordenes.filter((orden) => orden.estado === "TERMINADA").length;
+  const enBahia = enProceso + terminadasTotal;
   const terminadasSinFacturar = ordenes.filter((orden) => orden.estado === "TERMINADA" && !orden.factura).length;
 
   // Only BORRADOR/EN_PROCESO orders need a mecánico assigned to move forward
@@ -309,10 +357,11 @@ export default async function OrdenesPage({
     (orden) => (orden.estado === "BORRADOR" || orden.estado === "EN_PROCESO") && !orden.mecanico,
   ).length;
 
-  const facturadas = ordenes.filter((orden) => orden.factura !== null);
+  const inicioSemana = inicioSemanaBogota(ahora);
+  const facturadasSemana = ordenes.filter((orden) => orden.factura !== null && orden.createdAt >= inicioSemana);
   const ticketMedio =
-    facturadas.length > 0
-      ? facturadas.reduce((suma, orden) => suma + Number(orden.factura!.total), 0) / facturadas.length
+    facturadasSemana.length > 0
+      ? facturadasSemana.reduce((suma, orden) => suma + Number(orden.factura!.total), 0) / facturadasSemana.length
       : null;
 
   // El mismo filtro de estado que usa la tabla también recorta el tablero:
@@ -323,7 +372,7 @@ export default async function OrdenesPage({
   const columnas = estadoFiltro ? columnasBase.filter((columna) => columna.estado === estadoFiltro) : columnasBase;
 
   return (
-    <main className="flex flex-col gap-6">
+    <main className="-m-6 flex min-h-[calc(100%+3rem)] flex-col gap-6 bg-slate-50 p-6 dark:bg-slate-900/40">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
           <h1 className="text-2xl font-semibold">Órdenes de trabajo</h1>
@@ -337,7 +386,8 @@ export default async function OrdenesPage({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           title="En bahía"
-          value={enProceso}
+          value={enBahia}
+          subtitle={`${enProceso} en proceso, ${terminadasTotal} en Terminadas`}
           icon={<Wrench className={cn("size-5", KPI_TONE.info.icon)} />}
           iconBgColor={KPI_TONE.info.iconBg}
           className={KPI_TONE.info.cardBg}
@@ -347,6 +397,7 @@ export default async function OrdenesPage({
           title="Terminadas sin facturar"
           value={terminadasSinFacturar}
           valueColor="warning"
+          subtitle={`${terminadasSinFacturar} listas para entrega`}
           icon={<AlertCircle className={cn("size-5", KPI_TONE.warning.icon)} />}
           iconBgColor={KPI_TONE.warning.iconBg}
           className={KPI_TONE.warning.cardBg}
@@ -356,6 +407,7 @@ export default async function OrdenesPage({
           title="Por asignar mecánico"
           value={porAsignarMecanico}
           valueColor="warning"
+          subtitle={`${porAsignarMecanico} vehículos esperando bahía libre`}
           icon={<UserPlus className={cn("size-5", KPI_TONE.warning.icon)} />}
           iconBgColor={KPI_TONE.warning.iconBg}
           className={KPI_TONE.warning.cardBg}
@@ -365,6 +417,7 @@ export default async function OrdenesPage({
           title="Ticket medio"
           value={ticketMedio !== null ? formatoMoneda.format(ticketMedio) : "—"}
           valueColor="success"
+          subtitle="Esta semana"
           icon={<DollarSign className={cn("size-5", KPI_TONE.success.icon)} />}
           iconBgColor={KPI_TONE.success.iconBg}
           className={KPI_TONE.success.cardBg}

@@ -96,6 +96,7 @@ model Vehiculo {
   placa                String                @unique
   marca                String
   modelo               String
+  color                String?
   anio                 Int?
   combustible          TipoCombustible?
   kilometraje          Int?
