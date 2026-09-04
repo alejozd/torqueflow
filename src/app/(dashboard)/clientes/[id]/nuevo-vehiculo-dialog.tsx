@@ -37,7 +37,13 @@ export function NuevoVehiculoDialog({
           <DialogTitle>Nuevo vehículo</DialogTitle>
           <DialogDescription>Queda asociado a este cliente y a su historial de órdenes.</DialogDescription>
         </DialogHeader>
-        <NuevoVehiculoForm clienteId={clienteId} marcas={marcas} modelos={modelos} esAdmin={esAdmin} />
+        <NuevoVehiculoForm
+          clienteId={clienteId}
+          marcas={marcas}
+          modelos={modelos}
+          esAdmin={esAdmin}
+          onCreated={() => setOpen(false)}
+        />
       </DialogContent>
     </Dialog>
   );

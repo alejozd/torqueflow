@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Dialog } from "@/components/ui/dialog";
 
@@ -121,6 +121,20 @@ describe("NuevoVehiculoForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Agregar vehículo" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Vehículo agregado");
+  });
+
+  it("calls onCreated instead of rendering the inline status message when a successful submit provides it", async () => {
+    const onCreated = vi.fn();
+    renderInDialog(
+      <NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} onCreated={onCreated} />,
+    );
+
+    await userEvent.type(screen.getByLabelText("Placa"), "ABC123");
+    await seleccionarMarcaYModelo();
+    await userEvent.click(screen.getByRole("button", { name: "Agregar vehículo" }));
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("blocks submission and shows field errors when required fields are empty, without calling the server", async () => {

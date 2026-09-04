@@ -40,7 +40,13 @@ export function EditarVehiculoDialog({
           <DialogTitle>Editar {vehiculo.placa}</DialogTitle>
           <DialogDescription>Los cambios se reflejan en el historial y en las órdenes abiertas.</DialogDescription>
         </DialogHeader>
-        <EditarVehiculoForm vehiculo={vehiculo} marcas={marcas} modelos={modelos} esAdmin={esAdmin} />
+        <EditarVehiculoForm
+          vehiculo={vehiculo}
+          marcas={marcas}
+          modelos={modelos}
+          esAdmin={esAdmin}
+          onUpdated={() => setOpen(false)}
+        />
       </DialogContent>
     </Dialog>
   );

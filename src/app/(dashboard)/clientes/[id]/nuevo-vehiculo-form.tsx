@@ -1,8 +1,9 @@
 "use client";
 
-import { startTransition, useActionState, useRef } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 import { createVehiculoAction, type VehiculoFormState } from "@/app/actions/vehiculo-actions";
 import { VehiculoFormFields, vehiculoFormSchema, type VehiculoFormInput } from "./vehiculo-form-fields";
 import type { MarcaVehiculo, ModeloVehiculo } from "@/generated/prisma-tenant";
@@ -17,14 +18,22 @@ export function NuevoVehiculoForm({
   marcas,
   modelos,
   esAdmin,
+  onCreated,
 }: {
   clienteId: string;
   marcas: MarcaVehiculo[];
   modelos: ModeloVehiculo[];
   esAdmin: boolean;
+  /**
+   * Fired synchronously right after a successful create -- mirrors
+   * NuevaCitaForm's onCreated: createVehiculoAction's revalidatePath can
+   * refresh (and unmount, inside a dialog) this form's parent before a
+   * useActionState-driven effect would get a chance to run.
+   */
+  onCreated?: () => void;
 }) {
-  const createVehiculoForCliente = createVehiculoAction.bind(null, clienteId);
-  const [state, formAction, isPending] = useActionState(createVehiculoForCliente, initialState);
+  const [state, setState] = useState<VehiculoFormState>(initialState);
+  const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
   const {
     register,
@@ -50,26 +59,31 @@ export function NuevoVehiculoForm({
     },
   });
 
+  function onValid(data: VehiculoFormInput) {
+    startTransition(async () => {
+      const formData = new FormData(formRef.current!);
+      // combustible and transmision are SelectFields (react-hook-form-
+      // controlled, not native <select name="..."> register()) -- they
+      // don't populate FormData on their own, so they must be set
+      // explicitly here before submitting.
+      formData.set("combustible", (data.combustible as string | undefined) ?? "");
+      formData.set("transmision", (data.transmision as string | undefined) ?? "");
+      formData.set("marcaId", (data.marcaId as string | undefined) ?? "");
+      formData.set("modeloId", (data.modeloId as string | undefined) ?? "");
+      const result = await createVehiculoAction(clienteId, initialState, formData);
+      if (result.success) {
+        toast.success("Vehículo agregado");
+        if (onCreated) onCreated();
+        else setState(result);
+      } else {
+        toast.error(result.error ?? "No se pudo agregar el vehículo");
+        setState(result);
+      }
+    });
+  }
+
   return (
-    <form
-      noValidate
-      ref={formRef}
-      onSubmit={handleSubmit((data) =>
-        startTransition(() => {
-          const formData = new FormData(formRef.current!);
-          // combustible and transmision are SelectFields (react-hook-form-
-          // controlled, not native <select name="..."> register()) -- they
-          // don't populate FormData on their own, so they must be set
-          // explicitly here before submitting.
-          formData.set("combustible", (data.combustible as string | undefined) ?? "");
-          formData.set("transmision", (data.transmision as string | undefined) ?? "");
-          formData.set("marcaId", (data.marcaId as string | undefined) ?? "");
-          formData.set("modeloId", (data.modeloId as string | undefined) ?? "");
-          formAction(formData);
-        }),
-      )}
-      className="flex flex-col gap-5"
-    >
+    <form noValidate ref={formRef} onSubmit={handleSubmit(onValid)} className="flex flex-col gap-5">
       <VehiculoFormFields
         register={register}
         errors={errors}

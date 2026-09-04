@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Dialog } from "@/components/ui/dialog";
 
@@ -74,6 +74,24 @@ describe("EditarVehiculoForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Vehículo actualizado");
+  });
+
+  it("calls onUpdated instead of rendering the inline status message when a successful submit provides it", async () => {
+    const onUpdated = vi.fn();
+    renderInDialog(
+      <EditarVehiculoForm
+        vehiculo={vehiculo}
+        marcas={marcas}
+        modelos={modelos}
+        esAdmin={false}
+        onUpdated={onUpdated}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => expect(onUpdated).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("shows the error message when the action returns one", async () => {
