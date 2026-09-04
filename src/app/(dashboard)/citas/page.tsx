@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarCheck, CheckCircle, XCircle } from "lucide-react";
+import { Calendar, CheckCircle, Clock, XCircle } from "lucide-react";
 import { requireSession } from "@/lib/auth/guards";
 import {
   listCitas,
@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { KpiCard } from "@/components/ui/kpi-card";
+import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
 
 const ESTADOS_VALIDOS: EstadoCita[] = [
@@ -305,6 +305,14 @@ export default async function CitasPage({
       ? Math.round((canceladasSemana / citasSemana.length) * 100)
       : 0;
 
+  const finProximas24h = new Date(ahora.getTime() + 24 * 60 * 60 * 1000);
+  const proximas24h = citas.filter(
+    (cita) =>
+      cita.fechaHora >= ahora &&
+      cita.fechaHora < finProximas24h &&
+      cita.estado !== "CANCELADA",
+  ).length;
+
   const finSemanaMostrado = new Date(finSemana.getTime() - 24 * 60 * 60 * 1000);
   const rangoSemanaTexto = `${formatoDiaMes.format(inicioSemana)} al ${formatoDiaMes.format(finSemanaMostrado)}`;
 
@@ -323,19 +331,22 @@ export default async function CitasPage({
         <NuevaCitaDialog vehiculos={vehiculos} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           title="Hoy"
           value={citasHoy}
           subtitle="citas agendadas hoy"
-          icon={<CalendarCheck className="size-5 text-primary" />}
+          icon={<Calendar className={cn("size-5", KPI_TONE.info.icon)} />}
+          iconBgColor={KPI_TONE.info.bg}
         />
 
         <KpiCard
           title="Confirmadas"
           value={confirmadasSemana}
+          valueColor="success"
           subtitle={`esta semana · ${programadasSemana} sin confirmar`}
-          icon={<CheckCircle className="size-5 text-primary" />}
+          icon={<CheckCircle className={cn("size-5", KPI_TONE.success.icon)} />}
+          iconBgColor={KPI_TONE.success.bg}
         />
 
         <KpiCard
@@ -343,8 +354,16 @@ export default async function CitasPage({
           value={canceladasSemana}
           valueColor="danger"
           subtitle={`esta semana${citasSemana.length > 0 ? ` · ${porcentajeCanceladas}% del total` : ""}`}
-          icon={<XCircle className="size-5 text-destructive" />}
-          iconBgColor="bg-destructive/10"
+          icon={<XCircle className={cn("size-5", KPI_TONE.danger.icon)} />}
+          iconBgColor={KPI_TONE.danger.bg}
+        />
+
+        <KpiCard
+          title="Próximas 24h"
+          value={proximas24h}
+          subtitle="citas sin cancelar"
+          icon={<Clock className={cn("size-5", KPI_TONE.info.icon)} />}
+          iconBgColor={KPI_TONE.info.bg}
         />
       </div>
 
