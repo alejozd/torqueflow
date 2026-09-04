@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { DollarSign, Package, Truck, Users } from "lucide-react";
 import { listEntradas, type EntradaWithDetalle } from "@/app/actions/entrada-mercancia-actions";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
+import { cn } from "@/lib/utils";
 
 const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" });
 
@@ -61,38 +64,45 @@ export default async function EntradasMercanciaPage() {
 
   const unidadesTotales = entradas.reduce((suma, entrada) => suma + sumarUnidades(entrada), 0);
   const costoTotal = entradas.reduce((suma, entrada) => suma + calcularCostoTotal(entrada), 0);
+  const proveedoresCount = new Set(entradas.map((entrada) => entrada.proveedor.id)).size;
 
   return (
     <main className="flex flex-col gap-6">
       <h1 className="text-2xl font-semibold">Entradas de mercancía</h1>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Entradas registradas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <span className="font-mono text-2xl font-semibold">{entradas.length}</span>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          title="Entradas registradas"
+          value={entradas.length}
+          icon={<Package className={cn("size-5", KPI_TONE.info.icon)} />}
+          iconBgColor={KPI_TONE.info.iconBg}
+          className={KPI_TONE.info.cardBg}
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Unidades recibidas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <span className="font-mono text-2xl font-semibold">{unidadesTotales}</span>
-          </CardContent>
-        </Card>
+        <KpiCard
+          title="Unidades recibidas"
+          value={unidadesTotales}
+          icon={<Truck className={cn("size-5", KPI_TONE.info.icon)} />}
+          iconBgColor={KPI_TONE.info.iconBg}
+          className={KPI_TONE.info.cardBg}
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Costo total</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <span className="font-mono text-2xl font-semibold">{formatoMoneda.format(costoTotal)}</span>
-          </CardContent>
-        </Card>
+        <KpiCard
+          title="Costo total"
+          value={formatoMoneda.format(costoTotal)}
+          valueColor="success"
+          icon={<DollarSign className={cn("size-5", KPI_TONE.success.icon)} />}
+          iconBgColor={KPI_TONE.success.iconBg}
+          className={KPI_TONE.success.cardBg}
+        />
+
+        <KpiCard
+          title="Proveedores"
+          value={proveedoresCount}
+          icon={<Users className={cn("size-5", KPI_TONE.neutral.icon)} />}
+          iconBgColor={KPI_TONE.neutral.iconBg}
+          className={KPI_TONE.neutral.cardBg}
+        />
       </div>
 
       <Card>
