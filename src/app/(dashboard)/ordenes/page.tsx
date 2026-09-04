@@ -286,7 +286,8 @@ export default async function OrdenesPage({
           title="En bahía"
           value={enProceso}
           icon={<Wrench className={cn("size-5", KPI_TONE.info.icon)} />}
-          iconBgColor={KPI_TONE.info.bg}
+          iconBgColor={KPI_TONE.info.iconBg}
+          className={KPI_TONE.info.cardBg}
         />
 
         <KpiCard
@@ -294,7 +295,8 @@ export default async function OrdenesPage({
           value={terminadasSinFacturar}
           valueColor="warning"
           icon={<AlertCircle className={cn("size-5", KPI_TONE.warning.icon)} />}
-          iconBgColor={KPI_TONE.warning.bg}
+          iconBgColor={KPI_TONE.warning.iconBg}
+          className={KPI_TONE.warning.cardBg}
         />
 
         <KpiCard
@@ -302,7 +304,8 @@ export default async function OrdenesPage({
           value={porAsignarMecanico}
           valueColor="warning"
           icon={<UserPlus className={cn("size-5", KPI_TONE.warning.icon)} />}
-          iconBgColor={KPI_TONE.warning.bg}
+          iconBgColor={KPI_TONE.warning.iconBg}
+          className={KPI_TONE.warning.cardBg}
         />
 
         <KpiCard
@@ -310,7 +313,8 @@ export default async function OrdenesPage({
           value={ticketMedio !== null ? formatoMoneda.format(ticketMedio) : "—"}
           valueColor="success"
           icon={<DollarSign className={cn("size-5", KPI_TONE.success.icon)} />}
-          iconBgColor={KPI_TONE.success.bg}
+          iconBgColor={KPI_TONE.success.iconBg}
+          className={KPI_TONE.success.cardBg}
         />
       </div>
 

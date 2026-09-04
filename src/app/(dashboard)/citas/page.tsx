@@ -337,7 +337,8 @@ export default async function CitasPage({
           value={citasHoy}
           subtitle="citas agendadas hoy"
           icon={<Calendar className={cn("size-5", KPI_TONE.info.icon)} />}
-          iconBgColor={KPI_TONE.info.bg}
+          iconBgColor={KPI_TONE.info.iconBg}
+          className={KPI_TONE.info.cardBg}
         />
 
         <KpiCard
@@ -346,7 +347,8 @@ export default async function CitasPage({
           valueColor="success"
           subtitle={`esta semana · ${programadasSemana} sin confirmar`}
           icon={<CheckCircle className={cn("size-5", KPI_TONE.success.icon)} />}
-          iconBgColor={KPI_TONE.success.bg}
+          iconBgColor={KPI_TONE.success.iconBg}
+          className={KPI_TONE.success.cardBg}
         />
 
         <KpiCard
@@ -355,7 +357,8 @@ export default async function CitasPage({
           valueColor="danger"
           subtitle={`esta semana${citasSemana.length > 0 ? ` · ${porcentajeCanceladas}% del total` : ""}`}
           icon={<XCircle className={cn("size-5", KPI_TONE.danger.icon)} />}
-          iconBgColor={KPI_TONE.danger.bg}
+          iconBgColor={KPI_TONE.danger.iconBg}
+          className={KPI_TONE.danger.cardBg}
         />
 
         <KpiCard
@@ -363,7 +366,8 @@ export default async function CitasPage({
           value={proximas24h}
           subtitle="citas sin cancelar"
           icon={<Clock className={cn("size-5", KPI_TONE.info.icon)} />}
-          iconBgColor={KPI_TONE.info.bg}
+          iconBgColor={KPI_TONE.info.iconBg}
+          className={KPI_TONE.info.cardBg}
         />
       </div>
 

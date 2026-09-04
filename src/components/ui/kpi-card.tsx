@@ -8,16 +8,38 @@ export type KpiSubtitleIcon = "up" | "down" | "dot" | "none";
 export type KpiTone = "info" | "warning" | "success" | "danger" | "neutral";
 
 /**
- * Shared icon-circle palette (bg + icon color) used across every KPI row in
- * the app. dark: variants keep it legible against the oklch .dark theme in
- * globals.css -- plain bg-*-50/text-*-600 literals have no dark counterpart.
+ * Shared palette used across every KPI row in the app: a subtle card-wide
+ * wash (cardBg), a slightly stronger icon-circle fill (iconBg) so the icon
+ * still reads against that wash, and the icon's own color. dark: variants
+ * keep it legible against the oklch .dark theme in globals.css -- plain
+ * bg-*-50/text-*-600 literals have no dark counterpart.
  */
-export const KPI_TONE: Record<KpiTone, { bg: string; icon: string }> = {
-  info: { bg: "bg-blue-50 dark:bg-blue-500/15", icon: "text-blue-600 dark:text-blue-400" },
-  warning: { bg: "bg-orange-50 dark:bg-orange-500/15", icon: "text-orange-600 dark:text-orange-400" },
-  success: { bg: "bg-green-50 dark:bg-green-500/15", icon: "text-green-600 dark:text-green-400" },
-  danger: { bg: "bg-red-50 dark:bg-red-500/15", icon: "text-red-600 dark:text-red-400" },
-  neutral: { bg: "bg-gray-50 dark:bg-gray-500/15", icon: "text-gray-600 dark:text-gray-400" },
+export const KPI_TONE: Record<KpiTone, { cardBg: string; iconBg: string; icon: string }> = {
+  info: {
+    cardBg: "bg-blue-50 dark:bg-blue-500/10",
+    iconBg: "bg-blue-100 dark:bg-blue-500/20",
+    icon: "text-blue-600 dark:text-blue-400",
+  },
+  warning: {
+    cardBg: "bg-orange-50 dark:bg-orange-500/10",
+    iconBg: "bg-orange-100 dark:bg-orange-500/20",
+    icon: "text-orange-600 dark:text-orange-400",
+  },
+  success: {
+    cardBg: "bg-green-50 dark:bg-green-500/10",
+    iconBg: "bg-green-100 dark:bg-green-500/20",
+    icon: "text-green-600 dark:text-green-400",
+  },
+  danger: {
+    cardBg: "bg-red-50 dark:bg-red-500/10",
+    iconBg: "bg-red-100 dark:bg-red-500/20",
+    icon: "text-red-600 dark:text-red-400",
+  },
+  neutral: {
+    cardBg: "bg-gray-50 dark:bg-gray-500/10",
+    iconBg: "bg-gray-100 dark:bg-gray-500/20",
+    icon: "text-gray-600 dark:text-gray-400",
+  },
 };
 
 export interface KpiCardProps {

@@ -92,7 +92,8 @@ export default async function InicioPage() {
           value={overview.enTaller.total}
           subtitle={overview.enTaller.terminadasHoy > 0 ? `${overview.enTaller.terminadasHoy} terminadas hoy` : undefined}
           icon={<Wrench className={cn("size-5", KPI_TONE.info.icon)} />}
-          iconBgColor={KPI_TONE.info.bg}
+          iconBgColor={KPI_TONE.info.iconBg}
+          className={KPI_TONE.info.cardBg}
         />
 
         <KpiCard
@@ -104,7 +105,8 @@ export default async function InicioPage() {
               : undefined
           }
           icon={<CalendarCheck className={cn("size-5", KPI_TONE.info.icon)} />}
-          iconBgColor={KPI_TONE.info.bg}
+          iconBgColor={KPI_TONE.info.iconBg}
+          className={KPI_TONE.info.cardBg}
         />
 
         <KpiCard
@@ -115,7 +117,8 @@ export default async function InicioPage() {
           subtitleColor="warning"
           highlight={overview.porFacturar.count > 0}
           icon={<FileText className={cn("size-5", KPI_TONE.warning.icon)} />}
-          iconBgColor={KPI_TONE.warning.bg}
+          iconBgColor={KPI_TONE.warning.iconBg}
+          className={KPI_TONE.warning.cardBg}
         />
 
         <KpiCard
@@ -126,7 +129,8 @@ export default async function InicioPage() {
           subtitleColor="warning"
           highlight={overview.cartera.facturasPendientes > 0}
           icon={<AlertCircle className={cn("size-5", KPI_TONE.warning.icon)} />}
-          iconBgColor={KPI_TONE.warning.bg}
+          iconBgColor={KPI_TONE.warning.iconBg}
+          className={KPI_TONE.warning.cardBg}
         />
 
         <KpiCard
@@ -137,7 +141,8 @@ export default async function InicioPage() {
           subtitleColor="danger"
           highlight={overview.stockBajo.sinExistencias > 0}
           icon={<Package className={cn("size-5", KPI_TONE.danger.icon)} />}
-          iconBgColor={KPI_TONE.danger.bg}
+          iconBgColor={KPI_TONE.danger.iconBg}
+          className={KPI_TONE.danger.cardBg}
         />
       </div>
 
