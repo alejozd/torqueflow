@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertCircle, ArrowDown, ArrowUp, Clock, Wrench, Zap } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, Clock, DollarSign, Wrench } from "lucide-react";
 import { listOrdenes, listTecnicos, type OrdenWithDetalle } from "@/app/actions/orden-actions";
 import { listClientesParaOrden } from "@/app/actions/cliente-actions";
 import { NuevaOrdenDialog } from "./nueva-orden-dialog";
@@ -7,7 +7,7 @@ import type { EstadoOrden } from "@/generated/prisma-tenant";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { KpiCard } from "@/components/ui/kpi-card";
+import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
 
 const ESTADOS_VALIDOS: EstadoOrden[] = ["BORRADOR", "EN_PROCESO", "TERMINADA", "ENTREGADA", "ANULADA"];
@@ -287,25 +287,34 @@ export default async function OrdenesPage({
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <KpiCard title="En proceso" value={enProceso} icon={<Wrench className="size-5 text-primary" />} />
+        <KpiCard
+          title="En proceso"
+          value={enProceso}
+          icon={<Wrench className={cn("size-5", KPI_TONE.info.icon)} />}
+          iconBgColor={KPI_TONE.info.bg}
+        />
 
         <KpiCard
           title="Terminadas sin facturar"
           value={terminadasSinFacturar}
-          icon={<AlertCircle className="size-5 text-primary" />}
+          valueColor="warning"
+          icon={<AlertCircle className={cn("size-5", KPI_TONE.warning.icon)} />}
+          iconBgColor={KPI_TONE.warning.bg}
         />
 
         <KpiCard
           title="Tiempo medio"
           value={tiempoMedioDias !== null ? `${tiempoMedioDias.toFixed(1)}d` : "—"}
-          icon={<Clock className="size-5 text-primary" />}
+          icon={<Clock className={cn("size-5", KPI_TONE.neutral.icon)} />}
+          iconBgColor={KPI_TONE.neutral.bg}
         />
 
         <KpiCard
           title="Ticket medio"
           value={ticketMedio !== null ? formatoMoneda.format(ticketMedio) : "—"}
-          icon={<Zap className="size-5 text-violet-600" />}
-          iconBgColor="bg-violet-500/10"
+          valueColor="success"
+          icon={<DollarSign className={cn("size-5", KPI_TONE.success.icon)} />}
+          iconBgColor={KPI_TONE.success.bg}
         />
       </div>
 
