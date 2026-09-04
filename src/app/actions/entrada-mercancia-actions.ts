@@ -11,6 +11,7 @@ import type { Prisma } from "@/generated/prisma-tenant";
 export interface EntradaFormState {
   error: string | null;
   success: boolean;
+  entradaId: string | null;
 }
 
 const BODEGA_AJENA = "La bodega seleccionada no pertenece a tu sede activa.";
@@ -18,6 +19,7 @@ const BODEGA_AJENA = "La bodega seleccionada no pertenece a tu sede activa.";
 const ENTRADA_DETAIL_INCLUDE = {
   proveedor: true,
   bodega: true,
+  creadoPor: { select: { id: true, nombre: true } },
   items: { include: { repuesto: true } },
 } satisfies Prisma.EntradaMercanciaInclude;
 
@@ -52,7 +54,7 @@ export async function createEntradaMercanciaAction(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false, entradaId: null };
   }
 
   const session = await requireRole(["ADMIN", "RECEPCION"]);
@@ -63,11 +65,12 @@ export async function createEntradaMercanciaAction(
     select: { id: true },
   });
   if (!bodega) {
-    return { error: BODEGA_AJENA, success: false };
+    return { error: BODEGA_AJENA, success: false, entradaId: null };
   }
 
+  let entrada: { id: string };
   try {
-    await tenantDb.entradaMercancia.create({
+    entrada = await tenantDb.entradaMercancia.create({
       data: {
         proveedorId: parsed.data.proveedorId,
         bodegaId: parsed.data.bodegaId,
@@ -75,11 +78,15 @@ export async function createEntradaMercanciaAction(
       },
     });
   } catch (err) {
-    return { error: friendlyPrismaErrorMessage(err, "Error al crear la entrada de mercancía"), success: false };
+    return {
+      error: friendlyPrismaErrorMessage(err, "Error al crear la entrada de mercancía"),
+      success: false,
+      entradaId: null,
+    };
   }
 
   revalidatePath("/entradas-mercancia");
-  return { error: null, success: true };
+  return { error: null, success: true, entradaId: entrada.id };
 }
 
 export async function addEntradaItemAction(
@@ -94,7 +101,7 @@ export async function addEntradaItemAction(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false, entradaId };
   }
 
   const session = await requireRole(["ADMIN", "RECEPCION"]);
@@ -112,13 +119,13 @@ export async function addEntradaItemAction(
   ]);
 
   if (!entrada) {
-    return { error: "Entrada no encontrada", success: false };
+    return { error: "Entrada no encontrada", success: false, entradaId };
   }
   if (!repuesto) {
-    return { error: "Repuesto no encontrado", success: false };
+    return { error: "Repuesto no encontrado", success: false, entradaId };
   }
   if (repuesto.bodegaId !== entrada.bodegaId) {
-    return { error: "El repuesto no pertenece a la bodega de esta entrada", success: false };
+    return { error: "El repuesto no pertenece a la bodega de esta entrada", success: false, entradaId };
   }
 
   try {
@@ -137,10 +144,14 @@ export async function addEntradaItemAction(
       }),
     ]);
   } catch (err) {
-    return { error: friendlyPrismaErrorMessage(err, "Error al registrar el ítem recibido"), success: false };
+    return {
+      error: friendlyPrismaErrorMessage(err, "Error al registrar el ítem recibido"),
+      success: false,
+      entradaId,
+    };
   }
 
   revalidatePath(`/entradas-mercancia/${entradaId}`);
   revalidatePath("/repuestos");
-  return { error: null, success: true };
+  return { error: null, success: true, entradaId };
 }

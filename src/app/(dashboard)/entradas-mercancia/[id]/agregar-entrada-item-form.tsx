@@ -14,7 +14,7 @@ import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const initialState: EntradaFormState = { error: null, success: false };
+const initialState: EntradaFormState = { error: null, success: false, entradaId: null };
 
 type EntradaItemFormInput = z.input<typeof entradaMercanciaItemInputSchema>;
 
