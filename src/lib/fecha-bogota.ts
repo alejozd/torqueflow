@@ -54,8 +54,13 @@ export function formatoFechaRelativa(fecha: Date, ahora: Date): string {
   const diffHoras = Math.floor(diffMin / 60);
   if (mismoDia) return `Hace ${diffHoras} ${diffHoras === 1 ? "hora" : "horas"}`;
 
+  // Not the same calendar day (mismoDia is false above), so at least one
+  // midnight has passed -- diffDias === 0 here always means "yesterday",
+  // never "today" (that's Hoy/Hace X horas above). Without this case it
+  // read as the confusing "Hace 0 días".
   const diffDias = Math.floor(diffHoras / 24);
-  if (diffDias < 7) return `Hace ${diffDias} ${diffDias === 1 ? "día" : "días"}`;
+  if (diffDias === 0) return "Ayer";
+  if (diffDias < 7) return `Hace ${diffDias} días`;
 
   return formatoFechaCorta.format(fecha);
 }

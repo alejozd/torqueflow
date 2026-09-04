@@ -2,12 +2,12 @@ import Link from "next/link";
 import { DollarSign, Package, Truck, Users } from "lucide-react";
 import { listEntradas, type EntradaWithDetalle } from "@/app/actions/entrada-mercancia-actions";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
+import { formatoFechaCorta, formatoFechaRelativa, inicioMesBogota } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
-
-const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" });
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", {
   style: "currency",
@@ -23,14 +23,20 @@ function calcularCostoTotal(entrada: EntradaWithDetalle): number {
   return entrada.items.reduce((suma, item) => suma + item.cantidad * Number(item.precioCompraUnitario), 0);
 }
 
-const COLUMNS: DataTableColumn<EntradaWithDetalle>[] = [
+function buildColumns(ahora: Date): DataTableColumn<EntradaWithDetalle>[] {
+  return [
   {
     header: "Entrada",
     cell: (entrada) => <span className="font-mono text-sm font-medium">#{entrada.id.slice(-8).toUpperCase()}</span>,
   },
   {
     header: "Fecha",
-    cell: (entrada) => <span className="text-sm text-muted-foreground">{formatoFecha.format(entrada.createdAt)}</span>,
+    cell: (entrada) => (
+      <div className="flex flex-col gap-0.5">
+        <span className="text-sm">{formatoFechaCorta.format(entrada.createdAt)}</span>
+        <span className="text-xs text-muted-foreground">{formatoFechaRelativa(entrada.createdAt, ahora)}</span>
+      </div>
+    ),
   },
   {
     header: "Proveedor",
@@ -57,10 +63,15 @@ const COLUMNS: DataTableColumn<EntradaWithDetalle>[] = [
     className: "text-right",
     cell: (entrada) => <span className="font-mono font-medium">{formatoMoneda.format(calcularCostoTotal(entrada))}</span>,
   },
-];
+  ];
+}
 
 export default async function EntradasMercanciaPage() {
   const entradas = await listEntradas();
+
+  const ahora = new Date();
+  const inicioMes = inicioMesBogota(ahora);
+  const entradasMes = entradas.filter((entrada) => entrada.createdAt >= inicioMes).length;
 
   const unidadesTotales = entradas.reduce((suma, entrada) => suma + sumarUnidades(entrada), 0);
   const costoTotal = entradas.reduce((suma, entrada) => suma + calcularCostoTotal(entrada), 0);
@@ -68,7 +79,12 @@ export default async function EntradasMercanciaPage() {
 
   return (
     <main className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Entradas de mercancía</h1>
+      <div className="flex flex-wrap items-center gap-2.5">
+        <h1 className="text-2xl font-semibold">Entradas de mercancía</h1>
+        <Badge variant="outline" className="font-normal text-muted-foreground">
+          {entradasMes} {entradasMes === 1 ? "entrada" : "entradas"} este mes
+        </Badge>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <KpiCard
@@ -114,7 +130,7 @@ export default async function EntradasMercanciaPage() {
         </CardHeader>
         <CardContent>
           <DataTable
-            columns={COLUMNS}
+            columns={buildColumns(ahora)}
             rows={entradas}
             getRowKey={(entrada) => entrada.id}
             rowHref={(entrada) => `/entradas-mercancia/${entrada.id}`}
@@ -122,6 +138,7 @@ export default async function EntradasMercanciaPage() {
             searchable
             searchPlaceholder="Buscar por proveedor o bodega..."
             pageSize={20}
+            headerClassName="bg-muted"
           />
         </CardContent>
       </Card>
