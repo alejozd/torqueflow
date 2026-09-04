@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Dialog } from "@/components/ui/dialog";
 
@@ -20,7 +20,11 @@ function renderInDialog(ui: Parameters<typeof render>[0]) {
 describe("NuevoClienteForm", () => {
   beforeEach(() => {
     mockCreateClienteAction.mockReset();
-    mockCreateClienteAction.mockResolvedValue({ error: null, success: true });
+    mockCreateClienteAction.mockResolvedValue({
+      error: null,
+      success: true,
+      cliente: { id: "c1", nombre: "Juan Pérez" },
+    });
   });
 
   it("renders all Cliente fields", () => {
@@ -39,6 +43,18 @@ describe("NuevoClienteForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Crear cliente" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Cliente creado");
+  });
+
+  it("calls onCreated with the new cliente instead of rendering the inline status message when provided", async () => {
+    const onCreated = vi.fn();
+    renderInDialog(<NuevoClienteForm onCreated={onCreated} />);
+
+    await userEvent.type(screen.getByLabelText("Nombre"), "Juan Pérez");
+    await userEvent.click(screen.getByRole("button", { name: "Crear cliente" }));
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+    expect(onCreated).toHaveBeenCalledWith({ id: "c1", nombre: "Juan Pérez" });
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("blocks submission and shows a field error when the name is empty, without calling the server", async () => {

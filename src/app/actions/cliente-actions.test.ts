@@ -53,7 +53,7 @@ describe("createClienteAction", () => {
 
     const result = await createClienteAction(initialState, formData);
 
-    expect(result).toEqual({ error: null, success: true });
+    expect(result).toEqual({ error: null, success: true, cliente: { id: "c1", nombre: "Juan Pérez" } });
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
     expect(mockCreate).toHaveBeenCalledWith({
       data: { nombre: "Juan Pérez", telefono: "555-1234", email: null, documento: null },

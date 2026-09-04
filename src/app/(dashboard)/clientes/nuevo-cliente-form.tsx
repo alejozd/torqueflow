@@ -1,10 +1,11 @@
 "use client";
 
-import { startTransition, useActionState, useRef } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createClienteAction, type ClienteFormState } from "@/app/actions/cliente-actions";
 import { clienteInputSchema, type ClienteInput } from "@/lib/validation/cliente";
+import type { Cliente } from "@/generated/prisma-tenant";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -14,8 +15,21 @@ import { Label } from "@/components/ui/label";
 
 const initialState: ClienteFormState = { error: null, success: false };
 
-export function NuevoClienteForm() {
-  const [state, formAction, isPending] = useActionState(createClienteAction, initialState);
+export function NuevoClienteForm({
+  onCreated,
+}: {
+  /**
+   * Fired synchronously right after a successful create, with the new
+   * cliente -- same reason NuevoVehiculoForm's onCreated exists: a lingering
+   * "Cliente creado" message with a still-enabled submit button invites a
+   * double-click, and createClienteAction's revalidatePath can refresh (and
+   * unmount, inside a dialog) this form's parent before a
+   * useActionState-driven effect would get a chance to run.
+   */
+  onCreated?: (cliente: Cliente) => void;
+}) {
+  const [state, setState] = useState<ClienteFormState>(initialState);
+  const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
   const {
     register,
@@ -26,13 +40,21 @@ export function NuevoClienteForm() {
     defaultValues: { nombre: "", telefono: "", email: "", documento: "" },
   });
 
+  function onValid() {
+    startTransition(async () => {
+      const formData = new FormData(formRef.current!);
+      const result = await createClienteAction(initialState, formData);
+      if (result.success && result.cliente) {
+        if (onCreated) onCreated(result.cliente);
+        else setState(result);
+      } else {
+        setState(result);
+      }
+    });
+  }
+
   return (
-    <form
-      noValidate
-      ref={formRef}
-      onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
-      className="flex flex-col gap-4"
-    >
+    <form noValidate ref={formRef} onSubmit={handleSubmit(onValid)} className="flex flex-col gap-4">
       <FormGroup label="Identificación">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">

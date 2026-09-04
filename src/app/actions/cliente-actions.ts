@@ -5,11 +5,12 @@ import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { clienteInputSchema } from "@/lib/validation/cliente";
-import type { Prisma } from "@/generated/prisma-tenant";
+import type { Cliente, Prisma } from "@/generated/prisma-tenant";
 
 export interface ClienteFormState {
   error: string | null;
   success: boolean;
+  cliente?: Cliente;
 }
 
 function parseClienteFormData(formData: FormData) {
@@ -136,8 +137,9 @@ export async function createClienteAction(
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
+  let cliente: Cliente;
   try {
-    await tenantDb.cliente.create({
+    cliente = await tenantDb.cliente.create({
       data: {
         nombre: parsed.data.nombre,
         telefono: parsed.data.telefono || null,
@@ -150,7 +152,7 @@ export async function createClienteAction(
   }
 
   revalidatePath("/clientes");
-  return { error: null, success: true };
+  return { error: null, success: true, cliente };
 }
 
 export async function updateClienteAction(
