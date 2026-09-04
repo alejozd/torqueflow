@@ -46,6 +46,13 @@ function Combobox({
    * alongside nombre/placa.
    */
   filter,
+  /**
+   * Overrides the default (the plain item.label text) for what renders
+   * inside each popup option -- e.g. a secondary muted line under the
+   * label. itemToStringLabel still drives search/accessible-name matching,
+   * so this only changes what's visually shown.
+   */
+  renderOption,
 }: {
   items: ComboboxOption[]
   value: string
@@ -60,6 +67,7 @@ function Combobox({
   "aria-invalid"?: boolean | undefined
   "aria-describedby"?: string | undefined
   filter?: (item: ComboboxOption, query: string) => boolean
+  renderOption?: (item: ComboboxOption) => React.ReactNode
 }) {
   const selected = React.useMemo(() => items.find((item) => item.value === value) ?? null, [items, value])
 
@@ -101,7 +109,7 @@ function Combobox({
                   value={item}
                   className="relative flex w-full cursor-default items-center gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground"
                 >
-                  {item.label}
+                  {renderOption ? renderOption(item) : item.label}
                   <ComboboxPrimitive.ItemIndicator className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
                     <CheckIcon className="size-4" />
                   </ComboboxPrimitive.ItemIndicator>
