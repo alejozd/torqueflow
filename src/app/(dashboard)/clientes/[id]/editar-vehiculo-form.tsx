@@ -33,6 +33,7 @@ export function EditarVehiculoForm({ vehiculo }: { vehiculo: Vehiculo }) {
       placa: vehiculo.placa,
       marca: vehiculo.marca,
       modelo: vehiculo.modelo,
+      color: vehiculo.color ?? "",
       anio: vehiculo.anio ?? "",
       combustible: vehiculo.combustible ?? "",
       kilometraje: vehiculo.kilometraje ?? "",

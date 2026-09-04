@@ -7,6 +7,7 @@ export const vehiculoInputSchema = z.object({
   placa: z.string().min(1, "La placa es obligatoria"),
   marca: z.string().min(1, "La marca es obligatoria"),
   modelo: z.string().min(1, "El modelo es obligatorio"),
+  color: z.string().optional(),
   anio: z.coerce.number().int().min(1900).max(2100).optional(),
   combustible: tipoCombustibleSchema.optional(),
   kilometraje: z.coerce.number().int().min(0, "El kilometraje no puede ser negativo").optional(),

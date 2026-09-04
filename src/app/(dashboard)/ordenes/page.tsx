@@ -372,7 +372,7 @@ export default async function OrdenesPage({
   const columnas = estadoFiltro ? columnasBase.filter((columna) => columna.estado === estadoFiltro) : columnasBase;
 
   return (
-    <main className="-m-6 flex min-h-[calc(100%+3rem)] flex-col gap-6 bg-slate-50 p-6 dark:bg-slate-900/40">
+    <main className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
           <h1 className="text-2xl font-semibold">Órdenes de trabajo</h1>

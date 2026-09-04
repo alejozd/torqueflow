@@ -26,6 +26,7 @@ export function NuevoVehiculoForm({ clienteId }: { clienteId: string }) {
       placa: "",
       marca: "",
       modelo: "",
+      color: "",
       anio: "",
       combustible: "",
       kilometraje: "",

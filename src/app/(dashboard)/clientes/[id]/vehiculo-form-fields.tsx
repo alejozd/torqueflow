@@ -57,7 +57,7 @@ export function VehiculoFormFields({
       </FormGroup>
 
       <FormGroup label="Vehículo">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-7">
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="marca">Marca</Label>
             <Input
@@ -78,6 +78,17 @@ export function VehiculoFormFields({
               {...register("modelo")}
             />
             {errors.modelo ? <p id="modelo-error">{errors.modelo.message}</p> : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5 sm:col-span-1">
+            <Label htmlFor="color">Color</Label>
+            <Input
+              id="color"
+              aria-invalid={errors.color ? true : undefined}
+              aria-describedby={errors.color ? "color-error" : undefined}
+              {...register("color")}
+            />
+            {errors.color ? <p id="color-error">{errors.color.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5 sm:col-span-1">

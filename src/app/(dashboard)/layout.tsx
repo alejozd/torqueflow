@@ -67,7 +67,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                 </div>
               </div>
             </header>
-            <main className="flex-1 p-6">{children}</main>
+            <main className="flex-1 bg-slate-50 p-6 dark:bg-slate-900/40">{children}</main>
           </SidebarInset>
         </SidebarProvider>
       </TooltipProvider>
