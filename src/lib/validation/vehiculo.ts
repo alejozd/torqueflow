@@ -7,6 +7,11 @@ export const vehiculoInputSchema = z.object({
   placa: z.string().min(1, "La placa es obligatoria"),
   marca: z.string().min(1, "La marca es obligatoria"),
   modelo: z.string().min(1, "El modelo es obligatorio"),
+  // Optional catalog references (MarcaVehiculo/ModeloVehiculo) alongside the
+  // required free-text marca/modelo above -- see prisma/tenant/schema.prisma's
+  // Vehiculo model comment for why both coexist during the gradual migration.
+  marcaId: z.string().optional(),
+  modeloId: z.string().optional(),
   color: z.string().optional(),
   anio: z.coerce.number().int().min(1900).max(2100).optional(),
   combustible: tipoCombustibleSchema.optional(),

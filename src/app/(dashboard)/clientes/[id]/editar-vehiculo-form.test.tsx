@@ -8,6 +8,15 @@ vi.mock("@/app/actions/vehiculo-actions", () => ({
   updateVehiculoAction: (...args: unknown[]) => mockUpdateVehiculoAction(...args),
 }));
 
+// Not under test here, but VehiculoFormFields renders NuevaMarcaDialog/
+// NuevoModeloDialog unconditionally -- without this mock their real import
+// of vehiculo-marca-modelo-actions.ts drags in next-auth server code that
+// doesn't resolve under Vitest's environment.
+vi.mock("@/app/actions/vehiculo-marca-modelo-actions", () => ({
+  crearMarcaVehiculoAction: vi.fn(),
+  crearModeloVehiculoAction: vi.fn(),
+}));
+
 import { EditarVehiculoForm } from "./editar-vehiculo-form";
 
 // EditarVehiculoForm renders a DialogClose-wrapped Cancel button that
@@ -43,7 +52,7 @@ describe("EditarVehiculoForm", () => {
   });
 
   it("prefills every field with the vehiculo's current values", () => {
-    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} />);
+    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} marcas={[]} modelos={[]} esAdmin={false} />);
 
     expect(screen.getByLabelText("Placa")).toHaveValue("ABC123");
     expect(screen.getByLabelText("Marca")).toHaveValue("Toyota");
@@ -57,7 +66,7 @@ describe("EditarVehiculoForm", () => {
   });
 
   it("shows a success message after a successful submit", async () => {
-    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} />);
+    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} marcas={[]} modelos={[]} esAdmin={false} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
 
@@ -66,7 +75,7 @@ describe("EditarVehiculoForm", () => {
 
   it("shows the error message when the action returns one", async () => {
     mockUpdateVehiculoAction.mockResolvedValue({ error: "Ya existe un registro con ese valor.", success: false });
-    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} />);
+    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} marcas={[]} modelos={[]} esAdmin={false} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
 

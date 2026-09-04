@@ -5,13 +5,24 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createVehiculoAction, type VehiculoFormState } from "@/app/actions/vehiculo-actions";
 import { VehiculoFormFields, vehiculoFormSchema, type VehiculoFormInput } from "./vehiculo-form-fields";
+import type { MarcaVehiculo, ModeloVehiculo } from "@/generated/prisma-tenant";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { DialogClose } from "@/components/ui/dialog";
 
 const initialState: VehiculoFormState = { error: null, success: false };
 
-export function NuevoVehiculoForm({ clienteId }: { clienteId: string }) {
+export function NuevoVehiculoForm({
+  clienteId,
+  marcas,
+  modelos,
+  esAdmin,
+}: {
+  clienteId: string;
+  marcas: MarcaVehiculo[];
+  modelos: ModeloVehiculo[];
+  esAdmin: boolean;
+}) {
   const createVehiculoForCliente = createVehiculoAction.bind(null, clienteId);
   const [state, formAction, isPending] = useActionState(createVehiculoForCliente, initialState);
   const formRef = useRef<HTMLFormElement>(null);
@@ -19,6 +30,7 @@ export function NuevoVehiculoForm({ clienteId }: { clienteId: string }) {
     register,
     handleSubmit,
     control,
+    setValue,
     formState: { errors },
   } = useForm<VehiculoFormInput>({
     resolver: zodResolver(vehiculoFormSchema),
@@ -26,6 +38,8 @@ export function NuevoVehiculoForm({ clienteId }: { clienteId: string }) {
       placa: "",
       marca: "",
       modelo: "",
+      marcaId: "",
+      modeloId: "",
       color: "",
       anio: "",
       combustible: "",
@@ -49,12 +63,22 @@ export function NuevoVehiculoForm({ clienteId }: { clienteId: string }) {
           // explicitly here before submitting.
           formData.set("combustible", (data.combustible as string | undefined) ?? "");
           formData.set("transmision", (data.transmision as string | undefined) ?? "");
+          formData.set("marcaId", (data.marcaId as string | undefined) ?? "");
+          formData.set("modeloId", (data.modeloId as string | undefined) ?? "");
           formAction(formData);
         }),
       )}
       className="flex flex-col gap-5"
     >
-      <VehiculoFormFields register={register} errors={errors} control={control} />
+      <VehiculoFormFields
+        register={register}
+        errors={errors}
+        control={control}
+        setValue={setValue}
+        marcas={marcas}
+        modelos={modelos}
+        esAdmin={esAdmin}
+      />
 
       {state.error ? (
         <Alert variant="destructive">

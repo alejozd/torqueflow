@@ -8,6 +8,15 @@ vi.mock("@/app/actions/vehiculo-actions", () => ({
   createVehiculoAction: (...args: unknown[]) => mockCreateVehiculoAction(...args),
 }));
 
+// Not under test here, but VehiculoFormFields renders NuevaMarcaDialog/
+// NuevoModeloDialog unconditionally -- without this mock their real import
+// of vehiculo-marca-modelo-actions.ts drags in next-auth server code that
+// doesn't resolve under Vitest's environment.
+vi.mock("@/app/actions/vehiculo-marca-modelo-actions", () => ({
+  crearMarcaVehiculoAction: vi.fn(),
+  crearModeloVehiculoAction: vi.fn(),
+}));
+
 import { NuevoVehiculoForm } from "./nuevo-vehiculo-form";
 
 // NuevoVehiculoForm renders a DialogClose-wrapped Cancel button that
@@ -24,7 +33,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("renders placa, marca, modelo, anio fields", () => {
-    renderInDialog(<NuevoVehiculoForm clienteId="c1" />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={[]} modelos={[]} esAdmin={false} />);
 
     expect(screen.getByLabelText("Placa")).toBeInTheDocument();
     expect(screen.getByLabelText("Marca")).toBeInTheDocument();
@@ -33,7 +42,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("renders the vehicle detail fields (combustible, kilometraje, proximo mantenimiento, transmision, observaciones)", () => {
-    renderInDialog(<NuevoVehiculoForm clienteId="c1" />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={[]} modelos={[]} esAdmin={false} />);
 
     expect(screen.getByLabelText("Combustible")).toBeInTheDocument();
     expect(screen.getByLabelText("Kilometraje")).toBeInTheDocument();
@@ -43,7 +52,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("submits the detail fields to createVehiculoAction when filled", async () => {
-    renderInDialog(<NuevoVehiculoForm clienteId="c1" />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={[]} modelos={[]} esAdmin={false} />);
 
     await userEvent.type(screen.getByLabelText("Placa"), "ABC123");
     await userEvent.type(screen.getByLabelText("Marca"), "Toyota");
@@ -70,7 +79,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("shows a success message after a successful submit", async () => {
-    renderInDialog(<NuevoVehiculoForm clienteId="c1" />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={[]} modelos={[]} esAdmin={false} />);
 
     await userEvent.type(screen.getByLabelText("Placa"), "ABC123");
     await userEvent.type(screen.getByLabelText("Marca"), "Toyota");
@@ -81,7 +90,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("blocks submission and shows field errors when required fields are empty, without calling the server", async () => {
-    renderInDialog(<NuevoVehiculoForm clienteId="c1" />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={[]} modelos={[]} esAdmin={false} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Agregar vehículo" }));
 

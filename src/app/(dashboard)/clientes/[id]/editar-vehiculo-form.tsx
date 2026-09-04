@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { updateVehiculoAction, type VehiculoFormState } from "@/app/actions/vehiculo-actions";
 import { VehiculoFormFields, vehiculoFormSchema, type VehiculoFormInput } from "./vehiculo-form-fields";
-import type { Vehiculo } from "@/generated/prisma-tenant";
+import type { MarcaVehiculo, ModeloVehiculo, Vehiculo } from "@/generated/prisma-tenant";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { DialogClose } from "@/components/ui/dialog";
@@ -16,7 +16,17 @@ function toDateInputValue(fecha: Date | null): string {
   return fecha ? fecha.toISOString().slice(0, 10) : "";
 }
 
-export function EditarVehiculoForm({ vehiculo }: { vehiculo: Vehiculo }) {
+export function EditarVehiculoForm({
+  vehiculo,
+  marcas,
+  modelos,
+  esAdmin,
+}: {
+  vehiculo: Vehiculo;
+  marcas: MarcaVehiculo[];
+  modelos: ModeloVehiculo[];
+  esAdmin: boolean;
+}) {
   const [state, formAction, isPending] = useActionState(
     updateVehiculoAction.bind(null, vehiculo.id),
     initialState,
@@ -26,6 +36,7 @@ export function EditarVehiculoForm({ vehiculo }: { vehiculo: Vehiculo }) {
     register,
     handleSubmit,
     control,
+    setValue,
     formState: { errors },
   } = useForm<VehiculoFormInput>({
     resolver: zodResolver(vehiculoFormSchema),
@@ -33,6 +44,8 @@ export function EditarVehiculoForm({ vehiculo }: { vehiculo: Vehiculo }) {
       placa: vehiculo.placa,
       marca: vehiculo.marca,
       modelo: vehiculo.modelo,
+      marcaId: vehiculo.marcaId ?? "",
+      modeloId: vehiculo.modeloId ?? "",
       color: vehiculo.color ?? "",
       anio: vehiculo.anio ?? "",
       combustible: vehiculo.combustible ?? "",
@@ -56,12 +69,22 @@ export function EditarVehiculoForm({ vehiculo }: { vehiculo: Vehiculo }) {
           // explicitly here before submitting.
           formData.set("combustible", (data.combustible as string | undefined) ?? "");
           formData.set("transmision", (data.transmision as string | undefined) ?? "");
+          formData.set("marcaId", (data.marcaId as string | undefined) ?? "");
+          formData.set("modeloId", (data.modeloId as string | undefined) ?? "");
           formAction(formData);
         }),
       )}
       className="flex flex-col gap-5"
     >
-      <VehiculoFormFields register={register} errors={errors} control={control} />
+      <VehiculoFormFields
+        register={register}
+        errors={errors}
+        control={control}
+        setValue={setValue}
+        marcas={marcas}
+        modelos={modelos}
+        esAdmin={esAdmin}
+      />
 
       {state.error ? (
         <Alert variant="destructive">

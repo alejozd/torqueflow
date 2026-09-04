@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { NuevoVehiculoForm } from "./nuevo-vehiculo-form";
+import type { MarcaVehiculo, ModeloVehiculo } from "@/generated/prisma-tenant";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,7 +13,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-export function NuevoVehiculoDialog({ clienteId }: { clienteId: string }) {
+export function NuevoVehiculoDialog({
+  clienteId,
+  marcas,
+  modelos,
+  esAdmin,
+}: {
+  clienteId: string;
+  marcas: MarcaVehiculo[];
+  modelos: ModeloVehiculo[];
+  esAdmin: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -26,7 +37,7 @@ export function NuevoVehiculoDialog({ clienteId }: { clienteId: string }) {
           <DialogTitle>Nuevo vehículo</DialogTitle>
           <DialogDescription>Queda asociado a este cliente y a su historial de órdenes.</DialogDescription>
         </DialogHeader>
-        <NuevoVehiculoForm clienteId={clienteId} />
+        <NuevoVehiculoForm clienteId={clienteId} marcas={marcas} modelos={modelos} esAdmin={esAdmin} />
       </DialogContent>
     </Dialog>
   );

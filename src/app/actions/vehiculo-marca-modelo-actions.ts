@@ -36,6 +36,18 @@ export async function listModelosVehiculo(marcaId: string): Promise<ModeloVehicu
   return tenantDb.modeloVehiculo.findMany({ where: { marcaId }, orderBy: { nombre: "asc" } });
 }
 
+/**
+ * Every modelo across every marca, for the vehículo form: with ~100 rows
+ * total (Fase 1's seed) it's cheaper to fetch once and filter by marcaId
+ * client-side (VehiculoFormFields) than to round-trip listModelosVehiculo()
+ * every time the user picks a different marca.
+ */
+export async function listTodosLosModelosVehiculo(): Promise<ModeloVehiculo[]> {
+  const session = await requireSession();
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  return tenantDb.modeloVehiculo.findMany({ orderBy: { nombre: "asc" } });
+}
+
 export async function crearMarcaVehiculoAction(
   prevState: MarcaVehiculoFormState,
   formData: FormData,

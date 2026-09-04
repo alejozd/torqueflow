@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, History } from "lucide-react";
 import { getCliente } from "@/app/actions/cliente-actions";
 import { listTecnicos } from "@/app/actions/orden-actions";
+import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/vehiculo-marca-modelo-actions";
+import { requireSession } from "@/lib/auth/guards";
 import { EditarClienteDialog } from "./editar-cliente-dialog";
 import { NuevoVehiculoDialog } from "./nuevo-vehiculo-dialog";
 import { EditarVehiculoDialog } from "./editar-vehiculo-dialog";
@@ -90,11 +92,19 @@ function resumirVehiculo(vehiculo: VehiculoDeCliente, ordenes: OrdenDeCliente[])
 
 export default async function ClienteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [cliente, tecnicos] = await Promise.all([getCliente(id), listTecnicos()]);
+  const [cliente, tecnicos, session, marcas, modelos] = await Promise.all([
+    getCliente(id),
+    listTecnicos(),
+    requireSession(),
+    listMarcasVehiculo(),
+    listTodosLosModelosVehiculo(),
+  ]);
 
   if (!cliente) {
     notFound();
   }
+
+  const esAdmin = session.user.role === "ADMIN";
 
   // EditarClienteDialog is a Client Component: it may only receive plain,
   // serializable props. `cliente` itself carries `ordenes`/`facturas` with
@@ -185,7 +195,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Vehículos · {cliente.vehiculos.length}</CardTitle>
-              <NuevoVehiculoDialog clienteId={cliente.id} />
+              <NuevoVehiculoDialog clienteId={cliente.id} marcas={marcas} modelos={modelos} esAdmin={esAdmin} />
             </CardHeader>
             <CardContent>
               {vehiculosResumen.length === 0 ? (
@@ -213,7 +223,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
 
                       <div className="mt-1 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2">
                         <div className="flex items-center gap-1.5">
-                          <EditarVehiculoDialog vehiculo={vehiculo} />
+                          <EditarVehiculoDialog vehiculo={vehiculo} marcas={marcas} modelos={modelos} esAdmin={esAdmin} />
                           <Link
                             href={`/vehiculos/${vehiculo.id}`}
                             className={buttonVariants({ variant: "outline", size: "sm" })}

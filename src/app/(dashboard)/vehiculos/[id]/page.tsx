@@ -3,11 +3,13 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getVehiculo } from "@/app/actions/vehiculo-actions";
 import { listOrdenesByVehiculo, listTecnicos, type OrdenDeVehiculo } from "@/app/actions/orden-actions";
+import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/vehiculo-marca-modelo-actions";
 import { EditarVehiculoDialog } from "../../clientes/[id]/editar-vehiculo-dialog";
 import { NuevaOrdenDialog } from "../../clientes/[id]/nueva-orden-dialog";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { requireSession } from "@/lib/auth/guards";
 import { totalOrden } from "@/lib/dashboard/calculos";
 import type { EstadoOrden } from "@/generated/prisma-tenant";
 
@@ -69,7 +71,14 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
     notFound();
   }
 
-  const [ordenes, tecnicos] = await Promise.all([listOrdenesByVehiculo(id), listTecnicos()]);
+  const [ordenes, tecnicos, session, marcas, modelos] = await Promise.all([
+    listOrdenesByVehiculo(id),
+    listTecnicos(),
+    requireSession(),
+    listMarcasVehiculo(),
+    listTodosLosModelosVehiculo(),
+  ]);
+  const esAdmin = session.user.role === "ADMIN";
 
   const enTaller = ordenes.some((orden) => ESTADOS_ACTIVOS.includes(orden.estado));
 
@@ -138,7 +147,7 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <EditarVehiculoDialog vehiculo={vehiculo} />
+          <EditarVehiculoDialog vehiculo={vehiculo} marcas={marcas} modelos={modelos} esAdmin={esAdmin} />
           <NuevaOrdenDialog
             clienteId={vehiculo.clienteId}
             vehiculoId={vehiculo.id}

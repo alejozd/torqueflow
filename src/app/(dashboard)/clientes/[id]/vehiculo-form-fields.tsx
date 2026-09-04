@@ -1,9 +1,16 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { z } from "zod";
 import { useController } from "react-hook-form";
-import type { Control, FieldErrors, UseFormRegister } from "react-hook-form";
+import type { Control, FieldErrors, UseFormRegister, UseFormSetValue } from "react-hook-form";
+import { Plus } from "lucide-react";
 import { vehiculoInputSchema } from "@/lib/validation/vehiculo";
+import type { MarcaVehiculo, ModeloVehiculo } from "@/generated/prisma-tenant";
+import { NuevaMarcaDialog } from "./nueva-marca-dialog";
+import { NuevoModeloDialog } from "./nuevo-modelo-dialog";
+import { Button } from "@/components/ui/button";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { FormGroup } from "@/components/form-group";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,13 +37,73 @@ export function VehiculoFormFields({
   register,
   errors,
   control,
+  setValue,
+  marcas,
+  modelos,
+  esAdmin,
 }: {
   register: UseFormRegister<VehiculoFormInput>;
   errors: FieldErrors<VehiculoFormInput>;
   control: Control<VehiculoFormInput>;
+  setValue: UseFormSetValue<VehiculoFormInput>;
+  marcas: MarcaVehiculo[];
+  modelos: ModeloVehiculo[];
+  esAdmin: boolean;
 }) {
   const { field: combustibleField } = useController({ name: "combustible", control });
   const { field: transmisionField } = useController({ name: "transmision", control });
+  const { field: marcaIdField } = useController({ name: "marcaId", control });
+  const { field: modeloIdField } = useController({ name: "modeloId", control });
+
+  const [marcasLocal, setMarcasLocal] = useState(marcas);
+  const [modelosLocal, setModelosLocal] = useState(modelos);
+  const [crearMarcaOpen, setCrearMarcaOpen] = useState(false);
+  const [crearModeloOpen, setCrearModeloOpen] = useState(false);
+
+  const marcaSeleccionada = marcasLocal.find((marca) => marca.id === marcaIdField.value) ?? null;
+
+  const marcaOptions: ComboboxOption[] = useMemo(
+    () => marcasLocal.map((marca) => ({ value: marca.id, label: marca.nombre })),
+    [marcasLocal],
+  );
+  const modeloOptions: ComboboxOption[] = useMemo(
+    () =>
+      modelosLocal
+        .filter((modelo) => modelo.marcaId === marcaIdField.value)
+        .map((modelo) => ({ value: modelo.id, label: modelo.nombre })),
+    [modelosLocal, marcaIdField.value],
+  );
+
+  const marcaRegister = register("marca");
+  const modeloRegister = register("modelo");
+
+  // Takes the object directly (not just an id) so a freshly created
+  // marca/modelo -- not yet in marcasLocal/modelosLocal's state at the point
+  // its own onCreated callback fires -- can still be applied without relying
+  // on a lookup against state that hasn't re-rendered yet.
+  function aplicarMarca(marca: MarcaVehiculo) {
+    marcaIdField.onChange(marca.id);
+    setValue("marca", marca.nombre, { shouldValidate: true });
+    // A different marca invalidates whatever modelo was picked -- it almost
+    // certainly doesn't belong to the new marca's catalog.
+    modeloIdField.onChange("");
+    setValue("modelo", "", { shouldValidate: true });
+  }
+
+  function aplicarModelo(modelo: ModeloVehiculo) {
+    modeloIdField.onChange(modelo.id);
+    setValue("modelo", modelo.nombre, { shouldValidate: true });
+  }
+
+  function seleccionarMarca(marcaId: string) {
+    const marca = marcasLocal.find((m) => m.id === marcaId);
+    if (marca) aplicarMarca(marca);
+  }
+
+  function seleccionarModelo(modeloId: string) {
+    const modelo = modelosLocal.find((m) => m.id === modeloId);
+    if (modelo) aplicarModelo(modelo);
+  }
 
   return (
     <>
@@ -64,9 +131,38 @@ export function VehiculoFormFields({
               id="marca"
               aria-invalid={errors.marca ? true : undefined}
               aria-describedby={errors.marca ? "marca-error" : undefined}
-              {...register("marca")}
+              {...marcaRegister}
+              onChange={(event) => {
+                marcaRegister.onChange(event);
+                // Hand-editing the text after a catalog pick means it no
+                // longer necessarily matches marcaId's row -- drop the
+                // reference rather than submit a mismatched one.
+                if (marcaIdField.value) marcaIdField.onChange("");
+              }}
             />
             {errors.marca ? <p id="marca-error">{errors.marca.message}</p> : null}
+            <div className="flex items-center gap-1.5">
+              <Combobox
+                items={marcaOptions}
+                value={marcaIdField.value ?? ""}
+                onValueChange={seleccionarMarca}
+                placeholder="Buscar en catálogo…"
+                emptyMessage="Ninguna marca coincide"
+                className="h-8 text-xs"
+              />
+              {esAdmin ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="size-8 shrink-0"
+                  title="Agregar marca"
+                  onClick={() => setCrearMarcaOpen(true)}
+                >
+                  <Plus className="size-3.5" />
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5 sm:col-span-2">
@@ -75,9 +171,36 @@ export function VehiculoFormFields({
               id="modelo"
               aria-invalid={errors.modelo ? true : undefined}
               aria-describedby={errors.modelo ? "modelo-error" : undefined}
-              {...register("modelo")}
+              {...modeloRegister}
+              onChange={(event) => {
+                modeloRegister.onChange(event);
+                if (modeloIdField.value) modeloIdField.onChange("");
+              }}
             />
             {errors.modelo ? <p id="modelo-error">{errors.modelo.message}</p> : null}
+            <div className="flex items-center gap-1.5">
+              <Combobox
+                items={modeloOptions}
+                value={modeloIdField.value ?? ""}
+                onValueChange={seleccionarModelo}
+                placeholder={marcaIdField.value ? "Buscar en catálogo…" : "Elige una marca primero"}
+                emptyMessage="Ningún modelo coincide"
+                disabled={!marcaIdField.value}
+                className="h-8 text-xs"
+              />
+              {esAdmin && marcaIdField.value ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="size-8 shrink-0"
+                  title="Agregar modelo"
+                  onClick={() => setCrearModeloOpen(true)}
+                >
+                  <Plus className="size-3.5" />
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5 sm:col-span-1">
@@ -183,6 +306,30 @@ export function VehiculoFormFields({
           />
         </div>
       </FormGroup>
+
+      <NuevaMarcaDialog
+        open={crearMarcaOpen}
+        onOpenChange={setCrearMarcaOpen}
+        onCreated={(marca) => {
+          setMarcasLocal((prev) => [...prev, marca].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+          aplicarMarca(marca);
+          setCrearMarcaOpen(false);
+        }}
+      />
+
+      {marcaSeleccionada ? (
+        <NuevoModeloDialog
+          open={crearModeloOpen}
+          onOpenChange={setCrearModeloOpen}
+          marcaId={marcaSeleccionada.id}
+          marcaNombre={marcaSeleccionada.nombre}
+          onCreated={(modelo) => {
+            setModelosLocal((prev) => [...prev, modelo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+            aplicarModelo(modelo);
+            setCrearModeloOpen(false);
+          }}
+        />
+      ) : null}
     </>
   );
 }

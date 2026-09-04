@@ -23,6 +23,7 @@ import {
   crearModeloVehiculoAction,
   listMarcasVehiculo,
   listModelosVehiculo,
+  listTodosLosModelosVehiculo,
   type MarcaVehiculoFormState,
   type ModeloVehiculoFormState,
 } from "./vehiculo-marca-modelo-actions";
@@ -59,6 +60,28 @@ describe("listModelosVehiculo", () => {
 
     expect(result).toEqual([{ id: "mo1", marcaId: "m1", nombre: "Corolla" }]);
     expect(mockModeloFindMany).toHaveBeenCalledWith({ where: { marcaId: "m1" }, orderBy: { nombre: "asc" } });
+  });
+});
+
+describe("listTodosLosModelosVehiculo", () => {
+  beforeEach(() => {
+    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "TECNICO", tenantSchema: "taller_perez" } });
+    mockModeloFindMany.mockReset();
+  });
+
+  it("lists every modelo across every marca, ordered by nombre", async () => {
+    mockModeloFindMany.mockResolvedValue([
+      { id: "mo1", marcaId: "m1", nombre: "Corolla" },
+      { id: "mo2", marcaId: "m2", nombre: "Mazda 3" },
+    ]);
+
+    const result = await listTodosLosModelosVehiculo();
+
+    expect(result).toEqual([
+      { id: "mo1", marcaId: "m1", nombre: "Corolla" },
+      { id: "mo2", marcaId: "m2", nombre: "Mazda 3" },
+    ]);
+    expect(mockModeloFindMany).toHaveBeenCalledWith({ orderBy: { nombre: "asc" } });
   });
 });
 

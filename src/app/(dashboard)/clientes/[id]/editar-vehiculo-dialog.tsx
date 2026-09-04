@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Pencil } from "lucide-react";
 import { EditarVehiculoForm } from "./editar-vehiculo-form";
-import type { Vehiculo } from "@/generated/prisma-tenant";
+import type { MarcaVehiculo, ModeloVehiculo, Vehiculo } from "@/generated/prisma-tenant";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,7 +14,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-export function EditarVehiculoDialog({ vehiculo }: { vehiculo: Vehiculo }) {
+export function EditarVehiculoDialog({
+  vehiculo,
+  marcas,
+  modelos,
+  esAdmin,
+}: {
+  vehiculo: Vehiculo;
+  marcas: MarcaVehiculo[];
+  modelos: ModeloVehiculo[];
+  esAdmin: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -30,7 +40,7 @@ export function EditarVehiculoDialog({ vehiculo }: { vehiculo: Vehiculo }) {
           <DialogTitle>Editar {vehiculo.placa}</DialogTitle>
           <DialogDescription>Los cambios se reflejan en el historial y en las órdenes abiertas.</DialogDescription>
         </DialogHeader>
-        <EditarVehiculoForm vehiculo={vehiculo} />
+        <EditarVehiculoForm vehiculo={vehiculo} marcas={marcas} modelos={modelos} esAdmin={esAdmin} />
       </DialogContent>
     </Dialog>
   );
