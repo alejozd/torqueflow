@@ -1,5 +1,6 @@
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
+import { formatoFechaCorta, formatoFechaRelativa } from "@/lib/fecha-bogota";
 
 export interface ClienteRow {
   id: string;
@@ -8,7 +9,7 @@ export interface ClienteRow {
   telefono: string | null;
   email: string | null;
   placas: string[];
-  ultimaVisita: string | null;
+  ultimaVisita: Date | null;
   ordenesCount: number;
   saldo: number;
 }
@@ -19,7 +20,7 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", {
   maximumFractionDigits: 0,
 });
 
-export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
+export function ClientesTable({ clientes, ahora }: { clientes: ClienteRow[]; ahora: Date }) {
   const COLUMNS: DataTableColumn<ClienteRow>[] = [
     {
       header: "Cliente",
@@ -57,7 +58,17 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
     },
     {
       header: "Última visita",
-      cell: (cliente) => cliente.ultimaVisita ?? "—",
+      cell: (cliente) =>
+        cliente.ultimaVisita ? (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm">{formatoFechaCorta.format(cliente.ultimaVisita)}</span>
+            <span className="text-xs text-muted-foreground">
+              {formatoFechaRelativa(cliente.ultimaVisita, ahora)}
+            </span>
+          </div>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
     },
     {
       header: "Órdenes",
@@ -88,6 +99,7 @@ export function ClientesTable({ clientes }: { clientes: ClienteRow[] }) {
       searchable
       searchPlaceholder="Buscar por nombre, documento o teléfono..."
       pageSize={20}
+      headerClassName="bg-muted"
     />
   );
 }
