@@ -205,7 +205,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
                   {vehiculosResumen.map(({ vehiculo, enTaller, kilometraje, ordenesCount }) => (
                     <div
                       key={vehiculo.id}
-                      className="flex flex-col gap-2 rounded-lg border border-border p-4 shadow-sm"
+                      className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/40"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <Badge className="border-transparent bg-amber-100 font-mono text-amber-900 dark:bg-amber-500/20 dark:text-amber-300">
