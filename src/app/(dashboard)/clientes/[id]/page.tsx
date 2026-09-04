@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Clock, Milestone, Wrench } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Gauge, Wrench } from "lucide-react";
 import { getCliente } from "@/app/actions/cliente-actions";
 import { listTecnicos } from "@/app/actions/orden-actions";
 import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/vehiculo-marca-modelo-actions";
@@ -228,7 +228,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
                       </span>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
-                          <Milestone className="size-3.5 shrink-0" />
+                          <Gauge className="size-3.5 shrink-0" />
                           {kilometraje !== null ? `${kilometraje.toLocaleString("es-CO")} km` : "—"}
                         </span>
                         <span className="shrink-0">{ordenesCount} órdenes</span>
