@@ -10,7 +10,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { KpiCard } from "@/components/ui/kpi-card";
+import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
+import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
@@ -119,32 +120,47 @@ export default async function ReportesPage({
             <KpiCard
               title="Facturas emitidas"
               value={rentabilidad.totales.facturasCount}
-              icon={<FileText className="size-5 text-primary" />}
+              icon={<FileText className={cn("size-5", KPI_TONE.info.icon)} />}
+              iconBgColor={KPI_TONE.info.iconBg}
+              className={KPI_TONE.info.cardBg}
             />
             <KpiCard
               title="Total facturado"
               value={rentabilidad.totales.totalFacturado}
-              icon={<Receipt className="size-5 text-primary" />}
+              valueColor="success"
+              icon={<Receipt className={cn("size-5", KPI_TONE.success.icon)} />}
+              iconBgColor={KPI_TONE.success.iconBg}
+              className={KPI_TONE.success.cardBg}
             />
             <KpiCard
               title="Costo de repuestos"
               value={rentabilidad.totales.costoRepuestos}
-              icon={<Package className="size-5 text-primary" />}
+              icon={<Package className={cn("size-5", KPI_TONE.neutral.icon)} />}
+              iconBgColor={KPI_TONE.neutral.iconBg}
+              className={KPI_TONE.neutral.cardBg}
             />
             <KpiCard
               title="Margen bruto"
               value={rentabilidad.totales.margen}
-              icon={<TrendingUp className="size-5 text-primary" />}
+              valueColor="success"
+              icon={<TrendingUp className={cn("size-5", KPI_TONE.success.icon)} />}
+              iconBgColor={KPI_TONE.success.iconBg}
+              className={KPI_TONE.success.cardBg}
             />
             <KpiCard
               title="Margen bruto (%)"
               value={rentabilidad.totales.margenPorcentaje}
-              icon={<Percent className="size-5 text-primary" />}
+              valueColor="success"
+              icon={<Percent className={cn("size-5", KPI_TONE.success.icon)} />}
+              iconBgColor={KPI_TONE.success.iconBg}
+              className={KPI_TONE.success.cardBg}
             />
             <KpiCard
               title="Mano de obra facturada"
               value={rentabilidad.totales.manoDeObraFacturada}
-              icon={<Wrench className="size-5 text-primary" />}
+              icon={<Wrench className={cn("size-5", KPI_TONE.info.icon)} />}
+              iconBgColor={KPI_TONE.info.iconBg}
+              className={KPI_TONE.info.cardBg}
             />
           </div>
         </CardContent>

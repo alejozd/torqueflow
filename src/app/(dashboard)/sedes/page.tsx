@@ -1,8 +1,11 @@
+import { MapPin, Users, Wrench } from "lucide-react";
 import { listSedesConMetricas, type SedeConMetricas } from "@/app/actions/sede-actions";
 import { NuevaSedeDialog } from "./nueva-sede-dialog";
 import { EditarSedeDialog } from "./editar-sede-dialog";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
+import { cn } from "@/lib/utils";
 
 const COLUMNS: DataTableColumn<SedeConMetricas>[] = [
   {
@@ -52,33 +55,31 @@ export default async function SedesPage() {
         <NuevaSedeDialog />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Sedes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <span className="font-mono text-2xl font-semibold">{sedes.length}</span>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <KpiCard
+          title="Sedes"
+          value={sedes.length}
+          icon={<MapPin className={cn("size-5", KPI_TONE.info.icon)} />}
+          iconBgColor={KPI_TONE.info.iconBg}
+          className={KPI_TONE.info.cardBg}
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Usuarios asignados</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <span className="font-mono text-2xl font-semibold">{totalUsuariosAsignados}</span>
-          </CardContent>
-        </Card>
+        <KpiCard
+          title="Usuarios asignados"
+          value={totalUsuariosAsignados}
+          icon={<Users className={cn("size-5", KPI_TONE.info.icon)} />}
+          iconBgColor={KPI_TONE.info.iconBg}
+          className={KPI_TONE.info.cardBg}
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Órdenes abiertas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <span className="font-mono text-2xl font-semibold">{totalOrdenesAbiertas}</span>
-          </CardContent>
-        </Card>
+        <KpiCard
+          title="Órdenes abiertas"
+          value={totalOrdenesAbiertas}
+          valueColor="warning"
+          icon={<Wrench className={cn("size-5", KPI_TONE.warning.icon)} />}
+          iconBgColor={KPI_TONE.warning.iconBg}
+          className={KPI_TONE.warning.cardBg}
+        />
       </div>
 
       <Card>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Headset, ShieldCheck, Wrench } from "lucide-react";
 import { listUsuariosConMetricas, type UsuarioConMetricas } from "@/app/actions/usuario-actions";
 import { listSedes } from "@/app/actions/sede-actions";
 import { AsignarSedesDialog } from "./asignar-sedes-dialog";
@@ -6,6 +7,7 @@ import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { KPI_TONE, KpiCard, type KpiTone } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
 
 type Role = "ADMIN" | "TECNICO" | "RECEPCION";
@@ -31,6 +33,21 @@ const ROLE_BADGE_CLASSNAME: Record<Role, string> = {
   ADMIN: "border-transparent bg-primary/10 text-primary",
   TECNICO: "border-transparent bg-[oklch(0.44_0.12_250/0.1)] text-[oklch(0.44_0.12_250)]",
   RECEPCION: "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]",
+};
+
+// Same role/color pairing as ROLE_BADGE_CLASSNAME, mapped onto the KPI_TONE
+// palette: ADMIN's primary/amber -> warning, TECNICO's blue -> info,
+// RECEPCION's green -> success.
+const ROLE_TONE: Record<Role, KpiTone> = {
+  ADMIN: "warning",
+  TECNICO: "info",
+  RECEPCION: "success",
+};
+
+const ROLE_ICON: Record<Role, typeof ShieldCheck> = {
+  ADMIN: ShieldCheck,
+  TECNICO: Wrench,
+  RECEPCION: Headset,
 };
 
 type SedeOption = { id: string; nombre: string };
@@ -131,17 +148,21 @@ export default async function UsuariosPage({
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {ROLES_VALIDOS.map((role) => (
-          <Card key={role}>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">{ROLE_LABELS_PLURAL[role]}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <span className="font-mono text-2xl font-semibold">{totalesPorRol[role]}</span>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {ROLES_VALIDOS.map((role) => {
+          const Icon = ROLE_ICON[role];
+          const tone = KPI_TONE[ROLE_TONE[role]];
+          return (
+            <KpiCard
+              key={role}
+              title={ROLE_LABELS_PLURAL[role]}
+              value={totalesPorRol[role]}
+              icon={<Icon className={cn("size-5", tone.icon)} />}
+              iconBgColor={tone.iconBg}
+              className={tone.cardBg}
+            />
+          );
+        })}
       </div>
 
       <Card>
