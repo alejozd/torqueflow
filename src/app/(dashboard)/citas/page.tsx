@@ -132,7 +132,11 @@ interface GrupoDia {
 }
 
 // `citas`/`filtradas` already arrive sorted by fechaHora asc (listCitas'
-// orderBy), so a Map preserves that order across groups without a re-sort.
+// orderBy), so a Map preserves that order across groups without a re-sort --
+// each day's own citas stay in that same ascending (soonest-hour-first)
+// order. The day groups themselves are reversed below so the agenda reads
+// most-recent-day-first, matching every other list in the app (Órdenes,
+// Facturas) instead of oldest-first.
 function agruparPorDia(citas: CitaConDetalle[]): GrupoDia[] {
   const grupos = new Map<string, CitaConDetalle[]>();
   for (const cita of citas) {
@@ -144,11 +148,13 @@ function agruparPorDia(citas: CitaConDetalle[]): GrupoDia[] {
       grupos.set(clave, [cita]);
     }
   }
-  return Array.from(grupos.entries()).map(([clave, citasDelDia]) => ({
-    clave,
-    etiqueta: capitalizar(formatoFechaLarga.format(citasDelDia[0].fechaHora)),
-    citas: citasDelDia,
-  }));
+  return Array.from(grupos.entries())
+    .reverse()
+    .map(([clave, citasDelDia]) => ({
+      clave,
+      etiqueta: capitalizar(formatoFechaLarga.format(citasDelDia[0].fechaHora)),
+      citas: citasDelDia,
+    }));
 }
 
 function construirHref(base: {
