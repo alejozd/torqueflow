@@ -478,12 +478,16 @@ export default async function CitasPage({
                 key={value}
                 href={construirHref({ estado: value, q, vista: vistaActual })}
                 className={cn(
-                  "rounded-full border px-3 py-1 text-sm transition-colors",
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors",
                   estadoFiltro === value
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground",
                 )}
               >
+                <span
+                  className="size-1.5 shrink-0 rounded-full"
+                  style={{ background: estadoFiltro === value ? "currentColor" : ESTADO_DOT_COLOR[value] }}
+                />
                 {ESTADO_LABELS[value]}
               </Link>
             ))}
@@ -532,10 +536,12 @@ export default async function CitasPage({
                                 </span>
                                 <Badge
                                   variant={ESTADO_BADGE_VARIANT[cita.estado]}
-                                  className={
-                                    ESTADO_BADGE_CLASSNAME[cita.estado]
-                                  }
+                                  className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[cita.estado])}
                                 >
+                                  <span
+                                    className="size-1.5 shrink-0 rounded-full"
+                                    style={{ background: ESTADO_DOT_COLOR[cita.estado] }}
+                                  />
                                   {ESTADO_LABELS[cita.estado]}
                                 </Badge>
                               </div>
