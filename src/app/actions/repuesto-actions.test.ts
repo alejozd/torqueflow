@@ -256,7 +256,15 @@ describe("listRepuestoOptions", () => {
 
     expect(mockFindMany).toHaveBeenCalledWith({
       where: { bodegaId: "b1", bodega: { sedeId: "sede-1" } },
-      select: { id: true, codigo: true, nombre: true, precioVenta: true },
+      select: {
+        id: true,
+        codigo: true,
+        nombre: true,
+        precioVenta: true,
+        precioCompra: true,
+        stockActual: true,
+        stockMinimo: true,
+      },
       orderBy: { nombre: "asc" },
     });
   });
@@ -266,14 +274,30 @@ describe("listRepuestoOptions", () => {
 
     expect(mockFindMany).toHaveBeenCalledWith({
       where: { bodega: { sedeId: "sede-1" } },
-      select: { id: true, codigo: true, nombre: true, precioVenta: true },
+      select: {
+        id: true,
+        codigo: true,
+        nombre: true,
+        precioVenta: true,
+        precioCompra: true,
+        stockActual: true,
+        stockMinimo: true,
+      },
       orderBy: { nombre: "asc" },
     });
   });
 
-  it("converts precioVenta from Decimal to number", async () => {
+  it("converts precioVenta and precioCompra from Decimal to number", async () => {
     mockFindMany.mockResolvedValue([
-      { id: "r1", codigo: "FRN-001", nombre: "Filtro de aceite", precioVenta: { toString: () => "12.5" } as any },
+      {
+        id: "r1",
+        codigo: "FRN-001",
+        nombre: "Filtro de aceite",
+        precioVenta: { toString: () => "12.5" } as any,
+        precioCompra: { toString: () => "8" } as any,
+        stockActual: 20,
+        stockMinimo: 5,
+      },
     ]);
 
     const result = await listRepuestoOptions();
@@ -284,7 +308,11 @@ describe("listRepuestoOptions", () => {
       codigo: "FRN-001",
       nombre: "Filtro de aceite",
       precioVenta: expect.any(Number),
+      precioCompra: expect.any(Number),
+      stockActual: 20,
+      stockMinimo: 5,
     });
     expect(typeof result[0].precioVenta).toBe("number");
+    expect(typeof result[0].precioCompra).toBe("number");
   });
 });

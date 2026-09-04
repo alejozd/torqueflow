@@ -26,6 +26,11 @@ export interface RepuestoOption {
   codigo: string;
   nombre: string;
   precioVenta: number;
+  /** Last recorded purchase cost -- prefills "costo unitario" and anchors the
+   * cost-delta/weighted-average preview when receiving a new entrada. */
+  precioCompra: number;
+  stockActual: number;
+  stockMinimo: number;
 }
 
 const BODEGA_AJENA = "La bodega seleccionada no pertenece a tu sede activa.";
@@ -62,10 +67,22 @@ export async function listRepuestoOptions(bodegaId?: string): Promise<RepuestoOp
       ...(bodegaId ? { bodegaId } : {}),
       ...scopeRepuesto(session.user.sedeActivaId),
     },
-    select: { id: true, codigo: true, nombre: true, precioVenta: true },
+    select: {
+      id: true,
+      codigo: true,
+      nombre: true,
+      precioVenta: true,
+      precioCompra: true,
+      stockActual: true,
+      stockMinimo: true,
+    },
     orderBy: { nombre: "asc" },
   });
-  return rows.map((row) => ({ ...row, precioVenta: Number(row.precioVenta) }));
+  return rows.map((row) => ({
+    ...row,
+    precioVenta: Number(row.precioVenta),
+    precioCompra: Number(row.precioCompra),
+  }));
 }
 
 export async function getRepuesto(id: string): Promise<RepuestoWithDetalle | null> {
