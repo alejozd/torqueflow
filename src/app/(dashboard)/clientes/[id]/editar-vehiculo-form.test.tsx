@@ -22,6 +22,8 @@ const vehiculo = {
   placa: "ABC123",
   marca: "Toyota",
   modelo: "Corolla",
+  marcaId: null,
+  modeloId: null,
   color: "Rojo",
   anio: 2020,
   combustible: "GASOLINA" as const,

@@ -91,11 +91,44 @@ model Cliente {
   @@map("clientes")
 }
 
+// Per-taller catalog (not shared across tenants -- see MarcaVehiculo). Vehiculo
+// keeps its original free-text marca/modelo columns required and untouched in
+// this phase; marcaId/modeloId are additive and nullable so existing rows and
+// every current caller keep working unchanged until the UI phase actually
+// writes them. Only once that path is proven does deprecating the free-text
+// columns become safe.
+model MarcaVehiculo {
+  id        String           @id @default(cuid())
+  nombre    String           @unique
+  modelos   ModeloVehiculo[]
+  vehiculos Vehiculo[]
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  @@map("marcas_vehiculo")
+}
+
+model ModeloVehiculo {
+  id        String     @id @default(cuid())
+  marcaId   String     @map("marca_id")
+  marca     MarcaVehiculo @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  nombre    String
+  vehiculos Vehiculo[]
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  @@unique([marcaId, nombre])
+  @@index([marcaId])
+  @@map("modelos_vehiculo")
+}
+
 model Vehiculo {
   id                   String                @id @default(cuid())
   placa                String                @unique
   marca                String
   modelo               String
+  marcaId              String?               @map("marca_id")
+  marcaRef             MarcaVehiculo?        @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  modeloId             String?               @map("modelo_id")
+  modeloRef            ModeloVehiculo?       @relation(fields: [modeloId], references: [id], onDelete: Restrict)
   color                String?
   anio                 Int?
   combustible          TipoCombustible?
@@ -113,6 +146,8 @@ model Vehiculo {
   updatedAt            DateTime              @updatedAt @map("updated_at")
 
   @@index([clienteId])
+  @@index([marcaId])
+  @@index([modeloId])
   @@map("vehiculos")
 }
 
