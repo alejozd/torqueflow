@@ -1,10 +1,11 @@
-import Link from "next/link";
 import { DollarSign, Package, Truck, Users } from "lucide-react";
 import { listEntradas, type EntradaWithDetalle } from "@/app/actions/entrada-mercancia-actions";
+import { listProveedores } from "@/app/actions/proveedor-actions";
+import { listBodegas } from "@/app/actions/bodega-actions";
+import { NuevaEntradaMercanciaDialog } from "./nueva-entrada-mercancia-dialog";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { formatoFechaCorta, formatoFechaRelativa, inicioMesBogota } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
@@ -67,7 +68,11 @@ function buildColumns(ahora: Date): DataTableColumn<EntradaWithDetalle>[] {
 }
 
 export default async function EntradasMercanciaPage() {
-  const entradas = await listEntradas();
+  const [entradas, proveedores, bodegas] = await Promise.all([
+    listEntradas(),
+    listProveedores(),
+    listBodegas(),
+  ]);
 
   const ahora = new Date();
   const inicioMes = inicioMesBogota(ahora);
@@ -79,11 +84,14 @@ export default async function EntradasMercanciaPage() {
 
   return (
     <main className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-2.5">
-        <h1 className="text-2xl font-semibold">Entradas de mercancía</h1>
-        <Badge variant="outline" className="font-normal text-muted-foreground">
-          {entradasMes} {entradasMes === 1 ? "entrada" : "entradas"} este mes
-        </Badge>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h1 className="text-2xl font-semibold">Entradas de mercancía</h1>
+          <Badge variant="outline" className="font-normal text-muted-foreground">
+            {entradasMes} {entradasMes === 1 ? "entrada" : "entradas"} este mes
+          </Badge>
+        </div>
+        <NuevaEntradaMercanciaDialog proveedores={proveedores} bodegas={bodegas} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -122,11 +130,8 @@ export default async function EntradasMercanciaPage() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
+        <CardHeader>
           <CardTitle>Listado</CardTitle>
-          <Link href="/entradas-mercancia/nuevo" className={buttonVariants({})}>
-            Nueva entrada
-          </Link>
         </CardHeader>
         <CardContent>
           <DataTable

@@ -6,7 +6,10 @@ export default function EntradasMercanciaLoading() {
   return (
     <main className="flex flex-col gap-6">
       {/* Header */}
-      <h1 className="text-2xl font-semibold">Entradas de mercancía</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Entradas de mercancía</h1>
+        <Skeleton className="h-9 w-36" />
+      </div>
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -40,9 +43,8 @@ export default function EntradasMercanciaLoading() {
 
       {/* Listado Card */}
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
+        <CardHeader>
           <CardTitle>Listado</CardTitle>
-          <Skeleton className="h-9 w-36" />
         </CardHeader>
         <CardContent>
           <DataTableSkeleton columns={7} />
