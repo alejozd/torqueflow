@@ -1,3 +1,4 @@
+import { FileText, Package, Percent, Receipt, TrendingUp, Wrench } from "lucide-react";
 import {
   getReporteProductividad,
   getReporteRentabilidad,
@@ -9,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
@@ -114,46 +116,36 @@ export default async function ReportesPage({
             Rango: {rentabilidad.filtros.desde} a {rentabilidad.filtros.hasta}
           </p>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-normal text-muted-foreground">Facturas emitidas</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{rentabilidad.totales.facturasCount}</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-normal text-muted-foreground">Total facturado</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{rentabilidad.totales.totalFacturado}</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-normal text-muted-foreground">Costo de repuestos</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{rentabilidad.totales.costoRepuestos}</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-normal text-muted-foreground">Margen bruto</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{rentabilidad.totales.margen}</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-normal text-muted-foreground">Margen bruto (%)</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{rentabilidad.totales.margenPorcentaje}</CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-normal text-muted-foreground">
-                  Mano de obra facturada
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">
-                {rentabilidad.totales.manoDeObraFacturada}
-              </CardContent>
-            </Card>
+            <KpiCard
+              title="Facturas emitidas"
+              value={rentabilidad.totales.facturasCount}
+              icon={<FileText className="size-5 text-primary" />}
+            />
+            <KpiCard
+              title="Total facturado"
+              value={rentabilidad.totales.totalFacturado}
+              icon={<Receipt className="size-5 text-primary" />}
+            />
+            <KpiCard
+              title="Costo de repuestos"
+              value={rentabilidad.totales.costoRepuestos}
+              icon={<Package className="size-5 text-primary" />}
+            />
+            <KpiCard
+              title="Margen bruto"
+              value={rentabilidad.totales.margen}
+              icon={<TrendingUp className="size-5 text-primary" />}
+            />
+            <KpiCard
+              title="Margen bruto (%)"
+              value={rentabilidad.totales.margenPorcentaje}
+              icon={<Percent className="size-5 text-primary" />}
+            />
+            <KpiCard
+              title="Mano de obra facturada"
+              value={rentabilidad.totales.manoDeObraFacturada}
+              icon={<Wrench className="size-5 text-primary" />}
+            />
           </div>
         </CardContent>
       </Card>

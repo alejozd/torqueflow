@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, Clock, Wrench, Zap } from "lucide-react";
 import { listOrdenes, listTecnicos, type OrdenWithDetalle } from "@/app/actions/orden-actions";
 import { listClientesParaOrden } from "@/app/actions/cliente-actions";
 import { NuevaOrdenDialog } from "./nueva-orden-dialog";
@@ -7,6 +7,7 @@ import type { EstadoOrden } from "@/generated/prisma-tenant";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
 
 const ESTADOS_VALIDOS: EstadoOrden[] = ["BORRADOR", "EN_PROCESO", "TERMINADA", "ENTREGADA", "ANULADA"];
@@ -285,46 +286,27 @@ export default async function OrdenesPage({
         <NuevaOrdenDialog clientes={clientes} tecnicos={tecnicos} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">En proceso</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <span className="font-mono text-2xl font-semibold">{enProceso}</span>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <KpiCard title="En proceso" value={enProceso} icon={<Wrench className="size-5 text-primary" />} />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Terminadas sin facturar</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <span className="font-mono text-2xl font-semibold">{terminadasSinFacturar}</span>
-          </CardContent>
-        </Card>
+        <KpiCard
+          title="Terminadas sin facturar"
+          value={terminadasSinFacturar}
+          icon={<AlertCircle className="size-5 text-primary" />}
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Tiempo medio</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <span className="font-mono text-2xl font-semibold">
-              {tiempoMedioDias !== null ? `${tiempoMedioDias.toFixed(1)}d` : "—"}
-            </span>
-          </CardContent>
-        </Card>
+        <KpiCard
+          title="Tiempo medio"
+          value={tiempoMedioDias !== null ? `${tiempoMedioDias.toFixed(1)}d` : "—"}
+          icon={<Clock className="size-5 text-primary" />}
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Ticket medio</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <span className="font-mono text-2xl font-semibold">
-              {ticketMedio !== null ? formatoMoneda.format(ticketMedio) : "—"}
-            </span>
-          </CardContent>
-        </Card>
+        <KpiCard
+          title="Ticket medio"
+          value={ticketMedio !== null ? formatoMoneda.format(ticketMedio) : "—"}
+          icon={<Zap className="size-5 text-violet-600" />}
+          iconBgColor="bg-violet-500/10"
+        />
       </div>
 
       <Card>

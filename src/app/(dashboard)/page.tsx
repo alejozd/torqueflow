@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { AlertCircle, CalendarCheck, FileText, Package, Wrench } from "lucide-react";
 import { requireSession } from "@/lib/auth/guards";
 import { getDashboardOverview } from "@/app/actions/dashboard-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
 import type { EstadoCita, EstadoOrden } from "@/generated/prisma-tenant";
 
@@ -84,70 +86,48 @@ export default async function InicioPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">En el taller</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-1">
-            <span className="font-mono text-2xl font-semibold">{overview.enTaller.total}</span>
-            {overview.enTaller.terminadasHoy > 0 ? (
-              <span className="text-xs text-muted-foreground">{overview.enTaller.terminadasHoy} terminadas hoy</span>
-            ) : null}
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <KpiCard
+          title="En el taller"
+          value={overview.enTaller.total}
+          subtitle={overview.enTaller.terminadasHoy > 0 ? `${overview.enTaller.terminadasHoy} terminadas hoy` : undefined}
+          icon={<Wrench className="size-5 text-primary" />}
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Citas de hoy</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-1">
-            <span className="font-mono text-2xl font-semibold">{overview.citasHoy.total}</span>
-            {overview.citasHoy.proxima ? (
-              <span className="font-mono text-xs text-muted-foreground">
-                Próxima {overview.citasHoy.proxima.hora} · {overview.citasHoy.proxima.placa}
-              </span>
-            ) : null}
-          </CardContent>
-        </Card>
+        <KpiCard
+          title="Citas de hoy"
+          value={overview.citasHoy.total}
+          subtitle={
+            overview.citasHoy.proxima
+              ? `Próxima ${overview.citasHoy.proxima.hora} · ${overview.citasHoy.proxima.placa}`
+              : undefined
+          }
+          icon={<CalendarCheck className="size-5 text-primary" />}
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Por facturar</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-1">
-            <span className="font-mono text-2xl font-semibold">{overview.porFacturar.count}</span>
-            {overview.porFacturar.count > 0 ? (
-              <span className="font-mono text-xs text-muted-foreground">{formatoMoneda.format(overview.porFacturar.monto)}</span>
-            ) : null}
-          </CardContent>
-        </Card>
+        <KpiCard
+          title="Por facturar"
+          value={overview.porFacturar.count}
+          subtitle={overview.porFacturar.count > 0 ? formatoMoneda.format(overview.porFacturar.monto) : undefined}
+          icon={<FileText className="size-5 text-primary" />}
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Cartera</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-1">
-            <span className="font-mono text-2xl font-semibold text-[oklch(0.5_0.2_27)]">
-              {formatoMoneda.format(overview.cartera.saldoPendiente)}
-            </span>
-            {overview.cartera.facturasPendientes > 0 ? (
-              <span className="text-xs text-muted-foreground">{overview.cartera.facturasPendientes} facturas pendientes</span>
-            ) : null}
-          </CardContent>
-        </Card>
+        <KpiCard
+          title="Cartera"
+          value={formatoMoneda.format(overview.cartera.saldoPendiente)}
+          valueColor="danger"
+          subtitle={overview.cartera.facturasPendientes > 0 ? `${overview.cartera.facturasPendientes} facturas pendientes` : undefined}
+          icon={<AlertCircle className="size-5 text-destructive" />}
+          iconBgColor="bg-destructive/10"
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Stock bajo</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-1">
-            <span className="font-mono text-2xl font-semibold">{overview.stockBajo.count}</span>
-            {overview.stockBajo.sinExistencias > 0 ? (
-              <span className="text-xs text-[oklch(0.5_0.2_27)]">{overview.stockBajo.sinExistencias} sin existencias</span>
-            ) : null}
-          </CardContent>
-        </Card>
+        <KpiCard
+          title="Stock bajo"
+          value={overview.stockBajo.count}
+          subtitle={overview.stockBajo.sinExistencias > 0 ? `${overview.stockBajo.sinExistencias} sin existencias` : undefined}
+          subtitleColor="danger"
+          icon={<Package className="size-5 text-primary" />}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

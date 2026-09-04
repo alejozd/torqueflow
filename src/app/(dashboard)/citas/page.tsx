@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CalendarCheck, CheckCircle, XCircle } from "lucide-react";
 import { requireSession } from "@/lib/auth/guards";
 import {
   listCitas,
@@ -13,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
 
 const ESTADOS_VALIDOS: EstadoCita[] = [
@@ -321,53 +323,29 @@ export default async function CitasPage({
         <NuevaCitaDialog vehiculos={vehiculos} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Hoy
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-1">
-            <span className="font-mono text-2xl font-semibold">{citasHoy}</span>
-            <p className="text-xs text-muted-foreground">citas agendadas hoy</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <KpiCard
+          title="Hoy"
+          value={citasHoy}
+          subtitle="citas agendadas hoy"
+          icon={<CalendarCheck className="size-5 text-primary" />}
+        />
 
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Confirmadas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-1">
-            <span className="font-mono text-2xl font-semibold">
-              {confirmadasSemana}
-            </span>
-            <p className="text-xs text-muted-foreground">
-              esta semana · {programadasSemana} sin confirmar
-            </p>
-          </CardContent>
-        </Card>
+        <KpiCard
+          title="Confirmadas"
+          value={confirmadasSemana}
+          subtitle={`esta semana · ${programadasSemana} sin confirmar`}
+          icon={<CheckCircle className="size-5 text-primary" />}
+        />
 
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Canceladas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-1">
-            <span className="font-mono text-2xl font-semibold text-destructive">
-              {canceladasSemana}
-            </span>
-            <p className="text-xs text-muted-foreground">
-              esta semana
-              {citasSemana.length > 0
-                ? ` · ${porcentajeCanceladas}% del total`
-                : ""}
-            </p>
-          </CardContent>
-        </Card>
+        <KpiCard
+          title="Canceladas"
+          value={canceladasSemana}
+          valueColor="danger"
+          subtitle={`esta semana${citasSemana.length > 0 ? ` · ${porcentajeCanceladas}% del total` : ""}`}
+          icon={<XCircle className="size-5 text-destructive" />}
+          iconBgColor="bg-destructive/10"
+        />
       </div>
 
       <Card>

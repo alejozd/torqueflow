@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, CheckCircle, FileText, Zap } from "lucide-react";
 import { listFacturas, listOrdenesFacturables, type FacturaWithDetalle } from "@/app/actions/factura-actions";
 import { NuevaFacturaDialog } from "./nueva-factura-dialog";
 import type { EstadoFactura } from "@/generated/prisma-tenant";
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
 
 const ESTADOS_VALIDOS: EstadoFactura[] = ["PENDIENTE", "PAGADA"];
@@ -208,7 +209,6 @@ export default async function FacturasPage({
   const inicioMes = inicioMesBogota(ahora);
   const finMes = inicioMesBogota(ahora, 1);
   const emitidasMes = facturas.filter((factura) => factura.createdAt >= inicioMes && factura.createdAt < finMes);
-  const emitidasMesMonto = emitidasMes.reduce((suma, factura) => suma + Number(factura.total), 0);
 
   const pendientes = facturas.filter((factura) => factura.estado === "PENDIENTE");
   const porCobrarMonto = pendientes.reduce((suma, factura) => suma + Number(factura.saldoPendiente), 0);
@@ -218,6 +218,9 @@ export default async function FacturasPage({
   // sigue PENDIENTE, no solo las que ya quedaron en PAGADA.
   const cobrado = facturas.reduce((suma, factura) => suma + (Number(factura.total) - Number(factura.saldoPendiente)), 0);
 
+  const pagadas = facturas.filter((factura) => factura.estado === "PAGADA");
+  const ticketPromedio = pagadas.length > 0 ? cobrado / pagadas.length : 0;
+
   return (
     <main className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -225,41 +228,43 @@ export default async function FacturasPage({
         <NuevaFacturaDialog ordenes={ordenesFacturables} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Emitidas en el mes</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-1">
-            <span className="font-mono text-2xl font-semibold">{emitidasMes.length}</span>
-            {emitidasMes.length > 0 ? (
-              <span className="font-mono text-xs text-muted-foreground">{formatoMoneda.format(emitidasMesMonto)}</span>
-            ) : null}
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          title="Emitidas en el mes"
+          value={emitidasMes.length}
+          subtitle={`${emitidasMes.length} ${emitidasMes.length === 1 ? "factura" : "facturas"} este mes`}
+          icon={<FileText className="size-5 text-primary" />}
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Por cobrar</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-1">
-            <span className="font-mono text-2xl font-semibold">{pendientes.length}</span>
-            {pendientes.length > 0 ? (
-              <span className="font-mono text-xs text-[oklch(0.5_0.2_27)]">{formatoMoneda.format(porCobrarMonto)}</span>
-            ) : null}
-          </CardContent>
-        </Card>
+        <KpiCard
+          title="Por cobrar"
+          value={formatoMoneda.format(porCobrarMonto)}
+          valueColor="warning"
+          subtitle={`${pendientes.length} ${pendientes.length === 1 ? "factura" : "facturas"} con saldo pendiente`}
+          subtitleColor="warning"
+          subtitleIcon="dot"
+          highlight={pendientes.length > 0}
+          icon={<AlertCircle className="size-5 text-primary" />}
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Cobrado</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <span className="font-mono text-2xl font-semibold text-[oklch(0.4_0.1_150)]">
-              {formatoMoneda.format(cobrado)}
-            </span>
-          </CardContent>
-        </Card>
+        <KpiCard
+          title="Cobrado"
+          value={formatoMoneda.format(cobrado)}
+          valueColor="success"
+          subtitle={`${pagadas.length} ${pagadas.length === 1 ? "factura pagada" : "facturas pagadas"}`}
+          subtitleColor="success"
+          subtitleIcon="up"
+          icon={<CheckCircle className="size-5 text-[oklch(0.4_0.1_150)]" />}
+          iconBgColor="bg-[oklch(0.4_0.1_150/0.1)]"
+        />
+
+        <KpiCard
+          title="Ticket promedio"
+          value={pagadas.length > 0 ? formatoMoneda.format(ticketPromedio) : "—"}
+          subtitle={pagadas.length > 0 ? `sobre ${pagadas.length} ${pagadas.length === 1 ? "factura pagada" : "facturas pagadas"}` : "Sin facturas pagadas aún"}
+          icon={<Zap className="size-5 text-violet-600" />}
+          iconBgColor="bg-violet-500/10"
+        />
       </div>
 
       <Card>
