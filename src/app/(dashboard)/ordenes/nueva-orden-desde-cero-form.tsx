@@ -8,10 +8,11 @@ import { z } from "zod";
 import { createOrdenDesdeVehiculoAction, type OrdenFormState, type TecnicoOption } from "@/app/actions/orden-actions";
 import { ordenTrabajoInputSchema } from "@/lib/validation/orden";
 import type { ClienteParaOrden } from "@/app/actions/cliente-actions";
+import type { MarcaVehiculo, ModeloVehiculo } from "@/generated/prisma-tenant";
+import { ClientVehicleSelector } from "./client-vehicle-selector";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,12 +35,18 @@ const ordenDesdeCeroFormSchema = ordenTrabajoInputSchema.extend({
 type OrdenDesdeCeroFormInput = z.input<typeof ordenDesdeCeroFormSchema>;
 
 export function NuevaOrdenDesdeCeroForm({
-  clientes,
+  clientes: clientesIniciales,
   tecnicos,
+  marcas,
+  modelos,
+  esAdmin,
   onCreated,
 }: {
   clientes: ClienteParaOrden[];
   tecnicos: TecnicoOption[];
+  marcas: MarcaVehiculo[];
+  modelos: ModeloVehiculo[];
+  esAdmin: boolean;
   /**
    * Fired synchronously right after a successful create -- not driven by
    * useActionState + a lingering "Orden creada" message: leaving the form
@@ -54,6 +61,12 @@ export function NuevaOrdenDesdeCeroForm({
   const [state, setState] = useState<OrdenFormState>(initialState);
   const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
+  // Owned here (not just the initial prop) so ClientVehicleSelector's
+  // create-cliente/create-vehículo dialogs can append to it and have the
+  // rest of this form (kilometraje hint, vehículo options) see the result
+  // immediately, without waiting on the server actions' revalidatePath to
+  // reach this already-open dialog.
+  const [clientes, setClientes] = useState(clientesIniciales);
   const {
     register,
     handleSubmit,
@@ -67,27 +80,12 @@ export function NuevaOrdenDesdeCeroForm({
   const { field: vehiculoIdField } = useController({ name: "vehiculoId", control });
   const { field: mecanicoIdField } = useController({ name: "mecanicoId", control });
 
-  const clienteIdSeleccionado = clienteIdField.value;
-  const vehiculoIdSeleccionado = vehiculoIdField.value;
   const vehiculosDisponibles = useMemo(
-    () => clientes.find((cliente) => cliente.id === clienteIdSeleccionado)?.vehiculos ?? [],
-    [clientes, clienteIdSeleccionado],
+    () => clientes.find((cliente) => cliente.id === clienteIdField.value)?.vehiculos ?? [],
+    [clientes, clienteIdField.value],
   );
-  const kilometrajeActual = vehiculosDisponibles.find((vehiculo) => vehiculo.id === vehiculoIdSeleccionado)
+  const kilometrajeActual = vehiculosDisponibles.find((vehiculo) => vehiculo.id === vehiculoIdField.value)
     ?.kilometrajeActual;
-
-  const clienteOptions: ComboboxOption[] = useMemo(
-    () => clientes.map((cliente) => ({ value: cliente.id, label: cliente.nombre })),
-    [clientes],
-  );
-  const vehiculoOptions: ComboboxOption[] = useMemo(
-    () =>
-      vehiculosDisponibles.map((vehiculo) => ({
-        value: vehiculo.id,
-        label: `${vehiculo.placa} · ${vehiculo.marca} ${vehiculo.modelo}`,
-      })),
-    [vehiculosDisponibles],
-  );
 
   function onValid(data: { vehiculoId: string; mecanicoId?: string }) {
     startTransition(async () => {
@@ -117,52 +115,19 @@ export function NuevaOrdenDesdeCeroForm({
     <form noValidate ref={formRef} onSubmit={handleSubmit(onValid)} className="flex flex-col gap-4">
       <FormGroup label="Vehículo">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="clienteId">Cliente</Label>
-            <Combobox
-              id="clienteId"
-              items={clienteOptions}
-              value={clienteIdField.value}
-              onValueChange={(value) => {
-                clienteIdField.onChange(value);
-                // A vehículo selected under the previous cliente must not survive
-                // the switch -- it would silently point at another client's car.
-                vehiculoIdField.onChange("");
-              }}
-              placeholder="Buscar cliente..."
-              emptyMessage="Ningún cliente coincide"
-              aria-invalid={errors.clienteId ? true : undefined}
-              aria-describedby={errors.clienteId ? "clienteId-error" : undefined}
-            />
-            {errors.clienteId ? (
-              <p id="clienteId-error" className="text-xs text-destructive">
-                {errors.clienteId.message}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="vehiculoId">Vehículo</Label>
-            <Combobox
-              id="vehiculoId"
-              disabled={!clienteIdSeleccionado}
-              items={vehiculoOptions}
-              value={vehiculoIdField.value}
-              onValueChange={vehiculoIdField.onChange}
-              placeholder={clienteIdSeleccionado ? "Buscar vehículo..." : "Primero selecciona un cliente"}
-              emptyMessage="Ningún vehículo coincide"
-              aria-invalid={errors.vehiculoId ? true : undefined}
-              aria-describedby={errors.vehiculoId ? "vehiculoId-error" : undefined}
-            />
-            {clienteIdSeleccionado && vehiculosDisponibles.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Este cliente no tiene vehículos registrados.</p>
-            ) : null}
-            {errors.vehiculoId ? (
-              <p id="vehiculoId-error" className="text-xs text-destructive">
-                {errors.vehiculoId.message}
-              </p>
-            ) : null}
-          </div>
+          <ClientVehicleSelector
+            clientes={clientes}
+            onClientesChange={setClientes}
+            clienteId={clienteIdField.value}
+            vehiculoId={vehiculoIdField.value}
+            onClienteIdChange={clienteIdField.onChange}
+            onVehiculoIdChange={vehiculoIdField.onChange}
+            clienteError={errors.clienteId?.message}
+            vehiculoError={errors.vehiculoId?.message}
+            marcas={marcas}
+            modelos={modelos}
+            esAdmin={esAdmin}
+          />
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="kilometrajeIngreso">Kilometraje de ingreso</Label>
