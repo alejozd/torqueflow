@@ -6,11 +6,41 @@ import { listProveedores } from "@/app/actions/proveedor-actions";
 import { EditarRepuestoDialog } from "./editar-repuesto-dialog";
 import type { RepuestoEditable } from "./editar-repuesto-form";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
 import type { Bodega, Proveedor } from "@/generated/prisma-tenant";
+
+type EstadoStock = "ok" | "bajo" | "sin-existencias";
+
+function estadoStock(repuesto: RepuestoWithDetalle): EstadoStock {
+  if (repuesto.stockActual === 0) return "sin-existencias";
+  if (repuesto.stockActual <= repuesto.stockMinimo) return "bajo";
+  return "ok";
+}
+
+const ESTADO_STOCK_LABELS: Record<EstadoStock, string> = {
+  ok: "En stock",
+  bajo: "Stock bajo",
+  "sin-existencias": "Sin existencias",
+};
+
+// Same tones as the KPI cards above: ok -> success green, bajo -> warning
+// amber, sin-existencias -> danger red. Every one of these badges is a light
+// tint (not a solid fill), so the dot reuses the badge's own text color.
+const ESTADO_STOCK_CLASSNAME: Record<EstadoStock, string> = {
+  ok: "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]",
+  bajo: "border-transparent bg-[oklch(0.7_0.15_60/0.15)] text-[oklch(0.55_0.15_60)]",
+  "sin-existencias": "border-transparent bg-[oklch(0.5_0.2_27/0.1)] text-[oklch(0.5_0.2_27)]",
+};
+
+const ESTADO_STOCK_DOT_COLOR: Record<EstadoStock, string> = {
+  ok: "oklch(0.4 0.1 150)",
+  bajo: "oklch(0.55 0.15 60)",
+  "sin-existencias": "oklch(0.5 0.2 27)",
+};
 
 const FILTROS_VALIDOS = ["stock-bajo", "sin-existencias"] as const;
 type Filtro = (typeof FILTROS_VALIDOS)[number];
@@ -68,6 +98,21 @@ function buildColumns(bodegas: Bodega[], proveedores: Proveedor[]): DataTableCol
       header: "Bodega",
       cell: (repuesto) => <span className="text-muted-foreground">{repuesto.bodega.nombre}</span>,
       searchValue: (repuesto) => repuesto.bodega.nombre,
+    },
+    {
+      header: "Estado",
+      cell: (repuesto) => {
+        const estado = estadoStock(repuesto);
+        return (
+          <Badge className={cn("gap-1.5", ESTADO_STOCK_CLASSNAME[estado])}>
+            <span
+              className="size-1.5 shrink-0 rounded-full"
+              style={{ background: ESTADO_STOCK_DOT_COLOR[estado] }}
+            />
+            {ESTADO_STOCK_LABELS[estado]}
+          </Badge>
+        );
+      },
     },
     {
       header: "Stock",
@@ -142,7 +187,12 @@ export default async function RepuestosPage({
 
   return (
     <main className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Repuestos</h1>
+      <div className="flex flex-wrap items-center gap-2.5">
+        <h1 className="text-2xl font-semibold">Repuestos</h1>
+        <Badge variant="outline" className="font-normal text-muted-foreground">
+          {stockBajo.length} con stock bajo
+        </Badge>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <KpiCard
@@ -206,12 +256,21 @@ export default async function RepuestosPage({
                 key={value}
                 href={`/repuestos?filtro=${value}`}
                 className={cn(
-                  "rounded-full border px-3 py-1 text-sm transition-colors",
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors",
                   filtroActivo === value
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
                 )}
               >
+                <span
+                  className="size-1.5 shrink-0 rounded-full"
+                  style={{
+                    background:
+                      filtroActivo === value
+                        ? "currentColor"
+                        : ESTADO_STOCK_DOT_COLOR[value === "stock-bajo" ? "bajo" : "sin-existencias"],
+                  }}
+                />
                 {FILTRO_LABELS[value]}
               </Link>
             ))}
@@ -225,6 +284,7 @@ export default async function RepuestosPage({
             searchable
             searchPlaceholder="Buscar por código, repuesto o bodega..."
             pageSize={50}
+            headerClassName="bg-muted"
           />
         </CardContent>
       </Card>
