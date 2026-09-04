@@ -41,6 +41,8 @@ function SelectField({
   className,
   id,
   size,
+  align,
+  alignItemWithTrigger,
   "aria-invalid": ariaInvalid,
   "aria-describedby": ariaDescribedBy,
 }: {
@@ -55,6 +57,22 @@ function SelectField({
   className?: string
   id?: string
   size?: "sm" | "default"
+  /**
+   * Overrides SelectContent's default "center" alignment. Only takes effect
+   * with alignItemWithTrigger={false} -- Base UI's default alignItemWithTrigger
+   * behavior positions the popup to overlap the selected item under the
+   * trigger and ignores `align` entirely.
+   */
+  align?: "start" | "center" | "end"
+  /**
+   * Set to false when the trigger sits flush against a container's right
+   * edge (e.g. the last column of a wide grid row): the default true
+   * behavior overlaps the selected item with the trigger regardless of
+   * `align`, and the popup's min-w-36 can end up wider than the trigger,
+   * pushing past that edge. false switches to plain edge alignment, where
+   * `align="end"` keeps the popup growing only leftward.
+   */
+  alignItemWithTrigger?: boolean
   "aria-invalid"?: boolean | undefined
   "aria-describedby"?: string | undefined
 }) {
@@ -86,7 +104,7 @@ function SelectField({
       >
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent align={align} alignItemWithTrigger={alignItemWithTrigger}>
         {items.map((item) => (
           <SelectItem key={item.value} value={item.value} disabled={item.disabled}>
             {item.label}

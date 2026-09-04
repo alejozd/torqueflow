@@ -216,6 +216,12 @@ export function VehiculoFormFields({
               value={(combustibleField.value as string | undefined) ?? ""}
               onValueChange={combustibleField.onChange}
               placeholder="Seleccionar..."
+              // Last column of this row, flush against the dialog's right
+              // edge -- alignItemWithTrigger's default overlap-the-selected-
+              // item behavior ignores align and can push the popup past that
+              // edge; disabling it lets align="end" grow the popup leftward.
+              align="end"
+              alignItemWithTrigger={false}
               items={[
                 { value: "", label: "Seleccionar..." },
                 { value: "GASOLINA", label: "Gasolina" },
@@ -265,6 +271,12 @@ export function VehiculoFormFields({
               value={(transmisionField.value as string | undefined) ?? ""}
               onValueChange={transmisionField.onChange}
               placeholder="Seleccionar..."
+              // Last column of this row, flush against the dialog's right
+              // edge -- alignItemWithTrigger's default overlap-the-selected-
+              // item behavior ignores align and can push the popup past that
+              // edge; disabling it lets align="end" grow the popup leftward.
+              align="end"
+              alignItemWithTrigger={false}
               items={[
                 { value: "", label: "Seleccionar..." },
                 { value: "AUTOMATICA", label: "Automática" },
