@@ -60,6 +60,47 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", {
   maximumFractionDigits: 0,
 });
 
+/**
+ * America/Bogota is a fixed UTC-5 offset with no daylight saving time (same
+ * assumption citas/page.tsx and facturas/page.tsx document), so "this month"
+ * is derived without a timezone library: read the Bogota calendar month, then
+ * reconstruct that month's first instant as an explicit UTC-5 timestamp.
+ */
+const formatoMesBogota = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Bogota",
+  year: "numeric",
+  month: "2-digit",
+});
+
+function inicioMesBogota(fecha: Date): Date {
+  const [anioStr, mesStr] = formatoMesBogota.format(fecha).split("-");
+  return new Date(`${anioStr}-${mesStr}-01T00:00:00-05:00`);
+}
+
+const formatoDiaBogota = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" });
+
+/**
+ * "Hoy" only for the just-created case (<1min, where "Hace 0 minutos" would
+ * read oddly); every other same-day order shows "Hace X horas" instead of a
+ * flat "Hoy" so recency inside the day stays visible. Orders 7+ days old fall
+ * back to the absolute date -- "Hace 34 días" is harder to place mentally.
+ */
+function formatoFechaRelativa(fecha: Date, ahora: Date): string {
+  const diffMs = ahora.getTime() - fecha.getTime();
+  const diffMin = Math.floor(diffMs / (60 * 1000));
+  if (diffMin < 1) return "Hoy";
+  if (diffMin < 60) return `Hace ${diffMin} ${diffMin === 1 ? "minuto" : "minutos"}`;
+
+  const mismoDia = formatoDiaBogota.format(fecha) === formatoDiaBogota.format(ahora);
+  const diffHoras = Math.floor(diffMin / 60);
+  if (mismoDia) return `Hace ${diffHoras} ${diffHoras === 1 ? "hora" : "horas"}`;
+
+  const diffDias = Math.floor(diffHoras / 24);
+  if (diffDias < 7) return `Hace ${diffDias} ${diffDias === 1 ? "día" : "días"}`;
+
+  return formatoFecha.format(fecha);
+}
+
 type OrdenRow = OrdenWithDetalle;
 
 /**
@@ -186,6 +227,7 @@ function buildColumns(
   orderActual: SortOrder,
   estadoFiltro: EstadoOrden | undefined,
   vistaActual: "tabla" | "tablero",
+  ahora: Date,
 ): DataTableColumn<OrdenRow>[] {
   const sortableHeaderProps = { sortActual, orderActual, estadoFiltro, vistaActual };
   return [
@@ -216,7 +258,9 @@ function buildColumns(
     },
     {
       header: <SortableHeader label="Ingreso" sortKey="fecha" {...sortableHeaderProps} />,
-      cell: (orden) => <span className="text-sm text-muted-foreground">{formatoFecha.format(orden.createdAt)}</span>,
+      cell: (orden) => (
+        <span className="text-sm text-muted-foreground">{formatoFechaRelativa(orden.createdAt, ahora)}</span>
+      ),
     },
     {
       header: "Ítems",
@@ -252,6 +296,10 @@ export default async function OrdenesPage({
   ]);
   const filtradas = estadoFiltro ? ordenes.filter((orden) => orden.estado === estadoFiltro) : ordenes;
 
+  const ahora = new Date();
+  const inicioMes = inicioMesBogota(ahora);
+  const ordenesMes = ordenes.filter((orden) => orden.createdAt >= inicioMes).length;
+
   const enProceso = ordenes.filter((orden) => orden.estado === "EN_PROCESO").length;
   const terminadasSinFacturar = ordenes.filter((orden) => orden.estado === "TERMINADA" && !orden.factura).length;
 
@@ -277,7 +325,12 @@ export default async function OrdenesPage({
   return (
     <main className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Órdenes de trabajo</h1>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h1 className="text-2xl font-semibold">Órdenes de trabajo</h1>
+          <Badge variant="outline" className="font-normal text-muted-foreground">
+            {ordenesMes} {ordenesMes === 1 ? "orden" : "órdenes"} este mes
+          </Badge>
+        </div>
         <NuevaOrdenDialog clientes={clientes} tecnicos={tecnicos} />
       </div>
 
@@ -341,12 +394,16 @@ export default async function OrdenesPage({
                   key={value}
                   href={construirHrefOrdenes({ estado: value, vista: vistaActual, sort: sortActual, order: orderActual })}
                   className={cn(
-                    "rounded-full border px-3 py-1 text-sm transition-colors",
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors",
                     estadoFiltro === value
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
                   )}
                 >
+                  <span
+                    className="size-1.5 shrink-0 rounded-full"
+                    style={{ background: estadoFiltro === value ? "currentColor" : ESTADO_DOT_COLOR[value] }}
+                  />
                   {ESTADO_LABELS[value]}
                 </Link>
               ))}
@@ -380,11 +437,12 @@ export default async function OrdenesPage({
 
           {vistaActual === "tabla" ? (
             <DataTable
-              columns={buildColumns(sortActual, orderActual, estadoFiltro, vistaActual)}
+              columns={buildColumns(sortActual, orderActual, estadoFiltro, vistaActual, ahora)}
               rows={sortActual ? [...filtradas].sort((a, b) => compararOrdenes(a, b, sortActual, orderActual)) : filtradas}
               getRowKey={(orden) => orden.id}
               rowHref={(orden) => `/ordenes/${orden.id}`}
               emptyMessage="No hay órdenes de trabajo en este estado."
+              headerClassName="bg-muted"
             />
           ) : (
             <div className="flex items-start gap-3 overflow-x-auto pb-1">

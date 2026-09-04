@@ -26,6 +26,7 @@ export function DataTable<T>({
   pageSize = 20,
   searchable = false,
   searchPlaceholder = "Buscar...",
+  headerClassName,
 }: {
   columns: DataTableColumn<T>[];
   rows: T[];
@@ -53,6 +54,8 @@ export function DataTable<T>({
   searchable?: boolean;
   /** Placeholder text for the search box. Only used when `searchable` is true. */
   searchPlaceholder?: string;
+  /** Optional className for the table's <thead>. Undefined by default -- zero visual change for callers that don't opt in. */
+  headerClassName?: string;
 }) {
   if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
@@ -103,6 +106,7 @@ export function DataTable<T>({
       searchable={searchable}
       searchPlaceholder={searchPlaceholder}
       emptyMessage={emptyMessage}
+      headerClassName={headerClassName}
     />
   );
 }

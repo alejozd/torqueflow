@@ -24,6 +24,7 @@ export function DataTableInteractive({
   searchable,
   searchPlaceholder,
   emptyMessage,
+  headerClassName,
 }: {
   headerCells: ReactNode[];
   rowElements: ReactNode[];
@@ -34,6 +35,8 @@ export function DataTableInteractive({
   searchable: boolean;
   searchPlaceholder?: string;
   emptyMessage: string;
+  /** Optional className for the <TableHeader> row. Undefined by default -- zero visual change for callers that don't opt in. */
+  headerClassName?: string;
 }) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
@@ -78,7 +81,7 @@ export function DataTableInteractive({
       ) : (
         <>
           <Table>
-            <TableHeader>
+            <TableHeader className={headerClassName}>
               <TableRow>{headerCells}</TableRow>
             </TableHeader>
             <TableBody>{pageIndexes.map((index) => rowElements[index])}</TableBody>
