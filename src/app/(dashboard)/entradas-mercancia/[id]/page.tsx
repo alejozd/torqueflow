@@ -4,7 +4,7 @@ import { getEntrada, listEntradas } from "@/app/actions/entrada-mercancia-action
 import { listRepuestoOptions } from "@/app/actions/repuesto-actions";
 import { AgregarEntradaItemForm } from "./agregar-entrada-item-form";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatoFechaCorta, inicioMesBogota } from "@/lib/fecha-bogota";
 
 type Entrada = NonNullable<Awaited<ReturnType<typeof getEntrada>>>;
@@ -126,18 +126,15 @@ export default async function EntradaMercanciaDetailPage({ params }: { params: P
 
       <Card>
         <CardHeader>
-          <CardTitle>Agregar repuesto</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <AgregarEntradaItemForm entradaId={entrada.id} repuestos={repuestos} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Ítems recibidos</CardTitle>
+          <CardTitle>
+            Ítems recibidos <span className="font-normal text-muted-foreground">· {entrada.items.length}</span>
+          </CardTitle>
+          <CardAction>
+            <span className="text-xs text-muted-foreground">Cada ítem suma al stock de {entrada.bodega.nombre}</span>
+          </CardAction>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
+          <AgregarEntradaItemForm entradaId={entrada.id} repuestos={repuestos} />
           <DataTable
             columns={ITEMS_COLUMNS}
             rows={entrada.items}
@@ -153,9 +150,6 @@ export default async function EntradaMercanciaDetailPage({ params }: { params: P
               <span className="font-mono font-medium text-foreground">{formatoMoneda.format(costoTotal)}</span>
             </div>
           ) : null}
-          <p className="text-xs text-muted-foreground">
-            Cada ítem genera un movimiento de inventario en {entrada.bodega.nombre}.
-          </p>
         </CardContent>
       </Card>
     </main>

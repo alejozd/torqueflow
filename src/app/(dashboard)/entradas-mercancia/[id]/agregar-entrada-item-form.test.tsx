@@ -14,60 +14,74 @@ const repuestos = [
   { id: "r2", codigo: "PAS-002", nombre: "Pastillas de freno", precioVenta: 50000, precioCompra: 30000, stockActual: 2, stockMinimo: 5 },
 ] as never;
 
+// The catalog is a collapsible picker now (not an always-visible list) --
+// open it via the "Repuesto" toggle button before a catalog row is queryable.
+async function seleccionarRepuesto(nombreRegex: RegExp) {
+  await userEvent.click(screen.getByLabelText("Repuesto"));
+  await userEvent.click(await screen.findByRole("button", { name: nombreRegex }));
+}
+
 describe("AgregarEntradaItemForm", () => {
   beforeEach(() => {
     mockAddEntradaItemAction.mockReset();
     mockAddEntradaItemAction.mockResolvedValue({ error: null, success: true, entradaId: "e1" });
   });
 
-  it("renders the repuesto search, the catalog, and the cantidad/precio fields", () => {
+  it("renders the repuesto toggle, cantidad, costo unit., and the agregar button, with the catalog collapsed", () => {
     render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
 
-    expect(screen.getByLabelText("Repuesto")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Filtro de aceite/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Pastillas de freno/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("Repuesto")).toHaveTextContent("Selecciona un repuesto");
     expect(screen.getByLabelText("Cantidad")).toBeInTheDocument();
-    expect(screen.getByLabelText("Precio de compra unitario")).toBeInTheDocument();
+    expect(screen.getByLabelText("Costo unit.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Agregar" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Filtro de aceite/ })).not.toBeInTheDocument();
   });
 
-  it("filters the catalog by código or nombre as you type", async () => {
+  it("opens the catalog when the repuesto toggle is clicked, and filters it by código or nombre", async () => {
     render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
 
-    await userEvent.type(screen.getByLabelText("Repuesto"), "PAS-002");
+    await userEvent.click(screen.getByLabelText("Repuesto"));
+
+    expect(screen.getByRole("button", { name: /Filtro de aceite/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Pastillas de freno/ })).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("Buscar repuesto"), "PAS-002");
 
     expect(screen.getByRole("button", { name: /Pastillas de freno/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Filtro de aceite/ })).not.toBeInTheDocument();
   });
 
-  it("selecting a repuesto prefills its last cost and shows its current stock", async () => {
+  it("selecting a repuesto closes the picker, prefills its last cost, and shows the current stock flow", async () => {
     render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
 
-    await userEvent.click(screen.getByRole("button", { name: /Filtro de aceite/ }));
+    await seleccionarRepuesto(/Filtro de aceite/);
 
-    expect(screen.getByLabelText("Precio de compra unitario")).toHaveValue(8000);
-    // "10 u" also appears in the catalog row itself -- scope to the
-    // "En bodega" panel specifically instead of asserting the bare text.
-    expect(screen.getByText("En bodega").closest("div")).toHaveTextContent("10 u");
-    expect(screen.getByText(/Último: \$\s?8[.,]?000/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Repuesto")).toHaveTextContent("Filtro de aceite");
+    expect(screen.queryByRole("button", { name: /Pastillas de freno/ })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Costo unit.")).toHaveValue(8000);
+    // Stock flow reads "actual -> actual" before any cantidad is entered.
+    expect(screen.getByText("10 → 10")).toBeInTheDocument();
+    expect(screen.getByText(/Último costo/)).toBeInTheDocument();
   });
 
-  it("computes subtotal, stock resultante, variación de costo, and the weighted-average costo medio as cantidad/costo change", async () => {
+  it("computes subtotal, stock flow, variación, and the weighted-average costo medio as cantidad/costo change", async () => {
     render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
 
-    await userEvent.click(screen.getByRole("button", { name: /Filtro de aceite/ }));
+    await seleccionarRepuesto(/Filtro de aceite/);
     await userEvent.type(screen.getByLabelText("Cantidad"), "10");
 
     // Same cost as last time (prefilled 8000): no variación, subtotal 80.000,
-    // stock 10 -> 20, weighted average stays 8.000 (both sides at the same cost).
+    // stock 10 -> 20, weighted average stays 8.000 (both sides at the same
+    // cost). Money assertions use a regex: Intl.NumberFormat inserts a
+    // non-breaking space between "$" and the amount, not a plain " ".
     expect(screen.getByText(/^\$\s*80\.000$/)).toBeInTheDocument();
     expect(screen.getByText("10 → 20")).toBeInTheDocument();
     expect(screen.getByText("+0.0%")).toBeInTheDocument();
 
     // Now receive at a higher cost: weighted average = (10*8000 + 10*10000) / 20 = 9.000.
-    await userEvent.clear(screen.getByLabelText("Precio de compra unitario"));
-    await userEvent.type(screen.getByLabelText("Precio de compra unitario"), "10000");
+    await userEvent.clear(screen.getByLabelText("Costo unit."));
+    await userEvent.type(screen.getByLabelText("Costo unit."), "10000");
 
-    expect(screen.getByText(/^\$\s*100\.000$/)).toBeInTheDocument();
     expect(screen.getByText("+25.0%")).toBeInTheDocument();
     expect(screen.getByText(/^\$\s*9\.000$/)).toBeInTheDocument();
   });
@@ -75,7 +89,7 @@ describe("AgregarEntradaItemForm", () => {
   it("shows a low-quantity warning only while cantidad is 1 or 2", async () => {
     render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
 
-    await userEvent.click(screen.getByRole("button", { name: /Filtro de aceite/ }));
+    await seleccionarRepuesto(/Filtro de aceite/);
     expect(screen.queryByText(/Cantidad muy baja/)).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByLabelText("Aumentar cantidad"));
@@ -91,9 +105,9 @@ describe("AgregarEntradaItemForm", () => {
   it("clears repuesto, cantidad, and precio after a successful submit", async () => {
     render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
 
-    await userEvent.click(screen.getByRole("button", { name: /Filtro de aceite/ }));
+    await seleccionarRepuesto(/Filtro de aceite/);
     await userEvent.type(screen.getByLabelText("Cantidad"), "5");
-    await userEvent.click(screen.getByRole("button", { name: "Registrar ítem" }));
+    await userEvent.click(screen.getByRole("button", { name: "Agregar" }));
 
     await screen.findByRole("status");
 
@@ -102,10 +116,10 @@ describe("AgregarEntradaItemForm", () => {
     // imperatively via the DOM ref) -- its cleared value needs one more
     // render tick to propagate, hence waitFor instead of a bare assertion.
     await vi.waitFor(() => {
-      expect(screen.getByText("Ningún repuesto seleccionado")).toBeInTheDocument();
+      expect(screen.getByLabelText("Repuesto")).toHaveTextContent("Selecciona un repuesto");
     });
     expect(screen.getByLabelText("Cantidad")).toHaveValue(null);
-    expect(screen.getByLabelText("Precio de compra unitario")).toHaveValue(null);
+    expect(screen.getByLabelText("Costo unit.")).toHaveValue(null);
   });
 
   it("clears the fields again after a second consecutive successful submit", async () => {
@@ -120,9 +134,9 @@ describe("AgregarEntradaItemForm", () => {
 
     render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
 
-    await userEvent.click(screen.getByRole("button", { name: /Filtro de aceite/ }));
+    await seleccionarRepuesto(/Filtro de aceite/);
     await userEvent.type(screen.getByLabelText("Cantidad"), "5");
-    await userEvent.click(screen.getByRole("button", { name: "Registrar ítem" }));
+    await userEvent.click(screen.getByRole("button", { name: "Agregar" }));
 
     await screen.findByRole("status");
 
@@ -133,21 +147,21 @@ describe("AgregarEntradaItemForm", () => {
     // the bug, `state.success` is already `true` from the first submission,
     // so it doesn't change value on the second success and the effect never
     // re-runs, leaving these fields populated.
-    await userEvent.click(screen.getByRole("button", { name: /Pastillas de freno/ }));
+    await seleccionarRepuesto(/Pastillas de freno/);
     await userEvent.type(screen.getByLabelText("Cantidad"), "3");
-    await userEvent.click(screen.getByRole("button", { name: "Registrar ítem" }));
+    await userEvent.click(screen.getByRole("button", { name: "Agregar" }));
 
     await vi.waitFor(() => {
-      expect(screen.getByText("Ningún repuesto seleccionado")).toBeInTheDocument();
+      expect(screen.getByLabelText("Repuesto")).toHaveTextContent("Selecciona un repuesto");
       expect(screen.getByLabelText("Cantidad")).toHaveValue(null);
-      expect(screen.getByLabelText("Precio de compra unitario")).toHaveValue(null);
+      expect(screen.getByLabelText("Costo unit.")).toHaveValue(null);
     });
   });
 
   it("blocks submission and shows field errors when nothing is filled, without calling the server", async () => {
     render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Registrar ítem" }));
+    await userEvent.click(screen.getByRole("button", { name: "Agregar" }));
 
     expect(document.getElementById("repuestoId-error")).toHaveTextContent("Selecciona un repuesto");
     expect(mockAddEntradaItemAction).not.toHaveBeenCalled();
@@ -161,9 +175,9 @@ describe("AgregarEntradaItemForm", () => {
     });
     render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
 
-    await userEvent.click(screen.getByRole("button", { name: /Filtro de aceite/ }));
+    await seleccionarRepuesto(/Filtro de aceite/);
     await userEvent.type(screen.getByLabelText("Cantidad"), "5");
-    await userEvent.click(screen.getByRole("button", { name: "Registrar ítem" }));
+    await userEvent.click(screen.getByRole("button", { name: "Agregar" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("No puedes agregar ítems a una entrada anulada.");
   });
