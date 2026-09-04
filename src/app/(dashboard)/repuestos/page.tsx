@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AlertCircle, DollarSign, Package, XCircle } from "lucide-react";
 import { listRepuestos, type RepuestoWithDetalle } from "@/app/actions/repuesto-actions";
 import { listBodegas } from "@/app/actions/bodega-actions";
 import { listProveedores } from "@/app/actions/proveedor-actions";
@@ -7,6 +8,7 @@ import type { RepuestoEditable } from "./editar-repuesto-form";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
 import type { Bodega, Proveedor } from "@/generated/prisma-tenant";
 
@@ -142,36 +144,41 @@ export default async function RepuestosPage({
     <main className="flex flex-col gap-6">
       <h1 className="text-2xl font-semibold">Repuestos</h1>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Referencias</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <span className="font-mono text-2xl font-semibold">{repuestos.length}</span>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          title="Referencias"
+          value={repuestos.length}
+          icon={<Package className={cn("size-5", KPI_TONE.info.icon)} />}
+          iconBgColor={KPI_TONE.info.iconBg}
+          className={KPI_TONE.info.cardBg}
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Valor inventario</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <span className="font-mono text-2xl font-semibold">{formatoMoneda.format(valorInventario)}</span>
-          </CardContent>
-        </Card>
+        <KpiCard
+          title="Valor inventario"
+          value={formatoMoneda.format(valorInventario)}
+          valueColor="success"
+          icon={<DollarSign className={cn("size-5", KPI_TONE.success.icon)} />}
+          iconBgColor={KPI_TONE.success.iconBg}
+          className={KPI_TONE.success.cardBg}
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Stock bajo</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-1">
-            <span className="font-mono text-2xl font-semibold text-[oklch(0.55_0.15_60)]">{stockBajo.length}</span>
-            {sinExistencias > 0 ? (
-              <span className="text-xs text-muted-foreground">{sinExistencias} sin existencias</span>
-            ) : null}
-          </CardContent>
-        </Card>
+        <KpiCard
+          title="Stock bajo"
+          value={stockBajo.length}
+          valueColor="warning"
+          icon={<AlertCircle className={cn("size-5", KPI_TONE.warning.icon)} />}
+          iconBgColor={KPI_TONE.warning.iconBg}
+          className={KPI_TONE.warning.cardBg}
+        />
+
+        <KpiCard
+          title="Sin existencias"
+          value={sinExistencias}
+          valueColor="danger"
+          icon={<XCircle className={cn("size-5", KPI_TONE.danger.icon)} />}
+          iconBgColor={KPI_TONE.danger.iconBg}
+          className={KPI_TONE.danger.cardBg}
+        />
       </div>
 
       <Card>
