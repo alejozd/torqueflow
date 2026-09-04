@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { createVehiculoAction, type VehiculoFormState } from "@/app/actions/vehiculo-actions";
 import { VehiculoFormFields, vehiculoFormSchema, type VehiculoFormInput } from "./vehiculo-form-fields";
-import type { MarcaVehiculo, ModeloVehiculo } from "@/generated/prisma-tenant";
+import type { MarcaVehiculo, ModeloVehiculo, Vehiculo } from "@/generated/prisma-tenant";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { DialogClose } from "@/components/ui/dialog";
@@ -25,12 +25,12 @@ export function NuevoVehiculoForm({
   modelos: ModeloVehiculo[];
   esAdmin: boolean;
   /**
-   * Fired synchronously right after a successful create -- mirrors
-   * NuevaCitaForm's onCreated: createVehiculoAction's revalidatePath can
-   * refresh (and unmount, inside a dialog) this form's parent before a
-   * useActionState-driven effect would get a chance to run.
+   * Fired synchronously right after a successful create, with the new
+   * vehículo -- mirrors NuevaCitaForm's onCreated: createVehiculoAction's
+   * revalidatePath can refresh (and unmount, inside a dialog) this form's
+   * parent before a useActionState-driven effect would get a chance to run.
    */
-  onCreated?: () => void;
+  onCreated?: (vehiculo: Vehiculo) => void;
 }) {
   const [state, setState] = useState<VehiculoFormState>(initialState);
   const [isPending, startTransition] = useTransition();
@@ -71,9 +71,9 @@ export function NuevoVehiculoForm({
       formData.set("marcaId", (data.marcaId as string | undefined) ?? "");
       formData.set("modeloId", (data.modeloId as string | undefined) ?? "");
       const result = await createVehiculoAction(clienteId, initialState, formData);
-      if (result.success) {
+      if (result.success && result.vehiculo) {
         toast.success("Vehículo agregado");
-        if (onCreated) onCreated();
+        if (onCreated) onCreated(result.vehiculo);
         else setState(result);
       } else {
         toast.error(result.error ?? "No se pudo agregar el vehículo");

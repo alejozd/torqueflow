@@ -40,7 +40,11 @@ async function seleccionarMarcaYModelo() {
 describe("NuevoVehiculoForm", () => {
   beforeEach(() => {
     mockCreateVehiculoAction.mockReset();
-    mockCreateVehiculoAction.mockResolvedValue({ error: null, success: true });
+    mockCreateVehiculoAction.mockResolvedValue({
+      error: null,
+      success: true,
+      vehiculo: { id: "v1", placa: "ABC123" },
+    });
   });
 
   it("renders placa, marca, modelo, anio fields", () => {
@@ -134,6 +138,7 @@ describe("NuevoVehiculoForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Agregar vehículo" }));
 
     await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+    expect(onCreated).toHaveBeenCalledWith({ id: "v1", placa: "ABC123" });
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 

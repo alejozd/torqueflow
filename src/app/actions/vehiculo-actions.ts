@@ -10,6 +10,7 @@ import type { Prisma, Vehiculo } from "@/generated/prisma-tenant";
 export interface VehiculoFormState {
   error: string | null;
   success: boolean;
+  vehiculo?: Vehiculo;
 }
 
 export async function listVehiculosByCliente(clienteId: string): Promise<Vehiculo[]> {
@@ -59,8 +60,9 @@ export async function createVehiculoAction(
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
+  let vehiculo: Vehiculo;
   try {
-    await tenantDb.vehiculo.create({
+    vehiculo = await tenantDb.vehiculo.create({
       data: {
         placa: parsed.data.placa,
         marca: parsed.data.marca,
@@ -82,7 +84,7 @@ export async function createVehiculoAction(
   }
 
   revalidatePath(`/clientes/${clienteId}`);
-  return { error: null, success: true };
+  return { error: null, success: true, vehiculo };
 }
 
 export async function updateVehiculoAction(

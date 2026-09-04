@@ -57,7 +57,7 @@ describe("createVehiculoAction", () => {
 
     const result = await createVehiculoAction("c1", initialState, formData);
 
-    expect(result).toEqual({ error: null, success: true });
+    expect(result).toEqual({ error: null, success: true, vehiculo: { id: "v1", placa: "ABC123" } });
     expect(mockCreate).toHaveBeenCalledWith({
       data: { placa: "ABC123", marca: "Toyota", modelo: "Corolla", anio: 2020, clienteId: "c1" },
     });
@@ -78,7 +78,7 @@ describe("createVehiculoAction", () => {
 
     const result = await createVehiculoAction("c1", initialState, formData);
 
-    expect(result).toEqual({ error: null, success: true });
+    expect(result).toEqual({ error: null, success: true, vehiculo: { id: "v1", placa: "ABC123" } });
     expect(mockCreate).toHaveBeenCalledWith({
       data: {
         placa: "ABC123",
