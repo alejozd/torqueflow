@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertCircle, CalendarCheck, FileText, Package, Wrench } from "lucide-react";
+import { AlertCircle, CalendarCheck, ChevronRight, FileText, Package, Wrench } from "lucide-react";
 import { requireSession } from "@/lib/auth/guards";
 import { getDashboardOverview } from "@/app/actions/dashboard-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +44,45 @@ const ESTADO_CITA_LABELS: Record<EstadoCita, string> = {
   CANCELADA: "Cancelada",
   COMPLETADA: "Completada",
 };
+
+// Timeline dot + tinted status badge per cita, in the Agenda de hoy panel.
+// CONFIRMADA/PROGRAMADA colors per spec; CANCELADA reuses the destructive red
+// already used everywhere else in the app, COMPLETADA is neutral gray (done,
+// no action needed).
+const ESTADO_CITA_TONO: Record<EstadoCita, { dot: string; badge: string }> = {
+  PROGRAMADA: {
+    dot: "bg-amber-500",
+    badge: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+  },
+  CONFIRMADA: {
+    dot: "bg-green-500",
+    badge: "bg-green-50 text-green-700 dark:bg-green-500/15 dark:text-green-300",
+  },
+  COMPLETADA: {
+    dot: "bg-gray-400",
+    badge: "bg-gray-50 text-gray-700 dark:bg-gray-500/15 dark:text-gray-300",
+  },
+  CANCELADA: {
+    dot: "bg-red-500",
+    badge: "bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300",
+  },
+};
+
+const PLACA_CON_GUION = /^([A-Za-z]{3})(\d{3})$/;
+
+/** "xyz789" -> "XYZ-789". Only the common 3-letter+3-digit shape gets a dash; anything else is just uppercased. */
+function formatoPlaca(placa: string): string {
+  const match = placa.match(PLACA_CON_GUION);
+  return match ? `${match[1]}-${match[2]}`.toUpperCase() : placa.toUpperCase();
+}
+
+/** "14:30" -> "02:30 PM". `hora` is already a formatted "HH:MM" string from getDashboardOverview. */
+function formatoHora12h(hora24: string): string {
+  const [horas, minutos] = hora24.split(":").map(Number);
+  const periodo = horas >= 12 ? "PM" : "AM";
+  const horas12 = horas % 12 === 0 ? 12 : horas % 12;
+  return `${String(horas12).padStart(2, "0")}:${String(minutos).padStart(2, "0")} ${periodo}`;
+}
 
 function capitalizar(texto: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
@@ -148,8 +187,11 @@ export default async function InicioPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle>Flujo del taller</CardTitle>
+            <Link href="/ordenes" className="text-sm text-primary hover:underline">
+              Ver todas las órdenes ({overview.ordenesActivasCount}) →
+            </Link>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -190,22 +232,40 @@ export default async function InicioPage() {
                   <Link
                     key={orden.id}
                     href={`/ordenes/${orden.id}`}
-                    className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm hover:bg-muted/50"
+                    className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm hover:bg-muted/50"
                   >
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-mono font-medium">{orden.placa}</span>
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-md bg-amber-100 px-1.5 py-0.5 font-mono text-xs font-semibold tracking-wide text-amber-900 dark:bg-amber-500/20 dark:text-amber-300">
+                          {formatoPlaca(orden.placa)}
+                        </span>
+                        <span className="font-semibold">
+                          {orden.vehiculoMarca} {orden.vehiculoModelo}
+                          {orden.vehiculoAnio ? ` · ${orden.vehiculoAnio}` : ""}
+                        </span>
+                        <span className="text-xs text-muted-foreground">#OT-{orden.id.slice(-8).toUpperCase()}</span>
+                      </div>
                       <span className="text-xs text-muted-foreground">
-                        {orden.clienteNombre} · {orden.mecanicoNombre ?? "Sin asignar"}
+                        Cliente: {orden.clienteNombre} · Técnico: {orden.mecanicoNombre ?? "Sin asignar"}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Badge variant={ESTADO_ORDEN_BADGE[orden.estado]}>{ESTADO_ORDEN_LABELS[orden.estado]}</Badge>
-                      <span className="font-mono text-sm">{formatoMoneda.format(orden.total)}</span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant={ESTADO_ORDEN_BADGE[orden.estado]}>{ESTADO_ORDEN_LABELS[orden.estado]}</Badge>
+                        <span className="font-mono text-sm">{formatoMoneda.format(orden.total)}</span>
+                      </div>
+                      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                     </div>
                   </Link>
                 ))
               )}
             </div>
+
+            {overview.ordenesRecientes.length > 0 ? (
+              <p className="text-center text-xs text-muted-foreground">
+                Mostrando {overview.ordenesRecientes.length} de {overview.ordenesActivasCount} órdenes activas hoy
+              </p>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -213,24 +273,37 @@ export default async function InicioPage() {
           <CardHeader>
             <CardTitle>Agenda de hoy</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col divide-y">
+          <CardContent className="flex flex-col">
             {overview.agendaHoy.length === 0 ? (
               <p className="py-2 text-sm text-muted-foreground">No hay citas agendadas hoy en esta sede.</p>
             ) : (
-              overview.agendaHoy.map((cita) => (
-                <div key={cita.id} className="flex flex-col gap-1 py-2.5 text-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono font-medium">{cita.hora}</span>
-                    <Badge variant={cita.estado === "CANCELADA" ? "destructive" : "outline"}>
-                      {ESTADO_CITA_LABELS[cita.estado]}
-                    </Badge>
+              overview.agendaHoy.map((cita, index) => {
+                const tono = ESTADO_CITA_TONO[cita.estado];
+                const esUltima = index === overview.agendaHoy.length - 1;
+                return (
+                  <div key={cita.id} className={cn("flex gap-3", !esUltima && "pb-3")}>
+                    <div className="relative flex w-2.5 shrink-0 flex-col items-center">
+                      <span className={cn("mt-2 size-2.5 shrink-0 rounded-full", tono.dot)} />
+                      {!esUltima ? <span className="absolute top-4 bottom-0 w-px bg-border" /> : null}
+                    </div>
+                    <div className="flex-1 rounded-lg border border-border bg-card p-3 text-sm">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold">{formatoHora12h(cita.hora)}</span>
+                        <span className="rounded-md bg-amber-100 px-1.5 py-0.5 font-mono text-xs font-semibold tracking-wide text-amber-900 dark:bg-amber-500/20 dark:text-amber-300">
+                          {formatoPlaca(cita.placa)}
+                        </span>
+                      </div>
+                      <p className="font-semibold">{cita.motivo}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {cita.clienteNombre} · {cita.vehiculoMarca} {cita.vehiculoModelo}
+                      </p>
+                      <span className={cn("mt-1.5 inline-block rounded-full px-2 py-0.5 text-xs font-medium", tono.badge)}>
+                        {ESTADO_CITA_LABELS[cita.estado]}
+                      </span>
+                    </div>
                   </div>
-                  <span className="font-mono text-xs">{cita.placa}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {cita.motivo} · {cita.clienteNombre}
-                  </span>
-                </div>
-              ))
+                );
+              })
             )}
           </CardContent>
         </Card>

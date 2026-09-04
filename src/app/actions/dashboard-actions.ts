@@ -23,6 +23,9 @@ function formatoHora(fecha: Date): string {
 export interface OrdenRecienteRow {
   id: string;
   placa: string;
+  vehiculoMarca: string;
+  vehiculoModelo: string;
+  vehiculoAnio: number | null;
   clienteNombre: string;
   mecanicoNombre: string | null;
   estado: EstadoOrden;
@@ -33,6 +36,8 @@ export interface CitaHoyRow {
   id: string;
   hora: string;
   placa: string;
+  vehiculoMarca: string;
+  vehiculoModelo: string;
   motivo: string;
   clienteNombre: string;
   estado: EstadoCita;
@@ -53,6 +58,7 @@ export interface DashboardOverview {
   cartera: { saldoPendiente: number; facturasPendientes: number };
   stockBajo: { count: number; sinExistencias: number };
   flujo: { borrador: number; enProceso: number; terminadas: number; entregadasHoy: number };
+  ordenesActivasCount: number;
   ordenesRecientes: OrdenRecienteRow[];
   agendaHoy: CitaHoyRow[];
   facturacion7Dias: { fecha: string; total: number }[];
@@ -97,6 +103,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     enProcesoCount,
     terminadasCount,
     entregadasHoyCount,
+    ordenesActivasCount,
     ordenesRecientes,
     citasHoyRows,
     facturasUltimos7Dias,
@@ -137,6 +144,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     tenantDb.ordenTrabajo.count({
       where: { ...scopeOrden(sedeActivaId), estado: "ENTREGADA", entregadaAt: { gte: rangoHoy.gte, lt: rangoHoy.lt } },
     }),
+    tenantDb.ordenTrabajo.count({ where: { ...scopeOrden(sedeActivaId), estado: { not: "ANULADA" } } }),
     tenantDb.ordenTrabajo.findMany({
       where: { ...scopeOrden(sedeActivaId), estado: { not: "ANULADA" } },
       orderBy: { updatedAt: "desc" },
@@ -144,7 +152,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       select: {
         id: true,
         estado: true,
-        vehiculo: { select: { placa: true } },
+        vehiculo: { select: { placa: true, marca: true, modelo: true, anio: true } },
         cliente: { select: { nombre: true } },
         mecanico: { select: { nombre: true } },
         items: { select: { cantidad: true, precioUnitario: true } },
@@ -160,7 +168,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
         fechaHora: true,
         motivo: true,
         estado: true,
-        vehiculo: { select: { placa: true } },
+        vehiculo: { select: { placa: true, marca: true, modelo: true } },
         cliente: { select: { nombre: true } },
       },
     }),
@@ -206,9 +214,13 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       terminadas: terminadasCount,
       entregadasHoy: entregadasHoyCount,
     },
+    ordenesActivasCount,
     ordenesRecientes: ordenesRecientes.map((orden) => ({
       id: orden.id,
       placa: orden.vehiculo.placa,
+      vehiculoMarca: orden.vehiculo.marca,
+      vehiculoModelo: orden.vehiculo.modelo,
+      vehiculoAnio: orden.vehiculo.anio,
       clienteNombre: orden.cliente.nombre,
       mecanicoNombre: orden.mecanico?.nombre ?? null,
       estado: orden.estado,
@@ -223,6 +235,8 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       id: cita.id,
       hora: formatoHora(cita.fechaHora),
       placa: cita.vehiculo.placa,
+      vehiculoMarca: cita.vehiculo.marca,
+      vehiculoModelo: cita.vehiculo.modelo,
       motivo: cita.motivo,
       clienteNombre: cita.cliente.nombre,
       estado: cita.estado,
