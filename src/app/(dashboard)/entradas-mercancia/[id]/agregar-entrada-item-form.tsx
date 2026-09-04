@@ -1,7 +1,7 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Search } from "lucide-react";
+import { startTransition, useActionState, useEffect, useMemo, useRef } from "react";
+import { Plus } from "lucide-react";
 import { useController, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { addEntradaItemAction, type EntradaFormState } from "@/app/actions/entrada-mercancia-actions";
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import type { z } from "zod";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { KPI_TONE } from "@/components/ui/kpi-card";
 import { Label } from "@/components/ui/label";
@@ -35,8 +36,6 @@ export function AgregarEntradaItemForm({
 }) {
   const addItem = addEntradaItemAction.bind(null, entradaId);
   const [state, formAction, isPending] = useActionState(addItem, initialState);
-  const [query, setQuery] = useState("");
-  const [pickerOpen, setPickerOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const {
     register,
@@ -56,20 +55,20 @@ export function AgregarEntradaItemForm({
   const repuestosPorId = useMemo(() => new Map(repuestos.map((r) => [r.id, r])), [repuestos]);
   const seleccionado = repuestosPorId.get(repuestoIdField.value ?? "") ?? null;
 
-  const catalogoFiltrado = useMemo(() => {
-    const q = normalizeForSearch(query.trim());
-    if (!q) return repuestos;
-    return repuestos.filter((r) => normalizeForSearch(`${r.codigo} ${r.nombre}`).includes(q));
-  }, [repuestos, query]);
+  const repuestoOptions: ComboboxOption[] = useMemo(
+    () => repuestos.map((r) => ({ value: r.id, label: `${r.codigo} — ${r.nombre}` })),
+    [repuestos],
+  );
 
-  // Selecting a catalog row prefills "costo unitario" with the repuesto's own
-  // last recorded purchase cost and closes the picker -- the common case is
-  // receiving at the same price as last time, and there's nothing left to
-  // browse for once a repuesto is chosen.
-  function seleccionarRepuesto(repuesto: RepuestoOption) {
-    repuestoIdField.onChange(repuesto.id);
-    setValue("precioCompraUnitario", String(repuesto.precioCompra), { shouldValidate: true });
-    setPickerOpen(false);
+  // Selecting a repuesto prefills "costo unitario" with its own last recorded
+  // purchase cost -- the common case is receiving at the same price as last
+  // time, so this saves re-typing it on every ítem.
+  function seleccionarRepuesto(id: string) {
+    repuestoIdField.onChange(id);
+    const repuesto = repuestosPorId.get(id);
+    if (repuesto) {
+      setValue("precioCompraUnitario", String(repuesto.precioCompra), { shouldValidate: true });
+    }
   }
 
   const cantidadNum = Number(cantidadValue) || 0;
@@ -87,8 +86,6 @@ export function AgregarEntradaItemForm({
   useEffect(() => {
     if (state.success) {
       reset();
-      setQuery("");
-      setPickerOpen(false);
     }
   }, [state, reset]);
 
@@ -99,35 +96,51 @@ export function AgregarEntradaItemForm({
       onSubmit={handleSubmit((data) =>
         startTransition(() => {
           const formData = new FormData(formRef.current!);
-          // repuestoId is controlled via useController (not a native
-          // <select name="..."> register()) -- it doesn't populate FormData
-          // on its own, so it must be set explicitly here before submitting.
+          // repuestoId is a Combobox (react-hook-form-controlled, not a
+          // native <select name="..."> register()) -- it doesn't populate
+          // FormData on its own, so it must be set explicitly here before
+          // submitting.
           formData.set("repuestoId", data.repuestoId ?? "");
           formAction(formData);
         }),
       )}
       className="flex flex-col gap-2"
     >
-      <div className="flex flex-wrap items-end gap-2.5 rounded-lg bg-muted/50 p-2.5">
+      <div className="flex flex-wrap items-end gap-3">
         <div className="flex min-w-[220px] flex-1 flex-col gap-1.5">
-          <Label htmlFor="repuesto-toggle">Repuesto</Label>
-          <button
-            type="button"
-            id="repuesto-toggle"
-            onClick={() => setPickerOpen((open) => !open)}
-            className={cn(
-              "flex h-8 items-center gap-2 rounded-lg border px-2.5 text-left transition-colors",
-              pickerOpen ? "border-primary/45 bg-primary/5" : "border-input bg-background hover:bg-accent",
-            )}
-          >
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">
-              {seleccionado ? seleccionado.nombre : "Selecciona un repuesto"}
-            </span>
-            {seleccionado ? <span className="shrink-0 font-mono text-xs text-primary">{seleccionado.codigo}</span> : null}
-            <ChevronDown
-              className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", pickerOpen && "rotate-180")}
-            />
-          </button>
+          <Label htmlFor="repuestoId">Repuesto</Label>
+          <Combobox
+            id="repuestoId"
+            items={repuestoOptions}
+            value={repuestoIdField.value ?? ""}
+            onValueChange={seleccionarRepuesto}
+            placeholder="Buscar por código o nombre"
+            emptyMessage="Ningún repuesto coincide"
+            aria-invalid={errors.repuestoId ? true : undefined}
+            aria-describedby={errors.repuestoId ? "repuestoId-error" : undefined}
+            filter={(item, q) => normalizeForSearch(item.label).includes(normalizeForSearch(q))}
+            renderOption={(item) => {
+              const repuesto = repuestosPorId.get(item.value);
+              if (!repuesto) return item.label;
+              const stockBajo = repuesto.stockActual <= repuesto.stockMinimo;
+              return (
+                <span className="flex w-full min-w-0 items-center justify-between gap-3">
+                  <span className="min-w-0 truncate" title={repuesto.nombre}>
+                    {repuesto.nombre}{" "}
+                    <span className="font-mono text-xs text-muted-foreground">{repuesto.codigo}</span>
+                  </span>
+                  <span
+                    className={cn(
+                      "shrink-0 font-mono text-xs",
+                      stockBajo ? "font-semibold text-destructive" : "text-muted-foreground",
+                    )}
+                  >
+                    {repuesto.stockActual} u
+                  </span>
+                </span>
+              );
+            }}
+          />
           {errors.repuestoId ? (
             <p id="repuestoId-error" className="text-xs text-destructive">
               {errors.repuestoId.message}
@@ -135,7 +148,7 @@ export function AgregarEntradaItemForm({
           ) : null}
         </div>
 
-        <div className="flex w-28 shrink-0 flex-col gap-1.5">
+        <div className="flex w-[120px] shrink-0 flex-col gap-1.5">
           <Label htmlFor="cantidad">Cantidad</Label>
           <div className="flex h-8 items-center overflow-hidden rounded-lg border border-input bg-background">
             <button
@@ -171,18 +184,21 @@ export function AgregarEntradaItemForm({
           ) : null}
         </div>
 
-        <div className="flex w-32 shrink-0 flex-col gap-1.5">
-          <Label htmlFor="precioCompraUnitario">Costo unit.</Label>
-          <Input
-            id="precioCompraUnitario"
-            type="number"
-            min="0"
-            step="0.01"
-            className="h-8 font-mono"
-            aria-invalid={errors.precioCompraUnitario ? true : undefined}
-            aria-describedby={errors.precioCompraUnitario ? "precioCompraUnitario-error" : undefined}
-            {...register("precioCompraUnitario")}
-          />
+        <div className="flex w-[150px] shrink-0 flex-col gap-1.5">
+          <Label htmlFor="precioCompraUnitario">Costo unitario</Label>
+          <div className="relative flex items-center">
+            <span className="pointer-events-none absolute left-2.5 text-sm text-muted-foreground">$</span>
+            <Input
+              id="precioCompraUnitario"
+              type="number"
+              min="0"
+              step="0.01"
+              className="h-8 pl-5 font-mono"
+              aria-invalid={errors.precioCompraUnitario ? true : undefined}
+              aria-describedby={errors.precioCompraUnitario ? "precioCompraUnitario-error" : undefined}
+              {...register("precioCompraUnitario")}
+            />
+          </div>
           {errors.precioCompraUnitario ? (
             <p id="precioCompraUnitario-error" className="text-xs text-destructive">
               {errors.precioCompraUnitario.message}
@@ -190,18 +206,17 @@ export function AgregarEntradaItemForm({
           ) : null}
         </div>
 
-        <div className="flex w-28 shrink-0 flex-col gap-1.5">
-          <Label className="text-muted-foreground">Subtotal</Label>
-          <div className="flex h-8 items-center font-mono text-sm font-semibold">{formatoMoneda.format(subtotal)}</div>
-        </div>
-
-        <Button type="submit" disabled={isPending} size="sm" className="h-8">
+        <Button type="submit" disabled={isPending}>
+          <Plus />
           {isPending ? "Guardando..." : "Agregar"}
         </Button>
       </div>
 
       {seleccionado ? (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-muted/30 px-2.5 py-1.5 text-xs text-muted-foreground">
+          <span>
+            Subtotal <span className="font-mono font-semibold text-foreground">{formatoMoneda.format(subtotal)}</span>
+          </span>
           <span>
             Stock{" "}
             <span className="font-mono font-semibold text-[oklch(0.4_0.1_150)]">
@@ -235,63 +250,6 @@ export function AgregarEntradaItemForm({
               Cantidad muy baja: verifica la factura del proveedor
             </span>
           ) : null}
-        </div>
-      ) : null}
-
-      {pickerOpen ? (
-        <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/40 p-2.5">
-          <div className="relative flex items-center">
-            <Search className="pointer-events-none absolute left-2.5 size-3.5 text-muted-foreground" />
-            {/* eslint-disable-next-line jsx-a11y/no-autofocus -- opening this
-                picker is itself the user's request to search; autofocus
-                saves the extra click that a static, always-visible search
-                box (the previous design) didn't need. */}
-            <Input
-              aria-label="Buscar repuesto"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar por código o nombre"
-              className="h-8 pl-8"
-              autoFocus
-            />
-          </div>
-          <div className="grid max-h-48 grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-1.5 overflow-y-auto">
-            {catalogoFiltrado.length === 0 ? (
-              <p className="p-2 text-xs text-muted-foreground">Ningún repuesto coincide</p>
-            ) : (
-              catalogoFiltrado.map((repuesto) => {
-                const activo = repuesto.id === repuestoIdField.value;
-                const stockBajo = repuesto.stockActual <= repuesto.stockMinimo;
-                return (
-                  <button
-                    key={repuesto.id}
-                    type="button"
-                    onClick={() => seleccionarRepuesto(repuesto)}
-                    className={cn(
-                      "flex flex-col gap-0.5 rounded-md border px-2.5 py-1.5 text-left transition-colors",
-                      activo ? "border-primary/50 bg-primary/5" : "border-border bg-card hover:bg-accent",
-                    )}
-                  >
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-medium">{repuesto.nombre}</span>
-                      <span
-                        className={cn(
-                          "shrink-0 font-mono text-xs",
-                          stockBajo ? "font-semibold text-destructive" : "text-muted-foreground",
-                        )}
-                      >
-                        {repuesto.stockActual} u
-                      </span>
-                    </span>
-                    <span className="flex items-center justify-between gap-2 font-mono text-[11px] text-muted-foreground">
-                      <span>{repuesto.codigo}</span>
-                      <span>{formatoMoneda.format(repuesto.precioCompra)}</span>
-                    </span>
-                  </button>
-                );
-              })
-            )}
-          </div>
         </div>
       ) : null}
 

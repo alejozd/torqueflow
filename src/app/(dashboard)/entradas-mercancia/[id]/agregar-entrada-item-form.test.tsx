@@ -14,11 +14,11 @@ const repuestos = [
   { id: "r2", codigo: "PAS-002", nombre: "Pastillas de freno", precioVenta: 50000, precioCompra: 30000, stockActual: 2, stockMinimo: 5 },
 ] as never;
 
-// The catalog is a collapsible picker now (not an always-visible list) --
-// open it via the "Repuesto" toggle button before a catalog row is queryable.
+// Repuesto is a Combobox (search-as-you-type popup), not a native <select> --
+// options only mount in the DOM once the popup is open.
 async function seleccionarRepuesto(nombreRegex: RegExp) {
   await userEvent.click(screen.getByLabelText("Repuesto"));
-  await userEvent.click(await screen.findByRole("button", { name: nombreRegex }));
+  await userEvent.click(await screen.findByRole("option", { name: nombreRegex }));
 }
 
 describe("AgregarEntradaItemForm", () => {
@@ -27,38 +27,40 @@ describe("AgregarEntradaItemForm", () => {
     mockAddEntradaItemAction.mockResolvedValue({ error: null, success: true, entradaId: "e1" });
   });
 
-  it("renders the repuesto toggle, cantidad, costo unit., and the agregar button, with the catalog collapsed", () => {
+  it("renders the repuesto combobox, cantidad, costo unitario, and the agregar button", () => {
     render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
 
-    expect(screen.getByLabelText("Repuesto")).toHaveTextContent("Selecciona un repuesto");
+    expect(screen.getByLabelText("Repuesto")).toBeInTheDocument();
     expect(screen.getByLabelText("Cantidad")).toBeInTheDocument();
-    expect(screen.getByLabelText("Costo unit.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Costo unitario")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Agregar" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Filtro de aceite/ })).not.toBeInTheDocument();
   });
 
-  it("opens the catalog when the repuesto toggle is clicked, and filters it by código or nombre", async () => {
+  it("lists every repuesto by código, nombre, and stock once the combobox is open", async () => {
     render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
 
     await userEvent.click(screen.getByLabelText("Repuesto"));
 
-    expect(screen.getByRole("button", { name: /Filtro de aceite/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Pastillas de freno/ })).toBeInTheDocument();
-
-    await userEvent.type(screen.getByLabelText("Buscar repuesto"), "PAS-002");
-
-    expect(screen.getByRole("button", { name: /Pastillas de freno/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Filtro de aceite/ })).not.toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: /Filtro de aceite.*FRN-001.*10 u/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Pastillas de freno.*PAS-002.*2 u/ })).toBeInTheDocument();
   });
 
-  it("selecting a repuesto closes the picker, prefills its last cost, and shows the current stock flow", async () => {
+  it("filters the repuesto options by código or nombre as you type", async () => {
+    render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
+
+    await userEvent.click(screen.getByLabelText("Repuesto"));
+    await userEvent.type(screen.getByLabelText("Repuesto"), "PAS-002");
+
+    expect(await screen.findByRole("option", { name: /Pastillas de freno/ })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /Filtro de aceite/ })).not.toBeInTheDocument();
+  });
+
+  it("selecting a repuesto prefills its last cost and shows the current stock flow", async () => {
     render(<AgregarEntradaItemForm entradaId="e1" repuestos={repuestos} />);
 
     await seleccionarRepuesto(/Filtro de aceite/);
 
-    expect(screen.getByLabelText("Repuesto")).toHaveTextContent("Filtro de aceite");
-    expect(screen.queryByRole("button", { name: /Pastillas de freno/ })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Costo unit.")).toHaveValue(8000);
+    expect(screen.getByLabelText("Costo unitario")).toHaveValue(8000);
     // Stock flow reads "actual -> actual" before any cantidad is entered.
     expect(screen.getByText("10 → 10")).toBeInTheDocument();
     expect(screen.getByText(/Último costo/)).toBeInTheDocument();
@@ -79,8 +81,8 @@ describe("AgregarEntradaItemForm", () => {
     expect(screen.getByText("+0.0%")).toBeInTheDocument();
 
     // Now receive at a higher cost: weighted average = (10*8000 + 10*10000) / 20 = 9.000.
-    await userEvent.clear(screen.getByLabelText("Costo unit."));
-    await userEvent.type(screen.getByLabelText("Costo unit."), "10000");
+    await userEvent.clear(screen.getByLabelText("Costo unitario"));
+    await userEvent.type(screen.getByLabelText("Costo unitario"), "10000");
 
     expect(screen.getByText("+25.0%")).toBeInTheDocument();
     expect(screen.getByText(/^\$\s*9\.000$/)).toBeInTheDocument();
@@ -116,10 +118,10 @@ describe("AgregarEntradaItemForm", () => {
     // imperatively via the DOM ref) -- its cleared value needs one more
     // render tick to propagate, hence waitFor instead of a bare assertion.
     await vi.waitFor(() => {
-      expect(screen.getByLabelText("Repuesto")).toHaveTextContent("Selecciona un repuesto");
+      expect(screen.queryByText(/Último costo/)).not.toBeInTheDocument();
     });
     expect(screen.getByLabelText("Cantidad")).toHaveValue(null);
-    expect(screen.getByLabelText("Costo unit.")).toHaveValue(null);
+    expect(screen.getByLabelText("Costo unitario")).toHaveValue(null);
   });
 
   it("clears the fields again after a second consecutive successful submit", async () => {
@@ -152,9 +154,9 @@ describe("AgregarEntradaItemForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Agregar" }));
 
     await vi.waitFor(() => {
-      expect(screen.getByLabelText("Repuesto")).toHaveTextContent("Selecciona un repuesto");
+      expect(screen.queryByText(/Último costo/)).not.toBeInTheDocument();
       expect(screen.getByLabelText("Cantidad")).toHaveValue(null);
-      expect(screen.getByLabelText("Costo unit.")).toHaveValue(null);
+      expect(screen.getByLabelText("Costo unitario")).toHaveValue(null);
     });
   });
 

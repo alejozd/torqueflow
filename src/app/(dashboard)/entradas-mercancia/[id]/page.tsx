@@ -29,18 +29,18 @@ const ITEMS_COLUMNS: DataTableColumn<ItemRow>[] = [
     header: "Repuesto",
     cell: (item) => (
       <div className="flex flex-col gap-0.5">
-        <span className="text-sm">{item.repuesto.nombre}</span>
+        <span className="text-sm font-semibold">{item.repuesto.nombre}</span>
         <span className="font-mono text-xs text-muted-foreground">{item.repuesto.codigo}</span>
       </div>
     ),
   },
   {
-    header: "Cant.",
-    className: "text-right",
+    header: "Cantidad",
+    className: "text-center",
     cell: (item) => <span className="font-mono text-sm">{item.cantidad}</span>,
   },
   {
-    header: "Unitario",
+    header: "Costo unitario",
     className: "text-right",
     cell: (item) => (
       <span className="font-mono text-sm text-muted-foreground">
@@ -126,15 +126,23 @@ export default async function EntradaMercanciaDetailPage({ params }: { params: P
 
       <Card>
         <CardHeader>
-          <CardTitle>
-            Ítems recibidos <span className="font-normal text-muted-foreground">· {entrada.items.length}</span>
-          </CardTitle>
+          <CardTitle>Agregar repuesto a la entrada</CardTitle>
           <CardAction>
             <span className="text-xs text-muted-foreground">Cada ítem suma al stock de {entrada.bodega.nombre}</span>
           </CardAction>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3">
+        <CardContent>
           <AgregarEntradaItemForm entradaId={entrada.id} repuestos={repuestos} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            Ítems recibidos <span className="font-normal text-muted-foreground">· {entrada.items.length}</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
           <DataTable
             columns={ITEMS_COLUMNS}
             rows={entrada.items}
@@ -142,12 +150,16 @@ export default async function EntradaMercanciaDetailPage({ params }: { params: P
             emptyMessage="Esta entrada no tiene ítems registrados."
           />
           {entrada.items.length > 0 ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
-              <span>
-                {entrada.items.length} {entrada.items.length === 1 ? "referencia" : "referencias"} · {unidades}{" "}
-                {unidades === 1 ? "unidad" : "unidades"}
-              </span>
-              <span className="font-mono font-medium text-foreground">{formatoMoneda.format(costoTotal)}</span>
+            <div className="flex flex-col items-end gap-1.5 border-t border-border pt-3 text-sm">
+              <div className="flex w-full max-w-[240px] items-baseline justify-between gap-3 text-muted-foreground">
+                <span>Subtotal neto</span>
+                <span className="font-mono">{formatoMoneda.format(costoTotal)}</span>
+              </div>
+              <div className="h-px w-full max-w-[240px] bg-border" />
+              <div className="flex w-full max-w-[240px] items-baseline justify-between gap-3">
+                <span className="font-semibold">TOTAL</span>
+                <span className="font-mono text-base font-semibold">{formatoMoneda.format(costoTotal)}</span>
+              </div>
             </div>
           ) : null}
         </CardContent>
