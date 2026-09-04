@@ -5,7 +5,7 @@ import { getDashboardOverview } from "@/app/actions/dashboard-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { KpiCard } from "@/components/ui/kpi-card";
+import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
 import type { EstadoCita, EstadoOrden } from "@/generated/prisma-tenant";
 
@@ -91,7 +91,8 @@ export default async function InicioPage() {
           title="En el taller"
           value={overview.enTaller.total}
           subtitle={overview.enTaller.terminadasHoy > 0 ? `${overview.enTaller.terminadasHoy} terminadas hoy` : undefined}
-          icon={<Wrench className="size-5 text-primary" />}
+          icon={<Wrench className={cn("size-5", KPI_TONE.info.icon)} />}
+          iconBgColor={KPI_TONE.info.bg}
         />
 
         <KpiCard
@@ -102,31 +103,41 @@ export default async function InicioPage() {
               ? `Próxima ${overview.citasHoy.proxima.hora} · ${overview.citasHoy.proxima.placa}`
               : undefined
           }
-          icon={<CalendarCheck className="size-5 text-primary" />}
+          icon={<CalendarCheck className={cn("size-5", KPI_TONE.info.icon)} />}
+          iconBgColor={KPI_TONE.info.bg}
         />
 
         <KpiCard
           title="Por facturar"
           value={overview.porFacturar.count}
+          valueColor="warning"
           subtitle={overview.porFacturar.count > 0 ? formatoMoneda.format(overview.porFacturar.monto) : undefined}
-          icon={<FileText className="size-5 text-primary" />}
+          subtitleColor="warning"
+          highlight={overview.porFacturar.count > 0}
+          icon={<FileText className={cn("size-5", KPI_TONE.warning.icon)} />}
+          iconBgColor={KPI_TONE.warning.bg}
         />
 
         <KpiCard
           title="Cartera"
           value={formatoMoneda.format(overview.cartera.saldoPendiente)}
-          valueColor="danger"
+          valueColor="warning"
           subtitle={overview.cartera.facturasPendientes > 0 ? `${overview.cartera.facturasPendientes} facturas pendientes` : undefined}
-          icon={<AlertCircle className="size-5 text-destructive" />}
-          iconBgColor="bg-destructive/10"
+          subtitleColor="warning"
+          highlight={overview.cartera.facturasPendientes > 0}
+          icon={<AlertCircle className={cn("size-5", KPI_TONE.warning.icon)} />}
+          iconBgColor={KPI_TONE.warning.bg}
         />
 
         <KpiCard
           title="Stock bajo"
           value={overview.stockBajo.count}
+          valueColor="danger"
           subtitle={overview.stockBajo.sinExistencias > 0 ? `${overview.stockBajo.sinExistencias} sin existencias` : undefined}
           subtitleColor="danger"
-          icon={<Package className="size-5 text-primary" />}
+          highlight={overview.stockBajo.sinExistencias > 0}
+          icon={<Package className={cn("size-5", KPI_TONE.danger.icon)} />}
+          iconBgColor={KPI_TONE.danger.bg}
         />
       </div>
 

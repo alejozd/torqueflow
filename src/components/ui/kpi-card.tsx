@@ -5,6 +5,20 @@ import { cn } from "@/lib/utils";
 
 export type KpiAccentColor = "default" | "success" | "warning" | "danger";
 export type KpiSubtitleIcon = "up" | "down" | "dot" | "none";
+export type KpiTone = "info" | "warning" | "success" | "danger" | "neutral";
+
+/**
+ * Shared icon-circle palette (bg + icon color) used across every KPI row in
+ * the app. dark: variants keep it legible against the oklch .dark theme in
+ * globals.css -- plain bg-*-50/text-*-600 literals have no dark counterpart.
+ */
+export const KPI_TONE: Record<KpiTone, { bg: string; icon: string }> = {
+  info: { bg: "bg-blue-50 dark:bg-blue-500/15", icon: "text-blue-600 dark:text-blue-400" },
+  warning: { bg: "bg-orange-50 dark:bg-orange-500/15", icon: "text-orange-600 dark:text-orange-400" },
+  success: { bg: "bg-green-50 dark:bg-green-500/15", icon: "text-green-600 dark:text-green-400" },
+  danger: { bg: "bg-red-50 dark:bg-red-500/15", icon: "text-red-600 dark:text-red-400" },
+  neutral: { bg: "bg-gray-50 dark:bg-gray-500/15", icon: "text-gray-600 dark:text-gray-400" },
+};
 
 export interface KpiCardProps {
   title: string;
