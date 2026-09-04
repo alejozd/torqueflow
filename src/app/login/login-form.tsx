@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,7 +30,6 @@ export function LoginForm() {
     // leftover "?error=..." from a previous redirect gets misread by
     // next-auth/react's signIn() as a fresh failure.
     const result = await signIn("credentials", { email, password, redirect: false, callbackUrl: "/" });
-    setIsPending(false);
 
     // NextAuth's credentials callback responds HTTP 200 even when the
     // credentials are wrong (it redirects to an error page instead of
@@ -41,12 +40,16 @@ export function LoginForm() {
       // One message for every failure -- wrong password, unknown email, and
       // a suspended tenant are indistinguishable on purpose, so this form
       // cannot be used to enumerate accounts.
+      setIsPending(false);
       setError("Correo o contraseña incorrectos");
       return;
     }
 
-    // requireSession() picks up from here: it redirects to /seleccionar-sede
-    // on its own if this session's sede couldn't be auto-resolved at login.
+    // isPending stays true on the success path (never reset to false here):
+    // the button's spinner keeps showing through the redirect instead of
+    // flashing back to normal right before the page unmounts. requireSession()
+    // picks up from here: it redirects to /seleccionar-sede on its own if this
+    // session's sede couldn't be auto-resolved at login.
     router.push("/");
   }
 
@@ -98,8 +101,19 @@ export function LoginForm() {
         </div>
       </div>
 
-      <Button type="submit" disabled={isPending} className="h-[42px] w-full rounded-[10px] text-[13.5px]">
-        {isPending ? "Ingresando..." : "Ingresar"}
+      <Button
+        type="submit"
+        disabled={isPending}
+        className="h-[42px] w-full rounded-[10px] text-[13.5px]"
+      >
+        {isPending ? (
+          <>
+            <Loader2 className="size-4 animate-spin" />
+            Ingresando...
+          </>
+        ) : (
+          "Ingresar"
+        )}
       </Button>
     </form>
   );
