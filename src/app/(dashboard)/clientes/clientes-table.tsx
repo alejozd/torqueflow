@@ -1,6 +1,8 @@
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
+import { inferirColorVehiculo } from "@/lib/color-vehiculo";
 import { formatoFechaCorta, formatoFechaRelativa } from "@/lib/fecha-bogota";
+import { cn } from "@/lib/utils";
 
 export interface ClienteRow {
   id: string;
@@ -8,7 +10,7 @@ export interface ClienteRow {
   documento: string | null;
   telefono: string | null;
   email: string | null;
-  placas: string[];
+  vehiculos: { placa: string; color: string | null }[];
   ultimaVisita: Date | null;
   ordenesCount: number;
   saldo: number;
@@ -44,15 +46,22 @@ export function ClientesTable({ clientes, ahora }: { clientes: ClienteRow[]; aho
     {
       header: "Vehículos",
       cell: (cliente) =>
-        cliente.placas.length === 0 ? (
+        cliente.vehiculos.length === 0 ? (
           <span className="text-muted-foreground">—</span>
         ) : (
           <div className="flex flex-wrap gap-1">
-            {cliente.placas.map((placa) => (
-              <Badge key={placa} variant="outline" className="font-mono">
-                {placa}
-              </Badge>
-            ))}
+            {cliente.vehiculos.map((vehiculo) => {
+              const tono = inferirColorVehiculo(vehiculo.color);
+              return (
+                <Badge
+                  key={vehiculo.placa}
+                  variant="outline"
+                  className={cn("font-mono", tono && "border-transparent", tono?.bg, tono?.text)}
+                >
+                  {vehiculo.placa}
+                </Badge>
+              );
+            })}
           </div>
         ),
     },

@@ -24,7 +24,7 @@ export default async function ClientesPage() {
       documento: cliente.documento,
       telefono: cliente.telefono,
       email: cliente.email,
-      placas: cliente.vehiculos.map((vehiculo) => vehiculo.placa),
+      vehiculos: cliente.vehiculos.map((vehiculo) => ({ placa: vehiculo.placa, color: vehiculo.color })),
       ultimaVisita,
       ordenesCount: cliente.ordenes.length,
       saldo: cliente.facturas.reduce((suma, factura) => suma + Number(factura.saldoPendiente), 0),
