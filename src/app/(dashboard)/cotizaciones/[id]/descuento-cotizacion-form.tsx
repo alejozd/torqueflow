@@ -20,6 +20,7 @@ export function DescuentoCotizacionForm({ cotizacionId, descuentoPct }: { cotiza
       <Label htmlFor="descuentoPct">Descuento (%)</Label>
       <div className="flex items-center gap-2">
         <Input
+          key={descuentoPct}
           id="descuentoPct"
           name="descuentoPct"
           type="number"
