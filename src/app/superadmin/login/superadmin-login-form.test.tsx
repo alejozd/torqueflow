@@ -19,9 +19,9 @@ describe("SuperAdminLoginForm", () => {
     mockSignIn.mockResolvedValue({ ok: true, error: undefined });
     render(<SuperAdminLoginForm />);
 
-    await userEvent.type(screen.getByLabelText("Correo"), "owner@torqueflow.test");
-    await userEvent.type(screen.getByLabelText("Contraseña"), "clave-larga-segura");
-    await userEvent.click(screen.getByRole("button", { name: "Ingresar" }));
+    await userEvent.type(screen.getByLabelText("Correo institucional"), "owner@torqueflow.test");
+    await userEvent.type(screen.getByLabelText("Contraseña maestra"), "clave-larga-segura");
+    await userEvent.click(screen.getByRole("button", { name: /Ingresar/ }));
 
     expect(mockSignIn).toHaveBeenCalledWith("credentials", {
       email: "owner@torqueflow.test",
@@ -38,10 +38,23 @@ describe("SuperAdminLoginForm", () => {
     mockSignIn.mockResolvedValue({ ok: true, error: "CredentialsSignin" });
     render(<SuperAdminLoginForm />);
 
-    await userEvent.type(screen.getByLabelText("Correo"), "owner@torqueflow.test");
-    await userEvent.type(screen.getByLabelText("Contraseña"), "incorrecta");
-    await userEvent.click(screen.getByRole("button", { name: "Ingresar" }));
+    await userEvent.type(screen.getByLabelText("Correo institucional"), "owner@torqueflow.test");
+    await userEvent.type(screen.getByLabelText("Contraseña maestra"), "incorrecta");
+    await userEvent.click(screen.getByRole("button", { name: /Ingresar/ }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Correo o contraseña incorrectos");
+  });
+
+  it("toggles the password field between hidden and visible text", async () => {
+    render(<SuperAdminLoginForm />);
+
+    const passwordInput = screen.getByLabelText("Contraseña maestra");
+    expect(passwordInput).toHaveAttribute("type", "password");
+
+    await userEvent.click(screen.getByRole("button", { name: /Mostrar/ }));
+    expect(passwordInput).toHaveAttribute("type", "text");
+
+    await userEvent.click(screen.getByRole("button", { name: /Ocultar/ }));
+    expect(passwordInput).toHaveAttribute("type", "password");
   });
 });
