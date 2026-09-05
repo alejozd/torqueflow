@@ -23,6 +23,7 @@ export function DataTable<T>({
   getRowKey,
   emptyMessage,
   rowHref,
+  rowClickable = false,
   pageSize = 20,
   searchable = false,
   searchPlaceholder = "Buscar...",
@@ -44,6 +45,16 @@ export function DataTable<T>({
    * clickable would be a false affordance.
    */
   rowHref?: (row: T) => string;
+  /**
+   * When true, marks the row as clickable (same relative + cursor-pointer
+   * styling as rowHref) without DataTable rendering anything itself. Use
+   * this when a column's own cell embeds a client-side control (e.g. an
+   * edit Dialog) that renders its own absolutely-positioned inset-0 trigger
+   * -- that trigger stretches to fill the whole row precisely because the
+   * row is the nearest `position: relative` ancestor, same mechanism as
+   * rowHref's stretched Link. Ignored if rowHref is also set.
+   */
+  rowClickable?: boolean;
   /** Rows per page for the client-side pagination footer. Defaults to 20. */
   pageSize?: number;
   /**
@@ -75,7 +86,10 @@ export function DataTable<T>({
   ));
 
   const rowElements = rows.map((row) => (
-    <TableRow key={getRowKey(row)} className={cn("hover:bg-border", rowHref && "relative cursor-pointer")}>
+    <TableRow
+      key={getRowKey(row)}
+      className={cn("hover:bg-border", (rowHref || rowClickable) && "relative cursor-pointer")}
+    >
       {columns.map((column, index) => (
         <TableCell key={index} className={column.className}>
           {rowHref && index === 0 ? (

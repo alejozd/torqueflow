@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { EditarSedeForm } from "./editar-sede-form";
 import type { Sede } from "@/generated/prisma-tenant";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -14,16 +13,20 @@ import {
 } from "@/components/ui/dialog";
 
 /**
- * Fase 11-14: row-level "Editar" action opens EditarSedeForm (edit + delete,
- * both untouched) in a modal instead of it being permanently inline in the
- * table row -- keeps the redesigned Listado table compact and scannable.
+ * Row-level edit action: rendered inside the "Sede" column's cell, but the
+ * trigger stretches over the whole row (absolute inset-0, sized against the
+ * row's own `position: relative` set via DataTable's rowClickable) -- same
+ * "click anywhere in the row" convention as the rowHref-based tables
+ * (Clientes, Órdenes, etc.), just opening a Dialog instead of navigating.
  */
 export function EditarSedeDialog({ sede }: { sede: Sede }) {
   const [open, setOpen] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="outline" size="sm" />}>Editar</DialogTrigger>
+      <DialogTrigger render={<button type="button" className="absolute inset-0 z-10" />}>
+        <span className="sr-only">Editar {sede.nombre}</span>
+      </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Editar {sede.nombre}</DialogTitle>

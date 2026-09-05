@@ -12,10 +12,13 @@ const COLUMNS: DataTableColumn<SedeConMetricas>[] = [
   {
     header: "Sede",
     cell: (sede) => (
-      <div className="flex flex-col gap-0.5">
-        <span className="font-medium">{sede.nombre}</span>
-        <span className="text-xs text-muted-foreground">{sede.direccion ?? "—"}</span>
-      </div>
+      <>
+        <EditarSedeDialog sede={sede} />
+        <div className="flex flex-col gap-0.5">
+          <span className="font-medium">{sede.nombre}</span>
+          <span className="text-xs text-muted-foreground">{sede.direccion ?? "—"}</span>
+        </div>
+      </>
     ),
     searchValue: (sede) => sede.nombre,
   },
@@ -33,10 +36,6 @@ const COLUMNS: DataTableColumn<SedeConMetricas>[] = [
       ) : (
         <span className="font-mono text-muted-foreground">0</span>
       ),
-  },
-  {
-    header: "Acciones",
-    cell: (sede) => <EditarSedeDialog sede={sede} />,
   },
 ];
 
@@ -107,6 +106,7 @@ export default async function SedesPage() {
             searchPlaceholder="Buscar por sede..."
             pageSize={10}
             headerClassName="bg-muted"
+            rowClickable
           />
         </CardContent>
       </Card>

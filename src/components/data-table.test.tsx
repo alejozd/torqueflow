@@ -118,6 +118,30 @@ describe("DataTable", () => {
     expect(row.contains(link)).toBe(true);
   });
 
+  it("marks the row relative and cursor-pointer when rowClickable is set, without rendering anything itself", () => {
+    // rowClickable exists for callers whose first column embeds its own
+    // client-side control (e.g. an edit Dialog) that renders its own
+    // absolutely-positioned inset-0 trigger -- DataTable only needs to make
+    // the row `position: relative` so that trigger can stretch to fill it,
+    // same mechanism as rowHref's stretched Link but without DataTable
+    // rendering the trigger itself.
+    const columns: DataTableColumn<Row>[] = [{ header: "Nombre", cell: (row) => row.name }];
+    render(
+      <DataTable
+        columns={columns}
+        rows={ROWS}
+        getRowKey={(row) => row.id}
+        emptyMessage="Sin datos"
+        rowClickable
+      />,
+    );
+
+    const row = screen.getByRole("row", { name: "Item A" });
+    expect(row.className).toContain("relative");
+    expect(row.className).toContain("cursor-pointer");
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
   it("does not render a search input when searchable is omitted (default false), even if a column sets searchValue", () => {
     const columns: DataTableColumn<Row>[] = [
       { header: "Nombre", cell: (row) => row.name, searchValue: (row) => row.name },

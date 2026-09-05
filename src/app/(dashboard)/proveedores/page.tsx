@@ -13,7 +13,22 @@ function buildColumns(ahora: Date): DataTableColumn<ProveedorConInventario>[] {
   return [
   {
     header: "Proveedor",
-    cell: (proveedor) => <span className="font-medium">{proveedor.nombre}</span>,
+    cell: (proveedor) => (
+      <>
+        <EditarProveedorDialog
+          proveedor={{
+            id: proveedor.id,
+            nombre: proveedor.nombre,
+            documento: proveedor.documento,
+            direccion: proveedor.direccion,
+            contacto: proveedor.contacto,
+            telefono: proveedor.telefono,
+            email: proveedor.email,
+          }}
+        />
+        <span className="font-medium">{proveedor.nombre}</span>
+      </>
+    ),
     searchValue: (proveedor) => proveedor.nombre,
   },
   {
@@ -56,22 +71,6 @@ function buildColumns(ahora: Date): DataTableColumn<ProveedorConInventario>[] {
       ) : (
         <span className="text-muted-foreground">—</span>
       ),
-  },
-  {
-    header: "Acciones",
-    cell: (proveedor) => (
-      <EditarProveedorDialog
-        proveedor={{
-          id: proveedor.id,
-          nombre: proveedor.nombre,
-          documento: proveedor.documento,
-          direccion: proveedor.direccion,
-          contacto: proveedor.contacto,
-          telefono: proveedor.telefono,
-          email: proveedor.email,
-        }}
-      />
-    ),
   },
   ];
 }
@@ -152,6 +151,7 @@ export default async function ProveedoresPage() {
             searchPlaceholder="Buscar por proveedor, contacto, teléfono o correo..."
             pageSize={10}
             headerClassName="bg-muted"
+            rowClickable
           />
         </CardContent>
       </Card>

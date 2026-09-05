@@ -91,7 +91,12 @@ function buildColumns(bodegas: Bodega[], proveedores: Proveedor[]): DataTableCol
     },
     {
       header: "Repuesto",
-      cell: (repuesto) => <span className="font-medium">{repuesto.nombre}</span>,
+      cell: (repuesto) => (
+        <>
+          <EditarRepuestoDialog repuesto={toEditable(repuesto)} bodegas={bodegas} proveedores={proveedores} />
+          <span className="font-medium">{repuesto.nombre}</span>
+        </>
+      ),
       searchValue: (repuesto) => repuesto.nombre,
     },
     {
@@ -149,12 +154,6 @@ function buildColumns(bodegas: Bodega[], proveedores: Proveedor[]): DataTableCol
           <span className="text-muted-foreground">—</span>
         );
       },
-    },
-    {
-      header: "Acciones",
-      cell: (repuesto) => (
-        <EditarRepuestoDialog repuesto={toEditable(repuesto)} bodegas={bodegas} proveedores={proveedores} />
-      ),
     },
   ];
 }
@@ -285,6 +284,7 @@ export default async function RepuestosPage({
             searchPlaceholder="Buscar por código, repuesto o bodega..."
             pageSize={50}
             headerClassName="bg-muted"
+            rowClickable
           />
         </CardContent>
       </Card>

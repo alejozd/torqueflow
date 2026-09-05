@@ -36,7 +36,12 @@ function calcularValorInventario(bodega: BodegaConInventario): number {
 const COLUMNS: DataTableColumn<BodegaRow>[] = [
   {
     header: "Bodega",
-    cell: (bodega) => <span className="font-medium">{bodega.nombre}</span>,
+    cell: (bodega) => (
+      <>
+        <EditarBodegaDialog bodega={{ id: bodega.id, nombre: bodega.nombre }} />
+        <span className="font-medium">{bodega.nombre}</span>
+      </>
+    ),
     searchValue: (bodega) => bodega.nombre,
   },
   {
@@ -70,10 +75,6 @@ const COLUMNS: DataTableColumn<BodegaRow>[] = [
         <span className="font-mono text-muted-foreground">0</span>
       );
     },
-  },
-  {
-    header: "Acciones",
-    cell: (bodega) => <EditarBodegaDialog bodega={{ id: bodega.id, nombre: bodega.nombre }} />,
   },
 ];
 
@@ -155,6 +156,7 @@ export default async function BodegasPage() {
             searchPlaceholder="Buscar por bodega o sede..."
             pageSize={10}
             headerClassName="bg-muted"
+            rowClickable
           />
         </CardContent>
       </Card>
