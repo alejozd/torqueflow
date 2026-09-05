@@ -23,6 +23,7 @@ function parseProveedorFormData(formData: FormData) {
   return proveedorInputSchema.safeParse({
     nombre: formData.get("nombre") ?? "",
     documento: formData.get("documento") ?? "",
+    direccion: formData.get("direccion") ?? "",
     contacto: formData.get("contacto") ?? "",
     telefono: formData.get("telefono") ?? "",
     email: formData.get("email") ?? "",
@@ -73,6 +74,7 @@ export async function createProveedorAction(
       data: {
         nombre: parsed.data.nombre,
         documento: parsed.data.documento || null,
+        direccion: parsed.data.direccion || null,
         contacto: parsed.data.contacto || null,
         telefono: parsed.data.telefono || null,
         email: parsed.data.email || null,
@@ -105,6 +107,7 @@ export async function updateProveedorAction(
       data: {
         nombre: parsed.data.nombre,
         documento: parsed.data.documento || null,
+        direccion: parsed.data.direccion || null,
         contacto: parsed.data.contacto || null,
         telefono: parsed.data.telefono || null,
         email: parsed.data.email || null,

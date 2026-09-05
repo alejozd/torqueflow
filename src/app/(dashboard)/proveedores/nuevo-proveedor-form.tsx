@@ -35,7 +35,7 @@ export function NuevoProveedorForm({
     formState: { errors },
   } = useForm<ProveedorInput>({
     resolver: zodResolver(proveedorInputSchema),
-    defaultValues: { nombre: "", documento: "", contacto: "", telefono: "", email: "" },
+    defaultValues: { nombre: "", documento: "", direccion: "", contacto: "", telefono: "", email: "" },
   });
 
   function onValid() {
@@ -79,6 +79,17 @@ export function NuevoProveedorForm({
               {...register("documento")}
             />
             {errors.documento ? <p id="documento-error">{errors.documento.message}</p> : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <Label htmlFor="direccion">Dirección</Label>
+            <Input
+              id="direccion"
+              aria-invalid={errors.direccion ? true : undefined}
+              aria-describedby={errors.direccion ? "direccion-error" : undefined}
+              {...register("direccion")}
+            />
+            {errors.direccion ? <p id="direccion-error">{errors.direccion.message}</p> : null}
           </div>
         </div>
       </FormGroup>

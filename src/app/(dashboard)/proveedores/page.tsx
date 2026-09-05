@@ -65,6 +65,7 @@ function buildColumns(ahora: Date): DataTableColumn<ProveedorConInventario>[] {
           id: proveedor.id,
           nombre: proveedor.nombre,
           documento: proveedor.documento,
+          direccion: proveedor.direccion,
           contacto: proveedor.contacto,
           telefono: proveedor.telefono,
           email: proveedor.email,

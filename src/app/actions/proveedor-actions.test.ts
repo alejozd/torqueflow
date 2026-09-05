@@ -56,21 +56,36 @@ describe("createProveedorAction", () => {
 
     expect(result).toEqual({ error: null, success: true });
     expect(mockCreate).toHaveBeenCalledWith({
-      data: { nombre: "Repuestos El Motor", documento: null, contacto: null, telefono: null, email: null },
+      data: {
+        nombre: "Repuestos El Motor",
+        documento: null,
+        direccion: null,
+        contacto: null,
+        telefono: null,
+        email: null,
+      },
     });
   });
 
-  it("creates the proveedor with a documento when provided", async () => {
+  it("creates the proveedor with documento and direccion when provided", async () => {
     mockCreate.mockResolvedValue({ id: "p1" });
     const formData = new FormData();
     formData.set("nombre", "Repuestos El Motor");
     formData.set("documento", "900123456-7");
+    formData.set("direccion", "Calle 10 # 20-30");
 
     const result = await createProveedorAction(initialState, formData);
 
     expect(result).toEqual({ error: null, success: true });
     expect(mockCreate).toHaveBeenCalledWith({
-      data: { nombre: "Repuestos El Motor", documento: "900123456-7", contacto: null, telefono: null, email: null },
+      data: {
+        nombre: "Repuestos El Motor",
+        documento: "900123456-7",
+        direccion: "Calle 10 # 20-30",
+        contacto: null,
+        telefono: null,
+        email: null,
+      },
     });
   });
 });
@@ -88,7 +103,14 @@ describe("updateProveedorAction", () => {
     expect(result).toEqual({ error: null, success: true });
     expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: "p1" },
-      data: { nombre: "Repuestos El Motor S.A.", documento: null, contacto: null, telefono: "555-1234", email: null },
+      data: {
+        nombre: "Repuestos El Motor S.A.",
+        documento: null,
+        direccion: null,
+        contacto: null,
+        telefono: "555-1234",
+        email: null,
+      },
     });
   });
 });

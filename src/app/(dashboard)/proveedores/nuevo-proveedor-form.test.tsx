@@ -22,26 +22,29 @@ describe("NuevoProveedorForm", () => {
     mockCreateProveedorAction.mockResolvedValue({ error: null, success: true });
   });
 
-  it("renders all Proveedor fields, including NIT/Cédula", () => {
+  it("renders all Proveedor fields, including NIT/Cédula and Dirección", () => {
     renderInDialog(<NuevoProveedorForm />);
 
     expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
     expect(screen.getByLabelText("NIT / Cédula")).toBeInTheDocument();
+    expect(screen.getByLabelText("Dirección")).toBeInTheDocument();
     expect(screen.getByLabelText("Contacto")).toBeInTheDocument();
     expect(screen.getByLabelText("Teléfono")).toBeInTheDocument();
     expect(screen.getByLabelText("Correo")).toBeInTheDocument();
   });
 
-  it("submits the documento field to createProveedorAction when filled", async () => {
+  it("submits the documento and direccion fields to createProveedorAction when filled", async () => {
     renderInDialog(<NuevoProveedorForm />);
 
     await userEvent.type(screen.getByLabelText("Nombre"), "Repuestos El Motor");
     await userEvent.type(screen.getByLabelText("NIT / Cédula"), "900123456-7");
+    await userEvent.type(screen.getByLabelText("Dirección"), "Calle 10 # 20-30");
     await userEvent.click(screen.getByRole("button", { name: "Crear proveedor" }));
 
     await screen.findByRole("status");
     const formData = mockCreateProveedorAction.mock.calls[0]![1] as FormData;
     expect(formData.get("documento")).toBe("900123456-7");
+    expect(formData.get("direccion")).toBe("Calle 10 # 20-30");
   });
 
   it("shows a success message after a successful submit", async () => {

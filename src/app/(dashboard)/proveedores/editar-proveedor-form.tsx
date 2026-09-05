@@ -22,6 +22,7 @@ export interface ProveedorEditable {
   id: string;
   nombre: string;
   documento: string | null;
+  direccion: string | null;
   contacto: string | null;
   telefono: string | null;
   email: string | null;
@@ -46,6 +47,7 @@ export function EditarProveedorForm({ proveedor }: { proveedor: ProveedorEditabl
     defaultValues: {
       nombre: proveedor.nombre,
       documento: proveedor.documento ?? "",
+      direccion: proveedor.direccion ?? "",
       contacto: proveedor.contacto ?? "",
       telefono: proveedor.telefono ?? "",
       email: proveedor.email ?? "",
@@ -84,6 +86,17 @@ export function EditarProveedorForm({ proveedor }: { proveedor: ProveedorEditabl
                 {...register("documento")}
               />
               {errors.documento ? <p id={`documento-${proveedor.id}-error`}>{errors.documento.message}</p> : null}
+            </div>
+
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <Label htmlFor={`direccion-${proveedor.id}`}>Dirección</Label>
+              <Input
+                id={`direccion-${proveedor.id}`}
+                aria-invalid={errors.direccion ? true : undefined}
+                aria-describedby={errors.direccion ? `direccion-${proveedor.id}-error` : undefined}
+                {...register("direccion")}
+              />
+              {errors.direccion ? <p id={`direccion-${proveedor.id}-error`}>{errors.direccion.message}</p> : null}
             </div>
 
             <div className="flex flex-col gap-1.5">

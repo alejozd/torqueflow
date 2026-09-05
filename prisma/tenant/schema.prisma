@@ -310,6 +310,7 @@ model Proveedor {
   id        String             @id @default(cuid())
   nombre    String
   documento String?
+  direccion String?
   contacto  String?
   telefono  String?
   email     String?
