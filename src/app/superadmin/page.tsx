@@ -19,12 +19,18 @@ const ESTADO_BADGE_CLASSNAME: Record<"ACTIVO" | "SUSPENDIDO", string> = {
   SUSPENDIDO: "",
 };
 
+const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" });
+
 export default async function SuperAdminPage() {
   const superAdmin = await requireSuperAdmin();
   const [tenants, planes] = await Promise.all([listTenantsConPlan(), listPlanes()]);
 
   const columns: DataTableColumn<TenantConPlan>[] = [
-    { header: "Taller", cell: (tenant) => tenant.slug, searchValue: (tenant) => tenant.slug },
+    {
+      header: "Taller",
+      cell: (tenant) => tenant.nombre ?? tenant.slug,
+      searchValue: (tenant) => tenant.nombre ?? tenant.slug,
+    },
     {
       header: "Estado",
       cell: (tenant) => (
@@ -37,6 +43,7 @@ export default async function SuperAdminPage() {
       ),
     },
     { header: "Plan", cell: (tenant) => tenant.plan.nombre },
+    { header: "Fecha de creación", cell: (tenant) => formatoFecha.format(tenant.createdAt) },
     {
       header: "Acciones",
       cell: (tenant) => (
