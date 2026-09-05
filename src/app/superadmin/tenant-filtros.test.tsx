@@ -42,4 +42,23 @@ describe("TenantFiltros", () => {
 
     expect(mockPush).toHaveBeenCalledWith("/superadmin?planId=plan_avanzado");
   });
+
+  it("muestra las etiquetas 'Todos los estados' y 'Todos los planes' por defecto", () => {
+    render(<TenantFiltros planes={PLANES} />);
+
+    const triggers = screen.getAllByRole("combobox");
+    expect(triggers[0]).toHaveTextContent("Todos los estados");
+    expect(triggers[1]).toHaveTextContent("Todos los planes");
+  });
+
+  it("quita el parametro estado de la URL al volver a elegir 'Todos los estados'", async () => {
+    mockSearchParams.set("estado", "ACTIVO");
+    render(<TenantFiltros planes={PLANES} />);
+
+    const triggers = screen.getAllByRole("combobox");
+    await userEvent.click(triggers[0]!);
+    await userEvent.click(await screen.findByRole("option", { name: "Todos los estados" }));
+
+    expect(mockPush).toHaveBeenCalledWith("/superadmin");
+  });
 });
