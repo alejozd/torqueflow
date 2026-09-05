@@ -29,6 +29,7 @@ model Plan {
 model Tenant {
   id         String            @id @default(cuid())
   slug       String            @unique
+  nombre     String?
   schemaName String            @unique @map("schema_name")
   estado     EstadoTenant      @default(ACTIVO)
   planId     String            @map("plan_id")
