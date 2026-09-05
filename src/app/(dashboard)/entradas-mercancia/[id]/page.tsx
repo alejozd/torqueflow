@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Coins, DollarSign, Package, Truck } from "lucide-react";
 import { getEntrada, listEntradas } from "@/app/actions/entrada-mercancia-actions";
 import { listRepuestoOptions } from "@/app/actions/repuesto-actions";
 import { AgregarEntradaItemForm } from "./agregar-entrada-item-form";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { formatoFechaCorta, inicioMesBogota } from "@/lib/fecha-bogota";
+import { cn } from "@/lib/utils";
 
 type Entrada = NonNullable<Awaited<ReturnType<typeof getEntrada>>>;
 type ItemRow = Entrada["items"][number];
@@ -59,16 +62,6 @@ const ITEMS_COLUMNS: DataTableColumn<ItemRow>[] = [
   },
 ];
 
-function KpiColumn({ label, value, caption }: { label: string; value: string; caption?: string }) {
-  return (
-    <div className="min-w-[150px] flex-1 border-r border-border p-3 last:border-r-0">
-      <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">{label}</p>
-      <p className="mt-1 font-mono text-xl font-semibold tracking-tight">{value}</p>
-      {caption ? <p className="mt-0.5 text-[10.5px] text-muted-foreground">{caption}</p> : null}
-    </div>
-  );
-}
-
 export default async function EntradaMercanciaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const entrada = await getEntrada(id);
@@ -113,15 +106,43 @@ export default async function EntradaMercanciaDetailPage({ params }: { params: P
         </p>
       </div>
 
-      <div className="flex flex-wrap overflow-hidden rounded-xl border border-border bg-card">
-        <KpiColumn label="Referencias" value={String(entrada.items.length)} caption="repuestos distintos" />
-        <KpiColumn label="Unidades" value={String(unidades)} caption="en total" />
-        <KpiColumn
-          label="Costo total"
-          value={formatoMoneda.format(costoTotal)}
-          caption={costoTotalMes > 0 ? `${pctDelMes}% de las compras del mes` : undefined}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          title="Referencias"
+          value={entrada.items.length}
+          subtitle="repuestos distintos"
+          icon={<Package className={cn("size-5", KPI_TONE.info.icon)} />}
+          iconBgColor={KPI_TONE.info.iconBg}
+          className={KPI_TONE.info.cardBg}
         />
-        <KpiColumn label="Costo medio unidad" value={formatoMoneda.format(costoPorUnidad)} caption="por unidad recibida" />
+
+        <KpiCard
+          title="Unidades"
+          value={unidades}
+          subtitle="en total"
+          icon={<Truck className={cn("size-5", KPI_TONE.info.icon)} />}
+          iconBgColor={KPI_TONE.info.iconBg}
+          className={KPI_TONE.info.cardBg}
+        />
+
+        <KpiCard
+          title="Costo total"
+          value={formatoMoneda.format(costoTotal)}
+          valueColor="success"
+          subtitle={costoTotalMes > 0 ? `${pctDelMes}% de las compras del mes` : undefined}
+          icon={<DollarSign className={cn("size-5", KPI_TONE.success.icon)} />}
+          iconBgColor={KPI_TONE.success.iconBg}
+          className={KPI_TONE.success.cardBg}
+        />
+
+        <KpiCard
+          title="Costo medio unidad"
+          value={formatoMoneda.format(costoPorUnidad)}
+          subtitle="por unidad recibida"
+          icon={<Coins className={cn("size-5", KPI_TONE.neutral.icon)} />}
+          iconBgColor={KPI_TONE.neutral.iconBg}
+          className={KPI_TONE.neutral.cardBg}
+        />
       </div>
 
       <Card>
