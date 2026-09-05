@@ -67,6 +67,7 @@ model Usuario {
   pagosRegistrados Pago[]
   citasCreadas     Cita[]              @relation("CitaCreadoPor")
   cotizacionesCreadas Cotizacion[]     @relation("CotizacionCreadoPor")
+  seguimientosCotizacionCreados CotizacionSeguimiento[] @relation("CotizacionSeguimientoCreadoPor")
   sedes            UsuarioSede[]
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
@@ -568,6 +569,7 @@ model Cotizacion {
   ordenId      String?            @unique @map("orden_id")
   orden        OrdenTrabajo?      @relation(fields: [ordenId], references: [id], onDelete: SetNull)
   items        ItemCotizacion[]
+  seguimientos CotizacionSeguimiento[]
   createdAt    DateTime           @default(now()) @map("created_at")
   updatedAt    DateTime           @updatedAt @map("updated_at")
 
@@ -593,4 +595,33 @@ model ItemCotizacion {
   @@index([cotizacionId])
   @@index([repuestoId])
   @@map("items_cotizacion")
+}
+
+enum TipoSeguimiento {
+  LLAMADA
+  WHATSAPP
+  EMAIL
+  VISITA
+  NOTA
+}
+
+/// A logged follow-up contact against a Cotizacion (call/WhatsApp/email/visit/
+/// note). `proximoSeguimiento`, when set, is the date the "pendiente de
+/// seguimiento" business rule (src/lib/cotizacion/seguimiento-pendiente.ts)
+/// compares against -- see that module for the exact definition, which the
+/// list page, its KPI, and the sidebar badge all share.
+model CotizacionSeguimiento {
+  id                 String          @id @default(cuid())
+  cotizacionId       String          @map("cotizacion_id")
+  cotizacion         Cotizacion      @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  tipo               TipoSeguimiento
+  fecha              DateTime
+  resultado          String
+  proximoSeguimiento DateTime?       @map("proximo_seguimiento")
+  creadoPorId        String          @map("creado_por_id")
+  creadoPor          Usuario         @relation("CotizacionSeguimientoCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  createdAt          DateTime        @default(now()) @map("created_at")
+
+  @@index([cotizacionId])
+  @@map("cotizacion_seguimientos")
 }
