@@ -44,3 +44,8 @@ export function scopeEntrada(sedeActivaId: string): { bodega: { sedeId: string }
 export function scopeFactura(sedeActivaId: string): { orden: { sedeId: string } } {
   return { orden: { sedeId: sedeActivaId } };
 }
+
+/** Cotizacion.sedeId is a required, indexed column -- a quote is drawn up *for* a sede. */
+export function scopeCotizacion(sedeActivaId: string): { sedeId: string } {
+  return { sedeId: sedeActivaId };
+}
