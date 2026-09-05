@@ -309,6 +309,7 @@ model Bodega {
 model Proveedor {
   id        String             @id @default(cuid())
   nombre    String
+  documento String?
   contacto  String?
   telefono  String?
   email     String?

@@ -22,6 +22,7 @@ export type ProveedorConInventario = Prisma.ProveedorGetPayload<{ include: typeo
 function parseProveedorFormData(formData: FormData) {
   return proveedorInputSchema.safeParse({
     nombre: formData.get("nombre") ?? "",
+    documento: formData.get("documento") ?? "",
     contacto: formData.get("contacto") ?? "",
     telefono: formData.get("telefono") ?? "",
     email: formData.get("email") ?? "",
@@ -71,6 +72,7 @@ export async function createProveedorAction(
     await tenantDb.proveedor.create({
       data: {
         nombre: parsed.data.nombre,
+        documento: parsed.data.documento || null,
         contacto: parsed.data.contacto || null,
         telefono: parsed.data.telefono || null,
         email: parsed.data.email || null,
@@ -102,6 +104,7 @@ export async function updateProveedorAction(
       where: { id },
       data: {
         nombre: parsed.data.nombre,
+        documento: parsed.data.documento || null,
         contacto: parsed.data.contacto || null,
         telefono: parsed.data.telefono || null,
         email: parsed.data.email || null,

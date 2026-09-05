@@ -1,14 +1,13 @@
-import Link from "next/link";
 import { AlertCircle, Building2, CheckCircle, Package } from "lucide-react";
 import { listProveedoresConInventario, type ProveedorConInventario } from "@/app/actions/proveedor-actions";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { formatoFechaCorta, formatoFechaRelativa, inicioMesBogota } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
 import { EditarProveedorDialog } from "./editar-proveedor-dialog";
+import { NuevoProveedorDialog } from "./nuevo-proveedor-dialog";
 
 function buildColumns(ahora: Date): DataTableColumn<ProveedorConInventario>[] {
   return [
@@ -16,6 +15,13 @@ function buildColumns(ahora: Date): DataTableColumn<ProveedorConInventario>[] {
     header: "Proveedor",
     cell: (proveedor) => <span className="font-medium">{proveedor.nombre}</span>,
     searchValue: (proveedor) => proveedor.nombre,
+  },
+  {
+    header: "Documento",
+    cell: (proveedor) => (
+      <span className="font-mono text-sm">{proveedor.documento ?? <span className="text-muted-foreground">—</span>}</span>
+    ),
+    searchValue: (proveedor) => proveedor.documento ?? "",
   },
   {
     header: "Contacto",
@@ -58,6 +64,7 @@ function buildColumns(ahora: Date): DataTableColumn<ProveedorConInventario>[] {
         proveedor={{
           id: proveedor.id,
           nombre: proveedor.nombre,
+          documento: proveedor.documento,
           contacto: proveedor.contacto,
           telefono: proveedor.telefono,
           email: proveedor.email,
@@ -91,9 +98,7 @@ export default async function ProveedoresPage() {
           </div>
           <p className="text-sm text-muted-foreground">{proveedores.length} proveedores registrados</p>
         </div>
-        <Link href="/proveedores/nuevo" className={buttonVariants({})}>
-          Nuevo proveedor
-        </Link>
+        <NuevoProveedorDialog />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">

@@ -21,6 +21,7 @@ const initialState: ProveedorFormState = { error: null, success: false };
 export interface ProveedorEditable {
   id: string;
   nombre: string;
+  documento: string | null;
   contacto: string | null;
   telefono: string | null;
   email: string | null;
@@ -44,6 +45,7 @@ export function EditarProveedorForm({ proveedor }: { proveedor: ProveedorEditabl
     resolver: zodResolver(proveedorInputSchema),
     defaultValues: {
       nombre: proveedor.nombre,
+      documento: proveedor.documento ?? "",
       contacto: proveedor.contacto ?? "",
       telefono: proveedor.telefono ?? "",
       email: proveedor.email ?? "",
@@ -70,6 +72,18 @@ export function EditarProveedorForm({ proveedor }: { proveedor: ProveedorEditabl
                 {...register("nombre")}
               />
               {errors.nombre ? <p id={`nombre-${proveedor.id}-error`}>{errors.nombre.message}</p> : null}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`documento-${proveedor.id}`}>NIT / Cédula</Label>
+              <Input
+                id={`documento-${proveedor.id}`}
+                className="font-mono"
+                aria-invalid={errors.documento ? true : undefined}
+                aria-describedby={errors.documento ? `documento-${proveedor.id}-error` : undefined}
+                {...register("documento")}
+              />
+              {errors.documento ? <p id={`documento-${proveedor.id}-error`}>{errors.documento.message}</p> : null}
             </div>
 
             <div className="flex flex-col gap-1.5">
