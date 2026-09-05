@@ -1,5 +1,7 @@
 import { listTenantsConPlan, listPlanes, type TenantConPlan } from "@/app/actions/super-admin-actions";
+import { requireSuperAdmin } from "@/lib/super-admin/guards";
 import { TenantRowActions } from "./tenant-row-actions";
+import { SignOutButton } from "./sign-out-button";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +19,7 @@ const ESTADO_BADGE_CLASSNAME: Record<"ACTIVO" | "SUSPENDIDO", string> = {
 };
 
 export default async function SuperAdminPage() {
+  const superAdmin = await requireSuperAdmin();
   const [tenants, planes] = await Promise.all([listTenantsConPlan(), listPlanes()]);
 
   const columns: DataTableColumn<TenantConPlan>[] = [
@@ -48,9 +51,18 @@ export default async function SuperAdminPage() {
 
   return (
     <main className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Talleres</h1>
-        <p className="text-sm text-muted-foreground">{tenants.length} talleres registrados</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold">Talleres</h1>
+          <p className="text-sm text-muted-foreground">{tenants.length} talleres registrados</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col items-end leading-tight">
+            <span className="text-sm font-medium">{superAdmin.nombre}</span>
+            <span className="text-xs text-muted-foreground">{superAdmin.email}</span>
+          </div>
+          <SignOutButton />
+        </div>
       </div>
 
       <Card>
