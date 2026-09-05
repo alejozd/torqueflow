@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { requireSuperAdmin } from "@/lib/super-admin/guards";
 import { publicDb } from "@/lib/db/public-client";
+import { getTenantDb } from "@/lib/db/tenant-client";
 import { provisionTenant } from "../../../scripts/provision-tenant";
 import { seedTenantUser } from "../../../scripts/seed-tenant-user";
 import { TenantUserEmailConflictError } from "@/lib/tenant/tenant-user-email";
@@ -123,4 +124,37 @@ export async function crearTenantAction(
 
   revalidatePath("/superadmin");
   return { error: null, credenciales: { email: adminEmail, password } };
+}
+
+export interface ConteoUsuariosGlobal {
+  total: number;
+  nuevosUltimoMes: number;
+}
+
+/**
+ * Usuario lives per-tenant schema, not in `public` -- so this is the only way
+ * to get a platform-wide headcount: open every tenant's own Prisma client and
+ * sum. Fine at the current tenant count; revisit if this ever needs to scale
+ * past dozens of tenants (e.g. a materialized counter updated on create).
+ */
+export async function contarUsuariosGlobal(): Promise<ConteoUsuariosGlobal> {
+  await requireSuperAdmin();
+
+  const tenants = await publicDb.tenant.findMany({ select: { schemaName: true } });
+  const haceUnMes = new Date();
+  haceUnMes.setDate(haceUnMes.getDate() - 30);
+
+  let total = 0;
+  let nuevosUltimoMes = 0;
+  for (const tenant of tenants) {
+    const tenantDb = getTenantDb(tenant.schemaName);
+    const [countTotal, countNuevos] = await Promise.all([
+      tenantDb.usuario.count(),
+      tenantDb.usuario.count({ where: { createdAt: { gte: haceUnMes } } }),
+    ]);
+    total += countTotal;
+    nuevosUltimoMes += countNuevos;
+  }
+
+  return { total, nuevosUltimoMes };
 }

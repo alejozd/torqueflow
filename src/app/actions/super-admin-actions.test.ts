@@ -34,12 +34,21 @@ vi.mock("../../../scripts/seed-tenant-user", () => ({
   seedTenantUser: (...args: unknown[]) => mockSeedTenantUser(...args),
 }));
 
+const mockUsuarioCount = vi.fn();
+const mockGetTenantDb = vi.fn((_schemaName: string) => ({
+  usuario: { count: (...args: unknown[]) => mockUsuarioCount(...args) },
+}));
+vi.mock("@/lib/db/tenant-client", () => ({
+  getTenantDb: (schemaName: string) => mockGetTenantDb(schemaName),
+}));
+
 import {
   listTenantsConPlan,
   listPlanes,
   cambiarEstadoTenantAction,
   cambiarPlanTenantAction,
   crearTenantAction,
+  contarUsuariosGlobal,
   type SuperAdminFormState,
   type CrearTenantResult,
 } from "./super-admin-actions";
@@ -73,6 +82,8 @@ beforeEach(() => {
   mockExecuteRawUnsafe.mockReset().mockResolvedValue(undefined);
   mockProvisionTenant.mockReset();
   mockSeedTenantUser.mockReset();
+  mockUsuarioCount.mockReset();
+  mockGetTenantDb.mockClear();
 });
 
 describe("listTenantsConPlan", () => {
@@ -241,5 +252,40 @@ describe("crearTenantAction", () => {
     expect(result.credenciales).toBeNull();
     expect(mockTenantDelete).toHaveBeenCalledWith({ where: { id: "t1" } });
     expect(mockExecuteRawUnsafe).toHaveBeenCalledWith('DROP SCHEMA IF EXISTS "taller_familiar" CASCADE');
+  });
+});
+
+describe("contarUsuariosGlobal", () => {
+  it("requires a super-admin session and sums usuario counts across every tenant schema", async () => {
+    mockTenantFindMany.mockResolvedValue([{ schemaName: "taller_perez" }, { schemaName: "taller_gomez" }]);
+    mockUsuarioCount
+      .mockResolvedValueOnce(4) // taller_perez total
+      .mockResolvedValueOnce(1) // taller_perez nuevos
+      .mockResolvedValueOnce(7) // taller_gomez total
+      .mockResolvedValueOnce(0); // taller_gomez nuevos
+
+    const resultado = await contarUsuariosGlobal();
+
+    expect(mockRequireSuperAdmin).toHaveBeenCalled();
+    expect(mockGetTenantDb).toHaveBeenCalledWith("taller_perez");
+    expect(mockGetTenantDb).toHaveBeenCalledWith("taller_gomez");
+    expect(resultado).toEqual({ total: 11, nuevosUltimoMes: 1 });
+  });
+
+  it("returns zero counts when there are no tenants", async () => {
+    mockTenantFindMany.mockResolvedValue([]);
+
+    const resultado = await contarUsuariosGlobal();
+
+    expect(resultado).toEqual({ total: 0, nuevosUltimoMes: 0 });
+    expect(mockGetTenantDb).not.toHaveBeenCalled();
+  });
+
+  it("propagates the redirect rejection and never touches any tenant schema when requireSuperAdmin rejects", async () => {
+    mockRequireSuperAdmin.mockReset().mockRejectedValue(new Error("REDIRECT:/superadmin/login"));
+
+    await expect(contarUsuariosGlobal()).rejects.toThrow("REDIRECT:/superadmin/login");
+    expect(mockTenantFindMany).not.toHaveBeenCalled();
+    expect(mockGetTenantDb).not.toHaveBeenCalled();
   });
 });
