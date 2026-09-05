@@ -27,8 +27,8 @@ describe("CrearTenantForm", () => {
   it("auto-generates the slug from the nombre field until the user edits slug by hand", async () => {
     render(<CrearTenantForm planes={PLANES} />);
 
-    const nombreInput = screen.getByLabelText("Nombre del tenant");
-    const slugInput = screen.getByLabelText("Slug") as HTMLInputElement;
+    const nombreInput = screen.getByLabelText("Nombre del tenant *");
+    const slugInput = screen.getByLabelText("Slug del tenant (identificador interno) *") as HTMLInputElement;
 
     await userEvent.type(nombreInput, "Taller Familiar Gómez");
     expect(slugInput.value).toBe("taller-familiar-gomez");
@@ -54,9 +54,9 @@ describe("CrearTenantForm", () => {
 
     render(<CrearTenantForm planes={PLANES} />);
 
-    await userEvent.type(screen.getByLabelText("Nombre del tenant"), "Taller Familiar Gómez");
-    await userEvent.type(screen.getByLabelText("Email del admin"), "admin@tallerfamiliar.test");
-    await userEvent.type(screen.getByLabelText("Nombre del admin"), "Juan Pérez");
+    await userEvent.type(screen.getByLabelText("Nombre del tenant *"), "Taller Familiar Gómez");
+    await userEvent.type(screen.getByLabelText("Email del admin del taller *"), "admin@tallerfamiliar.test");
+    await userEvent.type(screen.getByLabelText("Nombre del administrador responsable *"), "Juan Pérez");
     await userEvent.click(screen.getByRole("button", { name: "Crear cliente" }));
 
     await waitFor(() => expect(screen.getByText("✅ Cliente creado exitosamente")).toBeInTheDocument());
