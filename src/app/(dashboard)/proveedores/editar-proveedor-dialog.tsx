@@ -23,7 +23,7 @@ export function EditarProveedorDialog({ proveedor }: { proveedor: ProveedorEdita
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<button type="button" className="absolute inset-0 z-10" />}>
+      <DialogTrigger render={<button type="button" className="absolute inset-0 z-10 cursor-pointer" />}>
         <span className="sr-only">Editar {proveedor.nombre}</span>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
