@@ -6,7 +6,7 @@ import {
   type TenantConPlan,
 } from "@/app/actions/super-admin-actions";
 import { requireSuperAdmin } from "@/lib/super-admin/guards";
-import { TenantRowActions } from "./tenant-row-actions";
+import { EstadoTenantButton, PlanTenantSelector } from "./tenant-row-actions";
 import { TenantFiltros } from "./tenant-filtros";
 import { CrearTenantForm } from "./crear-tenant-form";
 import { SignOutButton } from "./sign-out-button";
@@ -115,8 +115,8 @@ export default async function SuperAdminPage({
     {
       header: "Plan asignado",
       cell: (tenant) => (
-        <div className="flex flex-col gap-0.5">
-          <span className="font-semibold">{tenant.plan.nombre}</span>
+        <div className="flex flex-col gap-1.5">
+          <PlanTenantSelector tenantId={tenant.id} planIdActual={tenant.planId} planes={planes} />
           <span className="text-xs text-muted-foreground">{limiteSedesLabel(tenant.plan.maxSedes)}</span>
         </div>
       ),
@@ -124,14 +124,7 @@ export default async function SuperAdminPage({
     { header: "Fecha de creación", cell: (tenant) => formatoFecha.format(tenant.createdAt) },
     {
       header: "Acciones",
-      cell: (tenant) => (
-        <TenantRowActions
-          tenantId={tenant.id}
-          estadoActual={tenant.estado}
-          planIdActual={tenant.planId}
-          planes={planes}
-        />
-      ),
+      cell: (tenant) => <EstadoTenantButton tenantId={tenant.id} estadoActual={tenant.estado} />,
     },
   ];
 

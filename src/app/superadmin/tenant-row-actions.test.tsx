@@ -9,7 +9,7 @@ vi.mock("@/app/actions/super-admin-actions", () => ({
   cambiarPlanTenantAction: (...args: unknown[]) => mockCambiarPlanTenantAction(...args),
 }));
 
-import { TenantRowActions } from "./tenant-row-actions";
+import { EstadoTenantButton, PlanTenantSelector } from "./tenant-row-actions";
 
 const PLANES = [
   { id: "plan_basico", nombre: "Básico" },
@@ -17,29 +17,32 @@ const PLANES = [
   { id: "plan_avanzado", nombre: "Avanzado" },
 ];
 
-describe("TenantRowActions", () => {
+describe("EstadoTenantButton", () => {
   beforeEach(() => {
     mockCambiarEstadoTenantAction.mockReset().mockResolvedValue({ error: null, success: false });
-    mockCambiarPlanTenantAction.mockReset().mockResolvedValue({ error: null, success: false });
   });
 
   it("offers 'Suspender' for an ACTIVO tenant and 'Activar' for a SUSPENDIDO one", () => {
-    const { rerender } = render(
-      <TenantRowActions tenantId="t1" estadoActual="ACTIVO" planIdActual="plan_basico" planes={PLANES} />,
-    );
+    const { rerender } = render(<EstadoTenantButton tenantId="t1" estadoActual="ACTIVO" />);
     expect(screen.getByRole("button", { name: "Suspender" })).toBeInTheDocument();
 
-    rerender(<TenantRowActions tenantId="t1" estadoActual="SUSPENDIDO" planIdActual="plan_basico" planes={PLANES} />);
+    rerender(<EstadoTenantButton tenantId="t1" estadoActual="SUSPENDIDO" />);
     expect(screen.getByRole("button", { name: "Activar" })).toBeInTheDocument();
+  });
+});
+
+describe("PlanTenantSelector", () => {
+  beforeEach(() => {
+    mockCambiarPlanTenantAction.mockReset().mockResolvedValue({ error: null, success: false });
   });
 
   it("submits the new plan when the select changes and the form is submitted", async () => {
-    render(<TenantRowActions tenantId="t1" estadoActual="ACTIVO" planIdActual="plan_basico" planes={PLANES} />);
+    render(<PlanTenantSelector tenantId="t1" planIdActual="plan_basico" planes={PLANES} />);
 
     const trigger = screen.getByRole("combobox", { name: "Plan" });
     await userEvent.click(trigger);
     await userEvent.click(await screen.findByRole("option", { name: "Estándar" }));
-    await userEvent.click(screen.getByRole("button", { name: "Guardar plan" }));
+    await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(mockCambiarPlanTenantAction).toHaveBeenCalledWith("t1", expect.anything(), expect.any(FormData));
     const formData = mockCambiarPlanTenantAction.mock.calls[0][2] as FormData;
