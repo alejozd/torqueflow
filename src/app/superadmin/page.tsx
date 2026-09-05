@@ -1,4 +1,4 @@
-import { Building2, CheckCircle2, Info, Plus, Users, Zap } from "lucide-react";
+import { Building2, CheckCircle2, Info, Users, Zap } from "lucide-react";
 import {
   listTenantsConPlan,
   listPlanes,
@@ -12,7 +12,6 @@ import { CrearTenantForm } from "./crear-tenant-form";
 import { SignOutButton } from "./sign-out-button";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
@@ -166,10 +165,7 @@ export default async function SuperAdminPage({
             Administración centralizada de instancias de talleres y asignación de planes.
           </p>
         </div>
-        <a href="#crear-tenant" className={buttonVariants({ className: "bg-amber-600 text-white hover:bg-amber-700" })}>
-          <Plus />
-          Nuevo Taller
-        </a>
+        <CrearTenantForm planes={planes} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -216,15 +212,6 @@ export default async function SuperAdminPage({
           className={KPI_TONE.purple.cardBg}
         />
       </div>
-
-      <Card id="crear-tenant">
-        <CardHeader>
-          <CardTitle>Crear nuevo cliente</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <CrearTenantForm planes={planes} />
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader className="flex flex-wrap items-center justify-between gap-3">

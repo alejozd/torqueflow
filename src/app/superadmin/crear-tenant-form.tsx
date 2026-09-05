@@ -5,7 +5,6 @@ import { AtSign, Plus } from "lucide-react";
 import { crearTenantAction, type CrearTenantResult } from "@/app/actions/super-admin-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +12,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,11 +36,15 @@ export function CrearTenantForm({ planes }: { planes: { id: string; nombre: stri
   const [nombre, setNombre] = useState("");
   const [slug, setSlug] = useState("");
   const slugTouchedRef = useRef(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [credencialesOpen, setCredencialesOpen] = useState(false);
 
+  // Al crear exitosamente: cerrar el modal de creación y recién ahí abrir el
+  // de credenciales, para que nunca queden los dos Dialog abiertos a la vez.
   useEffect(() => {
     if (state.credenciales) {
-      setDialogOpen(true);
+      setFormOpen(false);
+      setCredencialesOpen(true);
     }
   }, [state.credenciales]);
 
@@ -65,16 +69,17 @@ export function CrearTenantForm({ planes }: { planes: { id: string; nombre: stri
 
   return (
     <>
-      <Card>
-        <CardContent>
+      <Dialog open={formOpen} onOpenChange={setFormOpen}>
+        <DialogTrigger render={<Button className="bg-amber-600 text-white hover:bg-amber-700" />}>
+          <Plus className="size-4" />
+          Nuevo Taller
+        </DialogTrigger>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-amber-700">Nuevo cliente / tenant</DialogTitle>
+            <DialogDescription>Despliegue de entorno multi-empresa</DialogDescription>
+          </DialogHeader>
           <form ref={formRef} action={formAction} className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="size-1.5 shrink-0 rounded-full bg-amber-600" />
-                <span className="text-lg font-semibold text-amber-700">Nuevo cliente / tenant</span>
-              </div>
-              <span className="text-sm text-muted-foreground">Despliegue de entorno multi-empresa</span>
-            </div>
             <p className="text-right text-xs text-muted-foreground">
               Los campos marcados con (*) son obligatorios
             </p>
@@ -157,13 +162,13 @@ export function CrearTenantForm({ planes }: { planes: { id: string; nombre: stri
               </Alert>
             ) : null}
           </form>
-        </CardContent>
-      </Card>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
-        open={dialogOpen}
+        open={credencialesOpen}
         onOpenChange={(open) => {
-          setDialogOpen(open);
+          setCredencialesOpen(open);
           if (!open) resetFormulario();
         }}
       >
@@ -194,7 +199,7 @@ export function CrearTenantForm({ planes }: { planes: { id: string; nombre: stri
             <Button
               type="button"
               onClick={() => {
-                setDialogOpen(false);
+                setCredencialesOpen(false);
                 resetFormulario();
               }}
             >
