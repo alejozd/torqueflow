@@ -7,31 +7,72 @@ vi.mock("@/lib/super-admin/guards", () => ({
 
 const mockTenantFindMany = vi.fn();
 const mockTenantUpdate = vi.fn();
+const mockTenantDelete = vi.fn();
 const mockPlanFindMany = vi.fn();
+const mockExecuteRawUnsafe = vi.fn();
 vi.mock("@/lib/db/public-client", () => ({
   publicDb: {
-    tenant: { findMany: (...args: unknown[]) => mockTenantFindMany(...args), update: (...args: unknown[]) => mockTenantUpdate(...args) },
+    tenant: {
+      findMany: (...args: unknown[]) => mockTenantFindMany(...args),
+      update: (...args: unknown[]) => mockTenantUpdate(...args),
+      delete: (...args: unknown[]) => mockTenantDelete(...args),
+    },
     plan: { findMany: (...args: unknown[]) => mockPlanFindMany(...args) },
+    $executeRawUnsafe: (...args: unknown[]) => mockExecuteRawUnsafe(...args),
   },
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+
+const mockProvisionTenant = vi.fn();
+vi.mock("../../../scripts/provision-tenant", () => ({
+  provisionTenant: (...args: unknown[]) => mockProvisionTenant(...args),
+}));
+
+const mockSeedTenantUser = vi.fn();
+vi.mock("../../../scripts/seed-tenant-user", () => ({
+  seedTenantUser: (...args: unknown[]) => mockSeedTenantUser(...args),
+}));
 
 import {
   listTenantsConPlan,
   listPlanes,
   cambiarEstadoTenantAction,
   cambiarPlanTenantAction,
+  crearTenantAction,
   type SuperAdminFormState,
+  type CrearTenantResult,
 } from "./super-admin-actions";
+import { TenantUserEmailConflictError } from "@/lib/tenant/tenant-user-email";
 
 const initialState: SuperAdminFormState = { error: null, success: false };
+const initialCrearTenantState: CrearTenantResult = { error: null, credenciales: null };
+
+function buildCrearTenantFormData(overrides: Partial<Record<string, string>> = {}): FormData {
+  const formData = new FormData();
+  const valores: Record<string, string> = {
+    nombre: "Taller Familiar Gómez",
+    slug: "taller-familiar",
+    planId: "plan_basico",
+    adminEmail: "admin@tallerfamiliar.test",
+    adminNombre: "Juan Pérez",
+    ...overrides,
+  };
+  for (const [key, value] of Object.entries(valores)) {
+    formData.set(key, value);
+  }
+  return formData;
+}
 
 beforeEach(() => {
   mockRequireSuperAdmin.mockReset().mockResolvedValue({ id: "sa1", email: "owner@torqueflow.test", nombre: "Alejo" });
   mockTenantFindMany.mockReset();
   mockTenantUpdate.mockReset();
+  mockTenantDelete.mockReset().mockResolvedValue({});
   mockPlanFindMany.mockReset();
+  mockExecuteRawUnsafe.mockReset().mockResolvedValue(undefined);
+  mockProvisionTenant.mockReset();
+  mockSeedTenantUser.mockReset();
 });
 
 describe("listTenantsConPlan", () => {
@@ -128,5 +169,77 @@ describe("cambiarPlanTenantAction", () => {
       "REDIRECT:/superadmin/login",
     );
     expect(mockTenantUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe("crearTenantAction", () => {
+  it("provisions the tenant and its admin user, returning a 12-character generated password", async () => {
+    mockProvisionTenant.mockResolvedValue({ id: "t1" });
+    mockSeedTenantUser.mockResolvedValue({ id: "u1" });
+
+    const result = await crearTenantAction(initialCrearTenantState, buildCrearTenantFormData());
+
+    expect(mockRequireSuperAdmin).toHaveBeenCalled();
+    expect(mockProvisionTenant).toHaveBeenCalledWith({
+      slug: "taller-familiar",
+      schemaName: "taller_familiar",
+      planId: "plan_basico",
+      nombre: "Taller Familiar Gómez",
+    });
+    expect(mockSeedTenantUser).toHaveBeenCalledWith({
+      schemaName: "taller_familiar",
+      email: "admin@tallerfamiliar.test",
+      password: expect.any(String),
+      nombre: "Juan Pérez",
+    });
+    expect(result.error).toBeNull();
+    expect(result.credenciales?.email).toBe("admin@tallerfamiliar.test");
+    expect(result.credenciales?.password).toHaveLength(12);
+  });
+
+  it("rejects blank required fields without calling requireSuperAdmin or provisioning anything", async () => {
+    const result = await crearTenantAction(initialCrearTenantState, buildCrearTenantFormData({ nombre: "" }));
+
+    expect(result.error).toBe("El nombre del tenant es obligatorio");
+    expect(mockRequireSuperAdmin).not.toHaveBeenCalled();
+    expect(mockProvisionTenant).not.toHaveBeenCalled();
+  });
+
+  it("propagates the redirect rejection and never provisions when requireSuperAdmin rejects", async () => {
+    mockRequireSuperAdmin.mockReset().mockRejectedValue(new Error("REDIRECT:/superadmin/login"));
+
+    await expect(crearTenantAction(initialCrearTenantState, buildCrearTenantFormData())).rejects.toThrow(
+      "REDIRECT:/superadmin/login",
+    );
+    expect(mockProvisionTenant).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a duplicate-slug error from provisionTenant and never calls seedTenantUser", async () => {
+    mockProvisionTenant.mockRejectedValue(new Error('Tenant already exists for slug "taller-familiar"'));
+
+    const result = await crearTenantAction(initialCrearTenantState, buildCrearTenantFormData());
+
+    expect(result.error).toMatch(/already exists/);
+    expect(mockSeedTenantUser).not.toHaveBeenCalled();
+  });
+
+  it("hides an unrecognized provisioning failure behind a generic message", async () => {
+    mockProvisionTenant.mockRejectedValue(new Error("ENOENT: some internal execSync detail"));
+
+    const result = await crearTenantAction(initialCrearTenantState, buildCrearTenantFormData());
+
+    expect(result.error).toBe("No se pudo crear el tenant, contactá soporte");
+  });
+
+  it("cleans up the orphaned tenant and schema when the admin email is already claimed by another tenant", async () => {
+    mockProvisionTenant.mockResolvedValue({ id: "t1" });
+    mockSeedTenantUser.mockRejectedValue(new TenantUserEmailConflictError("admin@tallerfamiliar.test"));
+
+    const result = await crearTenantAction(initialCrearTenantState, buildCrearTenantFormData());
+
+    expect(result.error).toBe("Este correo ya está registrado en otro taller.");
+    expect(result.credenciales).toBeNull();
+    expect(mockTenantDelete).toHaveBeenCalledWith({ where: { id: "t1" } });
+    expect(mockExecuteRawUnsafe).toHaveBeenCalledWith('DROP SCHEMA IF EXISTS "taller_familiar" CASCADE');
   });
 });

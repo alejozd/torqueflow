@@ -7,11 +7,18 @@ import type { Tenant } from "@/generated/prisma-public";
 export interface ProvisionTenantInput {
   slug: string;
   schemaName: string;
+  planId?: string;
+  nombre?: string;
 }
 
 const SAFE_IDENTIFIER = /^[a-z][a-z0-9_]*$/;
 
-export async function provisionTenant({ slug, schemaName }: ProvisionTenantInput): Promise<Tenant> {
+export async function provisionTenant({
+  slug,
+  schemaName,
+  planId,
+  nombre,
+}: ProvisionTenantInput): Promise<Tenant> {
   if (!isValidTenantSlug(slug)) {
     throw new Error(
       `Invalid slug: "${slug}" (must be lowercase letters/digits/hyphens, and not a reserved word)`,
@@ -42,8 +49,8 @@ export async function provisionTenant({ slug, schemaName }: ProvisionTenantInput
       stdio: "inherit",
     });
 
-    const planBasico = await publicDb.plan.findUniqueOrThrow({ where: { nombre: "Básico" } });
-    const tenant = await publicDb.tenant.create({ data: { slug, schemaName, planId: planBasico.id } });
+    const resolvedPlanId = planId ?? (await publicDb.plan.findUniqueOrThrow({ where: { nombre: "Básico" } })).id;
+    const tenant = await publicDb.tenant.create({ data: { slug, schemaName, planId: resolvedPlanId, nombre } });
 
     try {
       const tenantDb = getTenantDb(schemaName);

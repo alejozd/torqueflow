@@ -254,6 +254,26 @@ describe("provisionTenant", () => {
     expect(tenant.estado).toBe("ACTIVO");
   });
 
+  it("uses the provided planId instead of defaulting to Básico when one is passed", async () => {
+    const planAvanzado = await publicDb.plan.findUniqueOrThrow({ where: { nombre: "Avanzado" } });
+
+    const tenant = await provisionTenant({ slug: SLUG, schemaName: SCHEMA, planId: planAvanzado.id });
+
+    expect(tenant.planId).toBe(planAvanzado.id);
+  });
+
+  it("persists nombre when provided", async () => {
+    const tenant = await provisionTenant({ slug: SLUG, schemaName: SCHEMA, nombre: "Taller Familiar Gómez" });
+
+    expect(tenant.nombre).toBe("Taller Familiar Gómez");
+  });
+
+  it("leaves nombre null when omitted", async () => {
+    const tenant = await provisionTenant({ slug: SLUG, schemaName: SCHEMA });
+
+    expect(tenant.nombre).toBeNull();
+  });
+
   it("backfilled every pre-existing tenant row to the Avanzado plan", async () => {
     // "Pre-existing" means "created before this migration ran" -- not
     // "existed when this test started". The earlier snapshot-at-test-start

@@ -1,6 +1,7 @@
 import { listTenantsConPlan, listPlanes, type TenantConPlan } from "@/app/actions/super-admin-actions";
 import { requireSuperAdmin } from "@/lib/super-admin/guards";
 import { TenantRowActions } from "./tenant-row-actions";
+import { CrearTenantForm } from "./crear-tenant-form";
 import { SignOutButton } from "./sign-out-button";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +65,15 @@ export default async function SuperAdminPage() {
           <SignOutButton />
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Crear nuevo cliente</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CrearTenantForm planes={planes} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
