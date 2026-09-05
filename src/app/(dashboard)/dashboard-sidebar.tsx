@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   CalendarDays,
+  FileText,
   Home,
   Mail,
   MapPin,
@@ -52,6 +53,7 @@ const OPERACION: NavGroup = {
   label: "Operación",
   items: [
     { href: "/clientes", label: "Clientes", icon: Users },
+    { href: "/cotizaciones", label: "Cotizaciones", icon: FileText },
     { href: "/ordenes", label: "Órdenes", icon: Wrench },
     { href: "/citas", label: "Citas", icon: CalendarDays },
     { href: "/facturas", label: "Facturas", icon: Receipt },
