@@ -263,6 +263,12 @@ export default async function SuperAdminPage({
         </div>
       </div>
       </main>
+
+      <footer className="flex items-center gap-2 border-t border-border bg-muted/30 px-6 py-3 text-sm">
+        <span className="font-medium">TorqueFlow Multi-Tenant Cloud</span>
+        <span className="text-muted-foreground">•</span>
+        <span className="text-muted-foreground">Consola Superadmin</span>
+      </footer>
     </div>
   );
 }
