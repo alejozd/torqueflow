@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 export type KpiAccentColor = "default" | "success" | "warning" | "danger";
 export type KpiSubtitleIcon = "up" | "down" | "dot" | "none";
-export type KpiTone = "info" | "warning" | "success" | "danger" | "neutral";
+export type KpiTone = "info" | "warning" | "success" | "danger" | "neutral" | "purple";
 
 /**
  * Shared palette used across every KPI row in the app: a subtle card-wide
@@ -39,6 +39,11 @@ export const KPI_TONE: Record<KpiTone, { cardBg: string; iconBg: string; icon: s
     cardBg: "bg-gray-50 dark:bg-gray-500/10",
     iconBg: "bg-gray-100 dark:bg-gray-500/20",
     icon: "text-gray-600 dark:text-gray-400",
+  },
+  purple: {
+    cardBg: "bg-purple-50 dark:bg-purple-500/10",
+    iconBg: "bg-purple-100 dark:bg-purple-500/20",
+    icon: "text-purple-600 dark:text-purple-400",
   },
 };
 

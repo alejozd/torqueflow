@@ -15,8 +15,9 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { KpiCard } from "@/components/ui/kpi-card";
+import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { inicialesDeSlug, colorAvatarPorId, limiteSedesLabel, construirIdsDisplay } from "./page-helpers";
+import { cn } from "@/lib/utils";
 
 // Same convention as (dashboard)/layout.tsx's getIniciales.
 function getIniciales(nombre: string): string {
@@ -179,8 +180,9 @@ export default async function SuperAdminPage({
             tenantsNuevosUltimoMes > 0 ? `↑ +${tenantsNuevosUltimoMes} nuevo(s) este mes` : "Sin altas este mes"
           }
           subtitleColor={tenantsNuevosUltimoMes > 0 ? "success" : "default"}
-          icon={<Building2 className="size-5" />}
-          iconBgColor="bg-amber-50"
+          icon={<Building2 className={cn("size-5", KPI_TONE.info.icon)} />}
+          iconBgColor={KPI_TONE.info.iconBg}
+          className={KPI_TONE.info.cardBg}
         />
         <KpiCard
           title="Talleres activos"
@@ -188,15 +190,17 @@ export default async function SuperAdminPage({
           valueColor="success"
           subtitle={`${porcentajeOperatividad}% de operatividad`}
           subtitleColor={porcentajeOperatividad === 100 ? "success" : "default"}
-          icon={<CheckCircle2 className="size-5" />}
-          iconBgColor="bg-green-50"
+          icon={<CheckCircle2 className={cn("size-5", KPI_TONE.success.icon)} />}
+          iconBgColor={KPI_TONE.success.iconBg}
+          className={KPI_TONE.success.cardBg}
         />
         <KpiCard
           title="Mix de planes"
           value={resumirMixDePlanes(tenants) || "Sin datos"}
           subtitle={`${planesDistintos} plan(es) distintos en uso`}
-          icon={<Zap className="size-5" />}
-          iconBgColor="bg-blue-50"
+          icon={<Zap className={cn("size-5", KPI_TONE.warning.icon)} />}
+          iconBgColor={KPI_TONE.warning.iconBg}
+          className={KPI_TONE.warning.cardBg}
         />
         <KpiCard
           title="Total de usuarios"
@@ -207,8 +211,9 @@ export default async function SuperAdminPage({
               : "Sin altas este mes"
           }
           subtitleColor={usuariosGlobal.nuevosUltimoMes > 0 ? "success" : "default"}
-          icon={<Users className="size-5" />}
-          iconBgColor="bg-purple-50"
+          icon={<Users className={cn("size-5", KPI_TONE.purple.icon)} />}
+          iconBgColor={KPI_TONE.purple.iconBg}
+          className={KPI_TONE.purple.cardBg}
         />
       </div>
 
