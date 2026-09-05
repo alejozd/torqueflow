@@ -66,6 +66,7 @@ model Usuario {
   facturasEmitidas Factura[]
   pagosRegistrados Pago[]
   citasCreadas     Cita[]              @relation("CitaCreadoPor")
+  cotizacionesCreadas Cotizacion[]     @relation("CotizacionCreadoPor")
   sedes            UsuarioSede[]
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
@@ -83,6 +84,7 @@ model Cliente {
   ordenes             OrdenTrabajo[]
   facturas            Factura[]
   citas               Cita[]
+  cotizaciones        Cotizacion[]
   recordatorios       RecordatorioEnviado[]
   notificacionesOrden NotificacionOrdenEnviada[]
   createdAt           DateTime                   @default(now()) @map("created_at")
@@ -141,6 +143,7 @@ model Vehiculo {
   historial            HistorialVehiculo[]
   ordenes              OrdenTrabajo[]
   citas                Cita[]
+  cotizaciones         Cotizacion[]
   recordatorios        RecordatorioEnviado[]
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
@@ -173,6 +176,7 @@ model Sede {
   bodegas   Bodega[]
   usuarios  UsuarioSede[]
   citas     Cita[]
+  cotizaciones Cotizacion[]
   createdAt DateTime       @default(now()) @map("created_at")
   updatedAt DateTime       @updatedAt @map("updated_at")
 
@@ -214,6 +218,7 @@ model OrdenTrabajo {
   manoDeObra         ManoDeObra[]
   dvi                Dvi?
   factura            Factura?
+  cotizacion         Cotizacion?
   notificaciones     NotificacionOrdenEnviada[]
   entregadaAt        DateTime?                  @map("entregada_at")
   anuladaAt          DateTime?                  @map("anulada_at")
@@ -337,6 +342,7 @@ model Repuesto {
   proveedor    Proveedor?             @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
   entradaItems EntradaMercanciaItem[]
   itemsOrden   ItemOrden[]
+  itemsCotizacion ItemCotizacion[]
   createdAt    DateTime               @default(now()) @map("created_at")
   updatedAt    DateTime               @updatedAt @map("updated_at")
 
@@ -520,4 +526,71 @@ model NotificacionOrdenEnviada {
   @@index([ordenId, enviadoAt])
   @@index([clienteId])
   @@map("notificaciones_orden_enviadas")
+}
+
+enum EstadoCotizacion {
+  BORRADOR
+  ENVIADA
+  APROBADA
+  RECHAZADA
+  VENCIDA
+}
+
+enum TipoItemCotizacion {
+  REPUESTO
+  MANO_OBRA
+}
+
+/// A price quote given to a customer before work starts. Independent of
+/// OrdenTrabajo (unlike Factura, which always closes one out): a Cotizacion
+/// may never turn into an order, and ordenId is only set once staff approve it
+/// and create the resulting OrdenTrabajo -- see EstadoCotizacion.APROBADA.
+model Cotizacion {
+  id           String             @id @default(cuid())
+  numero       Int                @unique @default(autoincrement())
+  estado       EstadoCotizacion   @default(BORRADOR)
+  clienteId    String             @map("cliente_id")
+  cliente      Cliente            @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  vehiculoId   String             @map("vehiculo_id")
+  vehiculo     Vehiculo           @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  sedeId       String             @map("sede_id")
+  sede         Sede               @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  motivo       String
+  validaHasta  DateTime?          @map("valida_hasta")
+  descuentoPct Decimal            @default(0) @map("descuento_pct") @db.Decimal(5, 2)
+  subtotal     Decimal            @default(0) @db.Decimal(10, 2)
+  descuento    Decimal            @default(0) @db.Decimal(10, 2)
+  iva          Decimal            @default(0) @db.Decimal(10, 2)
+  total        Decimal            @default(0) @db.Decimal(10, 2)
+  notas        String?
+  creadoPorId  String             @map("creado_por_id")
+  creadoPor    Usuario            @relation("CotizacionCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  ordenId      String?            @unique @map("orden_id")
+  orden        OrdenTrabajo?      @relation(fields: [ordenId], references: [id], onDelete: SetNull)
+  items        ItemCotizacion[]
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  @@index([clienteId])
+  @@index([vehiculoId])
+  @@index([sedeId])
+  @@index([estado])
+  @@map("cotizaciones")
+}
+
+model ItemCotizacion {
+  id             String             @id @default(cuid())
+  cotizacionId   String             @map("cotizacion_id")
+  cotizacion     Cotizacion         @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  tipo           TipoItemCotizacion
+  repuestoId     String?            @map("repuesto_id")
+  repuesto       Repuesto?          @relation(fields: [repuestoId], references: [id], onDelete: SetNull)
+  descripcion    String
+  cantidad       Decimal            @db.Decimal(6, 2)
+  precioUnitario Decimal            @map("precio_unitario") @db.Decimal(10, 2)
+  createdAt      DateTime           @default(now()) @map("created_at")
+
+  @@index([cotizacionId])
+  @@index([repuestoId])
+  @@map("items_cotizacion")
 }
