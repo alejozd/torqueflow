@@ -1,4 +1,4 @@
-import { Building2, CheckCircle2, Plus, Users, Zap } from "lucide-react";
+import { Building2, CheckCircle2, Info, Plus, Users, Zap } from "lucide-react";
 import {
   listTenantsConPlan,
   listPlanes,
@@ -7,6 +7,7 @@ import {
 } from "@/app/actions/super-admin-actions";
 import { requireSuperAdmin } from "@/lib/super-admin/guards";
 import { TenantRowActions } from "./tenant-row-actions";
+import { TenantFiltros } from "./tenant-filtros";
 import { CrearTenantForm } from "./crear-tenant-form";
 import { SignOutButton } from "./sign-out-button";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
@@ -15,6 +16,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { KpiCard } from "@/components/ui/kpi-card";
+import { inicialesDeSlug, colorAvatarPorId, limiteSedesLabel, construirIdsDisplay } from "./page-helpers";
 
 // Same convention as (dashboard)/layout.tsx's getIniciales.
 function getIniciales(nombre: string): string {
@@ -28,11 +30,6 @@ function getIniciales(nombre: string): string {
 const ESTADO_LABELS: Record<"ACTIVO" | "SUSPENDIDO", string> = {
   ACTIVO: "Activo",
   SUSPENDIDO: "Suspendido",
-};
-
-const ESTADO_BADGE_CLASSNAME: Record<"ACTIVO" | "SUSPENDIDO", string> = {
-  ACTIVO: "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]",
-  SUSPENDIDO: "",
 };
 
 const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" });
@@ -49,7 +46,12 @@ function resumirMixDePlanes(tenants: TenantConPlan[]): string {
     .join(" · ");
 }
 
-export default async function SuperAdminPage() {
+export default async function SuperAdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ estado?: string; planId?: string }>;
+}) {
+  const { estado, planId } = await searchParams;
   const superAdmin = await requireSuperAdmin();
   const [tenants, planes, usuariosGlobal] = await Promise.all([
     listTenantsConPlan(),
@@ -63,25 +65,62 @@ export default async function SuperAdminPage() {
   const tenantsActivos = tenants.filter((tenant) => tenant.estado === "ACTIVO").length;
   const porcentajeOperatividad = tenants.length > 0 ? Math.round((tenantsActivos / tenants.length) * 100) : 100;
   const planesDistintos = new Set(tenants.map((tenant) => tenant.plan.nombre)).size;
+  const idsDisplay = construirIdsDisplay(tenants);
+
+  const estadoFiltro = estado === "ACTIVO" || estado === "SUSPENDIDO" ? estado : undefined;
+  const planIdFiltro = planId && planes.some((plan) => plan.id === planId) ? planId : undefined;
+  const tenantsFiltrados = tenants.filter(
+    (tenant) =>
+      (!estadoFiltro || tenant.estado === estadoFiltro) && (!planIdFiltro || tenant.planId === planIdFiltro),
+  );
 
   const columns: DataTableColumn<TenantConPlan>[] = [
     {
       header: "Taller",
-      cell: (tenant) => tenant.nombre ?? tenant.slug,
-      searchValue: (tenant) => tenant.nombre ?? tenant.slug,
+      cell: (tenant) => (
+        <div className="flex items-center gap-3">
+          <Avatar>
+            <AvatarFallback className={colorAvatarPorId(tenant.id)}>
+              {inicialesDeSlug(tenant.slug)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col gap-0.5">
+            <span className="font-semibold">{tenant.nombre ?? tenant.slug}</span>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span>{tenant.slug}</span>
+              <Badge variant="outline" className="px-2 py-0.5 text-xs">
+                {idsDisplay.get(tenant.id)}
+              </Badge>
+            </div>
+          </div>
+        </div>
+      ),
+      searchValue: (tenant) => `${tenant.nombre ?? ""} ${tenant.slug}`,
     },
     {
       header: "Estado",
       cell: (tenant) => (
         <Badge
-          variant={tenant.estado === "SUSPENDIDO" ? "destructive" : undefined}
-          className={ESTADO_BADGE_CLASSNAME[tenant.estado]}
+          variant="outline"
+          className={
+            tenant.estado === "SUSPENDIDO"
+              ? "border-red-200 bg-red-50 text-red-700"
+              : "border-green-200 bg-green-50 text-green-700"
+          }
         >
-          {ESTADO_LABELS[tenant.estado]}
+          ● {ESTADO_LABELS[tenant.estado]}
         </Badge>
       ),
     },
-    { header: "Plan", cell: (tenant) => tenant.plan.nombre },
+    {
+      header: "Plan asignado",
+      cell: (tenant) => (
+        <div className="flex flex-col gap-0.5">
+          <span className="font-semibold">{tenant.plan.nombre}</span>
+          <span className="text-xs text-muted-foreground">{limiteSedesLabel(tenant.plan.maxSedes)}</span>
+        </div>
+      ),
+    },
     { header: "Fecha de creación", cell: (tenant) => formatoFecha.format(tenant.createdAt) },
     {
       header: "Acciones",
@@ -190,13 +229,19 @@ export default async function SuperAdminPage() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Listado</CardTitle>
+        <CardHeader className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <CardTitle>Listado de talleres</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Instancias aprovisionadas y configuraciones de plan activas
+            </p>
+          </div>
+          <TenantFiltros planes={planes} />
         </CardHeader>
         <CardContent>
           <DataTable
             columns={columns}
-            rows={tenants}
+            rows={tenantsFiltrados}
             getRowKey={(tenant) => tenant.id}
             emptyMessage="No hay talleres registrados."
             searchable
@@ -205,6 +250,18 @@ export default async function SuperAdminPage() {
           />
         </CardContent>
       </Card>
+
+      <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <Info className="size-5 shrink-0 text-amber-600" />
+        <div className="flex flex-col gap-1">
+          <p className="font-semibold text-amber-900">Aislamiento de bases de datos por tenant</p>
+          <p className="text-sm text-amber-800">
+            Cada cliente registrado opera con esquemas independientes de PostgreSQL. Suspender un taller
+            congela inmediatamente las sesiones activas del taller sin eliminar sus datos de facturación ni
+            órdenes históricas.
+          </p>
+        </div>
+      </div>
       </main>
     </div>
   );

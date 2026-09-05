@@ -35,7 +35,13 @@ export function TenantRowActions({
     <div className="flex flex-col gap-2">
       <form action={estadoFormAction} className="flex flex-col gap-1.5">
         <input type="hidden" name="estado" value={nuevoEstado} />
-        <Button type="submit" variant="outline" size="sm" disabled={estadoPending}>
+        <Button
+          type="submit"
+          variant="outline"
+          size="sm"
+          disabled={estadoPending}
+          className={estadoActual === "ACTIVO" ? "text-red-600 hover:bg-red-50" : undefined}
+        >
           {estadoActual === "ACTIVO" ? "Suspender" : "Activar"}
         </Button>
         {estadoState.error ? (
