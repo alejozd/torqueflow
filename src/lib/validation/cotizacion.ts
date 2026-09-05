@@ -1,8 +1,11 @@
 import { z } from "zod";
 import { requiredMoney } from "./money";
 
+// clienteId is deliberately not part of this schema: same rule
+// createOrdenDesdeVehiculoAction documents (src/app/actions/orden-actions.ts) --
+// it is derived server-side from the vehículo so "create a cotización for
+// vehicle X under client Y" can't be forged from form data.
 export const crearCotizacionInputSchema = z.object({
-  clienteId: z.string().min(1, "Selecciona un cliente"),
   vehiculoId: z.string().min(1, "Selecciona un vehículo"),
   motivo: z.string().min(1, "El motivo es obligatorio").max(500, "El motivo es demasiado largo"),
   validaHasta: z.coerce.date().optional(),
