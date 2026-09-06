@@ -7,7 +7,6 @@ import { registrarPagoAction, type PagoFormState } from "@/app/actions/pago-acti
 import { pagoInputSchema } from "@/lib/validation/factura";
 import type { EstadoFactura } from "@/generated/prisma-tenant";
 import type { z } from "zod";
-import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +33,11 @@ export function RegistrarPagoForm({ facturaId, estado }: { facturaId: string; es
   const { field: metodoPagoField } = useController({ name: "metodoPago", control });
 
   if (estado === "PAGADA") {
-    return <p role="status">Factura pagada</p>;
+    return (
+      <p role="status" className="text-sm text-muted-foreground">
+        Factura pagada
+      </p>
+    );
   }
 
   return (
@@ -52,67 +55,84 @@ export function RegistrarPagoForm({ facturaId, estado }: { facturaId: string; es
           formAction(formData);
         }),
       )}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-3"
     >
-      <FormGroup label="Pago">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="monto">Monto</Label>
-            <Input
-              id="monto"
-              type="number"
-              min="0.01"
-              step="0.01"
-              required
-              className="font-mono"
-              aria-invalid={errors.monto ? true : undefined}
-              aria-describedby={errors.monto ? "monto-error" : undefined}
-              {...register("monto")}
-            />
-            {errors.monto ? <p id="monto-error">{errors.monto.message}</p> : null}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="metodoPago">Método de pago</Label>
-            <SelectField
-              id="metodoPago"
-              aria-invalid={errors.metodoPago ? true : undefined}
-              aria-describedby={errors.metodoPago ? "metodoPago-error" : undefined}
-              value={metodoPagoField.value ?? ""}
-              onValueChange={metodoPagoField.onChange}
-              items={[
-                { value: "EFECTIVO", label: "Efectivo" },
-                { value: "TARJETA", label: "Tarjeta" },
-                { value: "TRANSFERENCIA", label: "Transferencia" },
-                { value: "OTRO", label: "Otro" },
-              ]}
-            />
-            {errors.metodoPago ? <p id="metodoPago-error">{errors.metodoPago.message}</p> : null}
-          </div>
-
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
-            <Label htmlFor="referencia">Referencia (opcional)</Label>
-            <Input
-              id="referencia"
-              aria-invalid={errors.referencia ? true : undefined}
-              aria-describedby={errors.referencia ? "referencia-error" : undefined}
-              {...register("referencia")}
-            />
-            {errors.referencia ? <p id="referencia-error">{errors.referencia.message}</p> : null}
-          </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="monto">Monto</Label>
+          <Input
+            id="monto"
+            type="number"
+            min="0.01"
+            step="0.01"
+            required
+            className="font-mono"
+            aria-invalid={errors.monto ? true : undefined}
+            aria-describedby={errors.monto ? "monto-error" : undefined}
+            {...register("monto")}
+          />
+          {errors.monto ? (
+            <p id="monto-error" className="text-sm text-destructive">
+              {errors.monto.message}
+            </p>
+          ) : null}
         </div>
-      </FormGroup>
 
-      <Button type="submit" disabled={isPending}>
-        {isPending ? "Registrando..." : "Registrar pago"}
-      </Button>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="metodoPago">Método de pago</Label>
+          <SelectField
+            id="metodoPago"
+            aria-invalid={errors.metodoPago ? true : undefined}
+            aria-describedby={errors.metodoPago ? "metodoPago-error" : undefined}
+            value={metodoPagoField.value ?? ""}
+            onValueChange={metodoPagoField.onChange}
+            items={[
+              { value: "EFECTIVO", label: "Efectivo" },
+              { value: "TARJETA", label: "Tarjeta" },
+              { value: "TRANSFERENCIA", label: "Transferencia" },
+              { value: "OTRO", label: "Otro" },
+            ]}
+          />
+          {errors.metodoPago ? (
+            <p id="metodoPago-error" className="text-sm text-destructive">
+              {errors.metodoPago.message}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="referencia">Referencia (opcional)</Label>
+          <Input
+            id="referencia"
+            aria-invalid={errors.referencia ? true : undefined}
+            aria-describedby={errors.referencia ? "referencia-error" : undefined}
+            {...register("referencia")}
+          />
+          {errors.referencia ? (
+            <p id="referencia-error" className="text-sm text-destructive">
+              {errors.referencia.message}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label className="invisible">Registrar</Label>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? "Registrando..." : "Registrar pago"}
+          </Button>
+        </div>
+      </div>
 
       {state.error ? (
         <Alert variant="destructive">
           <AlertDescription>{state.error}</AlertDescription>
         </Alert>
       ) : null}
-      {state.success ? <p role="status">Pago registrado</p> : null}
+      {state.success ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          Pago registrado
+        </p>
+      ) : null}
     </form>
   );
 }
