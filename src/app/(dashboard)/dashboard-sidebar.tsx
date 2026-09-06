@@ -87,11 +87,12 @@ function isActiveHref(pathname: string, href: string): boolean {
 }
 
 // Fase 11-14: the mockup's active nav item is NOT the generic shadcn dark
-// --sidebar-accent grey -- it's the brand accent at 10% opacity with the
-// darker accent text, exact oklch values from the mockup (not the theme's
-// --sidebar-accent/--sidebar-accent-foreground tokens).
-const ACTIVE_ITEM_CLASSNAME =
-  "data-active:bg-[oklch(0.62_0.19_45/0.10)] data-active:text-[oklch(0.45_0.15_45)] data-active:font-medium";
+// --sidebar-accent grey -- it's the brand accent at 10% opacity, exact oklch
+// value from the mockup (not the theme's --sidebar-accent token). Text is
+// plain white rather than the mockup's darker accent tint: against the dark
+// sidebar background that darker tint read as low-contrast/muted, and white
+// keeps the active label clearly the brightest text in the list.
+const ACTIVE_ITEM_CLASSNAME = "data-active:bg-[oklch(0.62_0.19_45/0.10)] data-active:text-white data-active:font-medium";
 
 function NavItemButton({ href, label, icon: Icon, pathname, badgeCount }: NavItem & { pathname: string }) {
   const active = isActiveHref(pathname, href);
