@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { AlertTriangle, CheckCircle, Clock, Percent } from "lucide-react";
-import { listCotizaciones, listVehiculosParaCotizacion, type CotizacionConDetalle } from "@/app/actions/cotizacion-actions";
+import { AlertTriangle, CheckCircle, Clock, PhoneCall, Percent } from "lucide-react";
+import { listCotizaciones, listVehiculosParaCotizacion, type CotizacionListItem } from "@/app/actions/cotizacion-actions";
 import { NuevaCotizacionDialog } from "./nueva-cotizacion-dialog";
 import type { EstadoCotizacion } from "@/generated/prisma-tenant";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { inferirColorVehiculo } from "@/lib/color-vehiculo";
-import { formatoFechaCorta } from "@/lib/fecha-bogota";
+import { esCotizacionPendienteDeSeguimiento } from "@/lib/cotizacion/seguimiento-pendiente";
+import { formatoFechaCorta, formatoFechaRelativa } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
 
 const ESTADOS_VALIDOS: EstadoCotizacion[] = ["BORRADOR", "ENVIADA", "APROBADA", "RECHAZADA", "VENCIDA"];
@@ -54,15 +55,16 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", {
   maximumFractionDigits: 0,
 });
 
-function construirHrefCotizaciones(base: { estado?: EstadoCotizacion; q?: string }): string {
+function construirHrefCotizaciones(base: { estado?: EstadoCotizacion; q?: string; pendientes?: boolean }): string {
   const params = new URLSearchParams();
   if (base.estado) params.set("estado", base.estado);
   if (base.q) params.set("q", base.q);
+  if (base.pendientes) params.set("pendientes", "1");
   const query = params.toString();
   return query ? `/cotizaciones?${query}` : "/cotizaciones";
 }
 
-const COLUMNS: DataTableColumn<CotizacionConDetalle>[] = [
+const COLUMNS: DataTableColumn<CotizacionListItem>[] = [
   {
     header: "Cotización",
     cell: (cotizacion) => (
@@ -126,6 +128,28 @@ const COLUMNS: DataTableColumn<CotizacionConDetalle>[] = [
       ),
   },
   {
+    header: "Último seguimiento",
+    cell: (cotizacion) => {
+      const ultimo = cotizacion.seguimientos[0];
+      return ultimo ? (
+        <span className="text-sm">{formatoFechaRelativa(ultimo.fecha, new Date())}</span>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      );
+    },
+  },
+  {
+    header: "Próximo seguimiento",
+    cell: (cotizacion) => {
+      const proximo = cotizacion.seguimientos[0]?.proximoSeguimiento;
+      return proximo ? (
+        <span className="text-sm">{formatoFechaCorta.format(proximo)}</span>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      );
+    },
+  },
+  {
     header: "Ítems",
     cell: (cotizacion) => <span className="text-sm">{cotizacion.items.length}</span>,
   },
@@ -139,17 +163,23 @@ const COLUMNS: DataTableColumn<CotizacionConDetalle>[] = [
 export default async function CotizacionesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ estado?: string; q?: string }>;
+  searchParams: Promise<{ estado?: string; q?: string; pendientes?: string }>;
 }) {
-  const { estado, q } = await searchParams;
+  const { estado, q, pendientes } = await searchParams;
   const estadoFiltro = ESTADOS_VALIDOS.includes(estado as EstadoCotizacion) ? (estado as EstadoCotizacion) : undefined;
   const busqueda = q?.trim().toLowerCase() ?? "";
+  const pendienteFiltro = pendientes === "1";
+
+  const ahora = new Date();
 
   // Fetched once, unfiltered: the KPI cards summarize every cotización of the
   // sede regardless of which estado the list below is currently filtered to.
   const [cotizaciones, vehiculos] = await Promise.all([listCotizaciones(), listVehiculosParaCotizacion()]);
   const filtradas = cotizaciones
     .filter((cotizacion) => !estadoFiltro || cotizacion.estado === estadoFiltro)
+    .filter(
+      (cotizacion) => !pendienteFiltro || esCotizacionPendienteDeSeguimiento(cotizacion, cotizacion.seguimientos[0], ahora),
+    )
     .filter(
       (cotizacion) =>
         !busqueda ||
@@ -158,12 +188,14 @@ export default async function CotizacionesPage({
         cotizacion.vehiculo.placa.toLowerCase().includes(busqueda),
     );
 
-  const ahora = new Date();
   const enUnaSemana = new Date(ahora.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   const abiertas = cotizaciones.filter((cotizacion) => cotizacion.estado === "BORRADOR" || cotizacion.estado === "ENVIADA");
   const enviadas = cotizaciones.filter((cotizacion) => cotizacion.estado === "ENVIADA");
   const pendientesRespuestaMonto = enviadas.reduce((suma, cotizacion) => suma + Number(cotizacion.total), 0);
+  const pendientesSeguimiento = cotizaciones.filter((cotizacion) =>
+    esCotizacionPendienteDeSeguimiento(cotizacion, cotizacion.seguimientos[0], ahora),
+  );
 
   const inicioMes = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), 1));
   const aprobadasMes = cotizaciones.filter((cotizacion) => cotizacion.estado === "APROBADA" && cotizacion.updatedAt >= inicioMes);
@@ -189,7 +221,7 @@ export default async function CotizacionesPage({
         <NuevaCotizacionDialog vehiculos={vehiculos} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
         <KpiCard
           title="Abiertas"
           value={abiertas.length}
@@ -234,6 +266,15 @@ export default async function CotizacionesPage({
           iconBgColor={KPI_TONE.danger.iconBg}
           className={KPI_TONE.danger.cardBg}
         />
+
+        <KpiCard
+          title="Pendientes de seguimiento"
+          value={pendientesSeguimiento.length}
+          subtitle="requieren contacto"
+          icon={<PhoneCall className={cn("size-5", KPI_TONE.purple.icon)} />}
+          iconBgColor={KPI_TONE.purple.iconBg}
+          className={KPI_TONE.purple.cardBg}
+        />
       </div>
 
       <Card>
@@ -244,7 +285,7 @@ export default async function CotizacionesPage({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <nav aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
               <Link
-                href={construirHrefCotizaciones({ q })}
+                href={construirHrefCotizaciones({ q, pendientes: pendienteFiltro })}
                 className={cn(
                   "rounded-full border px-3 py-1 text-sm transition-colors",
                   estadoFiltro === undefined
@@ -257,7 +298,7 @@ export default async function CotizacionesPage({
               {ESTADOS_VALIDOS.map((value) => (
                 <Link
                   key={value}
-                  href={construirHrefCotizaciones({ estado: value, q })}
+                  href={construirHrefCotizaciones({ estado: value, q, pendientes: pendienteFiltro })}
                   className={cn(
                     "rounded-full border px-3 py-1 text-sm transition-colors",
                     estadoFiltro === value
@@ -268,10 +309,26 @@ export default async function CotizacionesPage({
                   {ESTADO_LABELS[value]}
                 </Link>
               ))}
+              {/* Boolean-style toggle, deliberately separate from the estado
+                  chip group above: "pendiente de seguimiento" is orthogonal
+                  to estado (see esCotizacionPendienteDeSeguimiento), so it
+                  combines with any estado filter rather than replacing it. */}
+              <Link
+                href={construirHrefCotizaciones({ estado: estadoFiltro, q, pendientes: !pendienteFiltro })}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-sm transition-colors",
+                  pendienteFiltro
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
+                )}
+              >
+                Pendientes de seguimiento
+              </Link>
             </nav>
 
             <form role="search" className="flex items-center gap-2">
               {estadoFiltro ? <input type="hidden" name="estado" value={estadoFiltro} /> : null}
+              {pendienteFiltro ? <input type="hidden" name="pendientes" value="1" /> : null}
               <Input
                 type="search"
                 name="q"

@@ -74,6 +74,22 @@ const COTIZACION_DETAIL_INCLUDE = {
 
 export type CotizacionConDetalle = Prisma.CotizacionGetPayload<{ include: typeof COTIZACION_DETAIL_INCLUDE }>;
 
+// The list page's "Último seguimiento"/"Próximo seguimiento" columns and its
+// pendiente-de-seguimiento filter/KPI only ever need the single most recent
+// seguimiento per row (not who logged it) -- a narrower, cheaper include than
+// getCotizacion's full history above.
+const COTIZACION_LIST_INCLUDE = {
+  cliente: { select: { id: true, nombre: true, telefono: true, email: true, documento: true } },
+  vehiculo: { select: { id: true, placa: true, marca: true, modelo: true, color: true, anio: true } },
+  sede: { select: { id: true, nombre: true } },
+  creadoPor: { select: { id: true, nombre: true } },
+  items: { orderBy: { createdAt: "asc" } },
+  seguimientos: { orderBy: { fecha: "desc" }, take: 1 },
+  orden: { select: { id: true } },
+} satisfies Prisma.CotizacionInclude;
+
+export type CotizacionListItem = Prisma.CotizacionGetPayload<{ include: typeof COTIZACION_LIST_INCLUDE }>;
+
 const NO_ENCONTRADA = "Cotización no encontrada";
 
 function revalidarCotizaciones(id?: string): void {
@@ -106,12 +122,12 @@ async function recomputeCotizacionTotales(tx: Prisma.TransactionClient, cotizaci
   await tx.cotizacion.update({ where: { id: cotizacionId }, data: { subtotal, descuento, iva, total } });
 }
 
-export async function listCotizaciones(estado?: EstadoCotizacion): Promise<CotizacionConDetalle[]> {
+export async function listCotizaciones(estado?: EstadoCotizacion): Promise<CotizacionListItem[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.cotizacion.findMany({
     where: { ...scopeCotizacion(session.user.sedeActivaId), ...(estado ? { estado } : {}) },
-    include: COTIZACION_DETAIL_INCLUDE,
+    include: COTIZACION_LIST_INCLUDE,
     orderBy: { createdAt: "desc" },
   });
 }
