@@ -108,7 +108,7 @@ describe("registrarSeguimientoAction", () => {
         tipo: "WHATSAPP",
         fecha: new Date("2026-09-05T10:30:00-05:00"),
         resultado: "Confirmó que revisará la cotización",
-        proximoSeguimiento: new Date("2026-09-10"),
+        proximoSeguimiento: new Date("2026-09-10T00:00:00-05:00"),
         creadoPorId: "u1",
       },
     });

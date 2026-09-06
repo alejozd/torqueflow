@@ -24,10 +24,16 @@ export const registrarSeguimientoInputSchema = z.object({
     .refine((valor) => !Number.isNaN(Date.parse(valor)), "La fecha no es válida")
     .transform((valor) => new Date(`${valor}${OFFSET_TALLER}`)),
   resultado: z.string().min(1, "El resultado es obligatorio").max(1000, "El resultado es demasiado largo"),
-  // Optional plain <input type="date">, same convention as crearCotizacionInputSchema's
-  // validaHasta -- callers pass `formData.get("proximoSeguimiento") || undefined` so an
-  // untouched/empty field never reaches z.coerce.date() as "".
-  proximoSeguimiento: z.coerce.date().optional(),
+  // Optional plain <input type="date">. Unlike crearCotizacionInputSchema's validaHasta
+  // (z.coerce.date(), which parses "YYYY-MM-DD" as UTC midnight and therefore renders one
+  // day early once formatted in America/Bogota), this field anchors to Bogota midnight
+  // explicitly -- callers pass `formData.get("proximoSeguimiento") || undefined` so an
+  // untouched/empty field never reaches the schema as "".
+  proximoSeguimiento: z
+    .string()
+    .refine((valor) => !Number.isNaN(Date.parse(valor)), "La fecha de próximo seguimiento no es válida")
+    .transform((valor) => new Date(`${valor}T00:00:00${OFFSET_TALLER}`))
+    .optional(),
 });
 
 export type RegistrarSeguimientoInput = z.infer<typeof registrarSeguimientoInputSchema>;
