@@ -16,6 +16,22 @@ const formatoFechaLarga = new Intl.DateTimeFormat("es-CO", {
   timeZone: "America/Bogota",
 });
 
+// hourCycle: "h23" avoids the Intl quirk where plain hour12:false formatting
+// can render midnight as "24" instead of "0" in some environments.
+const formatoHoraBogota = new Intl.DateTimeFormat("en-US", {
+  hour: "2-digit",
+  hourCycle: "h23",
+  timeZone: "America/Bogota",
+});
+
+/** Bogota-local greeting: mañana 05:00-11:59, tarde 12:00-18:59, noche resto. */
+function saludoPorHora(fecha: Date): string {
+  const hora = Number(formatoHoraBogota.format(fecha));
+  if (hora >= 5 && hora < 12) return "Buenos días";
+  if (hora >= 12 && hora < 19) return "Buenas tardes";
+  return "Buenas noches";
+}
+
 const formatoMoneda = new Intl.NumberFormat("es-CO", {
   style: "currency",
   currency: "COP",
@@ -100,7 +116,7 @@ export default async function InicioPage() {
     <main className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold">Buenos días, {nombre}</h1>
+          <h1 className="text-2xl font-semibold">{saludoPorHora(new Date())}, {nombre}</h1>
           <p className="text-sm text-muted-foreground">{capitalizar(formatoFechaLarga.format(new Date()))}</p>
           <p className="text-sm text-muted-foreground">
             Sede {session.user.sedeActivaNombre} · {overview.enTaller.total} órdenes en el taller ·{" "}
