@@ -3,6 +3,8 @@ import { Toaster } from "sonner";
 import { requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { publicDb } from "@/lib/db/public-client";
+import { esCotizacionPendienteDeSeguimiento } from "@/lib/cotizacion/seguimiento-pendiente";
+import { scopeCotizacion } from "@/lib/sede/scope";
 import { SignOutButton } from "./sign-out-button";
 import { CambiarSedeButton } from "./cambiar-sede-button";
 import { DashboardSessionProvider } from "./dashboard-session-provider";
@@ -33,10 +35,35 @@ async function loadPlanInfo(session: Awaited<ReturnType<typeof requireSession>>)
   return { nombre: tenant.plan.nombre, maxSedes: tenant.plan.maxSedes, sedesCount };
 }
 
+/**
+ * Sidebar badge on "Cotizaciones" -- same esCotizacionPendienteDeSeguimiento
+ * rule as the list page's own KPI/filter (src/lib/cotizacion/seguimiento-pendiente.ts),
+ * applied here across every sede-scoped cotización still open (BORRADOR/ENVIADA).
+ */
+async function loadCotizacionesPendientesSeguimiento(
+  session: Awaited<ReturnType<typeof requireSession>>,
+): Promise<number> {
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  const cotizaciones = await tenantDb.cotizacion.findMany({
+    where: { ...scopeCotizacion(session.user.sedeActivaId), estado: { in: ["BORRADOR", "ENVIADA"] } },
+    select: {
+      estado: true,
+      seguimientos: { orderBy: { fecha: "desc" }, take: 1, select: { proximoSeguimiento: true } },
+    },
+  });
+  const ahora = new Date();
+  return cotizaciones.filter((cotizacion) =>
+    esCotizacionPendienteDeSeguimiento(cotizacion, cotizacion.seguimientos[0], ahora),
+  ).length;
+}
+
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const session = await requireSession();
   const esAdmin = session.user.role === "ADMIN";
-  const plan = await loadPlanInfo(session);
+  const [plan, cotizacionesPendientesSeguimiento] = await Promise.all([
+    loadPlanInfo(session),
+    loadCotizacionesPendientesSeguimiento(session),
+  ]);
   // Same name-or-email fallback as the Inicio page's greeting.
   const nombreUsuario = session.user.name ?? session.user.email ?? "";
 
@@ -45,7 +72,12 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       <TooltipProvider>
         <Toaster richColors position="top-right" />
         <SidebarProvider>
-          <DashboardSidebar esAdmin={esAdmin} tenantSlug={session.user.tenantSlug} plan={plan} />
+          <DashboardSidebar
+            esAdmin={esAdmin}
+            tenantSlug={session.user.tenantSlug}
+            plan={plan}
+            cotizacionesPendientesSeguimiento={cotizacionesPendientesSeguimiento}
+          />
           <SidebarInset>
             <header className="flex flex-wrap items-center gap-3 border-b bg-background px-4 py-3">
               <div className="flex flex-1 flex-wrap items-center justify-between gap-3">

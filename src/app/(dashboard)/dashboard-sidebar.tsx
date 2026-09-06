@@ -32,12 +32,14 @@ import {
   SidebarMenuItem,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  badgeCount?: number | null;
 }
 
 interface NavGroup {
@@ -91,19 +93,38 @@ function isActiveHref(pathname: string, href: string): boolean {
 const ACTIVE_ITEM_CLASSNAME =
   "data-active:bg-[oklch(0.62_0.19_45/0.10)] data-active:text-[oklch(0.45_0.15_45)] data-active:font-medium";
 
-function NavItemButton({ href, label, icon: Icon, pathname }: NavItem & { pathname: string }) {
+function NavItemButton({ href, label, icon: Icon, pathname, badgeCount }: NavItem & { pathname: string }) {
   const active = isActiveHref(pathname, href);
   return (
     <SidebarMenuItem>
       <SidebarMenuButton isActive={active} render={<Link href={href} />} className={cn(ACTIVE_ITEM_CLASSNAME)}>
         <Icon />
-        {label}
+        <span className="flex-1 truncate">{label}</span>
+        {typeof badgeCount === "number" && badgeCount > 0 ? (
+          <Badge
+            variant="secondary"
+            className="h-5 min-w-5 shrink-0 justify-center rounded-full px-1 font-mono text-[10px] group-data-[collapsible=icon]:hidden"
+          >
+            {badgeCount}
+          </Badge>
+        ) : null}
       </SidebarMenuButton>
     </SidebarMenuItem>
   );
 }
 
-function NavGroupSection({ group, pathname }: { group: NavGroup; pathname: string }) {
+function NavGroupSection({
+  group,
+  pathname,
+  badgeCountByHref,
+}: {
+  group: NavGroup;
+  pathname: string;
+  /** Overlays a badgeCount onto the item whose href matches, without turning
+   * the static OPERACION/INVENTARIO/ADMINISTRACION nav data into something
+   * dynamic. Currently only /cotizaciones (pendientes de seguimiento) uses it. */
+  badgeCountByHref?: Record<string, number | null | undefined>;
+}) {
   return (
     <SidebarGroup>
       <SidebarGroupLabel className="text-[0.6875rem] font-medium tracking-wider text-sidebar-foreground/50 uppercase">
@@ -112,7 +133,12 @@ function NavGroupSection({ group, pathname }: { group: NavGroup; pathname: strin
       <SidebarGroupContent>
         <SidebarMenu>
           {group.items.map((item) => (
-            <NavItemButton key={item.href} {...item} pathname={pathname} />
+            <NavItemButton
+              key={item.href}
+              {...item}
+              badgeCount={badgeCountByHref?.[item.href] ?? item.badgeCount}
+              pathname={pathname}
+            />
           ))}
         </SidebarMenu>
       </SidebarGroupContent>
@@ -130,10 +156,12 @@ export function DashboardSidebar({
   esAdmin,
   tenantSlug,
   plan,
+  cotizacionesPendientesSeguimiento,
 }: {
   esAdmin: boolean;
   tenantSlug: string;
   plan: SidebarPlanInfo | null;
+  cotizacionesPendientesSeguimiento?: number;
 }) {
   const pathname = usePathname();
 
@@ -163,7 +191,11 @@ export function DashboardSidebar({
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-          <NavGroupSection group={OPERACION} pathname={pathname} />
+          <NavGroupSection
+            group={OPERACION}
+            pathname={pathname}
+            badgeCountByHref={{ "/cotizaciones": cotizacionesPendientesSeguimiento }}
+          />
           <NavGroupSection group={INVENTARIO} pathname={pathname} />
           {esAdmin ? <NavGroupSection group={ADMINISTRACION} pathname={pathname} /> : null}
         </SidebarContent>
