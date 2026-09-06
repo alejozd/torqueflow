@@ -4,7 +4,9 @@ import { requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { publicDb } from "@/lib/db/public-client";
 import { esCotizacionPendienteDeSeguimiento } from "@/lib/cotizacion/seguimiento-pendiente";
-import { scopeCotizacion } from "@/lib/sede/scope";
+import { scopeCita, scopeCotizacion, scopeFactura, scopeOrden, scopeRepuesto } from "@/lib/sede/scope";
+import { buildRangoFechas } from "@/lib/reportes/rango-fechas";
+import { ultimosNDiasIso } from "@/lib/dashboard/calculos";
 import { SignOutButton } from "./sign-out-button";
 import { CambiarSedeButton } from "./cambiar-sede-button";
 import { DashboardSessionProvider } from "./dashboard-session-provider";
@@ -57,12 +59,76 @@ async function loadCotizacionesPendientesSeguimiento(
   ).length;
 }
 
+/**
+ * Sidebar badge on "Órdenes" -- same "en el taller" definition as the Inicio
+ * dashboard's own KPI (getDashboardOverview in dashboard-actions.ts): orders
+ * still open (not yet ENTREGADA/ANULADA).
+ */
+async function loadOrdenesEnTaller(session: Awaited<ReturnType<typeof requireSession>>): Promise<number> {
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  return tenantDb.ordenTrabajo.count({
+    where: { ...scopeOrden(session.user.sedeActivaId), estado: { in: ["BORRADOR", "EN_PROCESO", "TERMINADA"] } },
+  });
+}
+
+/**
+ * Sidebar badge on "Citas" -- same "citas de hoy" definition as the Inicio
+ * dashboard's own KPI: today's appointments, excluding cancelled ones.
+ */
+async function loadCitasHoy(session: Awaited<ReturnType<typeof requireSession>>): Promise<number> {
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  const hoyIso = ultimosNDiasIso(new Date(), 1)[0]!;
+  const rangoHoy = buildRangoFechas(hoyIso, hoyIso);
+  return tenantDb.cita.count({
+    where: {
+      ...scopeCita(session.user.sedeActivaId),
+      fechaHora: { gte: rangoHoy.gte, lt: rangoHoy.lt },
+      estado: { not: "CANCELADA" },
+    },
+  });
+}
+
+/**
+ * Sidebar badge on "Facturas" -- same "cartera.facturasPendientes"
+ * definition as the Inicio dashboard's own KPI: invoices still awaiting
+ * payment.
+ */
+async function loadFacturasPendientes(session: Awaited<ReturnType<typeof requireSession>>): Promise<number> {
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  return tenantDb.factura.count({ where: { ...scopeFactura(session.user.sedeActivaId), estado: "PENDIENTE" } });
+}
+
+/**
+ * Sidebar badge on "Repuestos" -- same "stockBajo.count" definition as the
+ * Inicio dashboard's own KPI: stockActual <= stockMinimo, computed in JS
+ * because Prisma cannot compare two columns of the same row in a `where`.
+ */
+async function loadRepuestosStockBajo(session: Awaited<ReturnType<typeof requireSession>>): Promise<number> {
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  const repuestos = await tenantDb.repuesto.findMany({
+    where: scopeRepuesto(session.user.sedeActivaId),
+    select: { stockActual: true, stockMinimo: true },
+  });
+  return repuestos.filter((repuesto) => repuesto.stockActual <= repuesto.stockMinimo).length;
+}
+
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const session = await requireSession();
   const esAdmin = session.user.role === "ADMIN";
-  const [plan, cotizacionesPendientesSeguimiento] = await Promise.all([
+  const [
+    plan,
+    cotizacionesPendientesSeguimiento,
+    ordenesEnTaller,
+    citasHoy,
+    facturasPendientes,
+    repuestosStockBajo,
+  ] = await Promise.all([
     loadPlanInfo(session),
     loadCotizacionesPendientesSeguimiento(session),
+    loadOrdenesEnTaller(session),
+    loadCitasHoy(session),
+    loadFacturasPendientes(session),
+    loadRepuestosStockBajo(session),
   ]);
   // Same name-or-email fallback as the Inicio page's greeting.
   const nombreUsuario = session.user.name ?? session.user.email ?? "";
@@ -77,6 +143,10 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             tenantSlug={session.user.tenantSlug}
             plan={plan}
             cotizacionesPendientesSeguimiento={cotizacionesPendientesSeguimiento}
+            ordenesEnTaller={ordenesEnTaller}
+            citasHoy={citasHoy}
+            facturasPendientes={facturasPendientes}
+            repuestosStockBajo={repuestosStockBajo}
           />
           <SidebarInset>
             <header className="flex flex-wrap items-center gap-3 border-b bg-background px-4 py-3">

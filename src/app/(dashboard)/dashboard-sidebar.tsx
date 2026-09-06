@@ -157,11 +157,19 @@ export function DashboardSidebar({
   tenantSlug,
   plan,
   cotizacionesPendientesSeguimiento,
+  ordenesEnTaller,
+  citasHoy,
+  facturasPendientes,
+  repuestosStockBajo,
 }: {
   esAdmin: boolean;
   tenantSlug: string;
   plan: SidebarPlanInfo | null;
   cotizacionesPendientesSeguimiento?: number;
+  ordenesEnTaller?: number;
+  citasHoy?: number;
+  facturasPendientes?: number;
+  repuestosStockBajo?: number;
 }) {
   const pathname = usePathname();
 
@@ -194,9 +202,18 @@ export function DashboardSidebar({
           <NavGroupSection
             group={OPERACION}
             pathname={pathname}
-            badgeCountByHref={{ "/cotizaciones": cotizacionesPendientesSeguimiento }}
+            badgeCountByHref={{
+              "/cotizaciones": cotizacionesPendientesSeguimiento,
+              "/ordenes": ordenesEnTaller,
+              "/citas": citasHoy,
+              "/facturas": facturasPendientes,
+            }}
           />
-          <NavGroupSection group={INVENTARIO} pathname={pathname} />
+          <NavGroupSection
+            group={INVENTARIO}
+            pathname={pathname}
+            badgeCountByHref={{ "/repuestos": repuestosStockBajo }}
+          />
           {esAdmin ? <NavGroupSection group={ADMINISTRACION} pathname={pathname} /> : null}
         </SidebarContent>
         {plan ? (
