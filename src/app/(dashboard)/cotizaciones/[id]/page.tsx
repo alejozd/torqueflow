@@ -7,10 +7,11 @@ import { EliminarItemCotizacionButton } from "./eliminar-item-cotizacion-button"
 import { DescuentoCotizacionForm } from "./descuento-cotizacion-form";
 import { EnviarCotizacionForm } from "./enviar-cotizacion-form";
 import { DecisionCotizacionButtons } from "./decision-cotizacion-buttons";
+import { RegistrarSeguimientoDialog } from "./registrar-seguimiento-dialog";
 import type { EstadoCotizacion } from "@/generated/prisma-tenant";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type Cotizacion = NonNullable<Awaited<ReturnType<typeof getCotizacion>>>;
@@ -193,6 +194,9 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
                   · {cotizacion.items.length} {cotizacion.items.length === 1 ? "ítem" : "ítems"}
                 </span>
               </CardTitle>
+              <CardAction>
+                <RegistrarSeguimientoDialog cotizacionId={cotizacion.id} />
+              </CardAction>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               {puedeEditar ? <AgregarItemCotizacionForm cotizacionId={cotizacion.id} repuestos={repuestos} /> : null}
