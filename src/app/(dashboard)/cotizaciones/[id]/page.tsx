@@ -8,10 +8,11 @@ import { DescuentoCotizacionForm } from "./descuento-cotizacion-form";
 import { EnviarCotizacionForm } from "./enviar-cotizacion-form";
 import { DecisionCotizacionButtons } from "./decision-cotizacion-buttons";
 import { RegistrarSeguimientoDialog } from "./registrar-seguimiento-dialog";
-import type { EstadoCotizacion } from "@/generated/prisma-tenant";
+import type { EstadoCotizacion, TipoSeguimiento } from "@/generated/prisma-tenant";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatoFechaCorta } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
 
 type Cotizacion = NonNullable<Awaited<ReturnType<typeof getCotizacion>>>;
@@ -49,6 +50,31 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", {
 });
 
 const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" });
+
+const TIPO_SEGUIMIENTO_LABELS: Record<TipoSeguimiento, string> = {
+  LLAMADA: "Llamada",
+  WHATSAPP: "WhatsApp",
+  EMAIL: "Correo electrónico",
+  VISITA: "Visita",
+  NOTA: "Nota",
+};
+
+const TIPO_SEGUIMIENTO_BADGE_CLASSNAME: Record<TipoSeguimiento, string> = {
+  LLAMADA: "border-transparent bg-[oklch(0.44_0.12_250/0.1)] text-[oklch(0.44_0.12_250)]",
+  WHATSAPP: "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]",
+  EMAIL: "border-transparent bg-[oklch(0.7_0.15_60/0.15)] text-[oklch(0.55_0.15_60)]",
+  VISITA: "border-transparent bg-[oklch(0.55_0.2_300/0.12)] text-[oklch(0.5_0.18_300)]",
+  NOTA: "",
+};
+
+// Same "fecha · hora" split as citas/[id]/page.tsx: formatoFechaCorta (shared,
+// src/lib/fecha-bogota.ts) for the date, plus a local Bogota hour formatter.
+const formatoHoraSeguimiento = new Intl.DateTimeFormat("es-CO", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+  timeZone: "America/Bogota",
+});
 
 function buildItemColumns(cotizacionId: string, puedeEditar: boolean): DataTableColumn<ItemRow>[] {
   const columns: DataTableColumn<ItemRow>[] = [
@@ -194,9 +220,6 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
                   · {cotizacion.items.length} {cotizacion.items.length === 1 ? "ítem" : "ítems"}
                 </span>
               </CardTitle>
-              <CardAction>
-                <RegistrarSeguimientoDialog cotizacionId={cotizacion.id} />
-              </CardAction>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               {puedeEditar ? <AgregarItemCotizacionForm cotizacionId={cotizacion.id} repuestos={repuestos} /> : null}
@@ -206,6 +229,47 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
                 getRowKey={(item) => item.id}
                 emptyMessage="Esta cotización no tiene conceptos agregados."
               />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                Historial de seguimiento{" "}
+                <span className="font-normal text-muted-foreground">
+                  · {cotizacion.seguimientos.length} {cotizacion.seguimientos.length === 1 ? "registro" : "registros"}
+                </span>
+              </CardTitle>
+              <CardAction>
+                <RegistrarSeguimientoDialog cotizacionId={cotizacion.id} />
+              </CardAction>
+            </CardHeader>
+            <CardContent>
+              {cotizacion.seguimientos.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Aún no hay seguimientos registrados.</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {cotizacion.seguimientos.map((seguimiento) => (
+                    <div key={seguimiento.id} className="flex flex-col gap-1 rounded-lg border border-border p-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className={TIPO_SEGUIMIENTO_BADGE_CLASSNAME[seguimiento.tipo]}>
+                          {TIPO_SEGUIMIENTO_LABELS[seguimiento.tipo]}
+                        </Badge>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {formatoFechaCorta.format(seguimiento.fecha)} · {formatoHoraSeguimiento.format(seguimiento.fecha)}
+                        </span>
+                      </div>
+                      <p className="text-sm">{seguimiento.resultado}</p>
+                      {seguimiento.proximoSeguimiento ? (
+                        <p className="text-xs text-muted-foreground">
+                          Próximo seguimiento: {formatoFechaCorta.format(seguimiento.proximoSeguimiento)}
+                        </p>
+                      ) : null}
+                      <p className="text-[10px] text-muted-foreground">Registrado por {seguimiento.creadoPor.nombre}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

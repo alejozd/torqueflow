@@ -62,6 +62,13 @@ const COTIZACION_DETAIL_INCLUDE = {
   sede: { select: { id: true, nombre: true } },
   creadoPor: { select: { id: true, nombre: true } },
   items: { orderBy: { createdAt: "asc" } },
+  // Full history (no `take`) with the logger's name -- the list page's row
+  // only needs the single latest seguimiento, but that is a distinct,
+  // narrower include applied at listCotizaciones's own query.
+  seguimientos: {
+    orderBy: { fecha: "desc" },
+    include: { creadoPor: { select: { id: true, nombre: true } } },
+  },
   orden: { select: { id: true } },
 } satisfies Prisma.CotizacionInclude;
 
