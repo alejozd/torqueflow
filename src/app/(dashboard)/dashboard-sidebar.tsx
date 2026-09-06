@@ -102,7 +102,7 @@ function NavItemButton({ href, label, icon: Icon, pathname, badgeCount }: NavIte
         <span className="flex-1 truncate">{label}</span>
         {typeof badgeCount === "number" && badgeCount > 0 ? (
           <Badge
-            variant="secondary"
+            variant="default"
             className="h-5 min-w-5 shrink-0 justify-center rounded-full px-1 font-mono text-[10px] group-data-[collapsible=icon]:hidden"
           >
             {badgeCount}
