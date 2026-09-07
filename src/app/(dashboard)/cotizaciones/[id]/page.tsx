@@ -318,7 +318,11 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
                 <CardTitle>Envío y vigencia</CardTitle>
               </CardHeader>
               <CardContent>
-                <EnviarCotizacionForm cotizacionId={cotizacion.id} />
+                <EnviarCotizacionForm
+                  cotizacionId={cotizacion.id}
+                  cliente={{ nombre: cotizacion.cliente.nombre, telefono: cotizacion.cliente.telefono }}
+                  resumen={{ numero: cotizacion.numero, placa: cotizacion.vehiculo.placa, total: Number(cotizacion.total) }}
+                />
               </CardContent>
             </Card>
           ) : null}
