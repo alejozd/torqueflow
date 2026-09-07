@@ -11,6 +11,7 @@ import {
   type CotizacionFormState,
   type VehiculoOption,
 } from "@/app/actions/cotizacion-actions";
+import { finDeMesBogotaIso } from "@/lib/fecha-bogota";
 import { normalizeForSearch } from "@/lib/search";
 import { crearCotizacionInputSchema } from "@/lib/validation/cotizacion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -44,7 +45,9 @@ export function NuevaCotizacionForm({ vehiculos }: { vehiculos: VehiculoOption[]
     formState: { errors },
   } = useForm<NuevaCotizacionFormInput>({
     resolver: zodResolver(nuevaCotizacionFormSchema),
-    defaultValues: { vehiculoId: "", motivo: "" },
+    // Válida hasta defaults to the last day of the current month (Bogota) --
+    // still freely editable, just saves the common case of "vigente este mes".
+    defaultValues: { vehiculoId: "", motivo: "", validaHasta: finDeMesBogotaIso(new Date()) },
   });
   const { field: vehiculoIdField } = useController({ name: "vehiculoId", control });
 

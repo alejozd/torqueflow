@@ -30,6 +30,13 @@ export function inicioMesBogota(fecha: Date, offsetMeses = 0): Date {
   return new Date(`${anio}-${mes}-01T00:00:00-05:00`);
 }
 
+/** "YYYY-MM-DD" of the last calendar day of fecha's Bogota month -- e.g. for a date-input default. */
+export function finDeMesBogotaIso(fecha: Date): string {
+  const inicioSiguienteMes = inicioMesBogota(fecha, 1);
+  const finDeMes = new Date(inicioSiguienteMes.getTime() - 24 * 60 * 60 * 1000);
+  return formatoDiaBogota.format(finDeMes);
+}
+
 /** Monday-start week. */
 export function inicioSemanaBogota(fecha: Date): Date {
   const inicioHoy = inicioDiaBogota(fecha);
