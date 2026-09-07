@@ -32,7 +32,24 @@ export interface ConfiguracionSmtpVista {
   fromNombre: string;
   activo: boolean;
   passwordConfigurada: boolean;
+  ultimaPruebaAt: Date | null;
+  ultimaPruebaExitosa: boolean | null;
+  ultimaPruebaDestino: string | null;
 }
+
+/** One row in the "Últimos envíos" panel -- merges three real send-tracking
+ * sources (see getUltimosEnviosSmtp) into one shape the UI can render without
+ * caring which table a row came from. */
+export interface EnvioEmailRow {
+  id: string;
+  tipo: "RECORDATORIO" | "NOTIFICACION_ORDEN" | "PRUEBA";
+  titulo: string;
+  destinatario: string;
+  ok: boolean;
+  enviadoAt: Date;
+}
+
+const MAX_ENVIOS_RECIENTES = 6;
 
 export async function getConfiguracionSmtp(): Promise<ConfiguracionSmtpVista | null> {
   const session = await requireRole(["ADMIN"]);
@@ -51,7 +68,80 @@ export async function getConfiguracionSmtp(): Promise<ConfiguracionSmtpVista | n
     fromNombre: fila.fromNombre,
     activo: fila.activo,
     passwordConfigurada: fila.passwordCifrado.length > 0,
+    ultimaPruebaAt: fila.ultimaPruebaAt,
+    ultimaPruebaExitosa: fila.ultimaPruebaExitosa,
+    ultimaPruebaDestino: fila.ultimaPruebaDestino,
   };
+}
+
+/**
+ * Unified, chronologically-sorted feed for the "Últimos envíos" panel.
+ * Merges three real send-tracking sources -- deliberately tenant-wide, not
+ * sede-scoped, matching prismaRecordatoriosGateway's established convention
+ * (there is no "sede activa" without a signed-in user, and these reads are
+ * for an ADMIN reviewing the whole tenant's mail activity):
+ *   - RecordatorioEnviado: one row per successfully-sent maintenance
+ *     reminder (no failure state -- every row here is a success).
+ *   - NotificacionOrdenEnviada: one row per order-status-notification
+ *     attempt, success or failure.
+ *   - The persisted "Enviar correo de prueba" result, if any.
+ */
+export async function getUltimosEnviosSmtp(): Promise<EnvioEmailRow[]> {
+  const session = await requireRole(["ADMIN"]);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const [recordatorios, notificaciones, configuracion] = await Promise.all([
+    tenantDb.recordatorioEnviado.findMany({
+      orderBy: { enviadoAt: "desc" },
+      take: MAX_ENVIOS_RECIENTES,
+      select: { emailDestino: true, enviadoAt: true, vehiculo: { select: { placa: true } } },
+    }),
+    tenantDb.notificacionOrdenEnviada.findMany({
+      orderBy: { enviadoAt: "desc" },
+      take: MAX_ENVIOS_RECIENTES,
+      select: {
+        emailDestino: true,
+        enviadoAt: true,
+        resultado: true,
+        estado: true,
+        orden: { select: { vehiculo: { select: { placa: true } } } },
+      },
+    }),
+    tenantDb.configuracionSmtp.findUnique({ where: { id: CONFIGURACION_SMTP_ID } }),
+  ]);
+
+  const filas: EnvioEmailRow[] = [
+    ...recordatorios.map((r, i) => ({
+      id: `recordatorio-${i}`,
+      tipo: "RECORDATORIO" as const,
+      titulo: `Recordatorio de mantenimiento · ${r.vehiculo.placa}`,
+      destinatario: r.emailDestino,
+      ok: true,
+      enviadoAt: r.enviadoAt,
+    })),
+    ...notificaciones.map((n, i) => ({
+      id: `notificacion-${i}`,
+      tipo: "NOTIFICACION_ORDEN" as const,
+      titulo: `Notificación de orden (${n.estado}) · ${n.orden.vehiculo.placa}`,
+      destinatario: n.emailDestino,
+      ok: n.resultado === "ENVIADA",
+      enviadoAt: n.enviadoAt,
+    })),
+  ];
+
+  if (configuracion?.ultimaPruebaAt) {
+    filas.push({
+      id: "prueba",
+      tipo: "PRUEBA",
+      titulo: "Correo de prueba",
+      destinatario: configuracion.ultimaPruebaDestino ?? "",
+      ok: configuracion.ultimaPruebaExitosa === true,
+      enviadoAt: configuracion.ultimaPruebaAt,
+    });
+  }
+
+  filas.sort((a, b) => b.enviadoAt.getTime() - a.enviadoAt.getTime());
+  return filas.slice(0, MAX_ENVIOS_RECIENTES);
 }
 
 export async function guardarConfiguracionSmtpAction(
@@ -160,11 +250,21 @@ export async function probarConfiguracionSmtpAction(
   } catch {
     // The raw SMTP/crypto error can carry the host, the user and internal IPs.
     // It is logged nowhere and shown as one generic message.
+    await tenantDb.configuracionSmtp.update({
+      where: { id: CONFIGURACION_SMTP_ID },
+      data: { ultimaPruebaAt: new Date(), ultimaPruebaExitosa: false, ultimaPruebaDestino: destino },
+    });
+    revalidatePath("/configuracion-smtp");
     return {
       error: "No se pudo enviar el correo de prueba. Revisa el servidor, el puerto y las credenciales.",
       success: false,
     };
   }
 
+  await tenantDb.configuracionSmtp.update({
+    where: { id: CONFIGURACION_SMTP_ID },
+    data: { ultimaPruebaAt: new Date(), ultimaPruebaExitosa: true, ultimaPruebaDestino: destino },
+  });
+  revalidatePath("/configuracion-smtp");
   return { error: null, success: true };
 }
