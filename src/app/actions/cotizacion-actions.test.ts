@@ -362,16 +362,32 @@ describe("enviarCotizacionAction", () => {
     expect(result).toEqual({ error: "Agrega al menos un ítem antes de enviar la cotización", success: false });
   });
 
-  it("rejects an invalid transition (already APROBADA)", async () => {
-    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ estado: "APROBADA", items: [{ id: "i1" }] }));
+  it("resends to an already-APROBADA cotización without mutating estado, still sending the email", async () => {
+    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ estado: "APROBADA", items: [{ id: "i1", descripcion: "Cambio de aceite", cantidad: "1", precioUnitario: "100000" }] }));
+    mockConfiguracionSmtpFindUnique.mockResolvedValue(filaSmtpActiva());
     const formData = new FormData();
     formData.set("canal", "EMAIL");
     formData.set("vigenciaDias", "5");
 
     const result = await enviarCotizacionAction("q1", enviarInitial, formData);
 
-    expect(result.success).toBe(false);
-    expect(result.error).toMatch(/No se puede cambiar de APROBADA a ENVIADA/);
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockEnviarEmail).toHaveBeenCalledTimes(1);
+    expect(mockCotizacionUpdate).not.toHaveBeenCalled();
+  });
+
+  it("resends to an already-ENVIADA cotización without mutating estado, still sending the email", async () => {
+    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ estado: "ENVIADA", items: [{ id: "i1", descripcion: "Cambio de aceite", cantidad: "1", precioUnitario: "100000" }] }));
+    mockConfiguracionSmtpFindUnique.mockResolvedValue(filaSmtpActiva());
+    const formData = new FormData();
+    formData.set("canal", "EMAIL");
+    formData.set("vigenciaDias", "5");
+
+    const result = await enviarCotizacionAction("q1", enviarInitial, formData);
+
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockEnviarEmail).toHaveBeenCalledTimes(1);
+    expect(mockCotizacionUpdate).not.toHaveBeenCalled();
   });
 
   it("transitions BORRADOR to ENVIADA and sets validaHasta from vigenciaDias", async () => {

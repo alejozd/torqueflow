@@ -322,20 +322,30 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
             </CardContent>
           </Card>
 
-          {cotizacion.estado === "BORRADOR" ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Envío y vigencia</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <EnviarCotizacionForm
-                  cotizacionId={cotizacion.id}
-                  cliente={{ nombre: cotizacion.cliente.nombre, telefono: cotizacion.cliente.telefono }}
-                  resumen={{ numero: cotizacion.numero, placa: cotizacion.vehiculo.placa, total: Number(cotizacion.total) }}
-                />
-              </CardContent>
-            </Card>
-          ) : null}
+          <Card>
+            <CardHeader>
+              <CardTitle>{cotizacion.estado === "BORRADOR" ? "Envío y vigencia" : "Reenviar cotización"}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <EnviarCotizacionForm
+                cotizacionId={cotizacion.id}
+                cliente={{ nombre: cotizacion.cliente.nombre, telefono: cotizacion.cliente.telefono }}
+                resumen={{
+                  numero: cotizacion.numero,
+                  placa: cotizacion.vehiculo.placa,
+                  items: cotizacion.items.map((item) => ({
+                    descripcion: item.descripcion,
+                    importe: Number(item.cantidad) * Number(item.precioUnitario),
+                  })),
+                  subtotal: Number(cotizacion.subtotal),
+                  descuento: Number(cotizacion.descuento),
+                  iva: Number(cotizacion.iva),
+                  total: Number(cotizacion.total),
+                }}
+                esReenvio={cotizacion.estado !== "BORRADOR"}
+              />
+            </CardContent>
+          </Card>
 
           {cotizacion.estado === "ENVIADA" ? (
             <Card>

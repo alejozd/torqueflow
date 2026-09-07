@@ -395,9 +395,6 @@ export async function enviarCotizacionAction(
   if (!cotizacion) {
     return { error: NO_ENCONTRADA, success: false };
   }
-  if (!isValidEstadoTransition(cotizacion.estado, "ENVIADA")) {
-    return { error: `No se puede cambiar de ${cotizacion.estado} a ENVIADA`, success: false };
-  }
   if (cotizacion.items.length === 0) {
     return { error: "Agrega al menos un ítem antes de enviar la cotización", success: false };
   }
@@ -453,17 +450,23 @@ export async function enviarCotizacionAction(
     }
   }
 
-  try {
-    await tenantDb.cotizacion.update({
-      where: { id: cotizacionId },
-      data: {
-        estado: "ENVIADA",
-        validaHasta,
-        notas: parsed.data.notas || null,
-      },
-    });
-  } catch (err) {
-    return { error: friendlyPrismaErrorMessage(err, "Error al enviar la cotización"), success: false };
+  // The state TRANSITION only happens the first time a cotización is sent
+  // (while it is still BORRADOR). Every later send -- ENVIADA, APROBADA,
+  // RECHAZADA or VENCIDA -- is a pure resend: nothing in the DB changes, the
+  // client just gets the message again.
+  if (cotizacion.estado === "BORRADOR") {
+    try {
+      await tenantDb.cotizacion.update({
+        where: { id: cotizacionId },
+        data: {
+          estado: "ENVIADA",
+          validaHasta,
+          notas: parsed.data.notas || null,
+        },
+      });
+    } catch (err) {
+      return { error: friendlyPrismaErrorMessage(err, "Error al enviar la cotización"), success: false };
+    }
   }
 
   revalidarCotizaciones(cotizacionId);

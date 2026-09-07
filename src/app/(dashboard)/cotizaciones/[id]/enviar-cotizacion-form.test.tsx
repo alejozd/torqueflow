@@ -9,7 +9,15 @@ vi.mock("@/app/actions/cotizacion-actions", () => ({
 
 import { EnviarCotizacionForm } from "./enviar-cotizacion-form";
 
-const RESUMEN = { numero: 42, placa: "ABC123", total: 250000 };
+const RESUMEN = {
+  numero: 42,
+  placa: "ABC123",
+  items: [{ descripcion: "Cambio de aceite", importe: 100000 }],
+  subtotal: 210000,
+  descuento: 0,
+  iva: 40000,
+  total: 250000,
+};
 
 async function selectCanal(user: ReturnType<typeof userEvent.setup>, label: string) {
   await user.click(screen.getByRole("combobox"));
@@ -102,5 +110,39 @@ describe("EnviarCotizacionForm", () => {
     expect(target).toBe("_blank");
     expect(callOrder[0]).toMatch(/^open:/);
     expect(callOrder[1]).toBe("action");
+
+    const textoDecodificado = decodeURIComponent(String(url).split("?text=")[1]);
+    expect(textoDecodificado).toContain("Cambio de aceite");
+    expect(textoDecodificado).toContain("*Total:*");
+  });
+
+  it("shows vigencia/notas fields and the 'Enviar al cliente' label when esReenvio is false (BORRADOR)", () => {
+    render(
+      <EnviarCotizacionForm
+        cotizacionId="q1"
+        cliente={{ nombre: "Ana Pérez", telefono: "3001234567" }}
+        resumen={RESUMEN}
+        esReenvio={false}
+      />,
+    );
+
+    expect(screen.getByLabelText("Vigencia (días)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Notas (opcional)")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enviar al cliente" })).toBeInTheDocument();
+  });
+
+  it("hides vigencia/notas fields and shows 'Reenviar al cliente' when esReenvio is true (non-BORRADOR)", () => {
+    render(
+      <EnviarCotizacionForm
+        cotizacionId="q1"
+        cliente={{ nombre: "Ana Pérez", telefono: "3001234567" }}
+        resumen={RESUMEN}
+        esReenvio
+      />,
+    );
+
+    expect(screen.queryByLabelText("Vigencia (días)")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Notas (opcional)")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reenviar al cliente" })).toBeInTheDocument();
   });
 });
