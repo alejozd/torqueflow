@@ -482,6 +482,14 @@ model ConfiguracionSmtp {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
+  /// Last "Enviar correo de prueba" attempt, so the settings page can show
+  /// "Última prueba: ... correcta/fallida" after a reload -- these three are
+  /// deliberately independent of activo/host/etc: a test result should
+  /// survive editing the form fields, and NOT get wiped by guardarConfiguracionSmtpAction.
+  ultimaPruebaAt      DateTime? @map("ultima_prueba_at")
+  ultimaPruebaExitosa Boolean?  @map("ultima_prueba_exitosa")
+  ultimaPruebaDestino String?   @map("ultima_prueba_destino")
+
   @@map("configuracion_smtp")
 }
 
