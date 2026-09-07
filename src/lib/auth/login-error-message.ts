@@ -8,5 +8,8 @@ export function getLoginErrorMessage(code: string | undefined): string | null {
   if (code === "tenant-suspendido") {
     return "Tu taller está suspendido. Contacta al proveedor del servicio.";
   }
+  if (code === "usuario-suspendido") {
+    return "Tu cuenta fue suspendida. Contacta a un administrador de tu taller.";
+  }
   return null;
 }

@@ -20,6 +20,12 @@ describe("getLoginErrorMessage", () => {
     );
   });
 
+  it("returns the user-suspended message for 'usuario-suspendido'", () => {
+    expect(getLoginErrorMessage("usuario-suspendido")).toBe(
+      "Tu cuenta fue suspendida. Contacta a un administrador de tu taller.",
+    );
+  });
+
   it("returns null when no code is provided", () => {
     expect(getLoginErrorMessage(undefined)).toBeNull();
   });
