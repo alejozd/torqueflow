@@ -13,7 +13,14 @@ import {
 import { computeCotizacionTotales } from "@/lib/cotizacion/totales";
 import { isValidEstadoTransition } from "@/lib/cotizacion/estado-transitions";
 import { assertCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
+import { construirMensajeCotizacion } from "@/lib/cotizacion/plantilla-envio";
 import { scopeCotizacion, scopeRepuesto } from "@/lib/sede/scope";
+import {
+  CONFIGURACION_SMTP_ID,
+  descifrarConfiguracionSmtp,
+  type ConfiguracionSmtpAlmacenada,
+} from "@/lib/email/smtp-config";
+import { enviarEmail } from "@/lib/email/enviar-email";
 import type { EstadoCotizacion, Prisma } from "@/generated/prisma-tenant";
 
 export interface CotizacionFormState {
@@ -379,7 +386,11 @@ export async function enviarCotizacionAction(
 
   const cotizacion = await tenantDb.cotizacion.findFirst({
     where: { id: cotizacionId, ...scopeCotizacion(session.user.sedeActivaId) },
-    include: { items: { select: { id: true } } },
+    include: {
+      items: { select: { id: true } },
+      cliente: { select: { nombre: true, email: true } },
+      vehiculo: { select: { placa: true, marca: true, modelo: true } },
+    },
   });
   if (!cotizacion) {
     return { error: NO_ENCONTRADA, success: false };
@@ -392,6 +403,47 @@ export async function enviarCotizacionAction(
   }
 
   const validaHasta = new Date(Date.now() + parsed.data.vigenciaDias * 24 * 60 * 60 * 1000);
+
+  // EMAIL is the only canal that actually delivers something -- WHATSAPP opens
+  // a wa.me deep link client-side and OTRO is a manual "I already shared this"
+  // record, so neither touches SMTP at all. A failed send here must not
+  // transition the estado: the whole point is not to lie about what happened
+  // (fall through to cotizacion.update only after enviarEmail resolves).
+  if (parsed.data.canal === "EMAIL") {
+    const filaSmtp = await tenantDb.configuracionSmtp.findUnique({ where: { id: CONFIGURACION_SMTP_ID } });
+    if (!filaSmtp || !filaSmtp.activo) {
+      return {
+        error:
+          "No se puede enviar por correo: el servidor SMTP no está configurado o está inactivo. Ve a Configuración → SMTP.",
+        success: false,
+      };
+    }
+    if (!cotizacion.cliente.email) {
+      return { error: "Este cliente no tiene correo registrado.", success: false };
+    }
+    try {
+      const config = descifrarConfiguracionSmtp(filaSmtp as ConfiguracionSmtpAlmacenada);
+      const mensaje = construirMensajeCotizacion(cotizacion.cliente.email, {
+        clienteNombre: cotizacion.cliente.nombre,
+        numero: cotizacion.numero,
+        placa: cotizacion.vehiculo.placa,
+        marca: cotizacion.vehiculo.marca,
+        modelo: cotizacion.vehiculo.modelo,
+        total: Number(cotizacion.total),
+        validaHasta,
+        tallerNombre: config.fromNombre,
+      });
+      await enviarEmail(config, mensaje);
+    } catch {
+      // Same rationale as probarConfiguracionSmtpAction's own catch: the raw
+      // SMTP/crypto error can carry the host, the user and internal IPs, so it
+      // is shown as one generic message rather than surfaced to the client.
+      return {
+        error: "No se pudo enviar la cotización por correo. Revisa el servidor, el puerto y las credenciales.",
+        success: false,
+      };
+    }
+  }
 
   try {
     await tenantDb.cotizacion.update({

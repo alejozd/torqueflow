@@ -1,4 +1,5 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
+import { cifrarSecreto } from "@/lib/crypto/secret-box";
 
 const mockRequireRole = vi.fn();
 const mockRequireSession = vi.fn();
@@ -14,6 +15,7 @@ const mockCotizacionFindFirst = vi.fn();
 const mockCotizacionCreate = vi.fn();
 const mockCotizacionUpdate = vi.fn();
 const mockRepuestoFindFirst = vi.fn();
+const mockConfiguracionSmtpFindUnique = vi.fn();
 
 const mockCotizacionFindUniqueOrThrow = vi.fn();
 const mockCotizacionUpdateTx = vi.fn();
@@ -43,11 +45,17 @@ vi.mock("@/lib/db/tenant-client", () => ({
       update: mockCotizacionUpdate,
     },
     repuesto: { findFirst: mockRepuestoFindFirst },
+    configuracionSmtp: { findUnique: mockConfiguracionSmtpFindUnique },
     $transaction: mockTransaction,
   }),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+
+const mockEnviarEmail = vi.fn();
+vi.mock("@/lib/email/enviar-email", () => ({
+  enviarEmail: (...args: unknown[]) => mockEnviarEmail(...args),
+}));
 
 import {
   crearCotizacionAction,
@@ -80,17 +88,39 @@ const rechazarInitial: RechazarCotizacionFormState = { error: null, success: fal
 function baseCotizacion(overrides: Record<string, unknown> = {}) {
   return {
     id: "q1",
+    numero: 42,
     estado: "BORRADOR",
     clienteId: "c1",
     vehiculoId: "v1",
     sedeId: "sede-1",
     descuentoPct: "0",
+    total: "100000",
     items: [],
+    cliente: { nombre: "Ana Pérez", email: "ana@cliente.test", telefono: "3001234567" },
+    vehiculo: { placa: "ABC123", marca: "Mazda", modelo: "3" },
+    ...overrides,
+  };
+}
+
+const CLAVE_SMTP_VALIDA = "0".repeat(63) + "1";
+const claveSmtpOriginal = process.env.SMTP_ENCRYPTION_KEY;
+
+function filaSmtpActiva(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "singleton",
+    host: "smtp.taller.test",
+    puerto: 587,
+    usuario: "avisos@taller.test",
+    passwordCifrado: cifrarSecreto("clave-del-taller"),
+    fromEmail: "avisos@taller.test",
+    fromNombre: "Taller Pérez",
+    activo: true,
     ...overrides,
   };
 }
 
 beforeEach(() => {
+  process.env.SMTP_ENCRYPTION_KEY = CLAVE_SMTP_VALIDA;
   mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
   mockRequireSession.mockReset().mockResolvedValue(SESSION_TECNICO);
   mockVehiculoFindUnique.mockReset();
@@ -100,6 +130,8 @@ beforeEach(() => {
   mockCotizacionCreate.mockReset();
   mockCotizacionUpdate.mockReset().mockResolvedValue({});
   mockRepuestoFindFirst.mockReset();
+  mockConfiguracionSmtpFindUnique.mockReset();
+  mockEnviarEmail.mockReset().mockResolvedValue(undefined);
   mockCotizacionFindUniqueOrThrow.mockReset().mockResolvedValue({ descuentoPct: "0", items: [] });
   mockCotizacionUpdateTx.mockReset().mockResolvedValue({});
   mockItemCotizacionCreate.mockReset().mockResolvedValue({});
@@ -108,6 +140,14 @@ beforeEach(() => {
   mockItemOrdenCreateTx.mockReset().mockResolvedValue({});
   mockManoDeObraCreateTx.mockReset().mockResolvedValue({});
   mockTransaction.mockClear();
+});
+
+afterEach(() => {
+  if (claveSmtpOriginal === undefined) {
+    delete process.env.SMTP_ENCRYPTION_KEY;
+  } else {
+    process.env.SMTP_ENCRYPTION_KEY = claveSmtpOriginal;
+  }
 });
 
 describe("crearCotizacionAction", () => {
@@ -354,6 +394,120 @@ describe("enviarCotizacionAction", () => {
     const fiveDaysMs = 5 * 24 * 60 * 60 * 1000;
     expect(call.data.validaHasta.getTime()).toBeGreaterThanOrEqual(before + fiveDaysMs);
     expect(call.data.validaHasta.getTime()).toBeLessThanOrEqual(after + fiveDaysMs);
+  });
+
+  it("EMAIL canal: refuses to send when no SMTP configuration is stored, without transitioning estado", async () => {
+    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ items: [{ id: "i1" }] }));
+    mockConfiguracionSmtpFindUnique.mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("canal", "EMAIL");
+    formData.set("vigenciaDias", "5");
+
+    const result = await enviarCotizacionAction("q1", enviarInitial, formData);
+
+    expect(result).toEqual({
+      error:
+        "No se puede enviar por correo: el servidor SMTP no está configurado o está inactivo. Ve a Configuración → SMTP.",
+      success: false,
+    });
+    expect(mockEnviarEmail).not.toHaveBeenCalled();
+    expect(mockCotizacionUpdate).not.toHaveBeenCalled();
+  });
+
+  it("EMAIL canal: refuses to send when the SMTP configuration is inactive, without transitioning estado", async () => {
+    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ items: [{ id: "i1" }] }));
+    mockConfiguracionSmtpFindUnique.mockResolvedValue(filaSmtpActiva({ activo: false }));
+    const formData = new FormData();
+    formData.set("canal", "EMAIL");
+    formData.set("vigenciaDias", "5");
+
+    const result = await enviarCotizacionAction("q1", enviarInitial, formData);
+
+    expect(result).toEqual({
+      error:
+        "No se puede enviar por correo: el servidor SMTP no está configurado o está inactivo. Ve a Configuración → SMTP.",
+      success: false,
+    });
+    expect(mockEnviarEmail).not.toHaveBeenCalled();
+    expect(mockCotizacionUpdate).not.toHaveBeenCalled();
+  });
+
+  it("EMAIL canal: refuses to send when the cliente has no email on file", async () => {
+    mockCotizacionFindFirst.mockResolvedValue(
+      baseCotizacion({ items: [{ id: "i1" }], cliente: { nombre: "Ana Pérez", email: null, telefono: "3001234567" } }),
+    );
+    mockConfiguracionSmtpFindUnique.mockResolvedValue(filaSmtpActiva());
+    const formData = new FormData();
+    formData.set("canal", "EMAIL");
+    formData.set("vigenciaDias", "5");
+
+    const result = await enviarCotizacionAction("q1", enviarInitial, formData);
+
+    expect(result).toEqual({ error: "Este cliente no tiene correo registrado.", success: false });
+    expect(mockEnviarEmail).not.toHaveBeenCalled();
+    expect(mockCotizacionUpdate).not.toHaveBeenCalled();
+  });
+
+  it("EMAIL canal: sends the email with the decrypted config before transitioning to ENVIADA", async () => {
+    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ items: [{ id: "i1" }] }));
+    mockConfiguracionSmtpFindUnique.mockResolvedValue(filaSmtpActiva());
+    const formData = new FormData();
+    formData.set("canal", "EMAIL");
+    formData.set("vigenciaDias", "5");
+
+    const result = await enviarCotizacionAction("q1", enviarInitial, formData);
+
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockEnviarEmail).toHaveBeenCalledTimes(1);
+    const [config, mensaje] = mockEnviarEmail.mock.calls[0] as [
+      { host: string; puerto: number; usuario: string; password: string; fromEmail: string; fromNombre: string },
+      { para: string },
+    ];
+    expect(config).toEqual({
+      host: "smtp.taller.test",
+      puerto: 587,
+      usuario: "avisos@taller.test",
+      password: "clave-del-taller",
+      fromEmail: "avisos@taller.test",
+      fromNombre: "Taller Pérez",
+    });
+    expect(mensaje.para).toBe("ana@cliente.test");
+    expect(mockCotizacionUpdate).toHaveBeenCalledTimes(1);
+    expect(mockCotizacionUpdate.mock.calls[0][0]).toMatchObject({ where: { id: "q1" }, data: { estado: "ENVIADA" } });
+  });
+
+  it("EMAIL canal: reports a friendly Spanish error and does not transition when enviarEmail rejects", async () => {
+    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ items: [{ id: "i1" }] }));
+    mockConfiguracionSmtpFindUnique.mockResolvedValue(filaSmtpActiva());
+    mockEnviarEmail.mockRejectedValue(new Error("ECONNREFUSED"));
+    const formData = new FormData();
+    formData.set("canal", "EMAIL");
+    formData.set("vigenciaDias", "5");
+
+    const result = await enviarCotizacionAction("q1", enviarInitial, formData);
+
+    expect(result).toEqual({
+      error: "No se pudo enviar la cotización por correo. Revisa el servidor, el puerto y las credenciales.",
+      success: false,
+    });
+    expect(mockCotizacionUpdate).not.toHaveBeenCalled();
+  });
+
+  it("WHATSAPP and OTRO canales: still transition immediately and never touch SMTP", async () => {
+    for (const canal of ["WHATSAPP", "OTRO"]) {
+      mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ items: [{ id: "i1" }] }));
+      mockConfiguracionSmtpFindUnique.mockClear();
+      mockCotizacionUpdate.mockClear();
+      const formData = new FormData();
+      formData.set("canal", canal);
+      formData.set("vigenciaDias", "5");
+
+      const result = await enviarCotizacionAction("q1", enviarInitial, formData);
+
+      expect(result).toEqual({ error: null, success: true });
+      expect(mockConfiguracionSmtpFindUnique).not.toHaveBeenCalled();
+      expect(mockCotizacionUpdate).toHaveBeenCalledTimes(1);
+    }
   });
 });
 
