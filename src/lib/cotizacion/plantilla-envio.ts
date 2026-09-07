@@ -29,6 +29,7 @@ export interface DatosMensajeCotizacion {
   items: ItemMensajeCotizacion[];
   subtotal: number;
   descuento: number;
+  descuentoPct: number;
   iva: number;
   total: number;
   validaHasta: Date;
@@ -65,7 +66,7 @@ export function construirMensajeCotizacion(para: string, datos: DatosMensajeCoti
 
   const lineasTotalesTexto = [
     `Subtotal: ${formatoMoneda.format(datos.subtotal)}`,
-    ...(datos.descuento > 0 ? [`Descuento: -${formatoMoneda.format(datos.descuento)}`] : []),
+    ...(datos.descuento > 0 ? [`Descuento (${datos.descuentoPct}%): -${formatoMoneda.format(datos.descuento)}`] : []),
     `IVA: ${formatoMoneda.format(datos.iva)}`,
     `Total: ${totalTexto}`,
   ];
@@ -124,7 +125,9 @@ export function construirMensajeCotizacion(para: string, datos: DatosMensajeCoti
     `<table style="width:100%;border-collapse:collapse;margin:8px 0;">` +
     `<tbody>` +
     filaTotal("Subtotal", escaparHtml(formatoMoneda.format(datos.subtotal))) +
-    (datos.descuento > 0 ? filaTotal("Descuento", `-${escaparHtml(formatoMoneda.format(datos.descuento))}`) : "") +
+    (datos.descuento > 0
+      ? filaTotal(`Descuento (${datos.descuentoPct}%)`, `-${escaparHtml(formatoMoneda.format(datos.descuento))}`)
+      : "") +
     filaTotal("IVA", escaparHtml(formatoMoneda.format(datos.iva))) +
     filaTotal("Total", escaparHtml(totalTexto), true) +
     `</tbody>` +

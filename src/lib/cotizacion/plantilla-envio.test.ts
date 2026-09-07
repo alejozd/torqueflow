@@ -19,6 +19,7 @@ const base: DatosMensajeCotizacion = {
   ],
   subtotal: 200000,
   descuento: 0,
+  descuentoPct: 0,
   iva: 50000,
   total: 250000,
   validaHasta: new Date("2026-09-15T00:00:00-05:00"),
@@ -90,10 +91,12 @@ describe("construirMensajeCotizacion", () => {
     expect(sinDescuento.html).not.toContain("Descuento");
     expect(sinDescuento.texto).not.toContain("Descuento");
 
-    const conDescuento = construirMensajeCotizacion("ana@cliente.test", { ...base, descuento: 15000 });
+    const conDescuento = construirMensajeCotizacion("ana@cliente.test", { ...base, descuento: 15000, descuentoPct: 10 });
     expect(conDescuento.html).toContain("Descuento");
+    expect(conDescuento.html).toContain("10%");
     expect(conDescuento.html).toContain(formatoMoneda.format(15000));
     expect(conDescuento.texto).toContain("Descuento");
+    expect(conDescuento.texto).toContain("10%");
     expect(conDescuento.texto).toContain(formatoMoneda.format(15000));
   });
 

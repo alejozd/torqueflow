@@ -15,6 +15,7 @@ const RESUMEN = {
   items: [{ descripcion: "Cambio de aceite", importe: 100000 }],
   subtotal: 210000,
   descuento: 0,
+  descuentoPct: 0,
   iva: 40000,
   total: 250000,
 };
@@ -114,6 +115,27 @@ describe("EnviarCotizacionForm", () => {
     const textoDecodificado = decodeURIComponent(String(url).split("?text=")[1]);
     expect(textoDecodificado).toContain("Cambio de aceite");
     expect(textoDecodificado).toContain("*Total:*");
+  });
+
+  it("includes the descuento percentage in the wa.me message when there is a descuento", async () => {
+    const user = userEvent.setup();
+    const windowOpenSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    mockEnviarCotizacionAction.mockResolvedValue({ error: null, success: true });
+
+    render(
+      <EnviarCotizacionForm
+        cotizacionId="q1"
+        cliente={{ nombre: "Ana Pérez", telefono: "3001234567" }}
+        resumen={{ ...RESUMEN, descuento: 21000, descuentoPct: 10 }}
+      />,
+    );
+
+    await selectCanal(user, "WhatsApp");
+    await user.click(screen.getByRole("button", { name: "Enviar al cliente" }));
+
+    const [url] = windowOpenSpy.mock.calls[0];
+    const textoDecodificado = decodeURIComponent(String(url).split("?text=")[1]);
+    expect(textoDecodificado).toContain("*Descuento (10%):*");
   });
 
   it("shows vigencia/notas fields and the 'Enviar al cliente' label when esReenvio is false (BORRADOR)", () => {

@@ -340,6 +340,7 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
                   })),
                   subtotal: Number(cotizacion.subtotal),
                   descuento: Number(cotizacion.descuento),
+                  descuentoPct: Number(cotizacion.descuentoPct),
                   iva: Number(cotizacion.iva),
                   total: Number(cotizacion.total),
                 }}

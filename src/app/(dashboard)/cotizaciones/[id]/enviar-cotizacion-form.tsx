@@ -49,6 +49,7 @@ export function EnviarCotizacionForm({
     items: { descripcion: string; importe: number }[];
     subtotal: number;
     descuento: number;
+    descuentoPct: number;
     iva: number;
     total: number;
   };
@@ -91,7 +92,9 @@ export function EnviarCotizacionForm({
         ...lineasItems,
         "",
         `*Subtotal:* ${formatoMoneda.format(resumen.subtotal)}`,
-        ...(resumen.descuento > 0 ? [`*Descuento:* -${formatoMoneda.format(resumen.descuento)}`] : []),
+        ...(resumen.descuento > 0
+          ? [`*Descuento (${resumen.descuentoPct}%):* -${formatoMoneda.format(resumen.descuento)}`]
+          : []),
         `*IVA:* ${formatoMoneda.format(resumen.iva)}`,
         `*Total:* ${formatoMoneda.format(resumen.total)}`,
         "",

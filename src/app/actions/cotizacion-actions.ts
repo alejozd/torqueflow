@@ -433,6 +433,7 @@ export async function enviarCotizacionAction(
         })),
         subtotal: Number(cotizacion.subtotal),
         descuento: Number(cotizacion.descuento),
+        descuentoPct: Number(cotizacion.descuentoPct),
         iva: Number(cotizacion.iva),
         total: Number(cotizacion.total),
         validaHasta,
