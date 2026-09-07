@@ -57,6 +57,9 @@ model Usuario {
   passwordHash     String              @map("password_hash")
   nombre           String
   role             Role                @default(RECEPCION)
+  activo           Boolean             @default(true) @map("activo")
+  sedeDefectoId    String?             @map("sede_defecto_id")
+  sedeDefecto      Sede?               @relation("UsuarioSedeDefecto", fields: [sedeDefectoId], references: [id], onDelete: SetNull)
   historialEntries HistorialVehiculo[]
   ordenesCreadas   OrdenTrabajo[]      @relation("OrdenCreadoPor")
   ordenesAsignadas OrdenTrabajo[]      @relation("OrdenMecanico")
@@ -178,6 +181,7 @@ model Sede {
   usuarios  UsuarioSede[]
   citas     Cita[]
   cotizaciones Cotizacion[]
+  usuariosPorDefecto Usuario[] @relation("UsuarioSedeDefecto")
   createdAt DateTime       @default(now()) @map("created_at")
   updatedAt DateTime       @updatedAt @map("updated_at")
 

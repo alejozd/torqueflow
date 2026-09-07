@@ -8,6 +8,14 @@ vi.mock("@/lib/tenant/resolve-tenant", () => ({
   getTenantBySchema: (...args: unknown[]) => mockGetTenantBySchema(...args),
 }));
 
+const mockUsuarioFindUnique = vi.fn();
+const mockGetTenantDb = vi.fn((..._args: unknown[]) => ({
+  usuario: { findUnique: (...args: unknown[]) => mockUsuarioFindUnique(...args) },
+}));
+vi.mock("@/lib/db/tenant-client", () => ({
+  getTenantDb: (...args: unknown[]) => mockGetTenantDb(...args),
+}));
+
 const mockRedirect = vi.fn((url: string) => {
   throw new Error(`REDIRECT:${url}`);
 });
@@ -19,10 +27,12 @@ describe("requireSession", () => {
   beforeEach(() => {
     mockAuth.mockReset();
     mockGetTenantBySchema.mockReset();
+    mockUsuarioFindUnique.mockReset().mockResolvedValue({ activo: true });
+    mockGetTenantDb.mockClear();
     mockRedirect.mockClear();
   });
 
-  it("returns the session when the tenant is active and a sede is set", async () => {
+  it("returns the session when the tenant is active, the user is active, and a sede is set", async () => {
     const session = {
       user: { id: "1", role: "ADMIN", tenantSlug: "taller-a", tenantSchema: "taller_a", sedeActivaId: "sede-1" },
     };
@@ -31,6 +41,8 @@ describe("requireSession", () => {
 
     await expect(requireSession()).resolves.toBe(session);
     expect(mockGetTenantBySchema).toHaveBeenCalledWith("taller_a");
+    expect(mockGetTenantDb).toHaveBeenCalledWith("taller_a");
+    expect(mockUsuarioFindUnique).toHaveBeenCalledWith({ where: { id: "1" }, select: { activo: true } });
   });
 
   it("redirects to /login when there is no session", async () => {
@@ -58,6 +70,28 @@ describe("requireSession", () => {
     await expect(requireSession()).rejects.toThrow("REDIRECT:/login?error=tenant-suspendido");
   });
 
+  it("redirects to /login?error=usuario-suspendido when the session's user is now activo:false in the DB", async () => {
+    const session = {
+      user: { id: "1", role: "ADMIN", tenantSlug: "taller-a", tenantSchema: "taller_a", sedeActivaId: "sede-1" },
+    };
+    mockAuth.mockResolvedValue(session);
+    mockGetTenantBySchema.mockResolvedValue({ slug: "taller-a", schemaName: "taller_a", estado: "ACTIVO" });
+    mockUsuarioFindUnique.mockResolvedValue({ activo: false });
+
+    await expect(requireSession()).rejects.toThrow("REDIRECT:/login?error=usuario-suspendido");
+  });
+
+  it("redirects to /login?error=usuario-suspendido when the session's user no longer exists in the DB", async () => {
+    const session = {
+      user: { id: "1", role: "ADMIN", tenantSlug: "taller-a", tenantSchema: "taller_a", sedeActivaId: "sede-1" },
+    };
+    mockAuth.mockResolvedValue(session);
+    mockGetTenantBySchema.mockResolvedValue({ slug: "taller-a", schemaName: "taller_a", estado: "ACTIVO" });
+    mockUsuarioFindUnique.mockResolvedValue(null);
+
+    await expect(requireSession()).rejects.toThrow("REDIRECT:/login?error=usuario-suspendido");
+  });
+
   it("redirects to /seleccionar-sede when the session has no sedeActivaId (Fase 10: sede resolved post-login)", async () => {
     const session = {
       user: { id: "1", role: "ADMIN", tenantSlug: "taller-a", tenantSchema: "taller_a", sedeActivaId: "" },
@@ -73,6 +107,7 @@ describe("requireRole", () => {
   beforeEach(() => {
     mockAuth.mockReset();
     mockGetTenantBySchema.mockReset();
+    mockUsuarioFindUnique.mockReset().mockResolvedValue({ activo: true });
     mockRedirect.mockClear();
   });
 

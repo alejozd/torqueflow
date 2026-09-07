@@ -117,12 +117,14 @@ describe("authorizeCredentials", () => {
       nombre: "Juan Pérez",
       role: "ADMIN",
       passwordHash: "hashed",
+      activo: true,
+      sedeDefectoId: null,
     });
     mockResolveSedeInicial.mockResolvedValue({ id: "sede-1", nombre: "Sede principal" });
 
     const result = await authorizeCredentials({ email: "user@example.com", password: "correct" });
 
-    expect(mockResolveSedeInicial).toHaveBeenCalledWith(tenantDb, "u1", "ADMIN");
+    expect(mockResolveSedeInicial).toHaveBeenCalledWith(tenantDb, "u1", "ADMIN", null);
     expect(result).toEqual({
       id: "u1",
       email: "user@example.com",
@@ -144,6 +146,8 @@ describe("authorizeCredentials", () => {
       nombre: "Juan Pérez",
       role: "TECNICO",
       passwordHash: "hashed",
+      activo: true,
+      sedeDefectoId: null,
     });
     mockResolveSedeInicial.mockResolvedValue(null);
 
@@ -159,5 +163,44 @@ describe("authorizeCredentials", () => {
       sedeActivaId: "",
       sedeActivaNombre: "",
     });
+  });
+
+  it("passes usuario.sedeDefectoId through to resolveSedeInicial as the 4th argument", async () => {
+    mockTenantUserEmailFindUnique.mockResolvedValue({ email: "user@example.com", tenant: TENANT_ROW });
+    const tenantDb = {};
+    mockGetTenantDb.mockReturnValue(tenantDb);
+    mockVerifyCredentials.mockResolvedValue({
+      id: "u1",
+      email: "user@example.com",
+      nombre: "Juan Pérez",
+      role: "TECNICO",
+      passwordHash: "hashed",
+      activo: true,
+      sedeDefectoId: "sede-2",
+    });
+    mockResolveSedeInicial.mockResolvedValue({ id: "sede-2", nombre: "Sede norte" });
+
+    await authorizeCredentials({ email: "user@example.com", password: "correct" });
+
+    expect(mockResolveSedeInicial).toHaveBeenCalledWith(tenantDb, "u1", "TECNICO", "sede-2");
+  });
+
+  it("returns null for a suspended user (activo:false) with correct credentials, same as a wrong password", async () => {
+    mockTenantUserEmailFindUnique.mockResolvedValue({ email: "user@example.com", tenant: TENANT_ROW });
+    mockGetTenantDb.mockReturnValue({});
+    mockVerifyCredentials.mockResolvedValue({
+      id: "u1",
+      email: "user@example.com",
+      nombre: "Juan Pérez",
+      role: "TECNICO",
+      passwordHash: "hashed",
+      activo: false,
+      sedeDefectoId: null,
+    });
+
+    const result = await authorizeCredentials({ email: "user@example.com", password: "correct" });
+
+    expect(result).toBeNull();
+    expect(mockResolveSedeInicial).not.toHaveBeenCalled();
   });
 });

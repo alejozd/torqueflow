@@ -75,12 +75,28 @@ export async function listSedesDisponibles(
  * multiple candidates; the caller (authorizeCredentials) then leaves
  * sedeActivaId unset so the session is completed later at
  * /seleccionar-sede, which lists every candidate via listSedesDisponibles.
+ *
+ * When the candidate list is ambiguous (not exactly one), `sedeDefectoId`
+ * (the user's stored "sede por defecto") is checked as a fallback: if it is
+ * set AND appears among `sedes`, that sede is returned instead of null. This
+ * correctly handles both roles: for ADMIN, `sedes` is every sede in the
+ * tenant, so any existing sedeDefectoId matches; for TECNICO/RECEPCION,
+ * `sedes` is only their UsuarioSede assignments, so a sedeDefectoId that is
+ * no longer among their assignments is correctly ignored.
  */
 export async function resolveSedeInicial(
   tenantDb: TenantPrismaClient,
   usuarioId: string,
   role: Role,
+  sedeDefectoId: string | null,
 ): Promise<SedeActiva | null> {
   const sedes = await listSedesDisponibles(tenantDb, usuarioId, role);
-  return sedes.length === 1 ? sedes[0] : null;
+  if (sedes.length === 1) return sedes[0];
+
+  if (sedeDefectoId) {
+    const porDefecto = sedes.find((sede) => sede.id === sedeDefectoId);
+    if (porDefecto) return porDefecto;
+  }
+
+  return null;
 }

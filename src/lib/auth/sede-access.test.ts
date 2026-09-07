@@ -84,19 +84,19 @@ describe("resolveSedeInicial", () => {
   it("auto-selects the tenant's only sede for an ADMIN", async () => {
     mockSedeFindMany.mockResolvedValue([{ id: "sede-1", nombre: "Sede principal" }]);
 
-    const result = await resolveSedeInicial(tenantDbInicial, "u1", "ADMIN");
+    const result = await resolveSedeInicial(tenantDbInicial, "u1", "ADMIN", null);
 
     expect(result).toEqual({ id: "sede-1", nombre: "Sede principal" });
     expect(mockUsuarioSedeFindMany).not.toHaveBeenCalled();
   });
 
-  it("returns null for an ADMIN when the tenant has more than one sede", async () => {
+  it("returns null for an ADMIN when the tenant has more than one sede and no sedeDefectoId", async () => {
     mockSedeFindMany.mockResolvedValue([
       { id: "sede-1", nombre: "Sede principal" },
       { id: "sede-2", nombre: "Sede norte" },
     ]);
 
-    const result = await resolveSedeInicial(tenantDbInicial, "u1", "ADMIN");
+    const result = await resolveSedeInicial(tenantDbInicial, "u1", "ADMIN", null);
 
     expect(result).toBeNull();
   });
@@ -104,7 +104,7 @@ describe("resolveSedeInicial", () => {
   it("returns null for an ADMIN when the tenant has no sede at all", async () => {
     mockSedeFindMany.mockResolvedValue([]);
 
-    const result = await resolveSedeInicial(tenantDbInicial, "u1", "ADMIN");
+    const result = await resolveSedeInicial(tenantDbInicial, "u1", "ADMIN", null);
 
     expect(result).toBeNull();
   });
@@ -112,7 +112,7 @@ describe("resolveSedeInicial", () => {
   it("auto-selects a TECNICO's only assigned sede", async () => {
     mockUsuarioSedeFindMany.mockResolvedValue([{ sede: { id: "sede-1", nombre: "Sede principal" } }]);
 
-    const result = await resolveSedeInicial(tenantDbInicial, "u1", "TECNICO");
+    const result = await resolveSedeInicial(tenantDbInicial, "u1", "TECNICO", null);
 
     expect(result).toEqual({ id: "sede-1", nombre: "Sede principal" });
     expect(mockUsuarioSedeFindMany).toHaveBeenCalledWith({
@@ -122,13 +122,13 @@ describe("resolveSedeInicial", () => {
     expect(mockSedeFindMany).not.toHaveBeenCalled();
   });
 
-  it("returns null for a TECNICO with more than one assigned sede", async () => {
+  it("returns null for a TECNICO with more than one assigned sede and no sedeDefectoId", async () => {
     mockUsuarioSedeFindMany.mockResolvedValue([
       { sede: { id: "sede-1", nombre: "Sede principal" } },
       { sede: { id: "sede-2", nombre: "Sede norte" } },
     ]);
 
-    const result = await resolveSedeInicial(tenantDbInicial, "u1", "TECNICO");
+    const result = await resolveSedeInicial(tenantDbInicial, "u1", "TECNICO", null);
 
     expect(result).toBeNull();
   });
@@ -136,7 +136,40 @@ describe("resolveSedeInicial", () => {
   it("returns null for a RECEPCION with no assigned sede", async () => {
     mockUsuarioSedeFindMany.mockResolvedValue([]);
 
-    const result = await resolveSedeInicial(tenantDbInicial, "u1", "RECEPCION");
+    const result = await resolveSedeInicial(tenantDbInicial, "u1", "RECEPCION", null);
+
+    expect(result).toBeNull();
+  });
+
+  it("returns the sedeDefectoId match for an ADMIN when ambiguous and valid", async () => {
+    mockSedeFindMany.mockResolvedValue([
+      { id: "sede-1", nombre: "Sede principal" },
+      { id: "sede-2", nombre: "Sede norte" },
+    ]);
+
+    const result = await resolveSedeInicial(tenantDbInicial, "u1", "ADMIN", "sede-2");
+
+    expect(result).toEqual({ id: "sede-2", nombre: "Sede norte" });
+  });
+
+  it("returns the sedeDefectoId match for a TECNICO when ambiguous and among their assignments", async () => {
+    mockUsuarioSedeFindMany.mockResolvedValue([
+      { sede: { id: "sede-1", nombre: "Sede principal" } },
+      { sede: { id: "sede-2", nombre: "Sede norte" } },
+    ]);
+
+    const result = await resolveSedeInicial(tenantDbInicial, "u1", "TECNICO", "sede-2");
+
+    expect(result).toEqual({ id: "sede-2", nombre: "Sede norte" });
+  });
+
+  it("ignores sedeDefectoId and returns null when it is no longer among the candidate sedes", async () => {
+    mockUsuarioSedeFindMany.mockResolvedValue([
+      { sede: { id: "sede-1", nombre: "Sede principal" } },
+      { sede: { id: "sede-2", nombre: "Sede norte" } },
+    ]);
+
+    const result = await resolveSedeInicial(tenantDbInicial, "u1", "TECNICO", "sede-fantasma");
 
     expect(result).toBeNull();
   });

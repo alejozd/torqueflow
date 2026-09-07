@@ -53,8 +53,11 @@ export async function authorizeCredentials(
   const tenantDb = getTenantDb(tenant.schemaName);
   const usuario = await verifyCredentials(tenantDb, email, password);
   if (!usuario) return null;
+  // A suspended user fails the same way a wrong password does -- no distinct
+  // message, consistent with the tenant-suspendido case above.
+  if (!usuario.activo) return null;
 
-  const sedeActiva = await resolveSedeInicial(tenantDb, usuario.id, usuario.role);
+  const sedeActiva = await resolveSedeInicial(tenantDb, usuario.id, usuario.role, usuario.sedeDefectoId);
 
   return {
     id: usuario.id,
