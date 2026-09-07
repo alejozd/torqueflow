@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useRef, useState, type FormEvent } from "react";
+import { useRef, useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
 import { enviarCotizacionAction, type EnviarCotizacionFormState } from "@/app/actions/cotizacion-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -54,20 +54,11 @@ export function EnviarCotizacionForm({
   };
   esReenvio?: boolean;
 }) {
-  const enviar = enviarCotizacionAction.bind(null, cotizacionId);
-  const [state, formAction, isPending] = useActionState(enviar, initialState);
+  const [state, setState] = useState<EnviarCotizacionFormState>(initialState);
+  const [isPending, startTransition] = useTransition();
   const [canal, setCanal] = useState<Canal>("EMAIL");
   const [clientError, setClientError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (state.success) {
-      toast.success(esReenvio ? "Cotización reenviada" : "Cotización enviada");
-    } else if (state.error) {
-      toast.error(state.error);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -112,7 +103,23 @@ export function EnviarCotizacionForm({
       window.open(`https://wa.me/${numeroNormalizado}?text=${encodeURIComponent(mensaje)}`, "_blank");
     }
 
-    startTransition(() => formAction(formData));
+    // Calls the action directly and toasts right where the result arrives --
+    // not via a useEffect keyed on useActionState's returned state. That
+    // indirection raced against the server action's own revalidatePath
+    // (which refreshes this route's RSC payload): occasionally the toast's
+    // effect never got to run before the refresh landed, so a real send
+    // could complete with no visible confirmation. Awaiting the call
+    // directly (same pattern DecisionCotizacionButtons.onAprobar already
+    // uses) ties the toast to the moment we actually have a result.
+    startTransition(async () => {
+      const result = await enviarCotizacionAction(cotizacionId, initialState, formData);
+      if (result.success) {
+        toast.success(esReenvio ? "Cotización reenviada" : "Cotización enviada");
+      } else {
+        toast.error(result.error ?? "Error al enviar la cotización");
+      }
+      setState(result);
+    });
   }
 
   return (

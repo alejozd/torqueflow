@@ -467,9 +467,14 @@ export async function enviarCotizacionAction(
     } catch (err) {
       return { error: friendlyPrismaErrorMessage(err, "Error al enviar la cotización"), success: false };
     }
+    // Only revalidate when something actually changed -- a pure resend
+    // touches nothing in the DB, and the router refresh revalidatePath
+    // triggers was racing the client's own toast confirmation right after
+    // this transition resolved (occasionally the send visibly completed with
+    // no toast at all).
+    revalidarCotizaciones(cotizacionId);
   }
 
-  revalidarCotizaciones(cotizacionId);
   return { error: null, success: true };
 }
 
