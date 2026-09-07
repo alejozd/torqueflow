@@ -16,8 +16,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatoFechaRelativa } from "@/lib/fecha-bogota";
 
 const initialState: SmtpFormState = { error: null, success: false };
+const GUARDAR_FORM_ID = "guardar-smtp-form";
 
 export function ConfiguracionSmtpForm({
   configuracion,
@@ -68,6 +70,7 @@ export function ConfiguracionSmtpForm({
       <form
         noValidate
         ref={formRef}
+        id={GUARDAR_FORM_ID}
         onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
         className="flex flex-col gap-4"
       >
@@ -161,43 +164,63 @@ export function ConfiguracionSmtpForm({
               {errors.fromNombre ? <p id="fromNombre-error">{errors.fromNombre.message}</p> : null}
             </div>
           </div>
-
-          <div className="flex items-center gap-2">
-            {/*
-              Native checkbox input -- no shadcn Checkbox component exists in
-              this project yet, and this form's tests rely on a real
-              <input type="checkbox"> for userEvent.click()/.checked.
-            */}
-            <input id="activo" type="checkbox" {...register("activo")} />
-            <Label htmlFor="activo">Enviar recordatorios</Label>
-          </div>
         </FormGroup>
 
-        <Button type="submit" disabled={isPending}>
+        <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/50 p-4">
+          {/*
+            Native checkbox restyled as a track+thumb switch purely with
+            Tailwind -- no shadcn Checkbox/Switch component exists in this
+            project yet, and this form's tests rely on a real
+            <input type="checkbox"> for userEvent.click()/.checked.
+          */}
+          <label htmlFor="activo" className="relative mt-0.5 inline-flex h-6 w-11 shrink-0 cursor-pointer items-center">
+            <input id="activo" type="checkbox" className="peer sr-only" {...register("activo")} />
+            <span className="absolute inset-0 rounded-full bg-muted-foreground/30 transition-colors peer-checked:bg-primary" />
+            <span className="absolute left-1 size-4 rounded-full bg-white transition-transform peer-checked:translate-x-5" />
+          </label>
+          <div className="flex flex-col gap-0.5">
+            <Label htmlFor="activo">Enviar recordatorios</Label>
+            <p className="text-xs text-muted-foreground">
+              Habilita los recordatorios de mantenimiento y las notificaciones de cambio de estado de las órdenes.
+            </p>
+          </div>
+        </div>
+      </form>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="submit" form={GUARDAR_FORM_ID} disabled={isPending}>
           {isPending ? "Guardando..." : "Guardar configuración"}
         </Button>
 
-        {state.error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{state.error}</AlertDescription>
-          </Alert>
+        {configuracion ? (
+          <form action={pruebaAction}>
+            <Button type="submit" variant="outline" disabled={pruebaPending}>
+              {pruebaPending ? "Enviando..." : "Enviar correo de prueba"}
+            </Button>
+          </form>
         ) : null}
-        {state.success ? <p role="status">Configuración guardada</p> : null}
-      </form>
 
-      {configuracion ? (
-        <form action={pruebaAction} className="flex flex-col gap-1.5 border-t border-border pt-4">
-          <Button type="submit" variant="outline" disabled={pruebaPending}>
-            {pruebaPending ? "Enviando..." : "Enviar correo de prueba"}
-          </Button>
-          {pruebaState.error ? (
-            <Alert variant="destructive">
-              <AlertDescription>{pruebaState.error}</AlertDescription>
-            </Alert>
-          ) : null}
-          {pruebaState.success ? <p role="status">Correo de prueba enviado</p> : null}
-        </form>
+        {configuracion?.ultimaPruebaAt ? (
+          <span className="ml-auto text-xs text-muted-foreground">
+            Última prueba: {formatoFechaRelativa(configuracion.ultimaPruebaAt, new Date())} ·{" "}
+            {configuracion.ultimaPruebaExitosa ? "correcta" : "fallida"}
+          </span>
+        ) : null}
+      </div>
+
+      {state.error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{state.error}</AlertDescription>
+        </Alert>
       ) : null}
+      {state.success ? <p role="status">Configuración guardada</p> : null}
+
+      {pruebaState.error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{pruebaState.error}</AlertDescription>
+        </Alert>
+      ) : null}
+      {pruebaState.success ? <p role="status">Correo de prueba enviado</p> : null}
     </div>
   );
 }

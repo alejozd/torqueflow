@@ -16,6 +16,9 @@ const configuracion = {
   fromNombre: "Taller Pérez",
   activo: true,
   passwordConfigurada: true,
+  ultimaPruebaAt: null,
+  ultimaPruebaExitosa: null,
+  ultimaPruebaDestino: null,
 };
 
 describe("ConfiguracionSmtpForm", () => {
@@ -60,5 +63,38 @@ describe("ConfiguracionSmtpForm", () => {
   it("hides the test-send button when nothing is stored yet", () => {
     render(<ConfiguracionSmtpForm configuracion={null} />);
     expect(screen.queryByRole("button", { name: "Enviar correo de prueba" })).not.toBeInTheDocument();
+  });
+
+  it("shows no last-test-result text when no test has ever been sent", () => {
+    render(<ConfiguracionSmtpForm configuracion={configuracion} />);
+    expect(screen.queryByText(/Última prueba/)).not.toBeInTheDocument();
+  });
+
+  it("shows the persisted last test result as correcta", () => {
+    render(
+      <ConfiguracionSmtpForm
+        configuracion={{
+          ...configuracion,
+          ultimaPruebaAt: new Date(),
+          ultimaPruebaExitosa: true,
+          ultimaPruebaDestino: "admin@taller.test",
+        }}
+      />,
+    );
+    expect(screen.getByText(/Última prueba:.*correcta/)).toBeInTheDocument();
+  });
+
+  it("shows the persisted last test result as fallida", () => {
+    render(
+      <ConfiguracionSmtpForm
+        configuracion={{
+          ...configuracion,
+          ultimaPruebaAt: new Date(),
+          ultimaPruebaExitosa: false,
+          ultimaPruebaDestino: "admin@taller.test",
+        }}
+      />,
+    );
+    expect(screen.getByText(/Última prueba:.*fallida/)).toBeInTheDocument();
   });
 });
