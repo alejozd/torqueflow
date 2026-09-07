@@ -1,6 +1,7 @@
 "use client";
 
-import { startTransition, useActionState, useRef, useState, type FormEvent } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState, type FormEvent } from "react";
+import { toast } from "sonner";
 import { enviarCotizacionAction, type EnviarCotizacionFormState } from "@/app/actions/cotizacion-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,15 @@ export function EnviarCotizacionForm({
   const [clientError, setClientError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
+  useEffect(() => {
+    if (state.success) {
+      toast.success(esReenvio ? "Cotización reenviada" : "Cotización enviada");
+    } else if (state.error) {
+      toast.error(state.error);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setClientError(null);
@@ -70,7 +80,9 @@ export function EnviarCotizacionForm({
 
     if (canal === "WHATSAPP") {
       if (!cliente.telefono) {
-        setClientError("Este cliente no tiene teléfono registrado.");
+        const mensajeError = "Este cliente no tiene teléfono registrado.";
+        setClientError(mensajeError);
+        toast.error(mensajeError);
         return;
       }
       const digitos = cliente.telefono.replace(/\D/g, "");

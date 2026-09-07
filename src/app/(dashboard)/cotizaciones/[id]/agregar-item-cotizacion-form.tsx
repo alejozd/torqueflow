@@ -3,6 +3,7 @@
 import { startTransition, useActionState, useEffect, useMemo, useRef } from "react";
 import { useController, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 import type { z } from "zod";
 import { agregarItemCotizacionAction, type ItemCotizacionFormState } from "@/app/actions/cotizacion-actions";
 import { itemCotizacionInputSchema } from "@/lib/validation/cotizacion";
@@ -77,7 +78,10 @@ export function AgregarItemCotizacionForm({
 
   useEffect(() => {
     if (state.success) {
+      toast.success("Ítem agregado");
       reset({ tipo: tipoField.value, repuestoId: "", descripcion: "", cantidad: "", precioUnitario: "" });
+    } else if (state.error) {
+      toast.error(state.error);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);

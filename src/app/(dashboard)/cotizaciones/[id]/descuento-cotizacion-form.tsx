@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { toast } from "sonner";
 import {
   actualizarDescuentoCotizacionAction,
   type DescuentoCotizacionFormState,
@@ -14,6 +15,15 @@ const initialState: DescuentoCotizacionFormState = { error: null, success: false
 export function DescuentoCotizacionForm({ cotizacionId, descuentoPct }: { cotizacionId: string; descuentoPct: number }) {
   const actualizarDescuento = actualizarDescuentoCotizacionAction.bind(null, cotizacionId);
   const [state, formAction, isPending] = useActionState(actualizarDescuento, initialState);
+
+  useEffect(() => {
+    if (state.success) {
+      toast.success("Descuento aplicado");
+    } else if (state.error) {
+      toast.error(state.error);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   return (
     <form action={formAction} className="flex flex-col gap-1.5">
