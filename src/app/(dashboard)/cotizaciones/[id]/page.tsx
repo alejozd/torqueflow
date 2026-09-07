@@ -11,6 +11,7 @@ import { RegistrarSeguimientoDialog } from "./registrar-seguimiento-dialog";
 import type { EstadoCotizacion, TipoSeguimiento } from "@/generated/prisma-tenant";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatoFechaCorta } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
@@ -159,11 +160,20 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
       </Link>
 
       <div>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-xl font-semibold tracking-tight">Cotización #{cotizacion.numero}</h1>
-          <Badge variant={ESTADO_BADGE_VARIANT[cotizacion.estado]} className={ESTADO_BADGE_CLASSNAME[cotizacion.estado]}>
-            {ESTADO_LABELS[cotizacion.estado]}
-          </Badge>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-xl font-semibold tracking-tight">Cotización #{cotizacion.numero}</h1>
+            <Badge variant={ESTADO_BADGE_VARIANT[cotizacion.estado]} className={ESTADO_BADGE_CLASSNAME[cotizacion.estado]}>
+              {ESTADO_LABELS[cotizacion.estado]}
+            </Badge>
+          </div>
+          <Link
+            href={`/cotizaciones/${cotizacion.id}/imprimir`}
+            target="_blank"
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Imprimir / Descargar PDF
+          </Link>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
           {cotizacion.vehiculo.placa} · {cotizacion.vehiculo.marca} {cotizacion.vehiculo.modelo} · {cotizacion.cliente.nombre} ·{" "}
