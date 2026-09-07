@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sedeInputSchema, usuarioSedesInputSchema } from "./sede";
+import { sedeInputSchema } from "./sede";
 
 describe("sedeInputSchema", () => {
   it("accepts a nombre with an empty direccion", () => {
@@ -24,28 +24,6 @@ describe("sedeInputSchema", () => {
 
   it("rejects a null nombre with the same Spanish message (the ?? \"\" formData guard)", () => {
     const result = sedeInputSchema.safeParse({ nombre: null, direccion: "" });
-
-    expect(result.success).toBe(false);
-  });
-});
-
-describe("usuarioSedesInputSchema", () => {
-  it("accepts one or more sede ids", () => {
-    const result = usuarioSedesInputSchema.safeParse({ sedeIds: ["sede-1", "sede-2"] });
-
-    expect(result.success).toBe(true);
-    expect(result.data).toEqual({ sedeIds: ["sede-1", "sede-2"] });
-  });
-
-  it("rejects an empty selection with the Spanish message", () => {
-    const result = usuarioSedesInputSchema.safeParse({ sedeIds: [] });
-
-    expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.message).toBe("Selecciona al menos una sede");
-  });
-
-  it("rejects non-string entries", () => {
-    const result = usuarioSedesInputSchema.safeParse({ sedeIds: [42] });
 
     expect(result.success).toBe(false);
   });

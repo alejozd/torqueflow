@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
-import { usuarioSedesInputSchema } from "@/lib/validation/sede";
 import bcrypt from "bcryptjs";
 import { usuarioCreateInputSchema, usuarioUpdateInputSchema } from "@/lib/validation/usuario";
 import { obtenerLimitesPlan } from "@/lib/planes/limites";
@@ -16,19 +15,33 @@ import {
 import type { Prisma } from "@/generated/prisma-tenant";
 
 const EMAIL_EN_OTRO_TALLER = "Este correo ya está registrado en otro taller.";
+const SEDE_INEXISTENTE = "Una de las sedes seleccionadas no existe.";
+
+/** The checkbox list of every sede a Usuario may be assigned to. */
+export interface SedeCheckboxOption {
+  id: string;
+  nombre: string;
+}
 
 export interface UsuarioConSedes {
   id: string;
   nombre: string;
   email: string;
   role: "ADMIN" | "TECNICO" | "RECEPCION";
+  activo: boolean;
+  sedeDefectoId: string | null;
   sedeIds: string[];
 }
 
-export interface UsuarioSedesFormState {
-  error: string | null;
-  success: boolean;
-}
+const USUARIO_CON_SEDES_SELECT = {
+  id: true,
+  nombre: true,
+  email: true,
+  role: true,
+  activo: true,
+  sedeDefectoId: true,
+  sedes: { select: { sedeId: true } },
+} as const;
 
 /**
  * Read-only user directory plus their sede grants. ADMIN-only: a UsuarioSede
@@ -44,13 +57,7 @@ export async function listUsuariosConSedes(): Promise<UsuarioConSedes[]> {
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const usuarios = await tenantDb.usuario.findMany({
-    select: {
-      id: true,
-      nombre: true,
-      email: true,
-      role: true,
-      sedes: { select: { sedeId: true } },
-    },
+    select: USUARIO_CON_SEDES_SELECT,
     orderBy: { nombre: "asc" },
   });
 
@@ -59,6 +66,8 @@ export async function listUsuariosConSedes(): Promise<UsuarioConSedes[]> {
     nombre: usuario.nombre,
     email: usuario.email,
     role: usuario.role,
+    activo: usuario.activo,
+    sedeDefectoId: usuario.sedeDefectoId,
     sedeIds: usuario.sedes.map((asignacion) => asignacion.sedeId),
   }));
 }
@@ -68,6 +77,8 @@ export interface UsuarioConMetricas {
   nombre: string;
   email: string;
   role: "ADMIN" | "TECNICO" | "RECEPCION";
+  activo: boolean;
+  sedeDefectoId: string | null;
   sedeIds: string[];
   ordenesActivas: number;
 }
@@ -85,13 +96,7 @@ export async function listUsuariosConMetricas(): Promise<UsuarioConMetricas[]> {
 
   const [usuarios, ordenesPorMecanico] = await Promise.all([
     tenantDb.usuario.findMany({
-      select: {
-        id: true,
-        nombre: true,
-        email: true,
-        role: true,
-        sedes: { select: { sedeId: true } },
-      },
+      select: USUARIO_CON_SEDES_SELECT,
       orderBy: { nombre: "asc" },
     }),
     tenantDb.ordenTrabajo.groupBy({
@@ -112,62 +117,11 @@ export async function listUsuariosConMetricas(): Promise<UsuarioConMetricas[]> {
     nombre: usuario.nombre,
     email: usuario.email,
     role: usuario.role,
+    activo: usuario.activo,
+    sedeDefectoId: usuario.sedeDefectoId,
     sedeIds: usuario.sedes.map((asignacion) => asignacion.sedeId),
     ordenesActivas: ordenesMap.get(usuario.id) ?? 0,
   }));
-}
-
-/**
- * Replaces the user's entire assignment set with whatever the checkbox group
- * submitted -- the only semantics that make a checkbox group honest. The
- * delete + createMany pair runs in one $transaction so a failure can never
- * leave the user with zero sedes (which, for a TECNICO/RECEPCION, means
- * locked out of login entirely).
- *
- * Every submitted id is verified to exist in this tenant before writing;
- * without that, the FK would reject it as an opaque Prisma error and the user
- * would see a stack-trace-flavoured message instead of Spanish.
- */
-export async function setUsuarioSedesAction(
-  usuarioId: string,
-  prevState: UsuarioSedesFormState,
-  formData: FormData,
-): Promise<UsuarioSedesFormState> {
-  const parsed = usuarioSedesInputSchema.safeParse({
-    sedeIds: formData.getAll("sedeIds").map((value) => String(value)),
-  });
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
-  }
-
-  const session = await requireRole(["ADMIN"]);
-  const tenantDb = getTenantDb(session.user.tenantSchema);
-
-  const sedeIds = [...new Set(parsed.data.sedeIds)];
-  const existentes = await tenantDb.sede.findMany({
-    where: { id: { in: sedeIds } },
-    select: { id: true },
-  });
-  if (existentes.length !== sedeIds.length) {
-    return { error: "Una de las sedes seleccionadas no existe.", success: false };
-  }
-
-  try {
-    await tenantDb.$transaction([
-      tenantDb.usuarioSede.deleteMany({ where: { usuarioId } }),
-      tenantDb.usuarioSede.createMany({
-        data: sedeIds.map((sedeId) => ({ usuarioId, sedeId })),
-      }),
-    ]);
-  } catch (err) {
-    return {
-      error: friendlyPrismaErrorMessage(err, "Error al asignar las sedes"),
-      success: false,
-    };
-  }
-
-  revalidatePath("/usuarios");
-  return { error: null, success: true };
 }
 
 export interface UsuarioFormState {
@@ -175,16 +129,23 @@ export interface UsuarioFormState {
   success: boolean;
 }
 
-export async function createUsuarioAction(
-  prevState: UsuarioFormState,
-  formData: FormData,
-): Promise<UsuarioFormState> {
-  const parsed = usuarioCreateInputSchema.safeParse({
+function parseUsuarioFormData(formData: FormData) {
+  return {
     nombre: formData.get("nombre") ?? "",
     email: formData.get("email") ?? "",
     password: formData.get("password") ?? "",
     role: formData.get("role") ?? "",
-  });
+    activo: formData.get("activo") ?? "",
+    sedeIds: formData.getAll("sedeIds").map((value) => String(value)),
+    sedeDefectoId: formData.get("sedeDefectoId") ?? "",
+  };
+}
+
+export async function createUsuarioAction(
+  prevState: UsuarioFormState,
+  formData: FormData,
+): Promise<UsuarioFormState> {
+  const parsed = usuarioCreateInputSchema.safeParse(parseUsuarioFormData(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
@@ -203,29 +164,37 @@ export async function createUsuarioAction(
     }
   }
 
+  const sedeIds = [...new Set(parsed.data.sedeIds)];
+  const sedeDefectoId = parsed.data.sedeDefectoId || null;
+  const idsAVerificar = [...new Set([...sedeIds, ...(sedeDefectoId ? [sedeDefectoId] : [])])];
+  if (idsAVerificar.length > 0) {
+    const existentes = await tenantDb.sede.findMany({
+      where: { id: { in: idsAVerificar } },
+      select: { id: true },
+    });
+    if (existentes.length !== idsAVerificar.length) {
+      return { error: SEDE_INEXISTENTE, success: false };
+    }
+  }
+
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
 
   let usuario: { id: string };
   try {
+    // Sede assignment is nested in this same create call -- a single query,
+    // atomic by construction, instead of a follow-up write that could leave
+    // the Usuario row created with zero sedes on failure.
     usuario = await tenantDb.usuario.create({
       data: {
         nombre: parsed.data.nombre,
         email: parsed.data.email,
         passwordHash,
         role: parsed.data.role,
+        activo: parsed.data.activo,
+        sedeDefectoId,
+        sedes: { create: sedeIds.map((sedeId) => ({ sedeId })) },
       },
     });
-
-    // Day-one login: a TECNICO/RECEPCION with no UsuarioSede row cannot pass
-    // the sede gate in authorizeCredentials, so every created user is granted
-    // the tenant's oldest sede -- the same day-one grant seedTenantUser makes.
-    // Without this, a freshly created user's login fails with the deliberately
-    // uniform "credenciales incorrectas" message, indistinguishable from a
-    // wrong password and impossible for the ADMIN to diagnose.
-    const sede = await tenantDb.sede.findFirst({ orderBy: { createdAt: "asc" }, select: { id: true } });
-    if (sede) {
-      await tenantDb.usuarioSede.create({ data: { usuarioId: usuario.id, sedeId: sede.id } });
-    }
   } catch (err) {
     return { error: friendlyPrismaErrorMessage(err, "Error al crear el usuario"), success: false };
   }
@@ -253,12 +222,7 @@ export async function updateUsuarioAction(
   prevState: UsuarioFormState,
   formData: FormData,
 ): Promise<UsuarioFormState> {
-  const parsed = usuarioUpdateInputSchema.safeParse({
-    nombre: formData.get("nombre") ?? "",
-    email: formData.get("email") ?? "",
-    password: formData.get("password") ?? "",
-    role: formData.get("role") ?? "",
-  });
+  const parsed = usuarioUpdateInputSchema.safeParse(parseUsuarioFormData(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
@@ -274,13 +238,41 @@ export async function updateUsuarioAction(
     return { error: "Usuario no encontrado", success: false };
   }
 
-  if (parsed.data.role !== "ADMIN" && usuarioActual.role === "ADMIN") {
-    const totalAdmins = await tenantDb.usuario.count({ where: { role: "ADMIN" } });
-    if (totalAdmins <= 1) {
-      return {
-        error: "No puedes quitar el rol de ADMIN al único administrador del taller.",
-        success: false,
-      };
+  if (usuarioActual.role === "ADMIN") {
+    if (parsed.data.role !== "ADMIN") {
+      const totalAdmins = await tenantDb.usuario.count({ where: { role: "ADMIN" } });
+      if (totalAdmins <= 1) {
+        return {
+          error: "No puedes quitar el rol de ADMIN al único administrador del taller.",
+          success: false,
+        };
+      }
+    }
+
+    // Extends the same last-ADMIN protection to Estado: suspending (activo:
+    // false) the only active ADMIN would lock the taller out of its own
+    // admin capabilities just as surely as demoting them would.
+    if (!parsed.data.activo) {
+      const totalAdminsActivos = await tenantDb.usuario.count({ where: { role: "ADMIN", activo: true } });
+      if (totalAdminsActivos <= 1) {
+        return {
+          error: "No puedes suspender al único administrador activo del taller.",
+          success: false,
+        };
+      }
+    }
+  }
+
+  const sedeIds = [...new Set(parsed.data.sedeIds)];
+  const sedeDefectoId = parsed.data.sedeDefectoId || null;
+  const idsAVerificar = [...new Set([...sedeIds, ...(sedeDefectoId ? [sedeDefectoId] : [])])];
+  if (idsAVerificar.length > 0) {
+    const existentes = await tenantDb.sede.findMany({
+      where: { id: { in: idsAVerificar } },
+      select: { id: true },
+    });
+    if (existentes.length !== idsAVerificar.length) {
+      return { error: SEDE_INEXISTENTE, success: false };
     }
   }
 
@@ -288,6 +280,13 @@ export async function updateUsuarioAction(
     nombre: parsed.data.nombre,
     email: parsed.data.email,
     role: parsed.data.role,
+    activo: parsed.data.activo,
+    sedeDefectoId,
+    // Replaces the whole assignment set with whatever was submitted, nested
+    // in this same update call -- deleteMany({}) matches every UsuarioSede
+    // row for this usuario (implicit usuarioId filter), then create rebuilds
+    // it from sedeIds, atomically as one query.
+    sedes: { deleteMany: {}, create: sedeIds.map((sedeId) => ({ sedeId })) },
   };
   if (parsed.data.password) {
     datos.passwordHash = await bcrypt.hash(parsed.data.password, 12);

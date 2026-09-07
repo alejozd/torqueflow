@@ -12,12 +12,7 @@ const mockUsuarioCreate = vi.fn();
 const mockUsuarioUpdate = vi.fn();
 const mockUsuarioDelete = vi.fn();
 const mockUsuarioCount = vi.fn();
-const mockUsuarioSedeDeleteMany = vi.fn();
-const mockUsuarioSedeCreateMany = vi.fn();
-const mockUsuarioSedeCreate = vi.fn();
 const mockSedeFindMany = vi.fn();
-const mockSedeFindFirst = vi.fn();
-const mockTransaction = vi.fn();
 const mockOrdenGroupBy = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
@@ -29,14 +24,8 @@ vi.mock("@/lib/db/tenant-client", () => ({
       delete: mockUsuarioDelete,
       count: mockUsuarioCount,
     },
-    sede: { findMany: mockSedeFindMany, findFirst: mockSedeFindFirst },
-    usuarioSede: {
-      deleteMany: mockUsuarioSedeDeleteMany,
-      createMany: mockUsuarioSedeCreateMany,
-      create: mockUsuarioSedeCreate,
-    },
+    sede: { findMany: mockSedeFindMany },
     ordenTrabajo: { groupBy: mockOrdenGroupBy },
-    $transaction: (...args: unknown[]) => mockTransaction(...args),
   }),
 }));
 
@@ -62,16 +51,28 @@ import { TenantUserEmailConflictError } from "@/lib/tenant/tenant-user-email";
 import {
   listUsuariosConSedes,
   listUsuariosConMetricas,
-  setUsuarioSedesAction,
   createUsuarioAction,
   updateUsuarioAction,
   deleteUsuarioAction,
-  type UsuarioSedesFormState,
   type UsuarioFormState,
 } from "./usuario-actions";
 
-const initialState: UsuarioSedesFormState = { error: null, success: false };
 const ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+
+/**
+ * Mimics tenantDb.sede.findMany({ where: { id: { in: [...] } } }) by actually
+ * filtering the requested ids against the tenant's known sedes, instead of a
+ * fixed resolved value -- the sede-existence check's `existentes.length !==
+ * idsAVerificar.length` comparison depends on genuinely matching only the
+ * requested ids, not an unrelated fixed array.
+ */
+function stubSedeFindMany(existingIds: string[]) {
+  const known = new Set(existingIds);
+  mockSedeFindMany.mockReset().mockImplementation(async (args: { where?: { id?: { in?: string[] } } }) => {
+    const requested = args?.where?.id?.in ?? [];
+    return requested.filter((id) => known.has(id)).map((id) => ({ id }));
+  });
+}
 
 describe("listUsuariosConSedes", () => {
   beforeEach(() => {
@@ -91,19 +92,23 @@ describe("listUsuariosConSedes", () => {
         nombre: true,
         email: true,
         role: true,
+        activo: true,
+        sedeDefectoId: true,
         sedes: { select: { sedeId: true } },
       },
       orderBy: { nombre: "asc" },
     });
   });
 
-  it("flattens the bridge rows into a plain sedeIds array", async () => {
+  it("flattens the bridge rows into a plain sedeIds array and passes through activo/sedeDefectoId", async () => {
     mockUsuarioFindMany.mockResolvedValue([
       {
         id: "u2",
         nombre: "Tec E2E",
         email: "tec@example.test",
         role: "TECNICO",
+        activo: true,
+        sedeDefectoId: "sede-1",
         sedes: [{ sedeId: "sede-1" }, { sedeId: "sede-2" }],
       },
     ]);
@@ -116,6 +121,8 @@ describe("listUsuariosConSedes", () => {
         nombre: "Tec E2E",
         email: "tec@example.test",
         role: "TECNICO",
+        activo: true,
+        sedeDefectoId: "sede-1",
         sedeIds: ["sede-1", "sede-2"],
       },
     ]);
@@ -142,6 +149,8 @@ describe("listUsuariosConMetricas", () => {
         nombre: true,
         email: true,
         role: true,
+        activo: true,
+        sedeDefectoId: true,
         sedes: { select: { sedeId: true } },
       },
       orderBy: { nombre: "asc" },
@@ -150,16 +159,50 @@ describe("listUsuariosConMetricas", () => {
 
   it("merges ordenesActivas per usuario (mecánico), defaulting to 0", async () => {
     mockUsuarioFindMany.mockResolvedValue([
-      { id: "u1", nombre: "Ana", email: "ana@taller.test", role: "TECNICO", sedes: [{ sedeId: "sede-1" }] },
-      { id: "u2", nombre: "Beto", email: "beto@taller.test", role: "RECEPCION", sedes: [] },
+      {
+        id: "u1",
+        nombre: "Ana",
+        email: "ana@taller.test",
+        role: "TECNICO",
+        activo: true,
+        sedeDefectoId: null,
+        sedes: [{ sedeId: "sede-1" }],
+      },
+      {
+        id: "u2",
+        nombre: "Beto",
+        email: "beto@taller.test",
+        role: "RECEPCION",
+        activo: false,
+        sedeDefectoId: null,
+        sedes: [],
+      },
     ]);
     mockOrdenGroupBy.mockResolvedValue([{ mecanicoId: "u1", _count: { mecanicoId: 4 } }]);
 
     const result = await listUsuariosConMetricas();
 
     expect(result).toEqual([
-      { id: "u1", nombre: "Ana", email: "ana@taller.test", role: "TECNICO", sedeIds: ["sede-1"], ordenesActivas: 4 },
-      { id: "u2", nombre: "Beto", email: "beto@taller.test", role: "RECEPCION", sedeIds: [], ordenesActivas: 0 },
+      {
+        id: "u1",
+        nombre: "Ana",
+        email: "ana@taller.test",
+        role: "TECNICO",
+        activo: true,
+        sedeDefectoId: null,
+        sedeIds: ["sede-1"],
+        ordenesActivas: 4,
+      },
+      {
+        id: "u2",
+        nombre: "Beto",
+        email: "beto@taller.test",
+        role: "RECEPCION",
+        activo: false,
+        sedeDefectoId: null,
+        sedeIds: [],
+        ordenesActivas: 0,
+      },
     ]);
   });
 
@@ -177,64 +220,27 @@ describe("listUsuariosConMetricas", () => {
   });
 });
 
-describe("setUsuarioSedesAction", () => {
-  beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(ADMIN);
-    mockUsuarioSedeDeleteMany.mockReset();
-    mockUsuarioSedeCreateMany.mockReset();
-    mockSedeFindMany.mockReset().mockResolvedValue([{ id: "sede-1" }, { id: "sede-2" }]);
-    mockTransaction.mockReset().mockResolvedValue(undefined);
-  });
-
-  it("is ADMIN-only", async () => {
-    const formData = new FormData();
-    formData.append("sedeIds", "sede-1");
-
-    await setUsuarioSedesAction("u2", initialState, formData);
-
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
-  });
-
-  it("rejects an empty selection with the Spanish message and writes nothing", async () => {
-    const result = await setUsuarioSedesAction("u2", initialState, new FormData());
-
-    expect(result).toEqual({ error: "Selecciona al menos una sede", success: false });
-    expect(mockTransaction).not.toHaveBeenCalled();
-  });
-
-  it("rejects an id that does not belong to this tenant", async () => {
-    const formData = new FormData();
-    formData.append("sedeIds", "sede-de-otro-taller");
-
-    const result = await setUsuarioSedesAction("u2", initialState, formData);
-
-    expect(result).toEqual({
-      error: "Una de las sedes seleccionadas no existe.",
-      success: false,
-    });
-    expect(mockTransaction).not.toHaveBeenCalled();
-  });
-
-  it("replaces the whole assignment set atomically", async () => {
-    const formData = new FormData();
-    formData.append("sedeIds", "sede-1");
-    formData.append("sedeIds", "sede-2");
-
-    const result = await setUsuarioSedesAction("u2", initialState, formData);
-
-    expect(result).toEqual({ error: null, success: true });
-    expect(mockTransaction).toHaveBeenCalledTimes(1);
-    expect(mockUsuarioSedeDeleteMany).toHaveBeenCalledWith({ where: { usuarioId: "u2" } });
-    expect(mockUsuarioSedeCreateMany).toHaveBeenCalledWith({
-      data: [
-        { usuarioId: "u2", sedeId: "sede-1" },
-        { usuarioId: "u2", sedeId: "sede-2" },
-      ],
-    });
-  });
-});
-
 const initialUsuarioState: UsuarioFormState = { error: null, success: false };
+
+function buildUsuarioFormData(overrides: Record<string, string | string[]> = {}): FormData {
+  const formData = new FormData();
+  formData.set("nombre", "Ana Pérez");
+  formData.set("email", "ana@taller.test");
+  formData.set("password", "contraseña-larga");
+  formData.set("role", "TECNICO");
+  formData.set("activo", "true");
+  formData.append("sedeIds", "sede-1");
+  formData.set("sedeDefectoId", "");
+  for (const [key, value] of Object.entries(overrides)) {
+    if (key === "sedeIds") {
+      formData.delete("sedeIds");
+      for (const v of Array.isArray(value) ? value : [value]) formData.append("sedeIds", v);
+    } else {
+      formData.set(key, Array.isArray(value) ? value[0] : value);
+    }
+  }
+  return formData;
+}
 
 describe("createUsuarioAction", () => {
   beforeEach(() => {
@@ -243,20 +249,15 @@ describe("createUsuarioAction", () => {
     mockUsuarioCount.mockReset();
     mockUsuarioCreate.mockReset();
     mockUsuarioDelete.mockReset().mockResolvedValue({});
-    mockSedeFindFirst.mockReset().mockResolvedValue({ id: "sede-1" });
-    mockUsuarioSedeCreate.mockReset().mockResolvedValue({});
+    stubSedeFindMany(["sede-1", "sede-2"]);
     mockClaimTenantUserEmail.mockReset().mockResolvedValue(undefined);
   });
 
-  it("creates a usuario when under the plan's maxUsuarios limit", async () => {
+  it("creates a usuario when under the plan's maxUsuarios limit, nesting the sede assignment in one create call", async () => {
     mockObtenerLimitesPlan.mockResolvedValue({ maxUsuarios: 3, maxSedes: null });
     mockUsuarioCount.mockResolvedValue(1);
     mockUsuarioCreate.mockResolvedValue({ id: "u2" });
-    const formData = new FormData();
-    formData.set("nombre", "Ana Pérez");
-    formData.set("email", "ana@taller.test");
-    formData.set("password", "contraseña-larga");
-    formData.set("role", "TECNICO");
+    const formData = buildUsuarioFormData();
 
     const result = await createUsuarioAction(initialUsuarioState, formData);
 
@@ -267,50 +268,57 @@ describe("createUsuarioAction", () => {
         email: "ana@taller.test",
         passwordHash: expect.any(String),
         role: "TECNICO",
+        activo: true,
+        sedeDefectoId: null,
+        sedes: { create: [{ sedeId: "sede-1" }] },
       },
     });
   });
 
-  it("grants the tenant's oldest sede to the new usuario, so it can pass the login sede gate on day one", async () => {
+  it("allows an ADMIN to be created with an empty sedeIds (ADMIN bypasses assignment)", async () => {
     mockUsuarioCreate.mockResolvedValue({ id: "u2" });
-    mockSedeFindFirst.mockResolvedValue({ id: "sede-vieja" });
-    const formData = new FormData();
-    formData.set("nombre", "Ana Pérez");
-    formData.set("email", "ana@taller.test");
-    formData.set("password", "contraseña-larga");
-    formData.set("role", "RECEPCION");
-
-    await createUsuarioAction(initialUsuarioState, formData);
-
-    expect(mockSedeFindFirst).toHaveBeenCalledWith({ orderBy: { createdAt: "asc" }, select: { id: true } });
-    expect(mockUsuarioSedeCreate).toHaveBeenCalledWith({
-      data: { usuarioId: "u2", sedeId: "sede-vieja" },
-    });
-  });
-
-  it("does not attempt a sede grant when the tenant has no sede at all", async () => {
-    mockUsuarioCreate.mockResolvedValue({ id: "u2" });
-    mockSedeFindFirst.mockResolvedValue(null);
-    const formData = new FormData();
-    formData.set("nombre", "Ana Pérez");
-    formData.set("email", "ana@taller.test");
-    formData.set("password", "contraseña-larga");
-    formData.set("role", "RECEPCION");
+    const formData = buildUsuarioFormData({ role: "ADMIN", sedeIds: [] });
 
     const result = await createUsuarioAction(initialUsuarioState, formData);
 
     expect(result).toEqual({ error: null, success: true });
-    expect(mockUsuarioSedeCreate).not.toHaveBeenCalled();
+    expect(mockUsuarioCreate).toHaveBeenCalledWith({
+      data: {
+        nombre: "Ana Pérez",
+        email: "ana@taller.test",
+        passwordHash: expect.any(String),
+        role: "ADMIN",
+        activo: true,
+        sedeDefectoId: null,
+        sedes: { create: [] },
+      },
+    });
+  });
+
+  it("persists sedeDefectoId when provided and valid", async () => {
+    mockUsuarioCreate.mockResolvedValue({ id: "u2" });
+    const formData = buildUsuarioFormData({ sedeIds: ["sede-1", "sede-2"], sedeDefectoId: "sede-2" });
+
+    await createUsuarioAction(initialUsuarioState, formData);
+
+    expect(mockUsuarioCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ sedeDefectoId: "sede-2" }),
+    });
+  });
+
+  it("rejects a sedeId that does not belong to this tenant before writing", async () => {
+    const formData = buildUsuarioFormData({ sedeIds: ["sede-fantasma"] });
+
+    const result = await createUsuarioAction(initialUsuarioState, formData);
+
+    expect(result).toEqual({ error: "Una de las sedes seleccionadas no existe.", success: false });
+    expect(mockUsuarioCreate).not.toHaveBeenCalled();
   });
 
   it("refuses to create a usuario once the plan's maxUsuarios limit is reached", async () => {
     mockObtenerLimitesPlan.mockResolvedValue({ maxUsuarios: 3, maxSedes: null });
     mockUsuarioCount.mockResolvedValue(3);
-    const formData = new FormData();
-    formData.set("nombre", "Ana Pérez");
-    formData.set("email", "ana@taller.test");
-    formData.set("password", "contraseña-larga");
-    formData.set("role", "TECNICO");
+    const formData = buildUsuarioFormData();
 
     const result = await createUsuarioAction(initialUsuarioState, formData);
 
@@ -322,11 +330,7 @@ describe("createUsuarioAction", () => {
   });
 
   it("rejects a short password before touching the database", async () => {
-    const formData = new FormData();
-    formData.set("nombre", "Ana Pérez");
-    formData.set("email", "ana@taller.test");
-    formData.set("password", "corta");
-    formData.set("role", "TECNICO");
+    const formData = buildUsuarioFormData({ password: "corta" });
 
     const result = await createUsuarioAction(initialUsuarioState, formData);
 
@@ -336,11 +340,7 @@ describe("createUsuarioAction", () => {
 
   it("registers the new email in the public tenant_user_emails index", async () => {
     mockUsuarioCreate.mockResolvedValue({ id: "u2" });
-    const formData = new FormData();
-    formData.set("nombre", "Ana Pérez");
-    formData.set("email", "ana@taller.test");
-    formData.set("password", "contraseña-larga");
-    formData.set("role", "TECNICO");
+    const formData = buildUsuarioFormData();
 
     await createUsuarioAction(initialUsuarioState, formData);
 
@@ -350,11 +350,7 @@ describe("createUsuarioAction", () => {
   it("rolls back the just-created usuario and returns a Spanish error when the email belongs to another tenant", async () => {
     mockUsuarioCreate.mockResolvedValue({ id: "u2" });
     mockClaimTenantUserEmail.mockRejectedValue(new TenantUserEmailConflictError("ana@taller.test"));
-    const formData = new FormData();
-    formData.set("nombre", "Ana Pérez");
-    formData.set("email", "ana@taller.test");
-    formData.set("password", "contraseña-larga");
-    formData.set("role", "TECNICO");
+    const formData = buildUsuarioFormData();
 
     const result = await createUsuarioAction(initialUsuarioState, formData);
 
@@ -369,51 +365,81 @@ describe("updateUsuarioAction", () => {
     mockUsuarioFindUnique.mockReset().mockResolvedValue({ role: "RECEPCION", email: "ana@taller.test" });
     mockUsuarioCount.mockReset();
     mockUsuarioUpdate.mockReset();
+    stubSedeFindMany(["sede-1", "sede-2"]);
     mockClaimTenantUserEmail.mockReset().mockResolvedValue(undefined);
     mockReleaseTenantUserEmail.mockReset().mockResolvedValue(undefined);
   });
 
-  it("updates nombre/email/role without touching the password when the field is blank", async () => {
+  it("updates nombre/email/role/activo/sedeIds without touching the password when the field is blank", async () => {
     mockUsuarioUpdate.mockResolvedValue({ id: "u2" });
-    const formData = new FormData();
-    formData.set("nombre", "Ana P.");
-    formData.set("email", "ana2@taller.test");
-    formData.set("password", "");
-    formData.set("role", "RECEPCION");
+    const formData = buildUsuarioFormData({ nombre: "Ana P.", email: "ana2@taller.test", password: "" });
 
     const result = await updateUsuarioAction("u2", initialUsuarioState, formData);
 
     expect(result).toEqual({ error: null, success: true });
     expect(mockUsuarioUpdate).toHaveBeenCalledWith({
       where: { id: "u2" },
-      data: { nombre: "Ana P.", email: "ana2@taller.test", role: "RECEPCION" },
+      data: {
+        nombre: "Ana P.",
+        email: "ana2@taller.test",
+        role: "TECNICO",
+        activo: true,
+        sedeDefectoId: null,
+        sedes: { deleteMany: {}, create: [{ sedeId: "sede-1" }] },
+      },
     });
   });
 
   it("rehashes the password only when a new one is submitted", async () => {
     mockUsuarioUpdate.mockResolvedValue({ id: "u2" });
-    const formData = new FormData();
-    formData.set("nombre", "Ana P.");
-    formData.set("email", "ana2@taller.test");
-    formData.set("password", "otra-contraseña-larga");
-    formData.set("role", "RECEPCION");
+    const formData = buildUsuarioFormData({
+      nombre: "Ana P.",
+      email: "ana2@taller.test",
+      password: "otra-contraseña-larga",
+    });
 
     await updateUsuarioAction("u2", initialUsuarioState, formData);
 
     expect(mockUsuarioUpdate).toHaveBeenCalledWith({
       where: { id: "u2" },
-      data: { nombre: "Ana P.", email: "ana2@taller.test", role: "RECEPCION", passwordHash: expect.any(String) },
+      data: expect.objectContaining({ passwordHash: expect.any(String) }),
     });
+  });
+
+  it("persists activo:false and sedeDefectoId", async () => {
+    mockUsuarioUpdate.mockResolvedValue({ id: "u2" });
+    const formData = buildUsuarioFormData({
+      password: "",
+      activo: "false",
+      sedeIds: ["sede-1", "sede-2"],
+      sedeDefectoId: "sede-2",
+    });
+
+    await updateUsuarioAction("u2", initialUsuarioState, formData);
+
+    expect(mockUsuarioUpdate).toHaveBeenCalledWith({
+      where: { id: "u2" },
+      data: expect.objectContaining({
+        activo: false,
+        sedeDefectoId: "sede-2",
+        sedes: { deleteMany: {}, create: [{ sedeId: "sede-1" }, { sedeId: "sede-2" }] },
+      }),
+    });
+  });
+
+  it("rejects a sedeId that does not belong to this tenant before writing", async () => {
+    const formData = buildUsuarioFormData({ password: "", sedeIds: ["sede-fantasma"] });
+
+    const result = await updateUsuarioAction("u2", initialUsuarioState, formData);
+
+    expect(result).toEqual({ error: "Una de las sedes seleccionadas no existe.", success: false });
+    expect(mockUsuarioUpdate).not.toHaveBeenCalled();
   });
 
   it("refuses to demote the last ADMIN", async () => {
     mockUsuarioFindUnique.mockResolvedValue({ role: "ADMIN", email: "ana@taller.test" });
     mockUsuarioCount.mockResolvedValue(1);
-    const formData = new FormData();
-    formData.set("nombre", "Ana P.");
-    formData.set("email", "ana@taller.test");
-    formData.set("password", "");
-    formData.set("role", "TECNICO");
+    const formData = buildUsuarioFormData({ password: "", role: "TECNICO" });
 
     const result = await updateUsuarioAction("u1", initialUsuarioState, formData);
 
@@ -428,11 +454,33 @@ describe("updateUsuarioAction", () => {
     mockUsuarioFindUnique.mockResolvedValue({ role: "ADMIN", email: "ana@taller.test" });
     mockUsuarioCount.mockResolvedValue(2);
     mockUsuarioUpdate.mockResolvedValue({ id: "u1" });
-    const formData = new FormData();
-    formData.set("nombre", "Ana P.");
-    formData.set("email", "ana@taller.test");
-    formData.set("password", "");
-    formData.set("role", "TECNICO");
+    const formData = buildUsuarioFormData({ password: "", role: "TECNICO" });
+
+    const result = await updateUsuarioAction("u1", initialUsuarioState, formData);
+
+    expect(result).toEqual({ error: null, success: true });
+  });
+
+  it("refuses to suspend (activo:false) the last active ADMIN", async () => {
+    mockUsuarioFindUnique.mockResolvedValue({ role: "ADMIN", email: "ana@taller.test" });
+    mockUsuarioCount.mockResolvedValue(1);
+    const formData = buildUsuarioFormData({ password: "", role: "ADMIN", activo: "false", sedeIds: [] });
+
+    const result = await updateUsuarioAction("u1", initialUsuarioState, formData);
+
+    expect(result).toEqual({
+      error: "No puedes suspender al único administrador activo del taller.",
+      success: false,
+    });
+    expect(mockUsuarioUpdate).not.toHaveBeenCalled();
+    expect(mockUsuarioCount).toHaveBeenCalledWith({ where: { role: "ADMIN", activo: true } });
+  });
+
+  it("allows suspending an ADMIN when a second active ADMIN still exists", async () => {
+    mockUsuarioFindUnique.mockResolvedValue({ role: "ADMIN", email: "ana@taller.test" });
+    mockUsuarioCount.mockResolvedValue(2);
+    mockUsuarioUpdate.mockResolvedValue({ id: "u1" });
+    const formData = buildUsuarioFormData({ password: "", role: "ADMIN", activo: "false", sedeIds: [] });
 
     const result = await updateUsuarioAction("u1", initialUsuarioState, formData);
 
@@ -441,11 +489,7 @@ describe("updateUsuarioAction", () => {
 
   it("returns 'Usuario no encontrado' and writes nothing when the usuario does not exist", async () => {
     mockUsuarioFindUnique.mockResolvedValue(null);
-    const formData = new FormData();
-    formData.set("nombre", "Ana P.");
-    formData.set("email", "ana@taller.test");
-    formData.set("password", "");
-    formData.set("role", "TECNICO");
+    const formData = buildUsuarioFormData({ password: "", role: "TECNICO" });
 
     const result = await updateUsuarioAction("u-inexistente", initialUsuarioState, formData);
 
@@ -456,11 +500,7 @@ describe("updateUsuarioAction", () => {
   it("claims the new email and releases the old one in the public index when the email changes", async () => {
     mockUsuarioFindUnique.mockResolvedValue({ role: "RECEPCION", email: "ana@taller.test" });
     mockUsuarioUpdate.mockResolvedValue({ id: "u2" });
-    const formData = new FormData();
-    formData.set("nombre", "Ana P.");
-    formData.set("email", "ana2@taller.test");
-    formData.set("password", "");
-    formData.set("role", "RECEPCION");
+    const formData = buildUsuarioFormData({ nombre: "Ana P.", email: "ana2@taller.test", password: "" });
 
     await updateUsuarioAction("u2", initialUsuarioState, formData);
 
@@ -471,11 +511,7 @@ describe("updateUsuarioAction", () => {
   it("does not touch the email index when the email is unchanged", async () => {
     mockUsuarioFindUnique.mockResolvedValue({ role: "RECEPCION", email: "ana@taller.test" });
     mockUsuarioUpdate.mockResolvedValue({ id: "u2" });
-    const formData = new FormData();
-    formData.set("nombre", "Ana P.");
-    formData.set("email", "ana@taller.test");
-    formData.set("password", "");
-    formData.set("role", "RECEPCION");
+    const formData = buildUsuarioFormData({ nombre: "Ana P.", email: "ana@taller.test", password: "" });
 
     await updateUsuarioAction("u2", initialUsuarioState, formData);
 
@@ -487,11 +523,7 @@ describe("updateUsuarioAction", () => {
   it("returns a Spanish error and writes nothing when the new email belongs to another tenant", async () => {
     mockUsuarioFindUnique.mockResolvedValue({ role: "RECEPCION", email: "ana@taller.test" });
     mockClaimTenantUserEmail.mockRejectedValue(new TenantUserEmailConflictError("tomado@otro.test"));
-    const formData = new FormData();
-    formData.set("nombre", "Ana P.");
-    formData.set("email", "tomado@otro.test");
-    formData.set("password", "");
-    formData.set("role", "RECEPCION");
+    const formData = buildUsuarioFormData({ nombre: "Ana P.", email: "tomado@otro.test", password: "" });
 
     const result = await updateUsuarioAction("u2", initialUsuarioState, formData);
 
