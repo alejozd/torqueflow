@@ -94,6 +94,9 @@ function baseCotizacion(overrides: Record<string, unknown> = {}) {
     vehiculoId: "v1",
     sedeId: "sede-1",
     descuentoPct: "0",
+    subtotal: "84034",
+    descuento: "0",
+    iva: "15966",
     total: "100000",
     items: [],
     cliente: { nombre: "Ana Pérez", email: "ana@cliente.test", telefono: "3001234567" },
@@ -372,7 +375,7 @@ describe("enviarCotizacionAction", () => {
   });
 
   it("transitions BORRADOR to ENVIADA and sets validaHasta from vigenciaDias", async () => {
-    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ items: [{ id: "i1" }] }));
+    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ items: [{ id: "i1", descripcion: "Cambio de aceite", cantidad: "1", precioUnitario: "100000" }] }));
     const formData = new FormData();
     formData.set("canal", "WHATSAPP");
     formData.set("vigenciaDias", "5");
@@ -397,7 +400,7 @@ describe("enviarCotizacionAction", () => {
   });
 
   it("EMAIL canal: refuses to send when no SMTP configuration is stored, without transitioning estado", async () => {
-    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ items: [{ id: "i1" }] }));
+    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ items: [{ id: "i1", descripcion: "Cambio de aceite", cantidad: "1", precioUnitario: "100000" }] }));
     mockConfiguracionSmtpFindUnique.mockResolvedValue(null);
     const formData = new FormData();
     formData.set("canal", "EMAIL");
@@ -415,7 +418,7 @@ describe("enviarCotizacionAction", () => {
   });
 
   it("EMAIL canal: refuses to send when the SMTP configuration is inactive, without transitioning estado", async () => {
-    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ items: [{ id: "i1" }] }));
+    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ items: [{ id: "i1", descripcion: "Cambio de aceite", cantidad: "1", precioUnitario: "100000" }] }));
     mockConfiguracionSmtpFindUnique.mockResolvedValue(filaSmtpActiva({ activo: false }));
     const formData = new FormData();
     formData.set("canal", "EMAIL");
@@ -434,7 +437,7 @@ describe("enviarCotizacionAction", () => {
 
   it("EMAIL canal: refuses to send when the cliente has no email on file", async () => {
     mockCotizacionFindFirst.mockResolvedValue(
-      baseCotizacion({ items: [{ id: "i1" }], cliente: { nombre: "Ana Pérez", email: null, telefono: "3001234567" } }),
+      baseCotizacion({ items: [{ id: "i1", descripcion: "Cambio de aceite", cantidad: "1", precioUnitario: "100000" }], cliente: { nombre: "Ana Pérez", email: null, telefono: "3001234567" } }),
     );
     mockConfiguracionSmtpFindUnique.mockResolvedValue(filaSmtpActiva());
     const formData = new FormData();
@@ -449,7 +452,7 @@ describe("enviarCotizacionAction", () => {
   });
 
   it("EMAIL canal: sends the email with the decrypted config before transitioning to ENVIADA", async () => {
-    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ items: [{ id: "i1" }] }));
+    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ items: [{ id: "i1", descripcion: "Cambio de aceite", cantidad: "1", precioUnitario: "100000" }] }));
     mockConfiguracionSmtpFindUnique.mockResolvedValue(filaSmtpActiva());
     const formData = new FormData();
     formData.set("canal", "EMAIL");
@@ -477,7 +480,7 @@ describe("enviarCotizacionAction", () => {
   });
 
   it("EMAIL canal: reports a friendly Spanish error and does not transition when enviarEmail rejects", async () => {
-    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ items: [{ id: "i1" }] }));
+    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ items: [{ id: "i1", descripcion: "Cambio de aceite", cantidad: "1", precioUnitario: "100000" }] }));
     mockConfiguracionSmtpFindUnique.mockResolvedValue(filaSmtpActiva());
     mockEnviarEmail.mockRejectedValue(new Error("ECONNREFUSED"));
     const formData = new FormData();
@@ -495,7 +498,7 @@ describe("enviarCotizacionAction", () => {
 
   it("WHATSAPP and OTRO canales: still transition immediately and never touch SMTP", async () => {
     for (const canal of ["WHATSAPP", "OTRO"]) {
-      mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ items: [{ id: "i1" }] }));
+      mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ items: [{ id: "i1", descripcion: "Cambio de aceite", cantidad: "1", precioUnitario: "100000" }] }));
       mockConfiguracionSmtpFindUnique.mockClear();
       mockCotizacionUpdate.mockClear();
       const formData = new FormData();

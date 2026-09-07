@@ -387,7 +387,7 @@ export async function enviarCotizacionAction(
   const cotizacion = await tenantDb.cotizacion.findFirst({
     where: { id: cotizacionId, ...scopeCotizacion(session.user.sedeActivaId) },
     include: {
-      items: { select: { id: true } },
+      items: { select: { id: true, descripcion: true, cantidad: true, precioUnitario: true } },
       cliente: { select: { nombre: true, email: true } },
       vehiculo: { select: { placa: true, marca: true, modelo: true } },
     },
@@ -429,6 +429,14 @@ export async function enviarCotizacionAction(
         placa: cotizacion.vehiculo.placa,
         marca: cotizacion.vehiculo.marca,
         modelo: cotizacion.vehiculo.modelo,
+        items: cotizacion.items.map((item) => ({
+          descripcion: item.descripcion,
+          cantidad: Number(item.cantidad),
+          precioUnitario: Number(item.precioUnitario),
+        })),
+        subtotal: Number(cotizacion.subtotal),
+        descuento: Number(cotizacion.descuento),
+        iva: Number(cotizacion.iva),
         total: Number(cotizacion.total),
         validaHasta,
         tallerNombre: config.fromNombre,
