@@ -1,0 +1,68 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { createHash, timingSafeEqual } from "node:crypto";
+import { publicDb } from "@/lib/db/public-client";
+import { marcarCotizacionesVencidas } from "@/lib/cotizacion/marcar-vencidas";
+import { prismaCotizacionesVencidasGateway } from "@/lib/cotizacion/marcar-vencidas-gateway-prisma";
+
+/**
+ * The cotización-expiry batch flip, triggered by an EXTERNAL scheduler
+ * (Vercel Cron, a system crontab, any HTTP caller with the secret) rather
+ * than by a signed-in user -- same shape as /api/cron/recordatorios. That is
+ * why it does not call requireSession(): there is no session, no tenant
+ * subdomain and no sede activa here.
+ *
+ * Authentication is a shared secret in "Authorization: Bearer <secret>",
+ * exactly what Vercel Cron sends. An unset CRON_SECRET fails closed.
+ */
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const PREFIJO_BEARER = "Bearer ";
+
+function autorizado(request: NextRequest): boolean {
+  const esperado = process.env.CRON_SECRET;
+  if (!esperado) {
+    // Fail closed: an unconfigured secret must never mean "open to everyone".
+    return false;
+  }
+
+  const encabezado = request.headers.get("authorization") ?? "";
+  if (!encabezado.startsWith(PREFIJO_BEARER)) {
+    return false;
+  }
+  const recibido = encabezado.slice(PREFIJO_BEARER.length);
+
+  // Hash both sides first so the buffers are always 32 bytes: timingSafeEqual
+  // throws on a length mismatch, and that throw would itself reveal the secret's
+  // length to a probing caller.
+  const digestRecibido = createHash("sha256").update(recibido).digest();
+  const digestEsperado = createHash("sha256").update(esperado).digest();
+  return timingSafeEqual(digestRecibido, digestEsperado);
+}
+
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  if (!autorizado(request)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  try {
+    const resumen = await marcarCotizacionesVencidas({
+      listarTenants: () => publicDb.tenant.findMany({ select: { schemaName: true } }),
+      gateway: prismaCotizacionesVencidasGateway,
+      ahora: new Date(),
+    });
+
+    return NextResponse.json(resumen, { headers: { "Cache-Control": "no-store" } });
+  } catch (err) {
+    // marcarCotizacionesVencidas already absorbs per-tenant failures, so
+    // reaching here means the sweep could not start at all (e.g. the public
+    // database is unreachable). The raw error can carry hosts and
+    // credentials, so only its constructor name is logged.
+    const nombreError = err instanceof Error ? err.constructor.name : "Error desconocido";
+    console.error(`[cron/cotizaciones-vencidas] La barrida no pudo iniciar: ${nombreError}`);
+    return NextResponse.json(
+      { error: "Error al marcar las cotizaciones vencidas" },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+}
