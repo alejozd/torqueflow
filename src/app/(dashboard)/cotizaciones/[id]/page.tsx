@@ -8,6 +8,7 @@ import { DescuentoCotizacionForm } from "./descuento-cotizacion-form";
 import { EnviarCotizacionForm } from "./enviar-cotizacion-form";
 import { DecisionCotizacionButtons } from "./decision-cotizacion-buttons";
 import { RegistrarSeguimientoDialog } from "./registrar-seguimiento-dialog";
+import { esCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
 import type { EstadoCotizacion, TipoSeguimiento } from "@/generated/prisma-tenant";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -142,7 +143,7 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
     notFound();
   }
 
-  const puedeEditar = cotizacion.estado === "BORRADOR";
+  const puedeEditar = esCotizacionMutable(cotizacion.estado);
   const subtotalRepuestos = cotizacion.items
     .filter((item) => item.tipo === "REPUESTO")
     .reduce((suma, item) => suma + Number(item.cantidad) * Number(item.precioUnitario), 0);

@@ -215,8 +215,22 @@ describe("agregarItemCotizacionAction", () => {
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
-  it("refuses to add an item to a non-BORRADOR cotización", async () => {
+  it("allows adding an item to an ENVIADA cotización -- still mutable before a final decision", async () => {
     mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ estado: "ENVIADA" }));
+    const formData = new FormData();
+    formData.set("tipo", "MANO_OBRA");
+    formData.set("descripcion", "Cambio de pastillas");
+    formData.set("cantidad", "1");
+    formData.set("precioUnitario", "50");
+
+    const result = await agregarItemCotizacionAction("q1", itemInitial, formData);
+
+    expect(result.success).toBe(true);
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses to add an item once the cotización has a final decision (APROBADA)", async () => {
+    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ estado: "APROBADA" }));
     const formData = new FormData();
     formData.set("tipo", "MANO_OBRA");
     formData.set("descripcion", "Cambio de pastillas");
