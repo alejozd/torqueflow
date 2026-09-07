@@ -2,13 +2,17 @@ import Link from "next/link";
 import { Headset, ShieldCheck, Wrench } from "lucide-react";
 import { listUsuariosConMetricas, type UsuarioConMetricas } from "@/app/actions/usuario-actions";
 import { listSedes } from "@/app/actions/sede-actions";
-import { AsignarSedesDialog } from "./asignar-sedes-dialog";
+import { NuevoUsuarioDialog } from "./nuevo-usuario-dialog";
+import { EditarUsuarioDialog } from "./editar-usuario-dialog";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
 import { KPI_TONE, KpiCard, type KpiTone } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
+
+// Same green/outline convention already used elsewhere (e.g. ConfiguracionSmtp,
+// Cotizaciones' APROBADA) for a positive "active" state.
+const ACTIVO_BADGE_CLASSNAME = "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]";
 
 type Role = "ADMIN" | "TECNICO" | "RECEPCION";
 
@@ -106,13 +110,19 @@ function buildColumns(sedesPorId: Map<string, string>, sedeOptions: SedeOption[]
       cell: (usuario) => <span className="font-mono">{usuario.ordenesActivas}</span>,
     },
     {
+      header: "Estado",
+      cell: (usuario) =>
+        usuario.activo ? (
+          <Badge className={ACTIVO_BADGE_CLASSNAME}>Activo</Badge>
+        ) : (
+          <Badge variant="outline">Suspendido</Badge>
+        ),
+    },
+    {
       header: "Acciones",
       cell: (usuario) => (
         <div className="flex flex-wrap items-center gap-2">
-          <Link href={`/usuarios/${usuario.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-            Editar
-          </Link>
-          <AsignarSedesDialog usuario={usuario} sedes={sedeOptions} />
+          <EditarUsuarioDialog usuario={usuario} sedes={sedeOptions} />
         </div>
       ),
     },
@@ -161,9 +171,7 @@ export default async function UsuariosPage({
           </div>
           <p className="text-sm text-muted-foreground">{usuarios.length} usuarios registrados</p>
         </div>
-        <Link href="/usuarios/nuevo" className={buttonVariants({})}>
-          Crear usuario
-        </Link>
+        <NuevoUsuarioDialog sedes={sedeOptions} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

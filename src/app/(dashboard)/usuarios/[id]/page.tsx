@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
 import { listUsuariosConSedes } from "@/app/actions/usuario-actions";
+import { listSedes } from "@/app/actions/sede-actions";
 import { EditarUsuarioForm } from "./editar-usuario-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function EditarUsuarioPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const usuarios = await listUsuariosConSedes();
+  const [usuarios, sedes] = await Promise.all([listUsuariosConSedes(), listSedes()]);
   const usuario = usuarios.find((u) => u.id === id);
   if (!usuario) {
     notFound();
@@ -20,7 +21,7 @@ export default async function EditarUsuarioPage({ params }: { params: Promise<{ 
           <CardTitle>Editar usuario</CardTitle>
         </CardHeader>
         <CardContent>
-          <EditarUsuarioForm usuario={usuario} />
+          <EditarUsuarioForm usuario={usuario} sedes={sedes} />
         </CardContent>
       </Card>
     </main>

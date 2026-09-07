@@ -276,7 +276,7 @@ export async function updateUsuarioAction(
     }
   }
 
-  const datos: Prisma.UsuarioUpdateInput = {
+  const datos: Prisma.UsuarioUncheckedUpdateInput = {
     nombre: parsed.data.nombre,
     email: parsed.data.email,
     role: parsed.data.role,
