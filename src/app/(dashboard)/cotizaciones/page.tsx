@@ -221,7 +221,7 @@ export default async function CotizacionesPage({
         <NuevaCotizacionDialog vehiculos={vehiculos} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <KpiCard
           title="Abiertas"
           value={abiertas.length}
