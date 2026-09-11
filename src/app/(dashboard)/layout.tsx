@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { cookies } from "next/headers";
 import { Toaster } from "sonner";
 import { requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
@@ -115,6 +116,11 @@ async function loadRepuestosStockBajo(session: Awaited<ReturnType<typeof require
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const session = await requireSession();
   const esAdmin = session.user.role === "ADMIN";
+  // Remembers the sidebar's collapsed/expanded state per browser (SidebarProvider
+  // writes this cookie on every toggle), so a preference set on a smaller screen
+  // doesn't reset to expanded on the next page load.
+  const cookieStore = await cookies();
+  const sidebarOpen = cookieStore.get("sidebar_state")?.value !== "false";
   const [
     plan,
     cotizacionesPendientesSeguimiento,
@@ -137,7 +143,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     <DashboardSessionProvider>
       <TooltipProvider>
         <Toaster richColors position="top-right" />
-        <SidebarProvider>
+        <SidebarProvider defaultOpen={sidebarOpen}>
           <DashboardSidebar
             esAdmin={esAdmin}
             tenantSlug={session.user.tenantSlug}
