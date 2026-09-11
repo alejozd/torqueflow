@@ -84,9 +84,9 @@ function SubtitleIcon({ icon }: { icon: KpiSubtitleIcon }) {
 }
 
 /**
- * Standard KPI tile: uppercase muted title, bold foreground value, an
- * optional colored/iconed subtitle, and an icon in a soft-background circle.
- * Mirrors the 4-up KPI row pattern from docs/Evidencias/Facturas.png.
+ * Standard KPI tile: title + icon badge on top, bold value below spanning
+ * the full card width (so a wide currency value never competes with the
+ * icon for space), and an optional colored/iconed subtitle underneath.
  */
 export function KpiCard({
   title,
@@ -102,35 +102,35 @@ export function KpiCard({
 }: KpiCardProps) {
   return (
     <Card className={cn("w-full", highlight && "bg-primary/5 ring-2 ring-primary/25", className)}>
-      <CardContent className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-col gap-1.5">
+      <CardContent className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between gap-2">
           <p className="truncate text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</p>
-          <p className={cn("font-mono text-2xl font-semibold", ACCENT_COLOR_CLASSNAME[valueColor])}>{value}</p>
-          {/*
-            Always rendered (invisible when there is no subtitle) so every
-            card reserves the same line of height -- otherwise cards without
-            a subtitle (or whose subtitle only appears conditionally, like
-            Dashboard's "En el taller") render shorter than their siblings.
-          */}
-          <p
-            className={cn(
-              "flex items-center gap-1 text-xs",
-              subtitle ? SUBTITLE_ACCENT_COLOR_CLASSNAME[subtitleColor] : "invisible",
-            )}
-          >
-            {subtitle ? (
-              <>
-                <SubtitleIcon icon={subtitleIcon} />
-                {subtitle}
-              </>
-            ) : (
-              " "
-            )}
-          </p>
+          <div className={cn("flex size-8 shrink-0 items-center justify-center rounded-full", iconBgColor)}>
+            {icon}
+          </div>
         </div>
-        <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-full", iconBgColor)}>
-          {icon}
-        </div>
+        <p className={cn("truncate font-mono text-xl font-semibold", ACCENT_COLOR_CLASSNAME[valueColor])}>{value}</p>
+        {/*
+          Always rendered (invisible when there is no subtitle) so every
+          card reserves the same line of height -- otherwise cards without
+          a subtitle (or whose subtitle only appears conditionally, like
+          Dashboard's "En el taller") render shorter than their siblings.
+        */}
+        <p
+          className={cn(
+            "flex items-center gap-1 text-xs",
+            subtitle ? SUBTITLE_ACCENT_COLOR_CLASSNAME[subtitleColor] : "invisible",
+          )}
+        >
+          {subtitle ? (
+            <>
+              <SubtitleIcon icon={subtitleIcon} />
+              {subtitle}
+            </>
+          ) : (
+            " "
+          )}
+        </p>
       </CardContent>
     </Card>
   );
