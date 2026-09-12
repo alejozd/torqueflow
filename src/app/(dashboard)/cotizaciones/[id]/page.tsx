@@ -45,6 +45,15 @@ const ESTADO_BADGE_CLASSNAME: Record<EstadoCotizacion, string> = {
   VENCIDA: "",
 };
 
+// Same dot-in-pill standard as cotizaciones/page.tsx's ESTADO_DOT_COLOR.
+const ESTADO_DOT_COLOR: Record<EstadoCotizacion, string> = {
+  BORRADOR: "oklch(0.7 0 0)",
+  ENVIADA: "oklch(0.44 0.12 250)",
+  APROBADA: "oklch(0.4 0.1 150)",
+  RECHAZADA: "var(--destructive)",
+  VENCIDA: "var(--primary-foreground)",
+};
+
 const formatoMoneda = new Intl.NumberFormat("es-CO", {
   style: "currency",
   currency: "COP",
@@ -164,7 +173,14 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-xl font-semibold tracking-tight">Cotización #{cotizacion.numero}</h1>
-            <Badge variant={ESTADO_BADGE_VARIANT[cotizacion.estado]} className={ESTADO_BADGE_CLASSNAME[cotizacion.estado]}>
+            <Badge
+              variant={ESTADO_BADGE_VARIANT[cotizacion.estado]}
+              className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[cotizacion.estado])}
+            >
+              <span
+                className="size-1.5 shrink-0 rounded-full"
+                style={{ background: ESTADO_DOT_COLOR[cotizacion.estado] }}
+              />
               {ESTADO_LABELS[cotizacion.estado]}
             </Badge>
           </div>

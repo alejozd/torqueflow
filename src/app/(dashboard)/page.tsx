@@ -54,6 +54,19 @@ const ESTADO_ORDEN_BADGE: Record<EstadoOrden, "secondary" | "default" | "outline
   ANULADA: "destructive",
 };
 
+// Same dot-in-pill standard as ordenes/page.tsx's ESTADO_DOT_COLOR, adapted to
+// this list's own variant-based badges (no per-estado tint className here):
+// TERMINADA/ENTREGADA render on a solid bg-primary ("default" variant), so
+// their dot reuses --primary-foreground for contrast -- same trick facturas'
+// PENDIENTE and cotizaciones' VENCIDA use for their own "default"-variant dot.
+const ESTADO_ORDEN_DOT_COLOR: Record<EstadoOrden, string> = {
+  BORRADOR: "oklch(0.7 0 0)",
+  EN_PROCESO: "oklch(0.55 0.15 60)",
+  TERMINADA: "var(--primary-foreground)",
+  ENTREGADA: "var(--primary-foreground)",
+  ANULADA: "var(--destructive)",
+};
+
 const ESTADO_CITA_LABELS: Record<EstadoCita, string> = {
   PROGRAMADA: "Programada",
   CONFIRMADA: "Confirmada",
@@ -316,7 +329,13 @@ export default async function InicioPage() {
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <div className="flex flex-col items-end gap-1">
-                        <Badge variant={ESTADO_ORDEN_BADGE[orden.estado]}>{ESTADO_ORDEN_LABELS[orden.estado]}</Badge>
+                        <Badge variant={ESTADO_ORDEN_BADGE[orden.estado]} className="gap-1.5">
+                          <span
+                            className="size-1.5 shrink-0 rounded-full"
+                            style={{ background: ESTADO_ORDEN_DOT_COLOR[orden.estado] }}
+                          />
+                          {ESTADO_ORDEN_LABELS[orden.estado]}
+                        </Badge>
                         <span className="font-mono text-sm">{formatoMoneda.format(orden.total)}</span>
                       </div>
                       <ChevronRight className="size-4 shrink-0 text-muted-foreground" />

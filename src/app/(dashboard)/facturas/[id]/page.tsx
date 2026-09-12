@@ -34,6 +34,12 @@ const ESTADO_BADGE_CLASSNAME: Record<EstadoFactura, string> = {
   PAGADA: "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]",
 };
 
+// Same dot-in-pill standard as facturas/page.tsx's ESTADO_DOT_COLOR.
+const ESTADO_DOT_COLOR: Record<EstadoFactura, string> = {
+  PENDIENTE: "var(--primary-foreground)",
+  PAGADA: "oklch(0.4 0.1 150)",
+};
+
 const formatoMoneda = new Intl.NumberFormat("es-CO", {
   style: "currency",
   currency: "COP",
@@ -159,7 +165,14 @@ export default async function FacturaDetailPage({ params }: { params: Promise<{ 
       <div>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold tracking-tight">Factura #{factura.numero}</h1>
-          <Badge variant={ESTADO_BADGE_VARIANT[factura.estado]} className={ESTADO_BADGE_CLASSNAME[factura.estado]}>
+          <Badge
+            variant={ESTADO_BADGE_VARIANT[factura.estado]}
+            className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[factura.estado])}
+          >
+            <span
+              className="size-1.5 shrink-0 rounded-full"
+              style={{ background: ESTADO_DOT_COLOR[factura.estado] }}
+            />
             {ESTADO_LABELS[factura.estado]}
           </Badge>
         </div>

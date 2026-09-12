@@ -9,6 +9,7 @@ import { EditarCitaForm } from "./editar-cita-form";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 // Mirrors citas/page.tsx's own copy -- this codebase keeps estado
 // label/badge maps local to each page rather than sharing a module (see
@@ -30,6 +31,14 @@ const ESTADO_BADGE_CLASSNAME: Record<EstadoCita, string> = {
 const ESTADO_BADGE_VARIANT: Partial<Record<EstadoCita, "outline" | "destructive">> = {
   PROGRAMADA: "outline",
   CANCELADA: "destructive",
+};
+
+// Mirrors citas/page.tsx's own ESTADO_DOT_COLOR.
+const ESTADO_DOT_COLOR: Record<EstadoCita, string> = {
+  PROGRAMADA: "oklch(0.7 0 0)",
+  CONFIRMADA: "oklch(0.44 0.12 250)",
+  CANCELADA: "var(--destructive)",
+  COMPLETADA: "oklch(0.4 0.1 150)",
 };
 
 const formatoFechaCorta = new Intl.DateTimeFormat("es-CO", {
@@ -83,7 +92,11 @@ export default async function CitaDetallePage({ params }: { params: Promise<{ id
         <div>
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="text-xl font-semibold tracking-tight">{`Cita ${cita.vehiculo.placa}`}</h1>
-            <Badge variant={ESTADO_BADGE_VARIANT[cita.estado]} className={ESTADO_BADGE_CLASSNAME[cita.estado]}>
+            <Badge
+              variant={ESTADO_BADGE_VARIANT[cita.estado]}
+              className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[cita.estado])}
+            >
+              <span className="size-1.5 shrink-0 rounded-full" style={{ background: ESTADO_DOT_COLOR[cita.estado] }} />
               {ESTADO_LABELS[cita.estado]}
             </Badge>
             <span className="font-mono text-xs text-muted-foreground">
@@ -130,8 +143,12 @@ export default async function CitaDetallePage({ params }: { params: Promise<{ id
                       <span className="min-w-0 flex-1 truncate text-muted-foreground">{otra.motivo}</span>
                       <Badge
                         variant={ESTADO_BADGE_VARIANT[otra.estado]}
-                        className={ESTADO_BADGE_CLASSNAME[otra.estado]}
+                        className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[otra.estado])}
                       >
+                        <span
+                          className="size-1.5 shrink-0 rounded-full"
+                          style={{ background: ESTADO_DOT_COLOR[otra.estado] }}
+                        />
                         {ESTADO_LABELS[otra.estado]}
                       </Badge>
                     </Link>

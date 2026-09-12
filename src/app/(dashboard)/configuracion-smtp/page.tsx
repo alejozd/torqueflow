@@ -32,19 +32,19 @@ export default async function ConfiguracionSmtpPage() {
             {configuracion ? (
               <Badge
                 variant={configuracion.activo ? "default" : "outline"}
-                className={configuracion.activo ? ESTADO_BADGE_CLASSNAME : ""}
+                className={cn("gap-1.5", configuracion.activo && ESTADO_BADGE_CLASSNAME)}
               >
-                {configuracion.activo ? (
-                  <>
-                    <span className="size-1.5 shrink-0 rounded-full bg-[oklch(0.4_0.1_150)]" />
-                    Activo
-                  </>
-                ) : (
-                  "Inactivo"
-                )}
+                <span
+                  className="size-1.5 shrink-0 rounded-full"
+                  style={{ background: configuracion.activo ? "oklch(0.4 0.1 150)" : "oklch(0.7 0 0)" }}
+                />
+                {configuracion.activo ? "Activo" : "Inactivo"}
               </Badge>
             ) : (
-              <Badge variant="outline">Sin configurar</Badge>
+              <Badge variant="outline" className="gap-1.5">
+                <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground" />
+                Sin configurar
+              </Badge>
             )}
           </CardHeader>
           <CardContent>

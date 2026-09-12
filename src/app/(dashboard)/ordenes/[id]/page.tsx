@@ -16,6 +16,7 @@ import { GenerarFacturaForm } from "./generar-factura-form";
 import type { DviChecklist } from "@/lib/dvi/checklist-items";
 import type { EstadoOrden } from "@/generated/prisma-tenant";
 import { totalOrden } from "@/lib/dashboard/calculos";
+import { cn } from "@/lib/utils";
 import { FormGroup } from "@/components/form-group";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +42,15 @@ const ESTADO_BADGE_CLASSNAME: Record<EstadoOrden, string> = {
   TERMINADA: "border-transparent bg-[oklch(0.44_0.12_250/0.1)] text-[oklch(0.44_0.12_250)]",
   ENTREGADA: "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]",
   ANULADA: "",
+};
+
+// Same dot-in-pill standard as ordenes/page.tsx's ESTADO_DOT_COLOR.
+const ESTADO_DOT_COLOR: Record<EstadoOrden, string> = {
+  BORRADOR: "oklch(0.7 0 0)",
+  EN_PROCESO: "oklch(0.55 0.15 60)",
+  TERMINADA: "oklch(0.44 0.12 250)",
+  ENTREGADA: "oklch(0.4 0.1 150)",
+  ANULADA: "oklch(0.5 0.2 27)",
 };
 
 const ESTADO_BADGE_VARIANT: Partial<Record<EstadoOrden, "outline" | "destructive">> = {
@@ -168,7 +178,11 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
       <div>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold tracking-tight">Orden — #{orden.id.slice(-8).toUpperCase()}</h1>
-          <Badge variant={ESTADO_BADGE_VARIANT[orden.estado]} className={ESTADO_BADGE_CLASSNAME[orden.estado]}>
+          <Badge
+            variant={ESTADO_BADGE_VARIANT[orden.estado]}
+            className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[orden.estado])}
+          >
+            <span className="size-1.5 shrink-0 rounded-full" style={{ background: ESTADO_DOT_COLOR[orden.estado] }} />
             {ESTADO_LABELS[orden.estado]}
           </Badge>
         </div>

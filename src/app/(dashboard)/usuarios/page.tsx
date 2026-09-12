@@ -78,7 +78,10 @@ function buildColumns(sedesPorId: Map<string, string>, sedeOptions: SedeOption[]
     {
       header: "Rol",
       cell: (usuario) => (
-        <Badge className={ROLE_BADGE_CLASSNAME[usuario.role]}>{ROLE_LABELS[usuario.role]}</Badge>
+        <Badge className={cn("gap-1.5", ROLE_BADGE_CLASSNAME[usuario.role])}>
+          <span className="size-1.5 shrink-0 rounded-full" style={{ background: ROLE_DOT_COLOR[usuario.role] }} />
+          {ROLE_LABELS[usuario.role]}
+        </Badge>
       ),
     },
     {
@@ -113,9 +116,15 @@ function buildColumns(sedesPorId: Map<string, string>, sedeOptions: SedeOption[]
       header: "Estado",
       cell: (usuario) =>
         usuario.activo ? (
-          <Badge className={ACTIVO_BADGE_CLASSNAME}>Activo</Badge>
+          <Badge className={cn("gap-1.5", ACTIVO_BADGE_CLASSNAME)}>
+            <span className="size-1.5 shrink-0 rounded-full bg-[oklch(0.4_0.1_150)]" />
+            Activo
+          </Badge>
         ) : (
-          <Badge variant="outline">Suspendido</Badge>
+          <Badge variant="outline" className="gap-1.5">
+            <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground" />
+            Suspendido
+          </Badge>
         ),
     },
     {

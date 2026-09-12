@@ -102,13 +102,16 @@ export default async function SuperAdminPage({
       cell: (tenant) => (
         <Badge
           variant="outline"
-          className={
-            tenant.estado === "SUSPENDIDO"
-              ? "border-red-200 bg-red-50 text-red-700"
-              : "border-green-200 bg-green-50 text-green-700"
-          }
+          className={cn(
+            "gap-1.5",
+            tenant.estado === "SUSPENDIDO" ? "border-red-200 bg-red-50 text-red-700" : "border-green-200 bg-green-50 text-green-700",
+          )}
         >
-          ● {ESTADO_LABELS[tenant.estado]}
+          <span
+            className="size-1.5 shrink-0 rounded-full"
+            style={{ background: tenant.estado === "SUSPENDIDO" ? "oklch(0.5 0.2 27)" : "oklch(0.4 0.1 150)" }}
+          />
+          {ESTADO_LABELS[tenant.estado]}
         </Badge>
       ),
     },
