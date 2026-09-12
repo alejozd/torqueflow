@@ -9,6 +9,12 @@ import { cn } from "@/lib/utils";
 import { NuevoClienteDialog } from "./nuevo-cliente-dialog";
 import { ClientesTable, type ClienteRow } from "./clientes-table";
 
+const formatoMoneda = new Intl.NumberFormat("es-CO", {
+  style: "currency",
+  currency: "COP",
+  maximumFractionDigits: 0,
+});
+
 export default async function ClientesPage() {
   const [session, clientes] = await Promise.all([requireSession(), listClientes()]);
 
@@ -35,7 +41,10 @@ export default async function ClientesPage() {
   const inicioMes = inicioMesBogota(ahora);
   const nuevosMes = clientes.filter((cliente) => cliente.createdAt >= inicioMes).length;
   const conSaldoPendiente = filas.filter((fila) => fila.saldo > 0).length;
+  const totalSaldoPendiente = filas.reduce((suma, fila) => suma + fila.saldo, 0);
   const vehiculosRegistrados = clientes.reduce((suma, cliente) => suma + cliente.vehiculos.length, 0);
+  const clientesConVehiculo = clientes.filter((cliente) => cliente.vehiculos.length > 0).length;
+  const promedioVehiculosPorCliente = clientes.length > 0 ? vehiculosRegistrados / clientes.length : 0;
 
   return (
     <main className="flex flex-col gap-6">
@@ -58,6 +67,7 @@ export default async function ClientesPage() {
         <KpiCard
           title="Clientes"
           value={clientes.length}
+          subtitle={`${clientesConVehiculo} con vehículo registrado`}
           icon={<Users className={cn("size-5", KPI_TONE.info.icon)} />}
           iconBgColor={KPI_TONE.info.iconBg}
           className={KPI_TONE.info.cardBg}
@@ -66,6 +76,7 @@ export default async function ClientesPage() {
         <KpiCard
           title="Nuevos este mes"
           value={nuevosMes}
+          subtitle={`${nuevosMes} ${nuevosMes === 1 ? "cliente nuevo" : "clientes nuevos"} este mes`}
           icon={<UserPlus className={cn("size-5", KPI_TONE.info.icon)} />}
           iconBgColor={KPI_TONE.info.iconBg}
           className={KPI_TONE.info.cardBg}
@@ -75,6 +86,10 @@ export default async function ClientesPage() {
           title="Con saldo pendiente"
           value={conSaldoPendiente}
           valueColor="warning"
+          subtitle={`${formatoMoneda.format(totalSaldoPendiente)} en saldo pendiente`}
+          subtitleColor="warning"
+          subtitleIcon="dot"
+          highlight={conSaldoPendiente > 0}
           icon={<AlertCircle className={cn("size-5", KPI_TONE.warning.icon)} />}
           iconBgColor={KPI_TONE.warning.iconBg}
           className={KPI_TONE.warning.cardBg}
@@ -83,6 +98,7 @@ export default async function ClientesPage() {
         <KpiCard
           title="Vehículos registrados"
           value={vehiculosRegistrados}
+          subtitle={clientes.length > 0 ? `${promedioVehiculosPorCliente.toFixed(1)} por cliente en promedio` : "Sin clientes registrados"}
           icon={<Car className={cn("size-5", KPI_TONE.info.icon)} />}
           iconBgColor={KPI_TONE.info.iconBg}
           className={KPI_TONE.info.cardBg}
