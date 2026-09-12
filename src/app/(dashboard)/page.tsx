@@ -104,6 +104,14 @@ function capitalizar(texto: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
+const SECCIONES_DASHBOARD = [
+  { id: "resumen", label: "Resumen" },
+  { id: "flujo-taller", label: "Flujo del taller" },
+  { id: "agenda-hoy", label: "Agenda de hoy" },
+  { id: "facturacion", label: "Facturación" },
+  { id: "alertas-inventario", label: "Inventario" },
+] as const;
+
 export default async function InicioPage() {
   const [session, overview] = await Promise.all([requireSession(), getDashboardOverview()]);
 
@@ -141,7 +149,30 @@ export default async function InicioPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      {/*
+        Anchor nav so it's obvious there's more below the fold and the user
+        can jump straight to a section instead of guessing at scroll depth.
+        Sticky at the top of the page's own scroll flow (the layout's header
+        above isn't sticky, so this becomes the fixed reference once scrolled
+        past it). scroll-mt-16 on each section target keeps it from tucking
+        under this bar when jumped to.
+      */}
+      <nav
+        aria-label="Secciones del dashboard"
+        className="sticky top-0 z-10 flex gap-2 overflow-x-auto border-b bg-slate-50/95 py-2 backdrop-blur supports-backdrop-filter:bg-slate-50/75 dark:bg-slate-900/75"
+      >
+        {SECCIONES_DASHBOARD.map((seccion) => (
+          <a
+            key={seccion.id}
+            href={`#${seccion.id}`}
+            className="shrink-0 rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            {seccion.label}
+          </a>
+        ))}
+      </nav>
+
+      <div id="resumen" className="grid scroll-mt-16 grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <KpiCard
           title="En el taller"
           value={overview.enTaller.total}
@@ -201,7 +232,7 @@ export default async function InicioPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div id="flujo-taller" className="grid scroll-mt-16 grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle>Flujo del taller</CardTitle>
@@ -297,7 +328,7 @@ export default async function InicioPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="agenda-hoy" className="scroll-mt-16">
           <CardHeader>
             <CardTitle>Agenda de hoy</CardTitle>
           </CardHeader>
@@ -337,7 +368,7 @@ export default async function InicioPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card id="facturacion" className="scroll-mt-16">
         <CardHeader>
           <CardTitle>Facturación · últimos 7 días</CardTitle>
         </CardHeader>
@@ -363,7 +394,7 @@ export default async function InicioPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="alertas-inventario" className="scroll-mt-16">
         <CardHeader className="flex flex-row items-center justify-between gap-2">
           <CardTitle>Alertas de inventario</CardTitle>
           <Link href="/repuestos" className="text-sm text-primary hover:underline">
