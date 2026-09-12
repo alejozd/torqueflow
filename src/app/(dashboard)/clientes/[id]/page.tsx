@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Clock, Gauge, Wrench } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Gauge, IdCard, Mail, Phone, Wrench } from "lucide-react";
 import { getCliente } from "@/app/actions/cliente-actions";
 import { listTecnicos } from "@/app/actions/orden-actions";
 import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/vehiculo-marca-modelo-actions";
@@ -291,15 +291,24 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               <div>
-                <p className="text-xs text-muted-foreground">Teléfono</p>
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Phone className="size-3.5" />
+                  Teléfono
+                </p>
                 <p className="font-mono text-sm">{cliente.telefono ?? "—"}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Correo</p>
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Mail className="size-3.5" />
+                  Correo
+                </p>
                 <p className="text-sm">{cliente.email ?? "—"}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Documento</p>
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <IdCard className="size-3.5" />
+                  Documento
+                </p>
                 <p className="font-mono text-sm">{cliente.documento ?? "—"}</p>
               </div>
             </CardContent>
