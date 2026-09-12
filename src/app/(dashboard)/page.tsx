@@ -224,19 +224,31 @@ export default async function InicioPage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="flex flex-col gap-0.5">
                 <span className="font-mono text-lg font-semibold">{overview.flujo.borrador}</span>
-                <span className="text-xs text-muted-foreground">Borrador</span>
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="size-2 shrink-0 rounded-sm bg-[oklch(0.556_0_0)]" />
+                  Borrador
+                </span>
               </div>
               <div className="flex flex-col gap-0.5">
                 <span className="font-mono text-lg font-semibold">{overview.flujo.enProceso}</span>
-                <span className="text-xs text-muted-foreground">En proceso</span>
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="size-2 shrink-0 rounded-sm bg-[oklch(0.44_0.12_250)]" />
+                  En proceso
+                </span>
               </div>
               <div className="flex flex-col gap-0.5">
                 <span className="font-mono text-lg font-semibold">{overview.flujo.terminadas}</span>
-                <span className="text-xs text-muted-foreground">Terminadas</span>
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="size-2 shrink-0 rounded-sm bg-primary" />
+                  Terminadas
+                </span>
               </div>
               <div className="flex flex-col gap-0.5">
                 <span className="font-mono text-lg font-semibold">{overview.flujo.entregadasHoy}</span>
-                <span className="text-xs text-muted-foreground">Entregadas hoy</span>
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="size-2 shrink-0 rounded-sm bg-[oklch(0.4_0.1_150)]" />
+                  Entregadas hoy
+                </span>
               </div>
             </div>
 
