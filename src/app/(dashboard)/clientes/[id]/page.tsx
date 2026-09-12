@@ -42,6 +42,15 @@ const ESTADO_BADGE_VARIANT: Partial<Record<EstadoOrden, "outline" | "destructive
   ANULADA: "destructive",
 };
 
+// Same dot-in-pill standard as ordenes/page.tsx's ESTADO_DOT_COLOR.
+const ESTADO_DOT_COLOR: Record<EstadoOrden, string> = {
+  BORRADOR: "oklch(0.7 0 0)",
+  EN_PROCESO: "oklch(0.55 0.15 60)",
+  TERMINADA: "oklch(0.44 0.12 250)",
+  ENTREGADA: "oklch(0.4 0.1 150)",
+  ANULADA: "oklch(0.5 0.2 27)",
+};
+
 // A vehículo is "en taller" while it has an orden that hasn't reached a final
 // state (terminada/entregada/anulada) yet.
 const ESTADOS_ACTIVOS: EstadoOrden[] = ["BORRADOR", "EN_PROCESO"];
@@ -149,7 +158,11 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
     {
       header: "Estado",
       cell: (orden) => (
-        <Badge variant={ESTADO_BADGE_VARIANT[orden.estado]} className={ESTADO_BADGE_CLASSNAME[orden.estado]}>
+        <Badge
+          variant={ESTADO_BADGE_VARIANT[orden.estado]}
+          className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[orden.estado])}
+        >
+          <span className="size-1.5 shrink-0 rounded-full" style={{ background: ESTADO_DOT_COLOR[orden.estado] }} />
           {ESTADO_LABELS[orden.estado]}
         </Badge>
       ),
