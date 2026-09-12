@@ -164,7 +164,7 @@ export default async function InicioPage() {
       */}
       <nav
         aria-label="Secciones del dashboard"
-        className="sticky top-0 z-10 flex gap-2 overflow-x-auto border-b bg-slate-50/95 py-2 backdrop-blur supports-backdrop-filter:bg-slate-50/75 dark:bg-slate-900/75"
+        className="sticky top-0 z-10 -mt-4 flex gap-2 overflow-x-auto border-b bg-slate-50/95 py-2 backdrop-blur supports-backdrop-filter:bg-slate-50/75 dark:bg-slate-900/75"
       >
         {SECCIONES_DASHBOARD.map((seccion) => (
           <a
