@@ -104,12 +104,17 @@ function capitalizar(texto: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
+// Dot per pill echoes each section's own dominant color elsewhere on the
+// page: resumen reuses KPI_TONE.info (En el taller/Citas de hoy), flujo
+// reuses the "Terminadas" bar segment (bg-primary), agenda reuses the
+// PROGRAMADA cita dot (amber), facturación reuses the success green used
+// for money figures, and inventario reuses KPI_TONE.danger (Stock bajo).
 const SECCIONES_DASHBOARD = [
-  { id: "resumen", label: "Resumen" },
-  { id: "flujo-taller", label: "Flujo del taller" },
-  { id: "agenda-hoy", label: "Agenda de hoy" },
-  { id: "facturacion", label: "Facturación" },
-  { id: "alertas-inventario", label: "Inventario" },
+  { id: "resumen", label: "Resumen", dot: "bg-blue-500" },
+  { id: "flujo-taller", label: "Flujo del taller", dot: "bg-primary" },
+  { id: "agenda-hoy", label: "Agenda de hoy", dot: "bg-amber-500" },
+  { id: "facturacion", label: "Facturación", dot: "bg-[oklch(0.4_0.1_150)]" },
+  { id: "alertas-inventario", label: "Inventario", dot: "bg-red-500" },
 ] as const;
 
 export default async function InicioPage() {
@@ -165,8 +170,9 @@ export default async function InicioPage() {
           <a
             key={seccion.id}
             href={`#${seccion.id}`}
-            className="shrink-0 rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
           >
+            <span className={cn("size-2 shrink-0 rounded-full", seccion.dot)} />
             {seccion.label}
           </a>
         ))}
