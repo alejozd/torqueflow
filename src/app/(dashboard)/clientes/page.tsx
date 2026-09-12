@@ -4,7 +4,7 @@ import { listClientes } from "@/app/actions/cliente-actions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
-import { inicioMesBogota } from "@/lib/fecha-bogota";
+import { formatoFechaRelativa, inicioMesBogota } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
 import { NuevoClienteDialog } from "./nuevo-cliente-dialog";
 import { ClientesTable, type ClienteRow } from "./clientes-table";
@@ -45,6 +45,11 @@ export default async function ClientesPage() {
   const vehiculosRegistrados = clientes.reduce((suma, cliente) => suma + cliente.vehiculos.length, 0);
   const clientesConVehiculo = clientes.filter((cliente) => cliente.vehiculos.length > 0).length;
   const promedioVehiculosPorCliente = clientes.length > 0 ? vehiculosRegistrados / clientes.length : 0;
+  const ultimaVisitaGeneral = filas.reduce<Date | null>((masReciente, fila) => {
+    if (!fila.ultimaVisita) return masReciente;
+    if (!masReciente || fila.ultimaVisita > masReciente) return fila.ultimaVisita;
+    return masReciente;
+  }, null);
 
   return (
     <main className="flex flex-col gap-6">
@@ -57,7 +62,8 @@ export default async function ClientesPage() {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            {clientes.length} clientes registrados en Sede {session.user.sedeActivaNombre}
+            Sede {session.user.sedeActivaNombre}
+            {ultimaVisitaGeneral ? ` · Última visita: ${formatoFechaRelativa(ultimaVisitaGeneral, ahora).toLowerCase()}` : ""}
           </p>
         </div>
         <NuevoClienteDialog />
