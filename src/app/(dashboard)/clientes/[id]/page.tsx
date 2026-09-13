@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Clock, Gauge, IdCard, Mail, Phone, Wrench } from "lucide-react";
+import { ArrowLeft, Car, CheckCircle2, Clock, Gauge, IdCard, Mail, Phone, Wrench } from "lucide-react";
 import { getCliente } from "@/app/actions/cliente-actions";
 import { listTecnicos } from "@/app/actions/orden-actions";
 import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/vehiculo-marca-modelo-actions";
@@ -222,6 +222,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
                     >
                       <div className="flex items-start justify-between gap-2">
                         <Badge className="border-transparent bg-amber-100 font-mono text-amber-900 dark:bg-amber-500/20 dark:text-amber-300">
+                          <Car />
                           {vehiculo.placa}
                         </Badge>
                         {enTaller ? (
