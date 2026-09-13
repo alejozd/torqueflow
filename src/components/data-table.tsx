@@ -10,12 +10,27 @@ export type DataTableColumn<T> = {
   cell: (row: T) => ReactNode;
   className?: string;
   /**
+   * Pins this column to the right edge of the table's own horizontal scroll
+   * (the overflow-x-auto wrapper Table already renders) so it stays visible
+   * while wide rows scroll underneath it -- meant for a table's actual last
+   * column (e.g. a Total/Saldo figure). Only makes sense on the last column:
+   * putting it anywhere else would let later columns scroll in behind it.
+   */
+  sticky?: boolean;
+  /**
    * Plain-text representation of this column's value for a row, used by
    * DataTableInteractive's client-side search filter when the caller opts
    * in via `DataTable`'s `searchable` prop.
    */
   searchValue?: (row: T) => string;
 };
+
+// No z-index needed: `position: sticky` already paints above the other
+// (static-positioned) cells scrolling underneath it. Leaving z-index unset
+// keeps it below the row's own stretched rowHref/rowClickable Link (z-10),
+// so that full-row click-through still works over the frozen column too.
+const STICKY_HEADER_CLASSNAME = "sticky right-0 border-l border-border bg-muted";
+const STICKY_CELL_CLASSNAME = "sticky right-0 border-l border-border bg-card";
 
 export function DataTable<T>({
   columns,
@@ -80,7 +95,7 @@ export function DataTable<T>({
   // DataTableInteractive, which is a Client Component that owns pagination
   // state but never needs to call `cell`/`getRowKey`/`rowHref` itself.
   const headerCells = columns.map((column, index) => (
-    <TableHead key={index} className={column.className}>
+    <TableHead key={index} className={cn(column.sticky && STICKY_HEADER_CLASSNAME, column.className)}>
       {column.header}
     </TableHead>
   ));
@@ -91,7 +106,7 @@ export function DataTable<T>({
       className={cn("hover:bg-border", (rowHref || rowClickable) && "relative cursor-pointer")}
     >
       {columns.map((column, index) => (
-        <TableCell key={index} className={column.className}>
+        <TableCell key={index} className={cn(column.sticky && STICKY_CELL_CLASSNAME, column.className)}>
           {rowHref && index === 0 ? (
             <Link href={rowHref(row)} className="absolute inset-0 z-10">
               <span className="sr-only">Ver detalle</span>

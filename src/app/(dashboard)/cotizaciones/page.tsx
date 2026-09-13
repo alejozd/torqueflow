@@ -157,6 +157,7 @@ const COLUMNS: DataTableColumn<CotizacionListItem>[] = [
   {
     header: "Total",
     className: "text-right",
+    sticky: true,
     cell: (cotizacion) => <span className="font-mono font-medium">{formatoMoneda.format(Number(cotizacion.total))}</span>,
   },
 ];

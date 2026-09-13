@@ -272,6 +272,7 @@ function buildColumns(
     {
       header: <SortableHeader label="Total" sortKey="total" {...sortableHeaderProps} />,
       className: "text-right",
+      sticky: true,
       cell: (orden) => <span className="font-mono font-medium">{formatoMoneda.format(calcularTotalOrden(orden))}</span>,
     },
   ];

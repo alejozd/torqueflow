@@ -191,6 +191,7 @@ function buildColumns(
     {
       header: <SortableHeader label="Saldo" sortKey="saldo" {...sortableHeaderProps} />,
       className: "text-right",
+      sticky: true,
       cell: (factura) =>
         Number(factura.saldoPendiente) > 0 ? (
           <span className="font-mono font-medium text-[oklch(0.5_0.2_27)]">
