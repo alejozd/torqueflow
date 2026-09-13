@@ -185,7 +185,7 @@ export function AgregarItemForm({
                 aria-describedby={errors.cantidad ? "itemCantidad-error" : undefined}
                 {...register("cantidad")}
               />
-              {errors.cantidad ? <p id="itemCantidad-error">{errors.cantidad.message}</p> : null}
+              {errors.cantidad ? <p id="itemCantidad-error" className="text-xs text-destructive">{errors.cantidad.message}</p> : null}
             </div>
           </div>
         </FormGroup>
@@ -201,7 +201,7 @@ export function AgregarItemForm({
                   aria-describedby={errors.descripcion ? "itemDescripcion-error" : undefined}
                   {...register("descripcion")}
                 />
-                {errors.descripcion ? <p id="itemDescripcion-error">{errors.descripcion.message}</p> : null}
+                {errors.descripcion ? <p id="itemDescripcion-error" className="text-xs text-destructive">{errors.descripcion.message}</p> : null}
               </div>
             )}
 
@@ -217,7 +217,7 @@ export function AgregarItemForm({
                 aria-describedby={errors.precioUnitario ? "itemPrecioUnitario-error" : undefined}
                 {...register("precioUnitario")}
               />
-              {errors.precioUnitario ? <p id="itemPrecioUnitario-error">{errors.precioUnitario.message}</p> : null}
+              {errors.precioUnitario ? <p id="itemPrecioUnitario-error" className="text-xs text-destructive">{errors.precioUnitario.message}</p> : null}
             </div>
           </div>
           <p className="text-xs text-muted-foreground">

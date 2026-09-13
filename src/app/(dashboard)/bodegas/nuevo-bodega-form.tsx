@@ -38,7 +38,7 @@ export function NuevoBodegaForm() {
             aria-describedby={errors.nombre ? "nombre-error" : undefined}
             {...register("nombre")}
           />
-          {errors.nombre ? <p id="nombre-error">{errors.nombre.message}</p> : null}
+          {errors.nombre ? <p id="nombre-error" className="text-xs text-destructive">{errors.nombre.message}</p> : null}
         </div>
       </FormGroup>
 

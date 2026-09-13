@@ -85,7 +85,7 @@ export function ConfiguracionSmtpForm({
                 aria-describedby={errors.host ? "host-error" : undefined}
                 {...register("host")}
               />
-              {errors.host ? <p id="host-error">{errors.host.message}</p> : null}
+              {errors.host ? <p id="host-error" className="text-xs text-destructive">{errors.host.message}</p> : null}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -99,7 +99,7 @@ export function ConfiguracionSmtpForm({
                 aria-describedby={errors.puerto ? "puerto-error" : undefined}
                 {...register("puerto")}
               />
-              {errors.puerto ? <p id="puerto-error">{errors.puerto.message}</p> : null}
+              {errors.puerto ? <p id="puerto-error" className="text-xs text-destructive">{errors.puerto.message}</p> : null}
             </div>
           </div>
         </FormGroup>
@@ -115,7 +115,7 @@ export function ConfiguracionSmtpForm({
                 aria-describedby={errors.usuario ? "usuario-error" : undefined}
                 {...register("usuario")}
               />
-              {errors.usuario ? <p id="usuario-error">{errors.usuario.message}</p> : null}
+              {errors.usuario ? <p id="usuario-error" className="text-xs text-destructive">{errors.usuario.message}</p> : null}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -133,7 +133,7 @@ export function ConfiguracionSmtpForm({
               {configuracion ? (
                 <p className="text-xs text-muted-foreground">Déjala en blanco para conservar la contraseña guardada.</p>
               ) : null}
-              {errors.password ? <p id="password-error">{errors.password.message}</p> : null}
+              {errors.password ? <p id="password-error" className="text-xs text-destructive">{errors.password.message}</p> : null}
             </div>
           </div>
         </FormGroup>
@@ -149,7 +149,7 @@ export function ConfiguracionSmtpForm({
                 aria-describedby={errors.fromEmail ? "fromEmail-error" : undefined}
                 {...register("fromEmail")}
               />
-              {errors.fromEmail ? <p id="fromEmail-error">{errors.fromEmail.message}</p> : null}
+              {errors.fromEmail ? <p id="fromEmail-error" className="text-xs text-destructive">{errors.fromEmail.message}</p> : null}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -161,7 +161,7 @@ export function ConfiguracionSmtpForm({
                 aria-describedby={errors.fromNombre ? "fromNombre-error" : undefined}
                 {...register("fromNombre")}
               />
-              {errors.fromNombre ? <p id="fromNombre-error">{errors.fromNombre.message}</p> : null}
+              {errors.fromNombre ? <p id="fromNombre-error" className="text-xs text-destructive">{errors.fromNombre.message}</p> : null}
             </div>
           </div>
         </FormGroup>

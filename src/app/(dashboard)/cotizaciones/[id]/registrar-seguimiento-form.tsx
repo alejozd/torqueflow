@@ -121,7 +121,7 @@ export function RegistrarSeguimientoForm({
             onValueChange={tipoField.onChange}
             items={TIPO_OPTIONS}
           />
-          {errors.tipo ? <p id="seguimientoTipo-error">{errors.tipo.message}</p> : null}
+          {errors.tipo ? <p id="seguimientoTipo-error" className="text-xs text-destructive">{errors.tipo.message}</p> : null}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -134,7 +134,7 @@ export function RegistrarSeguimientoForm({
             aria-describedby={errors.fecha ? "seguimientoFecha-error" : undefined}
             {...register("fecha")}
           />
-          {errors.fecha ? <p id="seguimientoFecha-error">{String(errors.fecha.message)}</p> : null}
+          {errors.fecha ? <p id="seguimientoFecha-error" className="text-xs text-destructive">{String(errors.fecha.message)}</p> : null}
         </div>
       </div>
 
@@ -148,7 +148,7 @@ export function RegistrarSeguimientoForm({
           aria-describedby={errors.resultado ? "seguimientoResultado-error" : undefined}
           {...register("resultado")}
         />
-        {errors.resultado ? <p id="seguimientoResultado-error">{errors.resultado.message}</p> : null}
+        {errors.resultado ? <p id="seguimientoResultado-error" className="text-xs text-destructive">{errors.resultado.message}</p> : null}
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -161,7 +161,7 @@ export function RegistrarSeguimientoForm({
           {...register("proximoSeguimiento")}
         />
         {errors.proximoSeguimiento ? (
-          <p id="seguimientoProximo-error">{String(errors.proximoSeguimiento.message)}</p>
+          <p id="seguimientoProximo-error" className="text-xs text-destructive">{String(errors.proximoSeguimiento.message)}</p>
         ) : null}
       </div>
 

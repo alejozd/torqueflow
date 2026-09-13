@@ -70,7 +70,7 @@ export function AgregarManoObraForm({
               aria-describedby={errors.descripcion ? "manoObraDescripcion-error" : undefined}
               {...register("descripcion")}
             />
-            {errors.descripcion ? <p id="manoObraDescripcion-error">{errors.descripcion.message}</p> : null}
+            {errors.descripcion ? <p id="manoObraDescripcion-error" className="text-xs text-destructive">{errors.descripcion.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -86,7 +86,7 @@ export function AgregarManoObraForm({
               aria-describedby={errors.valor ? "manoObraValor-error" : undefined}
               {...register("valor")}
             />
-            {errors.valor ? <p id="manoObraValor-error">{errors.valor.message}</p> : null}
+            {errors.valor ? <p id="manoObraValor-error" className="text-xs text-destructive">{errors.valor.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -103,7 +103,7 @@ export function AgregarManoObraForm({
                 ...tecnicos.map((tecnico) => ({ value: tecnico.id, label: tecnico.nombre })),
               ]}
             />
-            {errors.mecanicoId ? <p id="manoObraMecanico-error">{errors.mecanicoId.message}</p> : null}
+            {errors.mecanicoId ? <p id="manoObraMecanico-error" className="text-xs text-destructive">{errors.mecanicoId.message}</p> : null}
           </div>
         </div>
       </FormGroup>

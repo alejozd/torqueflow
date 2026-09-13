@@ -100,7 +100,7 @@ export function NuevaCitaForm({
               aria-invalid={errors.vehiculoId ? true : undefined}
               aria-describedby={errors.vehiculoId ? "vehiculoId-error" : undefined}
             />
-            {errors.vehiculoId ? <p id="vehiculoId-error">{errors.vehiculoId.message}</p> : null}
+            {errors.vehiculoId ? <p id="vehiculoId-error" className="text-xs text-destructive">{errors.vehiculoId.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -115,7 +115,7 @@ export function NuevaCitaForm({
               {...register("fechaHora")}
             />
             <span className="text-[10px] text-muted-foreground">Zona horaria de la sede: America/Bogotá</span>
-            {errors.fechaHora ? <p id="fechaHora-error">{errors.fechaHora.message}</p> : null}
+            {errors.fechaHora ? <p id="fechaHora-error" className="text-xs text-destructive">{errors.fechaHora.message}</p> : null}
           </div>
         </div>
       </FormGroup>
@@ -131,7 +131,7 @@ export function NuevaCitaForm({
               aria-describedby={errors.motivo ? "motivo-error" : undefined}
               {...register("motivo")}
             />
-            {errors.motivo ? <p id="motivo-error">{errors.motivo.message}</p> : null}
+            {errors.motivo ? <p id="motivo-error" className="text-xs text-destructive">{errors.motivo.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -142,7 +142,7 @@ export function NuevaCitaForm({
               aria-describedby={errors.notas ? "notas-error" : undefined}
               {...register("notas")}
             />
-            {errors.notas ? <p id="notas-error">{errors.notas.message}</p> : null}
+            {errors.notas ? <p id="notas-error" className="text-xs text-destructive">{errors.notas.message}</p> : null}
           </div>
         </div>
       </FormGroup>

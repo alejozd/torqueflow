@@ -126,7 +126,7 @@ export function EditarUsuarioForm({
                 aria-describedby={errors.nombre ? "nombre-error" : undefined}
                 {...register("nombre")}
               />
-              {errors.nombre ? <p id="nombre-error">{errors.nombre.message}</p> : null}
+              {errors.nombre ? <p id="nombre-error" className="text-xs text-destructive">{errors.nombre.message}</p> : null}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -139,7 +139,7 @@ export function EditarUsuarioForm({
                 aria-describedby={errors.email ? "email-error" : undefined}
                 {...register("email")}
               />
-              {errors.email ? <p id="email-error">{errors.email.message}</p> : null}
+              {errors.email ? <p id="email-error" className="text-xs text-destructive">{errors.email.message}</p> : null}
             </div>
           </div>
         </FormGroup>
@@ -156,7 +156,7 @@ export function EditarUsuarioForm({
                 {...register("password")}
               />
               <p className="text-xs text-muted-foreground">Déjala en blanco para conservar la contraseña actual.</p>
-              {errors.password ? <p id="password-error">{errors.password.message}</p> : null}
+              {errors.password ? <p id="password-error" className="text-xs text-destructive">{errors.password.message}</p> : null}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -213,7 +213,7 @@ export function EditarUsuarioForm({
                     </div>
                   );
                 })}
-                {errors.sedeIds ? <p id="sedeIds-error">{errors.sedeIds.message}</p> : null}
+                {errors.sedeIds ? <p id="sedeIds-error" className="text-xs text-destructive">{errors.sedeIds.message}</p> : null}
               </div>
             )}
 
@@ -228,7 +228,7 @@ export function EditarUsuarioForm({
                 aria-invalid={errors.sedeDefectoId ? true : undefined}
                 aria-describedby={errors.sedeDefectoId ? "sedeDefectoId-error" : undefined}
               />
-              {errors.sedeDefectoId ? <p id="sedeDefectoId-error">{errors.sedeDefectoId.message}</p> : null}
+              {errors.sedeDefectoId ? <p id="sedeDefectoId-error" className="text-xs text-destructive">{errors.sedeDefectoId.message}</p> : null}
             </div>
           </div>
         </FormGroup>

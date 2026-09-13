@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -62,7 +63,14 @@ export function NuevaCotizacionForm({ vehiculos }: { vehiculos: VehiculoOption[]
   );
 
   if (vehiculos.length === 0) {
-    return <p>No hay vehículos registrados. Registra un vehículo antes de cotizar.</p>;
+    return (
+      <div className="flex flex-col gap-2">
+        <p>No hay vehículos registrados. Registra un vehículo antes de cotizar.</p>
+        <Link href="/clientes" className="w-fit text-sm text-primary hover:underline">
+          Ir a Clientes →
+        </Link>
+      </div>
+    );
   }
 
   function onValid(data: NuevaCotizacionFormInput) {
@@ -110,7 +118,7 @@ export function NuevaCotizacionForm({ vehiculos }: { vehiculos: VehiculoOption[]
             );
           }}
         />
-        {errors.vehiculoId ? <p id="vehiculoId-error">{errors.vehiculoId.message}</p> : null}
+        {errors.vehiculoId ? <p id="vehiculoId-error" className="text-xs text-destructive">{errors.vehiculoId.message}</p> : null}
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -123,7 +131,7 @@ export function NuevaCotizacionForm({ vehiculos }: { vehiculos: VehiculoOption[]
           aria-describedby={errors.motivo ? "motivo-error" : undefined}
           {...register("motivo")}
         />
-        {errors.motivo ? <p id="motivo-error">{errors.motivo.message}</p> : null}
+        {errors.motivo ? <p id="motivo-error" className="text-xs text-destructive">{errors.motivo.message}</p> : null}
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -135,7 +143,7 @@ export function NuevaCotizacionForm({ vehiculos }: { vehiculos: VehiculoOption[]
           aria-describedby={errors.validaHasta ? "validaHasta-error" : undefined}
           {...register("validaHasta")}
         />
-        {errors.validaHasta ? <p id="validaHasta-error">{String(errors.validaHasta.message)}</p> : null}
+        {errors.validaHasta ? <p id="validaHasta-error" className="text-xs text-destructive">{String(errors.validaHasta.message)}</p> : null}
       </div>
 
       <div className="flex justify-end gap-2">

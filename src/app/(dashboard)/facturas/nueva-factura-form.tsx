@@ -106,7 +106,7 @@ export function NuevaFacturaForm({ ordenes }: { ordenes: OrdenFacturableOption[]
             );
           }}
         />
-        {errors.ordenId ? <p id="ordenId-error">{errors.ordenId.message}</p> : null}
+        {errors.ordenId ? <p id="ordenId-error" className="text-xs text-destructive">{errors.ordenId.message}</p> : null}
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -121,7 +121,7 @@ export function NuevaFacturaForm({ ordenes }: { ordenes: OrdenFacturableOption[]
           aria-describedby={errors.descuento ? "descuento-error" : undefined}
           {...register("descuento")}
         />
-        {errors.descuento ? <p id="descuento-error">{errors.descuento.message}</p> : null}
+        {errors.descuento ? <p id="descuento-error" className="text-xs text-destructive">{errors.descuento.message}</p> : null}
       </div>
 
       <div className="flex justify-end gap-2">

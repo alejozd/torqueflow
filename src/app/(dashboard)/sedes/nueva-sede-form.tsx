@@ -44,7 +44,7 @@ export function NuevaSedeForm() {
               aria-describedby={errors.nombre ? "nombre-error" : undefined}
               {...register("nombre")}
             />
-            {errors.nombre ? <p id="nombre-error">{errors.nombre.message}</p> : null}
+            {errors.nombre ? <p id="nombre-error" className="text-xs text-destructive">{errors.nombre.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -55,7 +55,7 @@ export function NuevaSedeForm() {
               aria-describedby={errors.direccion ? "direccion-error" : undefined}
               {...register("direccion")}
             />
-            {errors.direccion ? <p id="direccion-error">{errors.direccion.message}</p> : null}
+            {errors.direccion ? <p id="direccion-error" className="text-xs text-destructive">{errors.direccion.message}</p> : null}
           </div>
         </div>
       </FormGroup>

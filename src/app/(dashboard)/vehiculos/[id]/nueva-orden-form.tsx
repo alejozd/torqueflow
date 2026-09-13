@@ -96,7 +96,7 @@ export function NuevaOrdenForm({
               {...register("kilometrajeIngreso")}
             />
             {errors.kilometrajeIngreso ? (
-              <p id="kilometrajeIngreso-error">{errors.kilometrajeIngreso.message}</p>
+              <p id="kilometrajeIngreso-error" className="text-xs text-destructive">{errors.kilometrajeIngreso.message}</p>
             ) : null}
           </div>
 
@@ -114,7 +114,7 @@ export function NuevaOrdenForm({
                 ...tecnicos.map((tecnico) => ({ value: tecnico.id, label: tecnico.nombre })),
               ]}
             />
-            {errors.mecanicoId ? <p id="mecanicoId-error">{errors.mecanicoId.message}</p> : null}
+            {errors.mecanicoId ? <p id="mecanicoId-error" className="text-xs text-destructive">{errors.mecanicoId.message}</p> : null}
           </div>
         </div>
       </FormGroup>
@@ -128,7 +128,7 @@ export function NuevaOrdenForm({
             aria-describedby={errors.sintomas ? "sintomas-error" : undefined}
             {...register("sintomas")}
           />
-          {errors.sintomas ? <p id="sintomas-error">{errors.sintomas.message}</p> : null}
+          {errors.sintomas ? <p id="sintomas-error" className="text-xs text-destructive">{errors.sintomas.message}</p> : null}
         </div>
       </FormGroup>
 

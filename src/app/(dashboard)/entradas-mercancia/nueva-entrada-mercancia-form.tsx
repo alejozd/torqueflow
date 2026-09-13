@@ -85,7 +85,7 @@ export function NuevaEntradaMercanciaForm({
               aria-invalid={errors.proveedorId ? true : undefined}
               aria-describedby={errors.proveedorId ? "proveedorId-error" : undefined}
             />
-            {errors.proveedorId ? <p id="proveedorId-error">{errors.proveedorId.message}</p> : null}
+            {errors.proveedorId ? <p id="proveedorId-error" className="text-xs text-destructive">{errors.proveedorId.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -100,7 +100,7 @@ export function NuevaEntradaMercanciaForm({
               placeholder="Selecciona una bodega"
               items={bodegas.map((bodega) => ({ value: bodega.id, label: bodega.nombre }))}
             />
-            {errors.bodegaId ? <p id="bodegaId-error">{errors.bodegaId.message}</p> : null}
+            {errors.bodegaId ? <p id="bodegaId-error" className="text-xs text-destructive">{errors.bodegaId.message}</p> : null}
           </div>
         </div>
       </FormGroup>

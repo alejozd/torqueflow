@@ -65,7 +65,7 @@ export function GenerarFacturaForm({ ordenId }: { ordenId: string }) {
           aria-describedby={errors.descuento ? "descuento-error" : undefined}
           {...register("descuento")}
         />
-        {errors.descuento ? <p id="descuento-error">{errors.descuento.message}</p> : null}
+        {errors.descuento ? <p id="descuento-error" className="text-xs text-destructive">{errors.descuento.message}</p> : null}
       </div>
 
       <Button type="submit" disabled={isPending} className="self-end">

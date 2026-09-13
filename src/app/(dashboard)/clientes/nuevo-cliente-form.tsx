@@ -65,7 +65,7 @@ export function NuevoClienteForm({
               aria-describedby={errors.nombre ? "nombre-error" : undefined}
               {...register("nombre")}
             />
-            {errors.nombre ? <p id="nombre-error">{errors.nombre.message}</p> : null}
+            {errors.nombre ? <p id="nombre-error" className="text-xs text-destructive">{errors.nombre.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -77,7 +77,7 @@ export function NuevoClienteForm({
               aria-describedby={errors.documento ? "documento-error" : undefined}
               {...register("documento")}
             />
-            {errors.documento ? <p id="documento-error">{errors.documento.message}</p> : null}
+            {errors.documento ? <p id="documento-error" className="text-xs text-destructive">{errors.documento.message}</p> : null}
           </div>
         </div>
       </FormGroup>
@@ -93,7 +93,7 @@ export function NuevoClienteForm({
               aria-describedby={errors.telefono ? "telefono-error" : undefined}
               {...register("telefono")}
             />
-            {errors.telefono ? <p id="telefono-error">{errors.telefono.message}</p> : null}
+            {errors.telefono ? <p id="telefono-error" className="text-xs text-destructive">{errors.telefono.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -105,7 +105,7 @@ export function NuevoClienteForm({
               aria-describedby={errors.email ? "email-error" : undefined}
               {...register("email")}
             />
-            {errors.email ? <p id="email-error">{errors.email.message}</p> : null}
+            {errors.email ? <p id="email-error" className="text-xs text-destructive">{errors.email.message}</p> : null}
           </div>
         </div>
       </FormGroup>

@@ -115,7 +115,7 @@ export function VehiculoFormFields({
               aria-describedby={errors.placa ? "placa-error" : undefined}
               {...register("placa")}
             />
-            {errors.placa ? <p id="placa-error">{errors.placa.message}</p> : null}
+            {errors.placa ? <p id="placa-error" className="text-xs text-destructive">{errors.placa.message}</p> : null}
           </div>
         </div>
       </FormGroup>
@@ -149,7 +149,7 @@ export function VehiculoFormFields({
                 </Button>
               ) : null}
             </div>
-            {errors.marca ? <p id="marca-error">{errors.marca.message}</p> : null}
+            {errors.marca ? <p id="marca-error" className="text-xs text-destructive">{errors.marca.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5 sm:col-span-2">
@@ -180,7 +180,7 @@ export function VehiculoFormFields({
                 </Button>
               ) : null}
             </div>
-            {errors.modelo ? <p id="modelo-error">{errors.modelo.message}</p> : null}
+            {errors.modelo ? <p id="modelo-error" className="text-xs text-destructive">{errors.modelo.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5 sm:col-span-1">
@@ -191,7 +191,7 @@ export function VehiculoFormFields({
               aria-describedby={errors.color ? "color-error" : undefined}
               {...register("color")}
             />
-            {errors.color ? <p id="color-error">{errors.color.message}</p> : null}
+            {errors.color ? <p id="color-error" className="text-xs text-destructive">{errors.color.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5 sm:col-span-1">
@@ -206,7 +206,7 @@ export function VehiculoFormFields({
               aria-describedby={errors.anio ? "anio-error" : undefined}
               {...register("anio")}
             />
-            {errors.anio ? <p id="anio-error">{errors.anio.message}</p> : null}
+            {errors.anio ? <p id="anio-error" className="text-xs text-destructive">{errors.anio.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5 sm:col-span-1">
@@ -247,7 +247,7 @@ export function VehiculoFormFields({
               aria-describedby={errors.kilometraje ? "kilometraje-error" : undefined}
               {...register("kilometraje")}
             />
-            {errors.kilometraje ? <p id="kilometraje-error">{errors.kilometraje.message}</p> : null}
+            {errors.kilometraje ? <p id="kilometraje-error" className="text-xs text-destructive">{errors.kilometraje.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5 sm:col-span-2">
@@ -260,7 +260,7 @@ export function VehiculoFormFields({
               {...register("proximoMantenimiento")}
             />
             {errors.proximoMantenimiento ? (
-              <p id="proximoMantenimiento-error">{errors.proximoMantenimiento.message}</p>
+              <p id="proximoMantenimiento-error" className="text-xs text-destructive">{errors.proximoMantenimiento.message}</p>
             ) : null}
           </div>
 

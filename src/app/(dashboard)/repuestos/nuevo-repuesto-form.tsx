@@ -111,7 +111,7 @@ export function NuevoRepuestoForm({
               aria-describedby={errors.codigo ? "codigo-error" : undefined}
               {...register("codigo")}
             />
-            {errors.codigo ? <p id="codigo-error">{errors.codigo.message}</p> : null}
+            {errors.codigo ? <p id="codigo-error" className="text-xs text-destructive">{errors.codigo.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -122,7 +122,7 @@ export function NuevoRepuestoForm({
               aria-describedby={errors.nombre ? "nombre-error" : undefined}
               {...register("nombre")}
             />
-            {errors.nombre ? <p id="nombre-error">{errors.nombre.message}</p> : null}
+            {errors.nombre ? <p id="nombre-error" className="text-xs text-destructive">{errors.nombre.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5 sm:col-span-2">
@@ -133,7 +133,7 @@ export function NuevoRepuestoForm({
               aria-describedby={errors.descripcion ? "descripcion-error" : undefined}
               {...register("descripcion")}
             />
-            {errors.descripcion ? <p id="descripcion-error">{errors.descripcion.message}</p> : null}
+            {errors.descripcion ? <p id="descripcion-error" className="text-xs text-destructive">{errors.descripcion.message}</p> : null}
           </div>
         </div>
       </FormGroup>
@@ -151,7 +151,7 @@ export function NuevoRepuestoForm({
               placeholder="Selecciona una bodega"
               items={bodegas.map((bodega) => ({ value: bodega.id, label: bodega.nombre }))}
             />
-            {errors.bodegaId ? <p id="bodegaId-error">{errors.bodegaId.message}</p> : null}
+            {errors.bodegaId ? <p id="bodegaId-error" className="text-xs text-destructive">{errors.bodegaId.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -166,7 +166,7 @@ export function NuevoRepuestoForm({
               aria-invalid={errors.proveedorId ? true : undefined}
               aria-describedby={errors.proveedorId ? "proveedorId-error" : undefined}
             />
-            {errors.proveedorId ? <p id="proveedorId-error">{errors.proveedorId.message}</p> : null}
+            {errors.proveedorId ? <p id="proveedorId-error" className="text-xs text-destructive">{errors.proveedorId.message}</p> : null}
           </div>
         </div>
       </FormGroup>
@@ -185,7 +185,7 @@ export function NuevoRepuestoForm({
               aria-describedby={errors.precioCompra ? "precioCompra-error" : undefined}
               {...register("precioCompra")}
             />
-            {errors.precioCompra ? <p id="precioCompra-error">{errors.precioCompra.message}</p> : null}
+            {errors.precioCompra ? <p id="precioCompra-error" className="text-xs text-destructive">{errors.precioCompra.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -200,7 +200,7 @@ export function NuevoRepuestoForm({
               aria-describedby={errors.precioVenta ? "precioVenta-error" : undefined}
               {...register("precioVenta")}
             />
-            {errors.precioVenta ? <p id="precioVenta-error">{errors.precioVenta.message}</p> : null}
+            {errors.precioVenta ? <p id="precioVenta-error" className="text-xs text-destructive">{errors.precioVenta.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -214,7 +214,7 @@ export function NuevoRepuestoForm({
               aria-describedby={errors.stockActual ? "stockActual-error" : undefined}
               {...register("stockActual")}
             />
-            {errors.stockActual ? <p id="stockActual-error">{errors.stockActual.message}</p> : null}
+            {errors.stockActual ? <p id="stockActual-error" className="text-xs text-destructive">{errors.stockActual.message}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -228,7 +228,7 @@ export function NuevoRepuestoForm({
               aria-describedby={errors.stockMinimo ? "stockMinimo-error" : undefined}
               {...register("stockMinimo")}
             />
-            {errors.stockMinimo ? <p id="stockMinimo-error">{errors.stockMinimo.message}</p> : null}
+            {errors.stockMinimo ? <p id="stockMinimo-error" className="text-xs text-destructive">{errors.stockMinimo.message}</p> : null}
           </div>
         </div>
       </FormGroup>
