@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Car, MapPin, Phone, Tag, User, UserCheck } from "lucide-react";
 import { getCotizacion } from "@/app/actions/cotizacion-actions";
 import { listRepuestoOptions } from "@/app/actions/repuesto-actions";
 import { AgregarItemCotizacionForm } from "./agregar-item-cotizacion-form";
@@ -207,30 +208,48 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
             <CardContent>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <p className="text-xs text-muted-foreground">Cliente</p>
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <User className="size-3.5" />
+                    Cliente
+                  </p>
                   <p className="text-sm">{cotizacion.cliente.nombre}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Teléfono</p>
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Phone className="size-3.5" />
+                    Teléfono
+                  </p>
                   <p className="text-sm">{cotizacion.cliente.telefono ?? "—"}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Vehículo</p>
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Car className="size-3.5" />
+                    Vehículo
+                  </p>
                   <p className="font-mono text-sm">{cotizacion.vehiculo.placa}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Modelo</p>
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Tag className="size-3.5" />
+                    Modelo
+                  </p>
                   <p className="text-sm">
                     {cotizacion.vehiculo.marca} {cotizacion.vehiculo.modelo}
                     {cotizacion.vehiculo.anio ? ` ${cotizacion.vehiculo.anio}` : ""}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Sede</p>
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <MapPin className="size-3.5" />
+                    Sede
+                  </p>
                   <p className="text-sm">{cotizacion.sede.nombre}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Creada por</p>
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <UserCheck className="size-3.5" />
+                    Creada por
+                  </p>
                   <p className="text-sm">
                     {cotizacion.creadoPor.nombre} · {formatoFecha.format(cotizacion.createdAt)}
                   </p>
@@ -249,13 +268,13 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              {puedeEditar ? <AgregarItemCotizacionForm cotizacionId={cotizacion.id} repuestos={repuestos} /> : null}
               <DataTable
                 columns={buildItemColumns(cotizacion.id, puedeEditar)}
                 rows={cotizacion.items}
                 getRowKey={(item) => item.id}
                 emptyMessage="Esta cotización no tiene conceptos agregados."
               />
+              {puedeEditar ? <AgregarItemCotizacionForm cotizacionId={cotizacion.id} repuestos={repuestos} /> : null}
             </CardContent>
           </Card>
 
