@@ -1,4 +1,4 @@
-export const DVI_CHECKLIST_ITEMS = [
+export const DEFAULT_DVI_CHECKLIST_ITEMS = [
   { key: "luces", label: "Luces (altas, bajas, direccionales)" },
   { key: "frenos", label: "Frenos" },
   { key: "llantas", label: "Llantas y presión" },
@@ -9,10 +9,10 @@ export const DVI_CHECKLIST_ITEMS = [
   { key: "limpiaparabrisas", label: "Limpiaparabrisas" },
 ] as const;
 
-export type DviChecklistKey = (typeof DVI_CHECKLIST_ITEMS)[number]["key"];
-
 export const DVI_CHECKLIST_STATUSES = ["OK", "ATENCION", "CRITICO", "NO_APLICA"] as const;
 
 export type DviChecklistStatus = (typeof DVI_CHECKLIST_STATUSES)[number];
 
-export type DviChecklist = Partial<Record<DviChecklistKey, DviChecklistStatus>>;
+// Keys are no longer a fixed union: ADMIN can add DviChecklistItem rows at
+// runtime (see dvi-checklist-item-actions.ts), so any string key is valid here.
+export type DviChecklist = Partial<Record<string, DviChecklistStatus>>;
