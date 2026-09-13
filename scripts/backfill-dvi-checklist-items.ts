@@ -21,13 +21,7 @@ export async function backfillDviChecklistItems(): Promise<BackfillDviChecklistI
 
   for (const tenant of tenants) {
     const tenantDb = getTenantDb(tenant.schemaName);
-    let existingCount: number;
-    try {
-      existingCount = await tenantDb.dviChecklistItem.count();
-    } catch {
-      // Table doesn't exist in this tenant schema; skip it.
-      continue;
-    }
+    const existingCount = await tenantDb.dviChecklistItem.count();
     if (existingCount > 0) {
       result.alreadySeeded++;
       continue;
