@@ -1,10 +1,17 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { EyeOff, Plus } from "lucide-react";
 import { updateDviChecklistAction, type DviFormState } from "@/app/actions/dvi-actions";
-import { DVI_CHECKLIST_ITEMS, DVI_CHECKLIST_STATUSES, type DviChecklist, type DviChecklistStatus } from "@/lib/dvi/checklist-items";
+import { toggleDviChecklistItemActivoAction } from "@/app/actions/dvi-checklist-item-actions";
+import { DVI_CHECKLIST_STATUSES, type DviChecklist, type DviChecklistStatus } from "@/lib/dvi/checklist-items";
+import type { DviChecklistItem } from "@/generated/prisma-tenant";
+import { NuevoDviChecklistItemDialog } from "./nuevo-dvi-checklist-item-dialog";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
@@ -28,16 +35,46 @@ const ESTADO_DOT_COLOR: Record<DviChecklistStatus, string> = {
   NO_APLICA: "bg-muted-foreground",
 };
 
-export function DviChecklistForm({ ordenId, checklist }: { ordenId: string; checklist: DviChecklist | null }) {
+export function DviChecklistForm({
+  ordenId,
+  checklist,
+  items: initialItems,
+  esAdmin = false,
+}: {
+  ordenId: string;
+  checklist: DviChecklist | null;
+  items: DviChecklistItem[];
+  esAdmin?: boolean;
+}) {
   const current = checklist ?? {};
+  const [items, setItems] = useState(initialItems);
+  const [nuevoItemOpen, setNuevoItemOpen] = useState(false);
+  const router = useRouter();
+  const [isTogglePending, startToggleTransition] = useTransition();
   const saveChecklist = updateDviChecklistAction.bind(null, ordenId);
   const [state, formAction, isPending] = useActionState(saveChecklist, initialState);
 
+  const itemsActivos = items.filter((item) => item.activo);
+  // An item deactivated after it already recorded a finding must never
+  // silently disappear -- it renders below, read-only, instead.
+  const itemsArchivadosConValor = items.filter((item) => !item.activo && current[item.key] !== undefined);
+
+  function toggleActivo(itemId: string) {
+    startToggleTransition(async () => {
+      try {
+        await toggleDviChecklistItemActivoAction(itemId);
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Error al actualizar el ítem");
+      }
+    });
+  }
+
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      <FormGroup label="Checklist de 8 puntos">
+      <FormGroup label="Checklist">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {DVI_CHECKLIST_ITEMS.map((item) => {
+          {itemsActivos.map((item) => {
             const valor = current[item.key] ?? "OK";
             return (
               <div
@@ -59,10 +96,50 @@ export function DviChecklistForm({ ordenId, checklist }: { ordenId: string; chec
                     label: ESTADO_LABELS[estado],
                   }))}
                 />
+                {esAdmin ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-6 shrink-0"
+                    disabled={isTogglePending}
+                    onClick={() => toggleActivo(item.id)}
+                    aria-label={`Desactivar ${item.label}`}
+                    title="Desactivar este ítem del checklist"
+                  >
+                    <EyeOff className="size-3.5" />
+                  </Button>
+                ) : null}
+              </div>
+            );
+          })}
+
+          {itemsArchivadosConValor.map((item) => {
+            const valor = current[item.key] as DviChecklistStatus;
+            return (
+              <div
+                key={item.key}
+                className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-2.5 py-1.5"
+              >
+                <span className={cn("size-1.5 shrink-0 rounded-full", ESTADO_DOT_COLOR[valor])} />
+                <span className="flex-1 text-xs leading-tight text-muted-foreground">{item.label}</span>
+                <Badge variant="outline" className="shrink-0 text-[10px]">
+                  Archivado
+                </Badge>
+                <span className="w-[90px] shrink-0 text-right text-xs text-muted-foreground">
+                  {ESTADO_LABELS[valor]}
+                </span>
               </div>
             );
           })}
         </div>
+
+        {esAdmin ? (
+          <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => setNuevoItemOpen(true)}>
+            <Plus className="size-3.5" />
+            Agregar ítem
+          </Button>
+        ) : null}
       </FormGroup>
 
       <Button type="submit" disabled={isPending} className="self-end">
@@ -76,6 +153,17 @@ export function DviChecklistForm({ ordenId, checklist }: { ordenId: string; chec
       ) : null}
       {/* Alert hardcodes role="alert"; a status message must keep role="status" natively. */}
       {state.success ? <p role="status">Checklist guardado</p> : null}
+
+      {esAdmin ? (
+        <NuevoDviChecklistItemDialog
+          open={nuevoItemOpen}
+          onOpenChange={setNuevoItemOpen}
+          onCreated={(item) => {
+            setItems((prev) => [...prev, item]);
+            setNuevoItemOpen(false);
+          }}
+        />
+      ) : null}
     </form>
   );
 }

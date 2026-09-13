@@ -6,6 +6,7 @@ import { requireSession } from "@/lib/auth/guards";
 import { listRepuestoOptions } from "@/app/actions/repuesto-actions";
 import { listBodegas } from "@/app/actions/bodega-actions";
 import { listProveedores } from "@/app/actions/proveedor-actions";
+import { listDviChecklistItems } from "@/app/actions/dvi-checklist-item-actions";
 import { AsignarMecanicoForm } from "./asignar-mecanico-form";
 import { CambiarEstadoForm } from "./cambiar-estado-form";
 import { AgregarItemForm } from "./agregar-item-form";
@@ -152,18 +153,21 @@ function InfoField({ label, value }: { label: string; value: ReactNode }) {
 
 export default async function OrdenDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [session, orden, repuestos, tecnicos, bodegas, proveedores] = await Promise.all([
+  const [session, orden, repuestos, tecnicos, bodegas, proveedores, dviItems] = await Promise.all([
     requireSession(),
     getOrden(id),
     listRepuestoOptions(),
     listTecnicos(),
     listBodegas(),
     listProveedores(),
+    listDviChecklistItems(),
   ]);
 
   if (!orden) {
     notFound();
   }
+
+  const esAdmin = session.user.role === "ADMIN";
 
   const repuestosTotal = orden.items.reduce((suma, item) => suma + item.cantidad * Number(item.precioUnitario), 0);
   const manoObraTotal = orden.manoDeObra.reduce((suma, linea) => suma + Number(linea.valor), 0);
@@ -339,7 +343,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
               ) : null}
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <DviChecklistForm ordenId={orden.id} checklist={checklist} />
+              <DviChecklistForm ordenId={orden.id} checklist={checklist} items={dviItems} esAdmin={esAdmin} />
               <DviFotoForm ordenId={orden.id} fotos={orden.dvi?.fotos ?? []} />
             </CardContent>
           </Card>
