@@ -22,6 +22,16 @@ import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+// Anchor nav for the sections stacked in the left column (same idea as the
+// Inicio dashboard's own pill nav) -- the right column is its own sticky
+// sidebar already, so it doesn't need an anchor.
+const SECCIONES_ORDEN = [
+  { id: "informacion", label: "Información", dot: "bg-blue-500" },
+  { id: "items", label: "Ítems", dot: "bg-amber-500" },
+  { id: "mano-obra", label: "Mano de obra", dot: "bg-purple-500" },
+  { id: "dvi", label: "DVI", dot: "bg-red-500" },
+] as const;
+
 type Orden = NonNullable<Awaited<ReturnType<typeof getOrden>>>;
 type ItemRow = Orden["items"][number];
 type ManoObraRow = Orden["manoDeObra"][number];
@@ -192,9 +202,25 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
         </p>
       </div>
 
+      <nav
+        aria-label="Secciones de la orden"
+        className="sticky top-0 z-10 -mt-2 flex gap-2 overflow-x-auto border-b bg-slate-50/95 py-2 backdrop-blur supports-backdrop-filter:bg-slate-50/75 dark:bg-slate-900/75"
+      >
+        {SECCIONES_ORDEN.map((seccion) => (
+          <a
+            key={seccion.id}
+            href={`#${seccion.id}`}
+            className="flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <span className={cn("size-2 shrink-0 rounded-full", seccion.dot)} />
+            {seccion.label}
+          </a>
+        ))}
+      </nav>
+
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex flex-col gap-4">
-          <Card>
+          <Card id="informacion" className="scroll-mt-16">
             <CardHeader>
               <CardTitle>Información de la orden</CardTitle>
             </CardHeader>
@@ -242,7 +268,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
             </CardContent>
           </Card>
 
-          <Card>
+          <Card id="items" className="scroll-mt-16">
             <CardHeader>
               <CardTitle>
                 Ítems (repuestos){" "}
@@ -273,7 +299,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
             </CardContent>
           </Card>
 
-          <Card>
+          <Card id="mano-obra" className="scroll-mt-16">
             <CardHeader>
               <CardTitle>
                 Mano de obra{" "}
@@ -298,7 +324,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
             </CardContent>
           </Card>
 
-          <Card>
+          <Card id="dvi" className="scroll-mt-16">
             <CardHeader>
               <CardTitle>Inspección vehicular digital (DVI)</CardTitle>
               {atencionCount + criticoCount > 0 ? (
