@@ -302,6 +302,17 @@ model DviFoto {
   @@map("dvi_fotos")
 }
 
+model DviChecklistItem {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  label     String
+  activo    Boolean  @default(true)
+  orden     Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("dvi_checklist_items")
+}
+
 model Bodega {
   id        String             @id @default(cuid())
   nombre    String
