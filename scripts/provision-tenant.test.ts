@@ -113,6 +113,18 @@ describe("provisionTenant", () => {
     expect(bodegas[0].sedeId).toBe(sedes[0].id);
   });
 
+  it("seeds the 8 default DVI checklist items for the new tenant", async () => {
+    await provisionTenant({ slug: SLUG, schemaName: SCHEMA });
+
+    const tenantDb = getTenantDb(SCHEMA);
+    const items = await tenantDb.dviChecklistItem.findMany({ orderBy: { orden: "asc" } });
+
+    expect(items).toHaveLength(8);
+    expect(items.every((item) => item.activo)).toBe(true);
+    expect(items[0].key).toBe("luces");
+    expect(items.map((item) => item.orden)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+  });
+
   it("rejects a schema name that is not a safe SQL identifier", async () => {
     await expect(
       provisionTenant({ slug: "bad", schemaName: "not valid; DROP TABLE x;" }),

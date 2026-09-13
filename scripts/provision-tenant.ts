@@ -2,6 +2,7 @@ import { execSync } from "node:child_process";
 import { publicDb } from "@/lib/db/public-client";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { isValidTenantSlug } from "@/lib/tenant/subdomain";
+import { DEFAULT_DVI_CHECKLIST_ITEMS } from "@/lib/dvi/checklist-items";
 import type { Tenant } from "@/generated/prisma-public";
 
 export interface ProvisionTenantInput {
@@ -56,6 +57,9 @@ export async function provisionTenant({
       const tenantDb = getTenantDb(schemaName);
       const sede = await tenantDb.sede.create({ data: { nombre: "Sede principal" } });
       await tenantDb.bodega.create({ data: { nombre: "Bodega principal", sedeId: sede.id } });
+      await tenantDb.dviChecklistItem.createMany({
+        data: DEFAULT_DVI_CHECKLIST_ITEMS.map((item, index) => ({ key: item.key, label: item.label, orden: index })),
+      });
     } catch (err) {
       await publicDb.tenant.delete({ where: { id: tenant.id } });
       throw err;
