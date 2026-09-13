@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { saveDviFoto } from "@/lib/storage/local-file-storage";
-import { DVI_CHECKLIST_ITEMS, type DviChecklist } from "@/lib/dvi/checklist-items";
+import type { DviChecklist } from "@/lib/dvi/checklist-items";
 import { dviChecklistStatusSchema, dviFotoMomentoSchema } from "@/lib/validation/dvi";
 import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
 import { scopeOrden } from "@/lib/sede/scope";
@@ -20,14 +20,6 @@ export async function updateDviChecklistAction(
   prevState: DviFormState,
   formData: FormData,
 ): Promise<DviFormState> {
-  const checklist: DviChecklist = {};
-  for (const item of DVI_CHECKLIST_ITEMS) {
-    const parsed = dviChecklistStatusSchema.safeParse(formData.get(item.key));
-    if (parsed.success) {
-      checklist[item.key] = parsed.data;
-    }
-  }
-
   const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
@@ -42,6 +34,20 @@ export async function updateDviChecklistAction(
     assertOrdenMutable(orden);
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Orden no modificable", success: false };
+  }
+
+  const [activeItems, existingDvi] = await Promise.all([
+    tenantDb.dviChecklistItem.findMany({ where: { activo: true } }),
+    tenantDb.dvi.findUnique({ where: { ordenId } }),
+  ]);
+  const existingChecklist = (existingDvi?.checklist as DviChecklist | undefined) ?? {};
+
+  const checklist: DviChecklist = { ...existingChecklist };
+  for (const item of activeItems) {
+    const parsed = dviChecklistStatusSchema.safeParse(formData.get(item.key));
+    if (parsed.success) {
+      checklist[item.key] = parsed.data;
+    }
   }
 
   try {

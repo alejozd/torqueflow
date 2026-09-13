@@ -7,12 +7,14 @@ vi.mock("@/lib/auth/guards", () => ({
 
 const mockUpsert = vi.fn();
 const mockDviFindUnique = vi.fn();
+const mockChecklistItemFindMany = vi.fn();
 const mockFotoCreate = vi.fn();
 const mockFotoDeleteMany = vi.fn();
 const mockOrdenFindFirst = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     dvi: { upsert: mockUpsert, findUnique: mockDviFindUnique },
+    dviChecklistItem: { findMany: mockChecklistItemFindMany },
     dviFoto: { create: mockFotoCreate, deleteMany: mockFotoDeleteMany },
     ordenTrabajo: { findFirst: mockOrdenFindFirst },
   }),
@@ -40,6 +42,12 @@ describe("updateDviChecklistAction", () => {
   beforeEach(() => {
     mockRequireRole.mockReset().mockResolvedValue(SESSION);
     mockUpsert.mockReset();
+    mockDviFindUnique.mockReset().mockResolvedValue(null);
+    mockChecklistItemFindMany.mockReset().mockResolvedValue([
+      { key: "frenos", label: "Frenos" },
+      { key: "luces", label: "Luces" },
+      { key: "bateria", label: "Batería" },
+    ]);
     mockOrdenFindFirst.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
   });
 
@@ -58,6 +66,23 @@ describe("updateDviChecklistAction", () => {
       where: { ordenId: "o1" },
       create: { ordenId: "o1", checklist: { frenos: "OK", luces: "ATENCION" }, creadoPorId: "u1" },
       update: { checklist: { frenos: "OK", luces: "ATENCION" } },
+    });
+  });
+
+  it("merges into the existing checklist instead of replacing it, preserving a value saved against a now-inactive item", async () => {
+    mockUpsert.mockResolvedValue({ id: "d1" });
+    mockDviFindUnique.mockResolvedValue({ checklist: { correas_mangueras: "CRITICO", frenos: "ATENCION" } });
+    mockChecklistItemFindMany.mockResolvedValue([{ key: "frenos", label: "Frenos" }]);
+    const formData = new FormData();
+    formData.set("frenos", "OK");
+
+    const result = await updateDviChecklistAction("o1", initialState, formData);
+
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockUpsert).toHaveBeenCalledWith({
+      where: { ordenId: "o1" },
+      create: { ordenId: "o1", checklist: { correas_mangueras: "CRITICO", frenos: "OK" }, creadoPorId: "u1" },
+      update: { checklist: { correas_mangueras: "CRITICO", frenos: "OK" } },
     });
   });
 
