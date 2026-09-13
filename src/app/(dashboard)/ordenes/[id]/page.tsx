@@ -186,37 +186,36 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
       </Link>
 
       <div>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-xl font-semibold tracking-tight">Orden — #{orden.id.slice(-8).toUpperCase()}</h1>
-          <Badge
-            variant={ESTADO_BADGE_VARIANT[orden.estado]}
-            className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[orden.estado])}
-          >
-            <span className="size-1.5 shrink-0 rounded-full" style={{ background: ESTADO_DOT_COLOR[orden.estado] }} />
-            {ESTADO_LABELS[orden.estado]}
-          </Badge>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-xl font-semibold tracking-tight">Orden — #{orden.id.slice(-8).toUpperCase()}</h1>
+            <Badge
+              variant={ESTADO_BADGE_VARIANT[orden.estado]}
+              className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[orden.estado])}
+            >
+              <span className="size-1.5 shrink-0 rounded-full" style={{ background: ESTADO_DOT_COLOR[orden.estado] }} />
+              {ESTADO_LABELS[orden.estado]}
+            </Badge>
+          </div>
+
+          <nav aria-label="Secciones de la orden" className="flex flex-wrap gap-2">
+            {SECCIONES_ORDEN.map((seccion) => (
+              <a
+                key={seccion.id}
+                href={`#${seccion.id}`}
+                className="flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <span className={cn("size-2 shrink-0 rounded-full", seccion.dot)} />
+                {seccion.label}
+              </a>
+            ))}
+          </nav>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
           {orden.vehiculo.placa} · {orden.vehiculo.marca} {orden.vehiculo.modelo}
           {orden.vehiculo.anio ? ` ${orden.vehiculo.anio}` : ""} · {orden.cliente.nombre}
         </p>
       </div>
-
-      <nav
-        aria-label="Secciones de la orden"
-        className="sticky top-0 z-10 -mt-2 flex gap-2 overflow-x-auto border-b bg-slate-50/95 py-2 backdrop-blur supports-backdrop-filter:bg-slate-50/75 dark:bg-slate-900/75"
-      >
-        {SECCIONES_ORDEN.map((seccion) => (
-          <a
-            key={seccion.id}
-            href={`#${seccion.id}`}
-            className="flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <span className={cn("size-2 shrink-0 rounded-full", seccion.dot)} />
-            {seccion.label}
-          </a>
-        ))}
-      </nav>
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex flex-col gap-4">
