@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, CheckCircle, Clock, PhoneCall, Percent } from "lucide-react";
+import { AlertTriangle, Car, CheckCircle, Clock, PhoneCall, Percent } from "lucide-react";
 import { listCotizaciones, listVehiculosParaCotizacion, type CotizacionListItem } from "@/app/actions/cotizacion-actions";
 import { NuevaCotizacionDialog } from "./nueva-cotizacion-dialog";
 import type { EstadoCotizacion } from "@/generated/prisma-tenant";
@@ -84,6 +84,7 @@ const COLUMNS: DataTableColumn<CotizacionListItem>[] = [
             variant="outline"
             className={cn("w-fit font-mono text-xs tracking-wider", tono && "border-transparent", tono?.bg, tono?.text)}
           >
+            <Car />
             {cotizacion.vehiculo.placa.toUpperCase()}
           </Badge>
           <span className="text-xs text-muted-foreground">
