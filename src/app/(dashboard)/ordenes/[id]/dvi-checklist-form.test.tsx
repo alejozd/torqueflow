@@ -114,4 +114,21 @@ describe("DviChecklistForm", () => {
     expect(mockToggleDviChecklistItemActivoAction).toHaveBeenCalledWith("i1");
     expect(mockRefresh).toHaveBeenCalled();
   });
+
+  it("removes a deactivated item from the active rows after toggle succeeds", async () => {
+    render(<DviChecklistForm ordenId="o1" checklist={null} items={ITEMS} esAdmin />);
+
+    // Before deactivation, Frenos select is present and has the add button
+    expect(screen.getByLabelText("Frenos")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Agregar ítem" })).toBeInTheDocument();
+
+    // Click deactivate
+    await userEvent.click(screen.getByRole("button", { name: "Desactivar Frenos" }));
+
+    // After deactivation (with no saved value for Frenos), the Frenos select should no longer be in the document
+    // because it's now inactive and has no saved status to render as archived
+    expect(screen.queryByLabelText("Frenos")).not.toBeInTheDocument();
+    // But other active items remain
+    expect(screen.getByLabelText("Luces (altas, bajas, direccionales)")).toBeInTheDocument();
+  });
 });

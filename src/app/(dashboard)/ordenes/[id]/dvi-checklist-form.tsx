@@ -63,6 +63,9 @@ export function DviChecklistForm({
     startToggleTransition(async () => {
       try {
         await toggleDviChecklistItemActivoAction(itemId);
+        setItems((prev) =>
+          prev.map((item) => (item.id === itemId ? { ...item, activo: !item.activo } : item)),
+        );
         router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Error al actualizar el ítem");
