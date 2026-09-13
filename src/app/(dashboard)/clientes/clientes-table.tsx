@@ -1,3 +1,4 @@
+import { Car } from "lucide-react";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { inferirColorVehiculo } from "@/lib/color-vehiculo";
@@ -58,6 +59,7 @@ export function ClientesTable({ clientes, ahora }: { clientes: ClienteRow[]; aho
                   variant="outline"
                   className={cn("font-mono", tono && "border-transparent", tono?.bg, tono?.text)}
                 >
+                  <Car />
                   {vehiculo.placa}
                 </Badge>
               );

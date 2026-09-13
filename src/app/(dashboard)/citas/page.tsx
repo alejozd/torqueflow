@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Calendar, CheckCircle, Clock, XCircle } from "lucide-react";
+import { Calendar, Car, CheckCircle, Clock, XCircle } from "lucide-react";
 import { requireSession } from "@/lib/auth/guards";
 import {
   listCitas,
@@ -226,6 +226,7 @@ const COLUMNS: DataTableColumn<CitaConDetalle>[] = [
             variant="outline"
             className={cn("w-fit font-mono text-xs tracking-wider", tono && "border-transparent", tono?.bg, tono?.text)}
           >
+            <Car />
             {cita.vehiculo.placa.toUpperCase()}
           </Badge>
           <span className="text-xs text-muted-foreground">

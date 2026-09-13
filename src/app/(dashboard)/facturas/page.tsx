@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertCircle, CheckCircle, DollarSign, ArrowDown, ArrowUp, FileText } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, Car, CheckCircle, DollarSign, FileText } from "lucide-react";
 import { listFacturas, listOrdenesFacturables, type FacturaWithDetalle } from "@/app/actions/factura-actions";
 import { NuevaFacturaDialog } from "./nueva-factura-dialog";
 import type { EstadoFactura } from "@/generated/prisma-tenant";
@@ -149,6 +149,7 @@ function buildColumns(
               variant="outline"
               className={cn("w-fit font-mono text-xs tracking-wider", tono && "border-transparent", tono?.bg, tono?.text)}
             >
+              <Car />
               {factura.orden.vehiculo.placa.toUpperCase()}
             </Badge>
             <span className="text-xs text-muted-foreground">

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertCircle, CalendarCheck, ChevronRight, FileText, Package, Wrench } from "lucide-react";
+import { AlertCircle, CalendarCheck, Car, ChevronRight, FileText, Package, Wrench } from "lucide-react";
 import { requireSession } from "@/lib/auth/guards";
 import { getDashboardOverview } from "@/app/actions/dashboard-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -314,7 +314,8 @@ export default async function InicioPage() {
                   >
                     <div className="flex min-w-0 flex-col gap-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-md bg-amber-100 px-1.5 py-0.5 font-mono text-xs font-semibold tracking-wide text-amber-900 dark:bg-amber-500/20 dark:text-amber-300">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 font-mono text-xs font-semibold tracking-wide text-amber-900 dark:bg-amber-500/20 dark:text-amber-300">
+                          <Car className="size-3.5" />
                           {formatoPlaca(orden.placa)}
                         </span>
                         <span className="font-semibold">
@@ -373,7 +374,8 @@ export default async function InicioPage() {
                     <div className="flex-1 rounded-lg border border-border bg-card p-3 text-sm">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-semibold">{formatoHora12h(cita.hora)}</span>
-                        <span className="rounded-md bg-amber-100 px-1.5 py-0.5 font-mono text-xs font-semibold tracking-wide text-amber-900 dark:bg-amber-500/20 dark:text-amber-300">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 font-mono text-xs font-semibold tracking-wide text-amber-900 dark:bg-amber-500/20 dark:text-amber-300">
+                          <Car className="size-3.5" />
                           {formatoPlaca(cita.placa)}
                         </span>
                       </div>

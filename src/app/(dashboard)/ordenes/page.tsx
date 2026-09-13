@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertCircle, AlertTriangle, ArrowDown, ArrowUp, DollarSign, UserPlus, Wrench } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowDown, ArrowUp, Car, DollarSign, UserPlus, Wrench } from "lucide-react";
 import { listOrdenes, listTecnicos, type OrdenWithDetalle } from "@/app/actions/orden-actions";
 import { listClientesParaOrden } from "@/app/actions/cliente-actions";
 import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/vehiculo-marca-modelo-actions";
@@ -206,6 +206,7 @@ function buildColumns(
             variant="outline"
             className={cn("w-fit font-mono text-xs tracking-wider", tono && "border-transparent", tono?.bg, tono?.text)}
           >
+            <Car />
             {orden.vehiculo.placa.toUpperCase()}
           </Badge>
           <span className="text-xs text-muted-foreground">
