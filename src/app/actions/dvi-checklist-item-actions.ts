@@ -27,10 +27,10 @@ function slugifyChecklistLabel(label: string): string {
 }
 
 async function generarKeyUnica(tenantDb: TenantPrismaClient, base: string): Promise<string> {
-  let key = base;
+  let key = base || "item";
   let sufijo = 2;
   while (await tenantDb.dviChecklistItem.findUnique({ where: { key } })) {
-    key = `${base}_${sufijo}`;
+    key = `${base || "item"}_${sufijo}`;
     sufijo++;
   }
   return key;

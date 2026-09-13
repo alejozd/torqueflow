@@ -126,6 +126,25 @@ describe("crearDviChecklistItemAction", () => {
     );
     expect(mockCreate).not.toHaveBeenCalled();
   });
+
+  it("generates a non-empty key even when the label is all symbols or whitespace", async () => {
+    mockCreate.mockResolvedValue({
+      id: "i11",
+      key: "item",
+      label: "!!!",
+      activo: true,
+      orden: 8,
+    });
+    const formData = new FormData();
+    formData.set("label", "!!!");
+
+    const result = await crearDviChecklistItemAction(initialState, formData);
+
+    expect(result.success).toBe(true);
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: { key: "item", label: "!!!", orden: 8 },
+    });
+  });
 });
 
 describe("toggleDviChecklistItemActivoAction", () => {

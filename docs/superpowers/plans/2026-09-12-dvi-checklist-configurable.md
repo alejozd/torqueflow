@@ -21,6 +21,16 @@
 - **Commits**: one atomic commit per task, message prefixed `fase-dvi-checklist-task N: <breve descripción>`.
 - **Language**: Spanish in domain identifiers, UI copy, and Zod error messages; English in code comments — matches the rest of the codebase.
 
+## Rollout
+
+This feature adds a new tenant-scoped Prisma model (`DviChecklistItem`) and includes a one-off backfill script for existing tenants. Deploy in this order to avoid downtime or broken UI:
+
+1. **Apply the schema migration** to every existing tenant's schema via `prisma migrate deploy --schema=prisma/tenant/schema.prisma` (or your tenant provisioning pipeline). This creates the `dvi_checklist_items` table.
+2. **Run the backfill script** (`npm run tenant:backfill-dvi-checklist-items`) to seed the 8 default DVI checklist items for each tenant that doesn't already have any.
+3. **Deploy the app** with this feature live.
+
+If a tenant's schema hasn't been migrated or backfilled when the app goes live, that tenant will see an empty DVI checklist section (no data loss — recorded values are preserved in the database and reappear once backfilled — but it will appear broken until both steps complete).
+
 ---
 
 ### Task 1: `DviChecklistItem` Prisma model + migration
