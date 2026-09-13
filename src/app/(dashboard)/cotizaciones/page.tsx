@@ -105,7 +105,12 @@ const COLUMNS: DataTableColumn<CotizacionListItem>[] = [
   },
   {
     header: "Motivo",
-    cell: (cotizacion) => <span className="text-sm text-muted-foreground">{cotizacion.motivo}</span>,
+    className: "max-w-[220px]",
+    cell: (cotizacion) => (
+      <span className="block truncate text-sm text-muted-foreground" title={cotizacion.motivo}>
+        {cotizacion.motivo}
+      </span>
+    ),
   },
   {
     header: "Estado",
