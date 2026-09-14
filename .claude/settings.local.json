@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx shadcn@latest init --help)",
+      "Bash(npx shadcn@latest init -d)",
+      "Bash(npx shadcn@latest add input label card table select badge alert sheet dropdown-menu separator skeleton avatar -y)",
+      "Bash(npx tsc *)",
+      "Bash(npm test *)",
+      "Bash(git add *)",
+      "Bash(git check-ignore *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "mcp__plugin_engram_engram__mem_save",
+      "Bash(npx shadcn@latest add sidebar tooltip -y)",
+      "Bash(npx vitest *)",
+      "Bash(npm run *)",
+      "mcp__plugin_engram_engram__mem_session_summary",
+      "Bash(wmic process *)"
+    ]
+  }
+}
