@@ -253,7 +253,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
                 </FormGroup>
 
                 <FormGroup label="Asignación">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3">
                     <InfoField
                       label="Mecánico"
                       value={
