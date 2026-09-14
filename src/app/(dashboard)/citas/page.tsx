@@ -428,7 +428,7 @@ export default async function CitasPage({
                 name="q"
                 defaultValue={q ?? ""}
                 placeholder="Buscar por cliente, placa o motivo…"
-                className="w-56"
+                className="w-72"
               />
               <Button type="submit" variant="outline" size="sm">
                 Buscar
