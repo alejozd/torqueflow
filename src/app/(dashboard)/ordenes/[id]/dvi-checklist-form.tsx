@@ -87,7 +87,7 @@ export function DviChecklistForm({
                 className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5"
               >
                 <span className={cn("size-1.5 shrink-0 rounded-full", ESTADO_DOT_COLOR[valor])} />
-                <Label htmlFor={item.key} className="flex-1 text-xs leading-tight font-normal">
+                <Label htmlFor={item.key} className="min-w-0 flex-1 text-xs leading-tight font-normal">
                   {item.label}
                 </Label>
                 <SelectField
@@ -151,7 +151,7 @@ export function DviChecklistForm({
                       className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-2.5 py-1.5"
                     >
                       {valor ? <span className={cn("size-1.5 shrink-0 rounded-full", ESTADO_DOT_COLOR[valor])} /> : null}
-                      <span className="flex-1 text-xs leading-tight text-muted-foreground">{item.label}</span>
+                      <span className="min-w-0 flex-1 text-xs leading-tight text-muted-foreground">{item.label}</span>
                       {valor ? (
                         <>
                           <Badge variant="outline" className="shrink-0 text-[10px]">
