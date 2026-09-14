@@ -87,12 +87,17 @@ const ITEMS_COLUMNS: DataTableColumn<ItemRow>[] = [
     cell: (item) => (
       <Badge
         variant="outline"
-        className={
+        className={cn(
+          "gap-1.5",
           item.repuestoId
             ? "border-transparent bg-[oklch(0.7_0.15_60/0.15)] text-[10px] text-[oklch(0.55_0.15_60)]"
             : "border-transparent bg-[oklch(0.44_0.12_250/0.1)] text-[10px] text-[oklch(0.44_0.12_250)]"
-        }
+        )}
       >
+        <span
+          className="size-1.5 shrink-0 rounded-full"
+          style={{ background: item.repuestoId ? "oklch(0.55 0.15 60)" : "oklch(0.44 0.12 250)" }}
+        />
         {item.repuestoId ? "Repuesto" : "Manual"}
       </Badge>
     ),
