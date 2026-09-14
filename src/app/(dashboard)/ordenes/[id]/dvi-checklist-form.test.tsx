@@ -66,7 +66,7 @@ describe("DviChecklistForm", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("Checklist guardado");
   });
 
-  it("shows an inactive item with a saved status as a read-only 'Archivado' row instead of a select", () => {
+  it("keeps an inactive item with a saved status out of the active selects, not shown to a non-ADMIN at all", () => {
     const itemsConArchivado = [
       ...ITEMS,
       { id: "i3", key: "bateria", label: "Batería", activo: false, orden: 2, createdAt: new Date() },
@@ -76,18 +76,17 @@ describe("DviChecklistForm", () => {
       <DviChecklistForm ordenId="o1" checklist={{ frenos: "OK", bateria: "CRITICO" }} items={itemsConArchivado} />,
     );
 
-    expect(screen.getByText("Archivado")).toBeInTheDocument();
-    expect(screen.getByText("Batería")).toBeInTheDocument();
+    expect(screen.queryByText("Batería")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Batería")).not.toBeInTheDocument();
   });
 
-  it("hides the archived row for an inactive item that was never given a status", () => {
-    const itemsConArchivadoSinValor = [
+  it("hides an inactive item that was never given a status from a non-ADMIN too", () => {
+    const itemsConInactivoSinValor = [
       ...ITEMS,
       { id: "i3", key: "bateria", label: "Batería", activo: false, orden: 2, createdAt: new Date() },
     ];
 
-    render(<DviChecklistForm ordenId="o1" checklist={{ frenos: "OK" }} items={itemsConArchivadoSinValor} />);
+    render(<DviChecklistForm ordenId="o1" checklist={{ frenos: "OK" }} items={itemsConInactivoSinValor} />);
 
     expect(screen.queryByText("Batería")).not.toBeInTheDocument();
   });
@@ -170,7 +169,7 @@ describe("DviChecklistForm", () => {
     expect(screen.getByRole("button", { name: "Reactivar Batería" })).toBeInTheDocument();
   });
 
-  it("does not count an archived item with a saved value as an inactive item to reactivate", () => {
+  it("counts an inactive item with a saved value toward the reactivation toggle too, showing it as Archivado when expanded", async () => {
     const itemsConAmbos = [
       ...ITEMS,
       { id: "i3", key: "bateria", label: "Batería", activo: false, orden: 2, createdAt: new Date() },
@@ -181,7 +180,14 @@ describe("DviChecklistForm", () => {
       <DviChecklistForm ordenId="o1" checklist={{ aceite: "CRITICO" }} items={itemsConAmbos} esAdmin />,
     );
 
-    expect(screen.getByRole("button", { name: "Ver ítems desactivados (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ver ítems desactivados (2)" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Ver ítems desactivados (2)" }));
+
+    expect(screen.getByText("Archivado")).toBeInTheDocument();
+    expect(screen.getByText("Crítico")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reactivar Aceite" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reactivar Batería" })).toBeInTheDocument();
   });
 
   it("reactivates an item and refreshes the page when an ADMIN clicks its reactivate control", async () => {
@@ -198,5 +204,21 @@ describe("DviChecklistForm", () => {
     expect(mockToggleDviChecklistItemActivoAction).toHaveBeenCalledWith("i3");
     expect(mockRefresh).toHaveBeenCalled();
     expect(screen.getByLabelText("Batería")).toBeInTheDocument();
+  });
+
+  it("reactivates an archived item and restores its previously saved value in the select", async () => {
+    const itemsConArchivado = [
+      ...ITEMS,
+      { id: "i3", key: "bateria", label: "Batería", activo: false, orden: 2, createdAt: new Date() },
+    ];
+
+    render(
+      <DviChecklistForm ordenId="o1" checklist={{ bateria: "CRITICO" }} items={itemsConArchivado} esAdmin />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Ver ítems desactivados (1)" }));
+    await userEvent.click(screen.getByRole("button", { name: "Reactivar Batería" }));
+
+    expect(screen.getByLabelText("Batería")).toHaveTextContent("Crítico");
   });
 });

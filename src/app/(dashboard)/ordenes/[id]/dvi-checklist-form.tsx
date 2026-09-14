@@ -56,12 +56,10 @@ export function DviChecklistForm({
   const [state, formAction, isPending] = useActionState(saveChecklist, initialState);
 
   const itemsActivos = items.filter((item) => item.activo);
-  // An item deactivated after it already recorded a finding must never
-  // silently disappear -- it renders below, read-only, instead.
-  const itemsArchivadosConValor = items.filter((item) => !item.activo && current[item.key] !== undefined);
-  // Deactivated and never given a value: no evidence to preserve, so it's
-  // safe to fully hide by default and let an ADMIN bring it back on demand.
-  const itemsInactivosSinValor = items.filter((item) => !item.activo && current[item.key] === undefined);
+  // Every deactivated item -- archived with a saved value or never given
+  // one -- is hidden by default and only reachable by an ADMIN through the
+  // "Ver ítems desactivados" toggle below, where it can also be reactivated.
+  const itemsInactivos = items.filter((item) => !item.activo);
 
   function toggleActivo(itemId: string) {
     startToggleTransition(async () => {
@@ -120,25 +118,6 @@ export function DviChecklistForm({
               </div>
             );
           })}
-
-          {itemsArchivadosConValor.map((item) => {
-            const valor = current[item.key] as DviChecklistStatus;
-            return (
-              <div
-                key={item.key}
-                className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-2.5 py-1.5"
-              >
-                <span className={cn("size-1.5 shrink-0 rounded-full", ESTADO_DOT_COLOR[valor])} />
-                <span className="flex-1 text-xs leading-tight text-muted-foreground">{item.label}</span>
-                <Badge variant="outline" className="shrink-0 text-[10px]">
-                  Archivado
-                </Badge>
-                <span className="w-[90px] shrink-0 text-right text-xs text-muted-foreground">
-                  {ESTADO_LABELS[valor]}
-                </span>
-              </div>
-            );
-          })}
         </div>
 
         {esAdmin ? (
@@ -148,7 +127,7 @@ export function DviChecklistForm({
           </Button>
         ) : null}
 
-        {esAdmin && itemsInactivosSinValor.length > 0 ? (
+        {esAdmin && itemsInactivos.length > 0 ? (
           <div className="flex flex-col gap-2">
             <Button
               type="button"
@@ -159,31 +138,45 @@ export function DviChecklistForm({
               aria-expanded={mostrarInactivos}
             >
               {mostrarInactivos ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
-              Ver ítems desactivados ({itemsInactivosSinValor.length})
+              Ver ítems desactivados ({itemsInactivos.length})
             </Button>
 
             {mostrarInactivos ? (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {itemsInactivosSinValor.map((item) => (
-                  <div
-                    key={item.key}
-                    className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-2.5 py-1.5"
-                  >
-                    <span className="flex-1 text-xs leading-tight text-muted-foreground">{item.label}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-6 shrink-0"
-                      disabled={isTogglePending}
-                      onClick={() => toggleActivo(item.id)}
-                      aria-label={`Reactivar ${item.label}`}
-                      title="Reactivar este ítem del checklist"
+                {itemsInactivos.map((item) => {
+                  const valor = current[item.key] as DviChecklistStatus | undefined;
+                  return (
+                    <div
+                      key={item.key}
+                      className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-2.5 py-1.5"
                     >
-                      <Eye className="size-3.5" />
-                    </Button>
-                  </div>
-                ))}
+                      {valor ? <span className={cn("size-1.5 shrink-0 rounded-full", ESTADO_DOT_COLOR[valor])} /> : null}
+                      <span className="flex-1 text-xs leading-tight text-muted-foreground">{item.label}</span>
+                      {valor ? (
+                        <>
+                          <Badge variant="outline" className="shrink-0 text-[10px]">
+                            Archivado
+                          </Badge>
+                          <span className="w-[70px] shrink-0 text-right text-xs text-muted-foreground">
+                            {ESTADO_LABELS[valor]}
+                          </span>
+                        </>
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-6 shrink-0"
+                        disabled={isTogglePending}
+                        onClick={() => toggleActivo(item.id)}
+                        aria-label={`Reactivar ${item.label}`}
+                        title="Reactivar este ítem del checklist"
+                      >
+                        <Eye className="size-3.5" />
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             ) : null}
           </div>
