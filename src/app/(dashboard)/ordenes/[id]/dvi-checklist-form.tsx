@@ -3,7 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { EyeOff, Plus } from "lucide-react";
+import { ChevronDown, ChevronUp, Eye, EyeOff, Plus } from "lucide-react";
 import { updateDviChecklistAction, type DviFormState } from "@/app/actions/dvi-actions";
 import { toggleDviChecklistItemActivoAction } from "@/app/actions/dvi-checklist-item-actions";
 import { DVI_CHECKLIST_STATUSES, type DviChecklist, type DviChecklistStatus } from "@/lib/dvi/checklist-items";
@@ -49,6 +49,7 @@ export function DviChecklistForm({
   const current = checklist ?? {};
   const [items, setItems] = useState(initialItems);
   const [nuevoItemOpen, setNuevoItemOpen] = useState(false);
+  const [mostrarInactivos, setMostrarInactivos] = useState(false);
   const router = useRouter();
   const [isTogglePending, startToggleTransition] = useTransition();
   const saveChecklist = updateDviChecklistAction.bind(null, ordenId);
@@ -58,6 +59,9 @@ export function DviChecklistForm({
   // An item deactivated after it already recorded a finding must never
   // silently disappear -- it renders below, read-only, instead.
   const itemsArchivadosConValor = items.filter((item) => !item.activo && current[item.key] !== undefined);
+  // Deactivated and never given a value: no evidence to preserve, so it's
+  // safe to fully hide by default and let an ADMIN bring it back on demand.
+  const itemsInactivosSinValor = items.filter((item) => !item.activo && current[item.key] === undefined);
 
   function toggleActivo(itemId: string) {
     startToggleTransition(async () => {
@@ -142,6 +146,47 @@ export function DviChecklistForm({
             <Plus className="size-3.5" />
             Agregar ítem
           </Button>
+        ) : null}
+
+        {esAdmin && itemsInactivosSinValor.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-fit text-muted-foreground"
+              onClick={() => setMostrarInactivos((prev) => !prev)}
+              aria-expanded={mostrarInactivos}
+            >
+              {mostrarInactivos ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+              Ver ítems desactivados ({itemsInactivosSinValor.length})
+            </Button>
+
+            {mostrarInactivos ? (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {itemsInactivosSinValor.map((item) => (
+                  <div
+                    key={item.key}
+                    className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-2.5 py-1.5"
+                  >
+                    <span className="flex-1 text-xs leading-tight text-muted-foreground">{item.label}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-6 shrink-0"
+                      disabled={isTogglePending}
+                      onClick={() => toggleActivo(item.id)}
+                      aria-label={`Reactivar ${item.label}`}
+                      title="Reactivar este ítem del checklist"
+                    >
+                      <Eye className="size-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
         ) : null}
       </FormGroup>
 

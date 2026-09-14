@@ -131,4 +131,72 @@ describe("DviChecklistForm", () => {
     // But other active items remain
     expect(screen.getByLabelText("Luces (altas, bajas, direccionales)")).toBeInTheDocument();
   });
+
+  it("only shows the inactive-items toggle to an ADMIN, and only when one exists", () => {
+    const itemsConInactivoSinValor = [
+      ...ITEMS,
+      { id: "i3", key: "bateria", label: "Batería", activo: false, orden: 2, createdAt: new Date() },
+    ];
+
+    const { unmount: unmountNonAdmin } = render(
+      <DviChecklistForm ordenId="o1" checklist={null} items={itemsConInactivoSinValor} esAdmin={false} />,
+    );
+    expect(screen.queryByRole("button", { name: "Ver ítems desactivados (1)" })).not.toBeInTheDocument();
+    unmountNonAdmin();
+
+    const { unmount: unmountNoInactivos } = render(
+      <DviChecklistForm ordenId="o1" checklist={null} items={ITEMS} esAdmin />,
+    );
+    expect(screen.queryByText(/Ver ítems desactivados/)).not.toBeInTheDocument();
+    unmountNoInactivos();
+
+    render(<DviChecklistForm ordenId="o1" checklist={null} items={itemsConInactivoSinValor} esAdmin />);
+    expect(screen.getByRole("button", { name: "Ver ítems desactivados (1)" })).toBeInTheDocument();
+  });
+
+  it("expands the inactive-items list on toggle click, showing the item's label", async () => {
+    const itemsConInactivoSinValor = [
+      ...ITEMS,
+      { id: "i3", key: "bateria", label: "Batería", activo: false, orden: 2, createdAt: new Date() },
+    ];
+
+    render(<DviChecklistForm ordenId="o1" checklist={null} items={itemsConInactivoSinValor} esAdmin />);
+
+    expect(screen.queryByText("Batería")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Ver ítems desactivados (1)" }));
+
+    expect(screen.getByText("Batería")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reactivar Batería" })).toBeInTheDocument();
+  });
+
+  it("does not count an archived item with a saved value as an inactive item to reactivate", () => {
+    const itemsConAmbos = [
+      ...ITEMS,
+      { id: "i3", key: "bateria", label: "Batería", activo: false, orden: 2, createdAt: new Date() },
+      { id: "i4", key: "aceite", label: "Aceite", activo: false, orden: 3, createdAt: new Date() },
+    ];
+
+    render(
+      <DviChecklistForm ordenId="o1" checklist={{ aceite: "CRITICO" }} items={itemsConAmbos} esAdmin />,
+    );
+
+    expect(screen.getByRole("button", { name: "Ver ítems desactivados (1)" })).toBeInTheDocument();
+  });
+
+  it("reactivates an item and refreshes the page when an ADMIN clicks its reactivate control", async () => {
+    const itemsConInactivoSinValor = [
+      ...ITEMS,
+      { id: "i3", key: "bateria", label: "Batería", activo: false, orden: 2, createdAt: new Date() },
+    ];
+
+    render(<DviChecklistForm ordenId="o1" checklist={null} items={itemsConInactivoSinValor} esAdmin />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Ver ítems desactivados (1)" }));
+    await userEvent.click(screen.getByRole("button", { name: "Reactivar Batería" }));
+
+    expect(mockToggleDviChecklistItemActivoAction).toHaveBeenCalledWith("i3");
+    expect(mockRefresh).toHaveBeenCalled();
+    expect(screen.getByLabelText("Batería")).toBeInTheDocument();
+  });
 });
