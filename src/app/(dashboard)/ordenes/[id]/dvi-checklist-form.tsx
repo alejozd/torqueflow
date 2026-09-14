@@ -78,7 +78,7 @@ export function DviChecklistForm({
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <FormGroup label="Checklist">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {itemsActivos.map((item) => {
             const valor = current[item.key] ?? "OK";
             return (
@@ -87,7 +87,11 @@ export function DviChecklistForm({
                 className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5"
               >
                 <span className={cn("size-1.5 shrink-0 rounded-full", ESTADO_DOT_COLOR[valor])} />
-                <Label htmlFor={item.key} className="min-w-0 flex-1 text-xs leading-tight font-normal">
+                <Label
+                  htmlFor={item.key}
+                  title={item.label}
+                  className="min-w-0 flex-1 truncate text-xs leading-tight font-normal"
+                >
                   {item.label}
                 </Label>
                 <SelectField
@@ -142,7 +146,7 @@ export function DviChecklistForm({
             </Button>
 
             {mostrarInactivos ? (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {itemsInactivos.map((item) => {
                   const valor = current[item.key] as DviChecklistStatus | undefined;
                   return (
@@ -151,7 +155,12 @@ export function DviChecklistForm({
                       className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-2.5 py-1.5"
                     >
                       {valor ? <span className={cn("size-1.5 shrink-0 rounded-full", ESTADO_DOT_COLOR[valor])} /> : null}
-                      <span className="min-w-0 flex-1 text-xs leading-tight text-muted-foreground">{item.label}</span>
+                      <span
+                        title={item.label}
+                        className="min-w-0 flex-1 truncate text-xs leading-tight text-muted-foreground"
+                      >
+                        {item.label}
+                      </span>
                       {valor ? (
                         <>
                           <Badge variant="outline" className="shrink-0 text-[10px]">
