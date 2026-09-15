@@ -10,6 +10,13 @@ const mockTenantUpdate = vi.fn();
 const mockTenantDelete = vi.fn();
 const mockPlanFindMany = vi.fn();
 const mockExecuteRawUnsafe = vi.fn();
+const mockAuditLogPlataformaCreate = vi.fn();
+const mockTransaction = vi.fn((cb: (tx: unknown) => unknown) =>
+  cb({
+    tenant: { update: (...args: unknown[]) => mockTenantUpdate(...args) },
+    auditLogPlataforma: { create: (...args: unknown[]) => mockAuditLogPlataformaCreate(...args) },
+  }),
+);
 vi.mock("@/lib/db/public-client", () => ({
   publicDb: {
     tenant: {
@@ -19,6 +26,8 @@ vi.mock("@/lib/db/public-client", () => ({
     },
     plan: { findMany: (...args: unknown[]) => mockPlanFindMany(...args) },
     $executeRawUnsafe: (...args: unknown[]) => mockExecuteRawUnsafe(...args),
+    auditLogPlataforma: { create: (...args: unknown[]) => mockAuditLogPlataformaCreate(...args) },
+    $transaction: (cb: (tx: unknown) => unknown) => mockTransaction(cb),
   },
 }));
 
@@ -84,6 +93,8 @@ beforeEach(() => {
   mockSeedTenantUser.mockReset();
   mockUsuarioCount.mockReset();
   mockGetTenantDb.mockClear();
+  mockAuditLogPlataformaCreate.mockReset();
+  mockTransaction.mockClear();
 });
 
 describe("listTenantsConPlan", () => {
@@ -157,6 +168,24 @@ describe("cambiarEstadoTenantAction", () => {
     );
     expect(mockTenantUpdate).not.toHaveBeenCalled();
   });
+
+  it("registers a TENANT_CAMBIAR_ESTADO audit event in the same transaction as the update", async () => {
+    mockTenantUpdate.mockResolvedValue({ id: "t1", estado: "SUSPENDIDO" });
+    const formData = new FormData();
+    formData.set("estado", "SUSPENDIDO");
+
+    await cambiarEstadoTenantAction("t1", initialState, formData);
+
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+    expect(mockAuditLogPlataformaCreate).toHaveBeenCalledWith({
+      data: {
+        tipo: "TENANT_CAMBIAR_ESTADO",
+        superAdminId: "sa1",
+        tenantId: "t1",
+        detalle: { estadoNuevo: "SUSPENDIDO" },
+      },
+    });
+  });
 });
 
 describe("cambiarPlanTenantAction", () => {
@@ -180,6 +209,24 @@ describe("cambiarPlanTenantAction", () => {
       "REDIRECT:/superadmin/login",
     );
     expect(mockTenantUpdate).not.toHaveBeenCalled();
+  });
+
+  it("registers a TENANT_CAMBIAR_PLAN audit event in the same transaction as the update", async () => {
+    mockTenantUpdate.mockResolvedValue({ id: "t1", planId: "plan_estandar" });
+    const formData = new FormData();
+    formData.set("planId", "plan_estandar");
+
+    await cambiarPlanTenantAction("t1", initialState, formData);
+
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+    expect(mockAuditLogPlataformaCreate).toHaveBeenCalledWith({
+      data: {
+        tipo: "TENANT_CAMBIAR_PLAN",
+        superAdminId: "sa1",
+        tenantId: "t1",
+        detalle: { planIdNuevo: "plan_estandar" },
+      },
+    });
   });
 });
 
@@ -206,6 +253,14 @@ describe("crearTenantAction", () => {
     expect(result.error).toBeNull();
     expect(result.credenciales?.email).toBe("admin@tallerfamiliar.test");
     expect(result.credenciales?.password).toHaveLength(12);
+    expect(mockAuditLogPlataformaCreate).toHaveBeenCalledWith({
+      data: {
+        tipo: "TENANT_CREAR",
+        superAdminId: "sa1",
+        tenantId: "t1",
+        detalle: { slug: "taller-familiar", nombre: "Taller Familiar Gómez", planId: "plan_basico", adminEmail: "admin@tallerfamiliar.test" },
+      },
+    });
   });
 
   it("rejects blank required fields without calling requireSuperAdmin or provisioning anything", async () => {
@@ -249,6 +304,19 @@ describe("crearTenantAction", () => {
     const result = await crearTenantAction(initialCrearTenantState, buildCrearTenantFormData());
 
     expect(result.error).toBe("Este correo ya está registrado en otro taller.");
+    expect(result.credenciales).toBeNull();
+    expect(mockTenantDelete).toHaveBeenCalledWith({ where: { id: "t1" } });
+    expect(mockExecuteRawUnsafe).toHaveBeenCalledWith('DROP SCHEMA IF EXISTS "taller_familiar" CASCADE');
+  });
+
+  it("rolls back the tenant and drops its schema when the audit write itself fails", async () => {
+    mockProvisionTenant.mockResolvedValue({ id: "t1" });
+    mockSeedTenantUser.mockResolvedValue({ id: "u1" });
+    mockAuditLogPlataformaCreate.mockRejectedValue(new Error("connection lost"));
+
+    const result = await crearTenantAction(initialCrearTenantState, buildCrearTenantFormData());
+
+    expect(result.error).toBe("No se pudo registrar la auditoría del tenant, contactá soporte");
     expect(result.credenciales).toBeNull();
     expect(mockTenantDelete).toHaveBeenCalledWith({ where: { id: "t1" } });
     expect(mockExecuteRawUnsafe).toHaveBeenCalledWith('DROP SCHEMA IF EXISTS "taller_familiar" CASCADE');

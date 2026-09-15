@@ -8,6 +8,7 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { provisionTenant } from "../../../scripts/provision-tenant";
 import { seedTenantUser } from "../../../scripts/seed-tenant-user";
 import { TenantUserEmailConflictError } from "@/lib/tenant/tenant-user-email";
+import { registrarEventoAuditoriaPlataforma } from "@/lib/auditoria/registrarEventoPlataforma";
 import type { Plan, Prisma } from "@/generated/prisma-public";
 
 export interface SuperAdminFormState {
@@ -38,9 +39,17 @@ export async function cambiarEstadoTenantAction(
     return { error: "Estado inválido", success: false };
   }
 
-  await requireSuperAdmin();
+  const superAdmin = await requireSuperAdmin();
 
-  await publicDb.tenant.update({ where: { id: tenantId }, data: { estado } });
+  await publicDb.$transaction(async (tx) => {
+    await tx.tenant.update({ where: { id: tenantId }, data: { estado } });
+    await registrarEventoAuditoriaPlataforma(tx, {
+      tipo: "TENANT_CAMBIAR_ESTADO",
+      superAdminId: superAdmin.id,
+      tenantId,
+      detalle: { estadoNuevo: estado },
+    });
+  });
 
   revalidatePath("/superadmin");
   return { error: null, success: true };
@@ -56,9 +65,17 @@ export async function cambiarPlanTenantAction(
     return { error: "Selecciona un plan", success: false };
   }
 
-  await requireSuperAdmin();
+  const superAdmin = await requireSuperAdmin();
 
-  await publicDb.tenant.update({ where: { id: tenantId }, data: { planId } });
+  await publicDb.$transaction(async (tx) => {
+    await tx.tenant.update({ where: { id: tenantId }, data: { planId } });
+    await registrarEventoAuditoriaPlataforma(tx, {
+      tipo: "TENANT_CAMBIAR_PLAN",
+      superAdminId: superAdmin.id,
+      tenantId,
+      detalle: { planIdNuevo: planId },
+    });
+  });
 
   revalidatePath("/superadmin");
   return { error: null, success: true };
@@ -87,7 +104,7 @@ export async function crearTenantAction(
   if (!adminEmail) return { error: "El correo del administrador es obligatorio", credenciales: null };
   if (!adminNombre) return { error: "El nombre del administrador es obligatorio", credenciales: null };
 
-  await requireSuperAdmin();
+  const superAdmin = await requireSuperAdmin();
 
   const schemaName = slug.replace(/-/g, "_");
   // 9 raw bytes -> exactly 12 base64url characters (no padding), safe alphabet.
@@ -120,6 +137,25 @@ export async function crearTenantAction(
     }
     console.error(err);
     return { error: "No se pudo crear el usuario administrador, contactá soporte", credenciales: null };
+  }
+
+  try {
+    // provisionTenant/seedTenantUser no están envueltos en una única
+    // transacción de Prisma -- crear el schema del tenant es DDL fuera del
+    // control de Prisma. Si el registro de auditoría falla aquí, se aplica
+    // el mismo rollback compensatorio que la rama de arriba: un tenant que
+    // existe pero nunca quedó auditado es peor que uno que nunca se creó.
+    await registrarEventoAuditoriaPlataforma(publicDb, {
+      tipo: "TENANT_CREAR",
+      superAdminId: superAdmin.id,
+      tenantId: tenant.id,
+      detalle: { slug, nombre, planId, adminEmail },
+    });
+  } catch (err) {
+    await publicDb.tenant.delete({ where: { id: tenant.id } }).catch(() => {});
+    await publicDb.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`).catch(() => {});
+    console.error(err);
+    return { error: "No se pudo registrar la auditoría del tenant, contactá soporte", credenciales: null };
   }
 
   revalidatePath("/superadmin");
