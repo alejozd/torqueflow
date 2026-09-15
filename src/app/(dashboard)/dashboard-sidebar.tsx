@@ -6,6 +6,7 @@ import {
   BarChart3,
   CalendarDays,
   FileText,
+  History,
   Home,
   Mail,
   MapPin,
@@ -78,6 +79,7 @@ const ADMINISTRACION: NavGroup = {
     { href: "/reportes", label: "Reportes", icon: BarChart3 },
     { href: "/sedes", label: "Sedes", icon: MapPin },
     { href: "/usuarios", label: "Usuarios", icon: UserCog },
+    { href: "/auditoria", label: "Auditoría", icon: History },
     { href: "/configuracion-smtp", label: "SMTP", icon: Mail },
   ],
 };
