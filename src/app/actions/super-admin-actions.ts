@@ -88,6 +88,17 @@ export interface CrearTenantResult {
 
 const ERRORES_PROVISIONAMIENTO_CONOCIDOS = /Invalid slug|Invalid schema name|already exists/;
 
+/**
+ * Compensating rollback for a tenant left orphaned after provisionTenant()
+ * succeeded but a later step (seedTenantUser, the audit write) failed: deletes
+ * the Tenant row and drops its schema. Both calls individually swallow their
+ * own failure -- best-effort cleanup, never masks the original error.
+ */
+async function rollbackTenantProvisioning(tenantId: string, schemaName: string): Promise<void> {
+  await publicDb.tenant.delete({ where: { id: tenantId } }).catch(() => {});
+  await publicDb.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`).catch(() => {});
+}
+
 export async function crearTenantAction(
   prevState: CrearTenantResult,
   formData: FormData,
@@ -129,8 +140,7 @@ export async function crearTenantAction(
   } catch (err) {
     // seedTenantUser failed AFTER provisionTenant succeeded: the tenant would
     // otherwise be orphaned (schema + row, but no admin able to log in).
-    await publicDb.tenant.delete({ where: { id: tenant.id } }).catch(() => {});
-    await publicDb.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`).catch(() => {});
+    await rollbackTenantProvisioning(tenant.id, schemaName);
 
     if (err instanceof TenantUserEmailConflictError) {
       return { error: "Este correo ya está registrado en otro taller.", credenciales: null };
@@ -152,8 +162,7 @@ export async function crearTenantAction(
       detalle: { slug, nombre, planId, adminEmail },
     });
   } catch (err) {
-    await publicDb.tenant.delete({ where: { id: tenant.id } }).catch(() => {});
-    await publicDb.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`).catch(() => {});
+    await rollbackTenantProvisioning(tenant.id, schemaName);
     console.error(err);
     return { error: "No se pudo registrar la auditoría del tenant, contactá soporte", credenciales: null };
   }
