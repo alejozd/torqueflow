@@ -13,6 +13,12 @@ enum EstadoTenant {
   SUSPENDIDO
 }
 
+enum TipoEventoAuditoriaPlataforma {
+  TENANT_CREAR
+  TENANT_CAMBIAR_PLAN
+  TENANT_CAMBIAR_ESTADO
+}
+
 model Plan {
   id          String   @id @default(cuid())
   nombre      String   @unique
@@ -35,6 +41,7 @@ model Tenant {
   planId     String            @map("plan_id")
   plan       Plan              @relation(fields: [planId], references: [id], onDelete: Restrict)
   userEmails TenantUserEmail[]
+  auditLogEntries AuditLogPlataforma[]
   createdAt  DateTime          @default(now()) @map("created_at")
   updatedAt  DateTime          @updatedAt @map("updated_at")
 
@@ -61,8 +68,23 @@ model SuperAdmin {
   email        String   @unique
   passwordHash String   @map("password_hash")
   nombre       String
+  auditLogEntries AuditLogPlataforma[]
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("super_admins")
+}
+
+model AuditLogPlataforma {
+  id           String                         @id @default(cuid())
+  tipo         TipoEventoAuditoriaPlataforma
+  superAdminId String?                        @map("super_admin_id")
+  superAdmin   SuperAdmin?                    @relation(fields: [superAdminId], references: [id], onDelete: SetNull)
+  tenantId     String?                        @map("tenant_id")
+  tenant       Tenant?                        @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  detalle      Json?
+  createdAt    DateTime                       @default(now()) @map("created_at")
+
+  @@index([tipo, createdAt])
+  @@map("audit_log_plataforma")
 }
