@@ -5,20 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { TipoEventoAuditoria } from "@/generated/prisma-tenant";
-
-const TIPOS: TipoEventoAuditoria[] = [
-  "ORDEN_ANULAR",
-  "USUARIO_ACTUALIZAR_PERMISOS",
-  "USUARIO_ELIMINAR",
-  "BODEGA_ELIMINAR",
-];
-
-const TIPO_LABELS: Record<TipoEventoAuditoria, string> = {
-  ORDEN_ANULAR: "Orden anulada",
-  USUARIO_ACTUALIZAR_PERMISOS: "Permisos actualizados",
-  USUARIO_ELIMINAR: "Usuario eliminado",
-  BODEGA_ELIMINAR: "Bodega eliminada",
-};
+import { TIPOS_EVENTO_AUDITORIA, TIPO_EVENTO_AUDITORIA_LABELS } from "@/lib/auditoria/catalogo";
 
 const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" });
 
@@ -33,8 +20,8 @@ const COLUMNS: DataTableColumn<AuditLogConActor>[] = [
   { header: "Fecha", cell: (evento) => formatoFecha.format(evento.createdAt) },
   {
     header: "Evento",
-    cell: (evento) => <Badge variant="outline">{TIPO_LABELS[evento.tipo]}</Badge>,
-    searchValue: (evento) => TIPO_LABELS[evento.tipo],
+    cell: (evento) => <Badge variant="outline">{TIPO_EVENTO_AUDITORIA_LABELS[evento.tipo]}</Badge>,
+    searchValue: (evento) => TIPO_EVENTO_AUDITORIA_LABELS[evento.tipo],
   },
   {
     header: "Actor",
@@ -73,7 +60,9 @@ export default async function AuditoriaPage({
   searchParams: Promise<{ tipo?: string }>;
 }) {
   const { tipo } = await searchParams;
-  const tipoFiltro = TIPOS.includes(tipo as TipoEventoAuditoria) ? (tipo as TipoEventoAuditoria) : undefined;
+  const tipoFiltro = TIPOS_EVENTO_AUDITORIA.includes(tipo as TipoEventoAuditoria)
+    ? (tipo as TipoEventoAuditoria)
+    : undefined;
 
   const eventos = await listAuditLog({ tipo: tipoFiltro });
 
@@ -103,7 +92,7 @@ export default async function AuditoriaPage({
             >
               Todos
             </Link>
-            {TIPOS.map((tipoOpcion) => (
+            {TIPOS_EVENTO_AUDITORIA.map((tipoOpcion) => (
               <Link
                 key={tipoOpcion}
                 href={`/auditoria?tipo=${tipoOpcion}`}
@@ -114,7 +103,7 @@ export default async function AuditoriaPage({
                     : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground",
                 )}
               >
-                {TIPO_LABELS[tipoOpcion]}
+                {TIPO_EVENTO_AUDITORIA_LABELS[tipoOpcion]}
               </Link>
             ))}
           </nav>

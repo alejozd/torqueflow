@@ -392,8 +392,12 @@ export async function deleteUsuarioAction(usuarioId: string): Promise<void> {
   }
 
   try {
+    // El evento se registra ANTES del delete a propósito: si un ADMIN se
+    // elimina a sí mismo, insertar después dejaría a AuditLog.actorId
+    // apuntando a una fila ya borrada (P2003 y rollback de toda la
+    // transacción). Registrando primero, el delete posterior aplica el
+    // onDelete: SetNull del FK y el evento sobrevive con actorId: null.
     await tenantDb.$transaction(async (tx) => {
-      await tx.usuario.delete({ where: { id: usuarioId } });
       await registrarEventoAuditoria(tx, {
         tipo: "USUARIO_ELIMINAR",
         actorId: session.user.id,
@@ -401,6 +405,7 @@ export async function deleteUsuarioAction(usuarioId: string): Promise<void> {
         entidadId: usuarioId,
         detalle: { nombre: usuario.nombre, email: usuario.email, role: usuario.role },
       });
+      await tx.usuario.delete({ where: { id: usuarioId } });
     });
   } catch (err) {
     throw new Error(friendlyPrismaErrorMessage(err, "Error al eliminar el usuario"));

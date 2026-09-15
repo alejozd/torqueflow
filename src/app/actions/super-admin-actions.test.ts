@@ -183,6 +183,7 @@ describe("cambiarEstadoTenantAction", () => {
   });
 
   it("registers a TENANT_CAMBIAR_ESTADO audit event in the same transaction as the update", async () => {
+    mockTenantFindUnique.mockResolvedValue({ estado: "ACTIVO" });
     mockTenantUpdate.mockResolvedValue({ id: "t1", estado: "SUSPENDIDO" });
     const formData = new FormData();
     formData.set("estado", "SUSPENDIDO");
@@ -195,9 +196,21 @@ describe("cambiarEstadoTenantAction", () => {
         tipo: "TENANT_CAMBIAR_ESTADO",
         superAdminId: "sa1",
         tenantId: "t1",
-        detalle: { estadoNuevo: "SUSPENDIDO" },
+        detalle: { estadoAnterior: "ACTIVO", estadoNuevo: "SUSPENDIDO" },
       },
     });
+  });
+
+  it("does not register an audit event when the estado doesn't actually change", async () => {
+    mockTenantFindUnique.mockResolvedValue({ estado: "SUSPENDIDO" });
+    mockTenantUpdate.mockResolvedValue({ id: "t1", estado: "SUSPENDIDO" });
+    const formData = new FormData();
+    formData.set("estado", "SUSPENDIDO");
+
+    await cambiarEstadoTenantAction("t1", initialState, formData);
+
+    expect(mockTenantUpdate).toHaveBeenCalledWith({ where: { id: "t1" }, data: { estado: "SUSPENDIDO" } });
+    expect(mockAuditLogPlataformaCreate).not.toHaveBeenCalled();
   });
 });
 
@@ -225,6 +238,7 @@ describe("cambiarPlanTenantAction", () => {
   });
 
   it("registers a TENANT_CAMBIAR_PLAN audit event in the same transaction as the update", async () => {
+    mockTenantFindUnique.mockResolvedValue({ planId: "plan_basico" });
     mockTenantUpdate.mockResolvedValue({ id: "t1", planId: "plan_estandar" });
     const formData = new FormData();
     formData.set("planId", "plan_estandar");
@@ -237,9 +251,21 @@ describe("cambiarPlanTenantAction", () => {
         tipo: "TENANT_CAMBIAR_PLAN",
         superAdminId: "sa1",
         tenantId: "t1",
-        detalle: { planIdNuevo: "plan_estandar" },
+        detalle: { planIdAnterior: "plan_basico", planIdNuevo: "plan_estandar" },
       },
     });
+  });
+
+  it("does not register an audit event when the plan doesn't actually change", async () => {
+    mockTenantFindUnique.mockResolvedValue({ planId: "plan_estandar" });
+    mockTenantUpdate.mockResolvedValue({ id: "t1", planId: "plan_estandar" });
+    const formData = new FormData();
+    formData.set("planId", "plan_estandar");
+
+    await cambiarPlanTenantAction("t1", initialState, formData);
+
+    expect(mockTenantUpdate).toHaveBeenCalledWith({ where: { id: "t1" }, data: { planId: "plan_estandar" } });
+    expect(mockAuditLogPlataformaCreate).not.toHaveBeenCalled();
   });
 });
 

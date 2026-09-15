@@ -605,6 +605,29 @@ describe("updateUsuarioAction", () => {
     });
   });
 
+  it("fails closed and does not report success when the audit write itself rejects", async () => {
+    mockUsuarioFindUnique.mockResolvedValue({
+      role: "TECNICO",
+      email: "tecnico@taller.test",
+      activo: true,
+      sedes: [{ sedeId: "sede-1" }],
+    });
+    mockSedeFindMany.mockResolvedValue([{ id: "sede-2" }]);
+    mockUsuarioUpdate.mockResolvedValue({});
+    mockAuditLogCreate.mockRejectedValue(new Error("db down"));
+    const formData = new FormData();
+    formData.set("nombre", "Técnico Uno");
+    formData.set("email", "tecnico@taller.test");
+    formData.set("role", "TECNICO");
+    formData.set("activo", "true");
+    formData.set("sedeIds", "sede-2");
+
+    const result = await updateUsuarioAction("u2", initialUsuarioState, formData);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Error al actualizar el usuario");
+  });
+
   it("does not register an audit event when nothing about role/activo/sedeIds changed", async () => {
     mockUsuarioFindUnique.mockResolvedValue({
       role: "TECNICO",
@@ -687,5 +710,13 @@ describe("deleteUsuarioAction", () => {
         detalle: { nombre: "Técnico Uno", email: "tecnico@taller.test", role: "TECNICO" },
       },
     });
+  });
+
+  it("fails closed and does not delete when the audit write itself rejects", async () => {
+    mockUsuarioFindUnique.mockResolvedValue({ role: "TECNICO", email: "tecnico@taller.test", nombre: "Técnico Uno" });
+    mockAuditLogCreate.mockRejectedValue(new Error("db down"));
+
+    await expect(deleteUsuarioAction("u2")).rejects.toThrow("Error al eliminar el usuario");
+    expect(mockUsuarioDelete).not.toHaveBeenCalled();
   });
 });

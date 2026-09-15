@@ -9,6 +9,7 @@ import { provisionTenant } from "../../../scripts/provision-tenant";
 import { seedTenantUser } from "../../../scripts/seed-tenant-user";
 import { TenantUserEmailConflictError } from "@/lib/tenant/tenant-user-email";
 import { registrarEventoAuditoriaPlataforma } from "@/lib/auditoria/registrarEventoPlataforma";
+import type { AuditLogConActor } from "@/app/actions/auditoria-actions";
 import type { Plan, Prisma, TipoEventoAuditoriaPlataforma } from "@/generated/prisma-public";
 
 export interface SuperAdminFormState {
@@ -41,14 +42,21 @@ export async function cambiarEstadoTenantAction(
 
   const superAdmin = await requireSuperAdmin();
 
+  const tenantActual = await publicDb.tenant.findUnique({ where: { id: tenantId }, select: { estado: true } });
+
   await publicDb.$transaction(async (tx) => {
     await tx.tenant.update({ where: { id: tenantId }, data: { estado } });
-    await registrarEventoAuditoriaPlataforma(tx, {
-      tipo: "TENANT_CAMBIAR_ESTADO",
-      superAdminId: superAdmin.id,
-      tenantId,
-      detalle: { estadoNuevo: estado },
-    });
+    // Solo el evento es condicional (el update es idempotente): mismo patrón
+    // que los eventos con scope de tenant -- un evento sin cambio real haría
+    // creer que algo cambió cuando se reenvió el mismo estado.
+    if (tenantActual && tenantActual.estado !== estado) {
+      await registrarEventoAuditoriaPlataforma(tx, {
+        tipo: "TENANT_CAMBIAR_ESTADO",
+        superAdminId: superAdmin.id,
+        tenantId,
+        detalle: { estadoAnterior: tenantActual.estado, estadoNuevo: estado },
+      });
+    }
   });
 
   revalidatePath("/superadmin");
@@ -67,14 +75,21 @@ export async function cambiarPlanTenantAction(
 
   const superAdmin = await requireSuperAdmin();
 
+  const tenantActual = await publicDb.tenant.findUnique({ where: { id: tenantId }, select: { planId: true } });
+
   await publicDb.$transaction(async (tx) => {
     await tx.tenant.update({ where: { id: tenantId }, data: { planId } });
-    await registrarEventoAuditoriaPlataforma(tx, {
-      tipo: "TENANT_CAMBIAR_PLAN",
-      superAdminId: superAdmin.id,
-      tenantId,
-      detalle: { planIdNuevo: planId },
-    });
+    // Solo el evento es condicional (el update es idempotente): mismo patrón
+    // que los eventos con scope de tenant -- un evento sin cambio real haría
+    // creer que algo cambió cuando se reenvió el mismo plan.
+    if (tenantActual && tenantActual.planId !== planId) {
+      await registrarEventoAuditoriaPlataforma(tx, {
+        tipo: "TENANT_CAMBIAR_PLAN",
+        superAdminId: superAdmin.id,
+        tenantId,
+        detalle: { planIdAnterior: tenantActual.planId, planIdNuevo: planId },
+      });
+    }
   });
 
   revalidatePath("/superadmin");
@@ -232,19 +247,9 @@ export async function listAuditLogPlataforma(): Promise<AuditLogPlataformaConSup
   }));
 }
 
-export interface AuditLogTenantEvento {
-  id: string;
-  tipo: string;
-  actorNombre: string | null;
-  entidadTipo: string;
-  entidadId: string;
-  detalle: unknown;
-  createdAt: Date;
-}
-
 export interface AuditLogTenantResultado {
   tenant: { slug: string; nombre: string | null };
-  eventos: AuditLogTenantEvento[];
+  eventos: AuditLogConActor[];
 }
 
 /** El super-admin "itera tenants" para ver su auditoría (spec §1, modelo de

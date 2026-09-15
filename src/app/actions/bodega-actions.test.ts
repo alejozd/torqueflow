@@ -160,6 +160,14 @@ describe("deleteBodegaAction", () => {
     });
   });
 
+  it("fails closed and does not report success when the audit write itself rejects", async () => {
+    mockRequireRole.mockResolvedValue(SESSION_ADMIN);
+    mockDeleteMany.mockResolvedValue({ count: 1 });
+    mockAuditLogCreate.mockRejectedValue(new Error("db down"));
+
+    await expect(deleteBodegaAction("b1")).rejects.toThrow("Error al eliminar la bodega");
+  });
+
   it("does not register an audit event when nothing matched the scoped delete", async () => {
     mockRequireRole.mockResolvedValue(SESSION_ADMIN);
     mockDeleteMany.mockResolvedValue({ count: 0 });

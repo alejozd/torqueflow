@@ -540,6 +540,18 @@ describe("updateEstadoOrdenAction", () => {
     });
   });
 
+  it("fails closed and does not report success when the audit write itself rejects", async () => {
+    mockOrdenFindFirst.mockResolvedValue({ ...ORDEN_BASE, estado: "BORRADOR" });
+    mockUpdate.mockResolvedValue({ id: "o1", estado: "ANULADA" });
+    mockAuditLogCreate.mockRejectedValue(new Error("db down"));
+    const formData = new FormData();
+    formData.set("estado", "ANULADA");
+
+    const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
+
+    expect(result.error).toBe("Error al actualizar el estado");
+  });
+
   it("does not register an audit event for transitions other than ANULADA", async () => {
     mockOrdenFindFirst.mockResolvedValue({ ...ORDEN_BASE, estado: "TERMINADA" });
     mockUpdate.mockResolvedValue({ id: "o1", estado: "ENTREGADA" });

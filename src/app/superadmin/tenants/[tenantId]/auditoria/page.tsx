@@ -6,13 +6,17 @@ import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { AuditLogTenantEvento } from "@/app/actions/super-admin-actions";
+import type { AuditLogConActor } from "@/app/actions/auditoria-actions";
+import { TIPO_EVENTO_AUDITORIA_LABELS } from "@/lib/auditoria/catalogo";
 
 const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" });
 
-const COLUMNS: DataTableColumn<AuditLogTenantEvento>[] = [
+const COLUMNS: DataTableColumn<AuditLogConActor>[] = [
   { header: "Fecha", cell: (evento) => formatoFecha.format(evento.createdAt) },
-  { header: "Evento", cell: (evento) => <Badge variant="outline">{evento.tipo}</Badge> },
+  {
+    header: "Evento",
+    cell: (evento) => <Badge variant="outline">{TIPO_EVENTO_AUDITORIA_LABELS[evento.tipo]}</Badge>,
+  },
   {
     header: "Actor",
     cell: (evento) => evento.actorNombre ?? <span className="text-muted-foreground">(usuario eliminado)</span>,
