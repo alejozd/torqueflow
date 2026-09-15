@@ -17,6 +17,13 @@ const mockUsuarioFindFirst = vi.fn();
 const mockConfiguracionSmtpFindUnique = vi.fn();
 const mockNotificacionCreate = vi.fn();
 const mockVehiculoFindUnique = vi.fn();
+const mockAuditLogCreate = vi.fn();
+const mockTransaction = vi.fn((cb: (tx: unknown) => unknown) =>
+  cb({
+    ordenTrabajo: { update: mockUpdate },
+    auditLog: { create: mockAuditLogCreate },
+  }),
+);
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     ordenTrabajo: {
@@ -30,6 +37,7 @@ vi.mock("@/lib/db/tenant-client", () => ({
     vehiculo: { findUnique: mockVehiculoFindUnique },
     configuracionSmtp: { findUnique: mockConfiguracionSmtpFindUnique },
     notificacionOrdenEnviada: { create: mockNotificacionCreate },
+    $transaction: mockTransaction,
   }),
 }));
 
@@ -331,6 +339,8 @@ describe("updateEstadoOrdenAction", () => {
     mockRequireRole.mockReset().mockResolvedValue(SESSION);
     mockOrdenFindFirst.mockReset();
     mockUpdate.mockReset();
+    mockAuditLogCreate.mockReset();
+    mockTransaction.mockClear();
     mockConfiguracionSmtpFindUnique.mockReset().mockResolvedValue(null);
     mockNotificacionCreate.mockReset().mockResolvedValue({});
     mockEnviarEmail.mockReset().mockResolvedValue(undefined);
@@ -503,6 +513,42 @@ describe("updateEstadoOrdenAction", () => {
     const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
 
     expect(result).toEqual({ error: null, advertencia: null });
+  });
+
+  it("registers an ORDEN_ANULAR audit event, inside the same transaction as the estado update, when transitioning to ANULADA", async () => {
+    mockOrdenFindFirst.mockResolvedValue({ ...ORDEN_BASE, estado: "BORRADOR" });
+    mockUpdate.mockResolvedValue({ id: "o1", estado: "ANULADA" });
+    const formData = new FormData();
+    formData.set("estado", "ANULADA");
+
+    const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
+
+    expect(result.error).toBeNull();
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: "o1" },
+      data: { estado: "ANULADA", entregadaAt: undefined, anuladaAt: expect.any(Date) },
+    });
+    expect(mockAuditLogCreate).toHaveBeenCalledWith({
+      data: {
+        tipo: "ORDEN_ANULAR",
+        actorId: "u1",
+        entidadTipo: "OrdenTrabajo",
+        entidadId: "o1",
+        detalle: { estadoAnterior: "BORRADOR" },
+      },
+    });
+  });
+
+  it("does not register an audit event for transitions other than ANULADA", async () => {
+    mockOrdenFindFirst.mockResolvedValue({ ...ORDEN_BASE, estado: "TERMINADA" });
+    mockUpdate.mockResolvedValue({ id: "o1", estado: "ENTREGADA" });
+    const formData = new FormData();
+    formData.set("estado", "ENTREGADA");
+
+    await updateEstadoOrdenAction("o1", initialEstadoState, formData);
+
+    expect(mockAuditLogCreate).not.toHaveBeenCalled();
   });
 
   it("does not fail the estado change when decrypting the SMTP config throws (rotated/corrupted key)", async () => {

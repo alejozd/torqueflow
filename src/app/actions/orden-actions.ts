@@ -20,6 +20,7 @@ import {
   enviarNotificacionEstadoOrden,
   type ResultadoNotificacion,
 } from "@/lib/notificaciones/enviar-notificacion-estado";
+import { registrarEventoAuditoria } from "@/lib/auditoria/registrarEvento";
 import type { EstadoOrden, Prisma } from "@/generated/prisma-tenant";
 
 export interface OrdenFormState {
@@ -326,13 +327,24 @@ export async function updateEstadoOrdenAction(
   }
 
   try {
-    await tenantDb.ordenTrabajo.update({
-      where: { id },
-      data: {
-        estado: parsedEstado.data,
-        entregadaAt: parsedEstado.data === "ENTREGADA" ? new Date() : undefined,
-        anuladaAt: parsedEstado.data === "ANULADA" ? new Date() : undefined,
-      },
+    await tenantDb.$transaction(async (tx) => {
+      await tx.ordenTrabajo.update({
+        where: { id },
+        data: {
+          estado: parsedEstado.data,
+          entregadaAt: parsedEstado.data === "ENTREGADA" ? new Date() : undefined,
+          anuladaAt: parsedEstado.data === "ANULADA" ? new Date() : undefined,
+        },
+      });
+      if (parsedEstado.data === "ANULADA") {
+        await registrarEventoAuditoria(tx, {
+          tipo: "ORDEN_ANULAR",
+          actorId: session.user.id,
+          entidadTipo: "OrdenTrabajo",
+          entidadId: id,
+          detalle: { estadoAnterior: orden.estado },
+        });
+      }
     });
   } catch (err) {
     return { error: friendlyPrismaErrorMessage(err, "Error al actualizar el estado") };
