@@ -12,10 +12,38 @@ import {
   releaseTenantUserEmail,
   TenantUserEmailConflictError,
 } from "@/lib/tenant/tenant-user-email";
+import { registrarEventoAuditoria } from "@/lib/auditoria/registrarEvento";
 import type { Prisma } from "@/generated/prisma-tenant";
 
 const EMAIL_EN_OTRO_TALLER = "Este correo ya está registrado en otro taller.";
 const SEDE_INEXISTENTE = "Una de las sedes seleccionadas no existe.";
+
+function mismoConjunto(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const setA = new Set(a);
+  return b.every((id) => setA.has(id));
+}
+
+/** Solo incluye en el detalle lo que realmente cambió -- una action de
+ * "actualizar usuario" es un único update de formulario que puede tocar
+ * varios campos a la vez, pero el evento de auditoría no debe insinuar un
+ * cambio que no ocurrió. */
+function construirDetalleCambiosPermisos(
+  actual: { role: string; activo: boolean; sedeIds: string[] },
+  nuevo: { role: string; activo: boolean; sedeIds: string[] },
+): Record<string, unknown> {
+  const cambios: Record<string, unknown> = {};
+  if (actual.role !== nuevo.role) {
+    cambios.role = { antes: actual.role, despues: nuevo.role };
+  }
+  if (actual.activo !== nuevo.activo) {
+    cambios.activo = { antes: actual.activo, despues: nuevo.activo };
+  }
+  if (!mismoConjunto(actual.sedeIds, nuevo.sedeIds)) {
+    cambios.sedeIds = { antes: actual.sedeIds, despues: nuevo.sedeIds };
+  }
+  return cambios;
+}
 
 /** The checkbox list of every sede a Usuario may be assigned to. */
 export interface SedeCheckboxOption {
@@ -232,7 +260,7 @@ export async function updateUsuarioAction(
 
   const usuarioActual = await tenantDb.usuario.findUnique({
     where: { id: usuarioId },
-    select: { role: true, email: true },
+    select: { role: true, email: true, activo: true, sedes: { select: { sedeId: true } } },
   });
   if (!usuarioActual) {
     return { error: "Usuario no encontrado", success: false };
@@ -307,8 +335,24 @@ export async function updateUsuarioAction(
     }
   }
 
+  const cambios = construirDetalleCambiosPermisos(
+    { role: usuarioActual.role, activo: usuarioActual.activo, sedeIds: usuarioActual.sedes.map((s) => s.sedeId) },
+    { role: parsed.data.role, activo: parsed.data.activo, sedeIds },
+  );
+
   try {
-    await tenantDb.usuario.update({ where: { id: usuarioId }, data: datos });
+    await tenantDb.$transaction(async (tx) => {
+      await tx.usuario.update({ where: { id: usuarioId }, data: datos });
+      if (Object.keys(cambios).length > 0) {
+        await registrarEventoAuditoria(tx, {
+          tipo: "USUARIO_ACTUALIZAR_PERMISOS",
+          actorId: session.user.id,
+          entidadTipo: "Usuario",
+          entidadId: usuarioId,
+          detalle: cambios as Prisma.InputJsonValue,
+        });
+      }
+    });
   } catch (err) {
     return { error: friendlyPrismaErrorMessage(err, "Error al actualizar el usuario"), success: false };
   }
@@ -334,7 +378,7 @@ export async function deleteUsuarioAction(usuarioId: string): Promise<void> {
 
   const usuario = await tenantDb.usuario.findUnique({
     where: { id: usuarioId },
-    select: { role: true, email: true },
+    select: { role: true, email: true, nombre: true },
   });
   if (!usuario) {
     throw new Error("Usuario no encontrado");
@@ -348,7 +392,16 @@ export async function deleteUsuarioAction(usuarioId: string): Promise<void> {
   }
 
   try {
-    await tenantDb.usuario.delete({ where: { id: usuarioId } });
+    await tenantDb.$transaction(async (tx) => {
+      await tx.usuario.delete({ where: { id: usuarioId } });
+      await registrarEventoAuditoria(tx, {
+        tipo: "USUARIO_ELIMINAR",
+        actorId: session.user.id,
+        entidadTipo: "Usuario",
+        entidadId: usuarioId,
+        detalle: { nombre: usuario.nombre, email: usuario.email, role: usuario.role },
+      });
+    });
   } catch (err) {
     throw new Error(friendlyPrismaErrorMessage(err, "Error al eliminar el usuario"));
   }

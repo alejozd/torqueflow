@@ -14,6 +14,13 @@ const mockUsuarioDelete = vi.fn();
 const mockUsuarioCount = vi.fn();
 const mockSedeFindMany = vi.fn();
 const mockOrdenGroupBy = vi.fn();
+const mockAuditLogCreate = vi.fn();
+const mockTransaction = vi.fn((cb: (tx: unknown) => unknown) =>
+  cb({
+    usuario: { update: mockUsuarioUpdate, delete: mockUsuarioDelete },
+    auditLog: { create: mockAuditLogCreate },
+  }),
+);
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     usuario: {
@@ -26,6 +33,7 @@ vi.mock("@/lib/db/tenant-client", () => ({
     },
     sede: { findMany: mockSedeFindMany },
     ordenTrabajo: { groupBy: mockOrdenGroupBy },
+    $transaction: mockTransaction,
   }),
 }));
 
@@ -362,12 +370,16 @@ describe("createUsuarioAction", () => {
 describe("updateUsuarioAction", () => {
   beforeEach(() => {
     mockRequireRole.mockReset().mockResolvedValue(ADMIN);
-    mockUsuarioFindUnique.mockReset().mockResolvedValue({ role: "RECEPCION", email: "ana@taller.test" });
+    mockUsuarioFindUnique
+      .mockReset()
+      .mockResolvedValue({ role: "RECEPCION", email: "ana@taller.test", activo: true, sedes: [] });
     mockUsuarioCount.mockReset();
     mockUsuarioUpdate.mockReset();
     stubSedeFindMany(["sede-1", "sede-2"]);
     mockClaimTenantUserEmail.mockReset().mockResolvedValue(undefined);
     mockReleaseTenantUserEmail.mockReset().mockResolvedValue(undefined);
+    mockAuditLogCreate.mockReset();
+    mockTransaction.mockClear();
   });
 
   it("updates nombre/email/role/activo/sedeIds without touching the password when the field is blank", async () => {
@@ -437,7 +449,12 @@ describe("updateUsuarioAction", () => {
   });
 
   it("refuses to demote the last ADMIN", async () => {
-    mockUsuarioFindUnique.mockResolvedValue({ role: "ADMIN", email: "ana@taller.test" });
+    mockUsuarioFindUnique.mockResolvedValue({
+      role: "ADMIN",
+      email: "ana@taller.test",
+      activo: true,
+      sedes: [{ sedeId: "sede-1" }],
+    });
     mockUsuarioCount.mockResolvedValue(1);
     const formData = buildUsuarioFormData({ password: "", role: "TECNICO" });
 
@@ -451,7 +468,12 @@ describe("updateUsuarioAction", () => {
   });
 
   it("allows demoting an ADMIN when a second ADMIN still exists", async () => {
-    mockUsuarioFindUnique.mockResolvedValue({ role: "ADMIN", email: "ana@taller.test" });
+    mockUsuarioFindUnique.mockResolvedValue({
+      role: "ADMIN",
+      email: "ana@taller.test",
+      activo: true,
+      sedes: [{ sedeId: "sede-1" }],
+    });
     mockUsuarioCount.mockResolvedValue(2);
     mockUsuarioUpdate.mockResolvedValue({ id: "u1" });
     const formData = buildUsuarioFormData({ password: "", role: "TECNICO" });
@@ -462,7 +484,12 @@ describe("updateUsuarioAction", () => {
   });
 
   it("refuses to suspend (activo:false) the last active ADMIN", async () => {
-    mockUsuarioFindUnique.mockResolvedValue({ role: "ADMIN", email: "ana@taller.test" });
+    mockUsuarioFindUnique.mockResolvedValue({
+      role: "ADMIN",
+      email: "ana@taller.test",
+      activo: true,
+      sedes: [{ sedeId: "sede-1" }],
+    });
     mockUsuarioCount.mockResolvedValue(1);
     const formData = buildUsuarioFormData({ password: "", role: "ADMIN", activo: "false", sedeIds: [] });
 
@@ -477,7 +504,7 @@ describe("updateUsuarioAction", () => {
   });
 
   it("allows suspending an ADMIN when a second active ADMIN still exists", async () => {
-    mockUsuarioFindUnique.mockResolvedValue({ role: "ADMIN", email: "ana@taller.test" });
+    mockUsuarioFindUnique.mockResolvedValue({ role: "ADMIN", email: "ana@taller.test", activo: true, sedes: [] });
     mockUsuarioCount.mockResolvedValue(2);
     mockUsuarioUpdate.mockResolvedValue({ id: "u1" });
     const formData = buildUsuarioFormData({ password: "", role: "ADMIN", activo: "false", sedeIds: [] });
@@ -498,7 +525,12 @@ describe("updateUsuarioAction", () => {
   });
 
   it("claims the new email and releases the old one in the public index when the email changes", async () => {
-    mockUsuarioFindUnique.mockResolvedValue({ role: "RECEPCION", email: "ana@taller.test" });
+    mockUsuarioFindUnique.mockResolvedValue({
+      role: "RECEPCION",
+      email: "ana@taller.test",
+      activo: true,
+      sedes: [{ sedeId: "sede-1" }],
+    });
     mockUsuarioUpdate.mockResolvedValue({ id: "u2" });
     const formData = buildUsuarioFormData({ nombre: "Ana P.", email: "ana2@taller.test", password: "" });
 
@@ -509,7 +541,12 @@ describe("updateUsuarioAction", () => {
   });
 
   it("does not touch the email index when the email is unchanged", async () => {
-    mockUsuarioFindUnique.mockResolvedValue({ role: "RECEPCION", email: "ana@taller.test" });
+    mockUsuarioFindUnique.mockResolvedValue({
+      role: "RECEPCION",
+      email: "ana@taller.test",
+      activo: true,
+      sedes: [{ sedeId: "sede-1" }],
+    });
     mockUsuarioUpdate.mockResolvedValue({ id: "u2" });
     const formData = buildUsuarioFormData({ nombre: "Ana P.", email: "ana@taller.test", password: "" });
 
@@ -521,7 +558,12 @@ describe("updateUsuarioAction", () => {
   });
 
   it("returns a Spanish error and writes nothing when the new email belongs to another tenant", async () => {
-    mockUsuarioFindUnique.mockResolvedValue({ role: "RECEPCION", email: "ana@taller.test" });
+    mockUsuarioFindUnique.mockResolvedValue({
+      role: "RECEPCION",
+      email: "ana@taller.test",
+      activo: true,
+      sedes: [{ sedeId: "sede-1" }],
+    });
     mockClaimTenantUserEmail.mockRejectedValue(new TenantUserEmailConflictError("tomado@otro.test"));
     const formData = buildUsuarioFormData({ nombre: "Ana P.", email: "tomado@otro.test", password: "" });
 
@@ -530,6 +572,59 @@ describe("updateUsuarioAction", () => {
     expect(result).toEqual({ error: "Este correo ya está registrado en otro taller.", success: false });
     expect(mockUsuarioUpdate).not.toHaveBeenCalled();
     expect(mockReleaseTenantUserEmail).not.toHaveBeenCalled();
+  });
+
+  it("registers a USUARIO_ACTUALIZAR_PERMISOS audit event with only the fields that actually changed", async () => {
+    mockUsuarioFindUnique.mockResolvedValue({
+      role: "TECNICO",
+      email: "tecnico@taller.test",
+      activo: true,
+      sedes: [{ sedeId: "sede-1" }],
+    });
+    mockSedeFindMany.mockResolvedValue([{ id: "sede-2" }]);
+    mockUsuarioUpdate.mockResolvedValue({});
+    const formData = new FormData();
+    formData.set("nombre", "Técnico Uno");
+    formData.set("email", "tecnico@taller.test");
+    formData.set("role", "TECNICO");
+    formData.set("activo", "true");
+    formData.set("sedeIds", "sede-2");
+
+    const result = await updateUsuarioAction("u2", initialUsuarioState, formData);
+
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+    expect(mockAuditLogCreate).toHaveBeenCalledWith({
+      data: {
+        tipo: "USUARIO_ACTUALIZAR_PERMISOS",
+        actorId: "u1",
+        entidadTipo: "Usuario",
+        entidadId: "u2",
+        detalle: { sedeIds: { antes: ["sede-1"], despues: ["sede-2"] } },
+      },
+    });
+  });
+
+  it("does not register an audit event when nothing about role/activo/sedeIds changed", async () => {
+    mockUsuarioFindUnique.mockResolvedValue({
+      role: "TECNICO",
+      email: "tecnico@taller.test",
+      activo: true,
+      sedes: [{ sedeId: "sede-1" }],
+    });
+    mockSedeFindMany.mockResolvedValue([{ id: "sede-1" }]);
+    mockUsuarioUpdate.mockResolvedValue({});
+    const formData = new FormData();
+    formData.set("nombre", "Técnico Uno (nombre editado)");
+    formData.set("email", "tecnico@taller.test");
+    formData.set("role", "TECNICO");
+    formData.set("activo", "true");
+    formData.set("sedeIds", "sede-1");
+
+    await updateUsuarioAction("u2", initialUsuarioState, formData);
+
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+    expect(mockAuditLogCreate).not.toHaveBeenCalled();
   });
 });
 
@@ -540,10 +635,12 @@ describe("deleteUsuarioAction", () => {
     mockUsuarioCount.mockReset();
     mockUsuarioDelete.mockReset();
     mockReleaseTenantUserEmail.mockReset().mockResolvedValue(undefined);
+    mockAuditLogCreate.mockReset();
+    mockTransaction.mockClear();
   });
 
   it("refuses to delete the last ADMIN", async () => {
-    mockUsuarioFindUnique.mockResolvedValue({ role: "ADMIN", email: "admin@taller.test" });
+    mockUsuarioFindUnique.mockResolvedValue({ role: "ADMIN", email: "admin@taller.test", nombre: "Admin Uno" });
     mockUsuarioCount.mockResolvedValue(1);
 
     await expect(deleteUsuarioAction("u1")).rejects.toThrow(
@@ -554,7 +651,7 @@ describe("deleteUsuarioAction", () => {
   });
 
   it("deletes a non-ADMIN usuario without checking the ADMIN count, and releases its email from the index", async () => {
-    mockUsuarioFindUnique.mockResolvedValue({ role: "TECNICO", email: "tec@taller.test" });
+    mockUsuarioFindUnique.mockResolvedValue({ role: "TECNICO", email: "tec@taller.test", nombre: "Técnico Dos" });
     mockUsuarioDelete.mockResolvedValue({ id: "u2" });
 
     await deleteUsuarioAction("u2");
@@ -565,12 +662,30 @@ describe("deleteUsuarioAction", () => {
   });
 
   it("translates a foreign-key-protected delete into the generic Spanish message, without releasing the email", async () => {
-    mockUsuarioFindUnique.mockResolvedValue({ role: "TECNICO", email: "tec@taller.test" });
+    mockUsuarioFindUnique.mockResolvedValue({ role: "TECNICO", email: "tec@taller.test", nombre: "Técnico Dos" });
     mockUsuarioDelete.mockRejectedValue({ code: "P2003" });
 
     await expect(deleteUsuarioAction("u2")).rejects.toThrow(
       "No se puede completar la operación porque hay registros relacionados.",
     );
     expect(mockReleaseTenantUserEmail).not.toHaveBeenCalled();
+  });
+
+  it("registers a USUARIO_ELIMINAR audit event in the same transaction as the delete", async () => {
+    mockUsuarioFindUnique.mockResolvedValue({ role: "TECNICO", email: "tecnico@taller.test", nombre: "Técnico Uno" });
+    mockUsuarioDelete.mockResolvedValue({});
+
+    await deleteUsuarioAction("u2");
+
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+    expect(mockAuditLogCreate).toHaveBeenCalledWith({
+      data: {
+        tipo: "USUARIO_ELIMINAR",
+        actorId: "u1",
+        entidadTipo: "Usuario",
+        entidadId: "u2",
+        detalle: { nombre: "Técnico Uno", email: "tecnico@taller.test", role: "TECNICO" },
+      },
+    });
   });
 });
