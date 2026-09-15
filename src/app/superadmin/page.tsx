@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Building2, CheckCircle2, Info, Users, Zap } from "lucide-react";
 import {
   listTenantsConPlan,
@@ -6,12 +7,13 @@ import {
   type TenantConPlan,
 } from "@/app/actions/super-admin-actions";
 import { requireSuperAdmin } from "@/lib/super-admin/guards";
-import { EstadoTenantButton, PlanTenantSelector } from "./tenant-row-actions";
+import { EstadoTenantButton, PlanTenantSelector, VerAuditoriaButton } from "./tenant-row-actions";
 import { TenantFiltros } from "./tenant-filtros";
 import { CrearTenantForm } from "./crear-tenant-form";
 import { SignOutButton } from "./sign-out-button";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
@@ -127,7 +129,12 @@ export default async function SuperAdminPage({
     { header: "Fecha de creación", cell: (tenant) => formatoFecha.format(tenant.createdAt) },
     {
       header: "Acciones",
-      cell: (tenant) => <EstadoTenantButton tenantId={tenant.id} estadoActual={tenant.estado} />,
+      cell: (tenant) => (
+        <div className="flex flex-col gap-1.5">
+          <EstadoTenantButton tenantId={tenant.id} estadoActual={tenant.estado} />
+          <VerAuditoriaButton tenantId={tenant.id} />
+        </div>
+      ),
     },
   ];
 
@@ -168,7 +175,12 @@ export default async function SuperAdminPage({
             Administración centralizada de instancias de talleres y asignación de planes.
           </p>
         </div>
-        <CrearTenantForm planes={planes} />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" render={<Link href="/superadmin/auditoria" />}>
+            Auditoría de plataforma
+          </Button>
+          <CrearTenantForm planes={planes} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import {
   cambiarEstadoTenantAction,
@@ -83,5 +84,14 @@ export function PlanTenantSelector({
         </Alert>
       ) : null}
     </form>
+  );
+}
+
+/** Enlaza al drill-down de auditoría de este tenant (spec §"UI y acceso"). */
+export function VerAuditoriaButton({ tenantId }: { tenantId: string }) {
+  return (
+    <Button variant="outline" size="sm" render={<Link href={`/superadmin/tenants/${tenantId}/auditoria`} />}>
+      Ver auditoría
+    </Button>
   );
 }

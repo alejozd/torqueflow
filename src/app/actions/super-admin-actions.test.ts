@@ -11,6 +11,8 @@ const mockTenantDelete = vi.fn();
 const mockPlanFindMany = vi.fn();
 const mockExecuteRawUnsafe = vi.fn();
 const mockAuditLogPlataformaCreate = vi.fn();
+const mockAuditLogPlataformaFindMany = vi.fn();
+const mockTenantFindUnique = vi.fn();
 const mockTransaction = vi.fn((cb: (tx: unknown) => unknown) =>
   cb({
     tenant: { update: (...args: unknown[]) => mockTenantUpdate(...args) },
@@ -23,10 +25,14 @@ vi.mock("@/lib/db/public-client", () => ({
       findMany: (...args: unknown[]) => mockTenantFindMany(...args),
       update: (...args: unknown[]) => mockTenantUpdate(...args),
       delete: (...args: unknown[]) => mockTenantDelete(...args),
+      findUnique: (...args: unknown[]) => mockTenantFindUnique(...args),
     },
     plan: { findMany: (...args: unknown[]) => mockPlanFindMany(...args) },
     $executeRawUnsafe: (...args: unknown[]) => mockExecuteRawUnsafe(...args),
-    auditLogPlataforma: { create: (...args: unknown[]) => mockAuditLogPlataformaCreate(...args) },
+    auditLogPlataforma: {
+      create: (...args: unknown[]) => mockAuditLogPlataformaCreate(...args),
+      findMany: (...args: unknown[]) => mockAuditLogPlataformaFindMany(...args),
+    },
     $transaction: (cb: (tx: unknown) => unknown) => mockTransaction(cb),
   },
 }));
@@ -44,8 +50,10 @@ vi.mock("../../../scripts/seed-tenant-user", () => ({
 }));
 
 const mockUsuarioCount = vi.fn();
+const mockAuditLogFindMany = vi.fn();
 const mockGetTenantDb = vi.fn((_schemaName: string) => ({
   usuario: { count: (...args: unknown[]) => mockUsuarioCount(...args) },
+  auditLog: { findMany: (...args: unknown[]) => mockAuditLogFindMany(...args) },
 }));
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: (schemaName: string) => mockGetTenantDb(schemaName),
@@ -58,6 +66,8 @@ import {
   cambiarPlanTenantAction,
   crearTenantAction,
   contarUsuariosGlobal,
+  listAuditLogPlataforma,
+  listAuditLogTenant,
   type SuperAdminFormState,
   type CrearTenantResult,
 } from "./super-admin-actions";
@@ -95,6 +105,9 @@ beforeEach(() => {
   mockGetTenantDb.mockClear();
   mockAuditLogPlataformaCreate.mockReset();
   mockTransaction.mockClear();
+  mockAuditLogPlataformaFindMany.mockReset();
+  mockTenantFindUnique.mockReset();
+  mockAuditLogFindMany.mockReset();
 });
 
 describe("listTenantsConPlan", () => {
@@ -354,6 +367,78 @@ describe("contarUsuariosGlobal", () => {
 
     await expect(contarUsuariosGlobal()).rejects.toThrow("REDIRECT:/superadmin/login");
     expect(mockTenantFindMany).not.toHaveBeenCalled();
+    expect(mockGetTenantDb).not.toHaveBeenCalled();
+  });
+});
+
+describe("listAuditLogPlataforma", () => {
+  it("requires a super-admin session and returns events with the super-admin's nombre resolved", async () => {
+    mockAuditLogPlataformaFindMany.mockResolvedValue([
+      {
+        id: "alp1",
+        tipo: "TENANT_CREAR",
+        superAdmin: { nombre: "Alejo" },
+        tenant: { slug: "taller-familiar" },
+        detalle: { slug: "taller-familiar" },
+        createdAt: new Date("2026-09-01T10:00:00Z"),
+      },
+    ]);
+
+    const eventos = await listAuditLogPlataforma();
+
+    expect(mockRequireSuperAdmin).toHaveBeenCalled();
+    expect(eventos).toEqual([
+      {
+        id: "alp1",
+        tipo: "TENANT_CREAR",
+        superAdminNombre: "Alejo",
+        tenantSlug: "taller-familiar",
+        detalle: { slug: "taller-familiar" },
+        createdAt: new Date("2026-09-01T10:00:00Z"),
+      },
+    ]);
+  });
+});
+
+describe("listAuditLogTenant", () => {
+  it("resolves the tenant's schema and returns its AuditLog events", async () => {
+    mockTenantFindUnique.mockResolvedValue({ slug: "taller-familiar", nombre: "Taller Familiar", schemaName: "taller_familiar" });
+    mockAuditLogFindMany.mockResolvedValue([
+      {
+        id: "al1",
+        tipo: "BODEGA_ELIMINAR",
+        actor: { nombre: "Ana Pérez" },
+        entidadTipo: "Bodega",
+        entidadId: "b1",
+        detalle: null,
+        createdAt: new Date("2026-09-01T10:00:00Z"),
+      },
+    ]);
+
+    const resultado = await listAuditLogTenant("t1");
+
+    expect(mockRequireSuperAdmin).toHaveBeenCalled();
+    expect(mockGetTenantDb).toHaveBeenCalledWith("taller_familiar");
+    expect(resultado?.tenant).toEqual({ slug: "taller-familiar", nombre: "Taller Familiar" });
+    expect(resultado?.eventos).toEqual([
+      {
+        id: "al1",
+        tipo: "BODEGA_ELIMINAR",
+        actorNombre: "Ana Pérez",
+        entidadTipo: "Bodega",
+        entidadId: "b1",
+        detalle: null,
+        createdAt: new Date("2026-09-01T10:00:00Z"),
+      },
+    ]);
+  });
+
+  it("returns null when the tenant does not exist", async () => {
+    mockTenantFindUnique.mockResolvedValue(null);
+
+    const resultado = await listAuditLogTenant("missing");
+
+    expect(resultado).toBeNull();
     expect(mockGetTenantDb).not.toHaveBeenCalled();
   });
 });

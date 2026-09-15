@@ -9,7 +9,7 @@ import { provisionTenant } from "../../../scripts/provision-tenant";
 import { seedTenantUser } from "../../../scripts/seed-tenant-user";
 import { TenantUserEmailConflictError } from "@/lib/tenant/tenant-user-email";
 import { registrarEventoAuditoriaPlataforma } from "@/lib/auditoria/registrarEventoPlataforma";
-import type { Plan, Prisma } from "@/generated/prisma-public";
+import type { Plan, Prisma, TipoEventoAuditoriaPlataforma } from "@/generated/prisma-public";
 
 export interface SuperAdminFormState {
   error: string | null;
@@ -202,4 +202,80 @@ export async function contarUsuariosGlobal(): Promise<ConteoUsuariosGlobal> {
   }
 
   return { total, nuevosUltimoMes };
+}
+
+export interface AuditLogPlataformaConSuperAdmin {
+  id: string;
+  tipo: TipoEventoAuditoriaPlataforma;
+  superAdminNombre: string | null;
+  tenantSlug: string | null;
+  detalle: unknown;
+  createdAt: Date;
+}
+
+export async function listAuditLogPlataforma(): Promise<AuditLogPlataformaConSuperAdmin[]> {
+  await requireSuperAdmin();
+
+  const eventos = await publicDb.auditLogPlataforma.findMany({
+    include: { superAdmin: { select: { nombre: true } }, tenant: { select: { slug: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
+
+  return eventos.map((evento) => ({
+    id: evento.id,
+    tipo: evento.tipo,
+    superAdminNombre: evento.superAdmin?.nombre ?? null,
+    tenantSlug: evento.tenant?.slug ?? null,
+    detalle: evento.detalle,
+    createdAt: evento.createdAt,
+  }));
+}
+
+export interface AuditLogTenantEvento {
+  id: string;
+  tipo: string;
+  actorNombre: string | null;
+  entidadTipo: string;
+  entidadId: string;
+  detalle: unknown;
+  createdAt: Date;
+}
+
+export interface AuditLogTenantResultado {
+  tenant: { slug: string; nombre: string | null };
+  eventos: AuditLogTenantEvento[];
+}
+
+/** El super-admin "itera tenants" para ver su auditoría (spec §1, modelo de
+ * datos): AuditLog vive en el schema de cada tenant, no en public, así que
+ * esta lectura resuelve el schema primero y abre ese Prisma client. */
+export async function listAuditLogTenant(tenantId: string): Promise<AuditLogTenantResultado | null> {
+  await requireSuperAdmin();
+
+  const tenant = await publicDb.tenant.findUnique({
+    where: { id: tenantId },
+    select: { slug: true, nombre: true, schemaName: true },
+  });
+  if (!tenant) return null;
+
+  const tenantDb = getTenantDb(tenant.schemaName);
+  const eventos = await tenantDb.auditLog.findMany({
+    include: { actor: { select: { nombre: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
+
+  return {
+    tenant: { slug: tenant.slug, nombre: tenant.nombre },
+    eventos: eventos.map((evento) => ({
+      id: evento.id,
+      tipo: evento.tipo,
+      actorNombre: evento.actor?.nombre ?? null,
+      entidadTipo: evento.entidadTipo,
+      entidadId: evento.entidadId,
+      detalle: evento.detalle,
+      createdAt: evento.createdAt,
+    })),
+  };
 }
