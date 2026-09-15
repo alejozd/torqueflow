@@ -6,6 +6,7 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { bodegaInputSchema } from "@/lib/validation/inventario";
 import { scopeBodega } from "@/lib/sede/scope";
+import { registrarEventoAuditoria } from "@/lib/auditoria/registrarEvento";
 import type { Bodega, Prisma } from "@/generated/prisma-tenant";
 
 export interface BodegaFormState {
@@ -118,11 +119,21 @@ export async function updateBodegaAction(
 export async function deleteBodegaAction(id: string): Promise<void> {
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  let count: number;
+  let count = 0;
   try {
-    ({ count } = await tenantDb.bodega.deleteMany({
-      where: { id, ...scopeBodega(session.user.sedeActivaId) },
-    }));
+    await tenantDb.$transaction(async (tx) => {
+      ({ count } = await tx.bodega.deleteMany({
+        where: { id, ...scopeBodega(session.user.sedeActivaId) },
+      }));
+      if (count > 0) {
+        await registrarEventoAuditoria(tx, {
+          tipo: "BODEGA_ELIMINAR",
+          actorId: session.user.id,
+          entidadTipo: "Bodega",
+          entidadId: id,
+        });
+      }
+    });
   } catch (err) {
     throw new Error(friendlyPrismaErrorMessage(err, "Error al eliminar la bodega"));
   }

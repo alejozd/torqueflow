@@ -13,6 +13,13 @@ const mockDeleteMany = vi.fn();
 const mockFindMany = vi.fn();
 const mockBodegaFindFirst = vi.fn();
 const mockSedeFindFirst = vi.fn();
+const mockAuditLogCreate = vi.fn();
+const mockTransaction = vi.fn((cb: (tx: unknown) => unknown) =>
+  cb({
+    bodega: { deleteMany: mockDeleteMany },
+    auditLog: { create: mockAuditLogCreate },
+  }),
+);
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     bodega: {
@@ -23,6 +30,7 @@ vi.mock("@/lib/db/tenant-client", () => ({
       findFirst: mockBodegaFindFirst,
     },
     sede: { findFirst: mockSedeFindFirst },
+    $transaction: mockTransaction,
   }),
 }));
 
@@ -40,7 +48,9 @@ import {
 } from "./bodega-actions";
 
 const initialState: BodegaFormState = { error: null, success: false };
-const SESSION_ADMIN = { user: { role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION_ADMIN = {
+  user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+};
 const SESSION_RECEPCION = { user: { role: "RECEPCION", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 describe("createBodegaAction", () => {
@@ -117,6 +127,8 @@ describe("deleteBodegaAction", () => {
   beforeEach(() => {
     mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockDeleteMany.mockReset();
+    mockAuditLogCreate.mockReset();
+    mockTransaction.mockClear();
   });
 
   it("deletes a bodega of the sede activa", async () => {
@@ -134,6 +146,27 @@ describe("deleteBodegaAction", () => {
     await expect(deleteBodegaAction("b-otra-sede")).rejects.toThrow(
       "Bodega no encontrada en tu sede activa.",
     );
+  });
+
+  it("registers a BODEGA_ELIMINAR audit event when the delete actually removes a row", async () => {
+    mockRequireRole.mockResolvedValue(SESSION_ADMIN);
+    mockDeleteMany.mockResolvedValue({ count: 1 });
+
+    await deleteBodegaAction("b1");
+
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+    expect(mockAuditLogCreate).toHaveBeenCalledWith({
+      data: { tipo: "BODEGA_ELIMINAR", actorId: "u1", entidadTipo: "Bodega", entidadId: "b1" },
+    });
+  });
+
+  it("does not register an audit event when nothing matched the scoped delete", async () => {
+    mockRequireRole.mockResolvedValue(SESSION_ADMIN);
+    mockDeleteMany.mockResolvedValue({ count: 0 });
+
+    await expect(deleteBodegaAction("b1")).rejects.toThrow();
+
+    expect(mockAuditLogCreate).not.toHaveBeenCalled();
   });
 });
 
