@@ -14,6 +14,13 @@ enum Role {
   RECEPCION
 }
 
+enum TipoEventoAuditoria {
+  ORDEN_ANULAR
+  USUARIO_ACTUALIZAR_PERMISOS
+  USUARIO_ELIMINAR
+  BODEGA_ELIMINAR
+}
+
 enum EstadoOrden {
   BORRADOR
   EN_PROCESO
@@ -61,6 +68,7 @@ model Usuario {
   sedeDefectoId    String?             @map("sede_defecto_id")
   sedeDefecto      Sede?               @relation("UsuarioSedeDefecto", fields: [sedeDefectoId], references: [id], onDelete: SetNull)
   historialEntries HistorialVehiculo[]
+  auditLogEntries  AuditLog[]
   ordenesCreadas   OrdenTrabajo[]      @relation("OrdenCreadoPor")
   ordenesAsignadas OrdenTrabajo[]      @relation("OrdenMecanico")
   manoDeObraAsignada ManoDeObra[]      @relation("ManoDeObraMecanico")
@@ -170,6 +178,21 @@ model HistorialVehiculo {
 
   @@index([vehiculoId])
   @@map("historial_vehiculo")
+}
+
+model AuditLog {
+  id          String              @id @default(cuid())
+  tipo        TipoEventoAuditoria
+  actorId     String?             @map("actor_id")
+  actor       Usuario?            @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  entidadTipo String              @map("entidad_tipo")
+  entidadId   String              @map("entidad_id")
+  detalle     Json?
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  @@index([tipo, createdAt])
+  @@index([entidadTipo, entidadId])
+  @@map("audit_log")
 }
 
 model Sede {
