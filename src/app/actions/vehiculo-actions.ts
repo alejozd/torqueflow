@@ -6,6 +6,7 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { vehiculoInputSchema } from "@/lib/validation/vehiculo";
 import type { Prisma, Vehiculo } from "@/generated/prisma-tenant";
+import { describirHistorial } from "@/lib/historial-eliminacion";
 
 export interface VehiculoFormState {
   error: string | null;
@@ -144,13 +145,47 @@ export async function updateVehiculoAction(
   return { error: null, success: true };
 }
 
+/** A vehículo can only be deleted while it has no history (historial, órdenes, citas, cotizaciones). */
 export async function deleteVehiculoAction(id: string, clienteId: string): Promise<void> {
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const vehiculo = await tenantDb.vehiculo.findFirst({
+    where: { id, clienteId },
+    select: { _count: { select: { historial: true, ordenes: true, citas: true, cotizaciones: true } } },
+  });
+  if (!vehiculo) throw new Error("Vehículo no encontrado");
+
+  const historial = describirHistorial(vehiculo._count);
+  if (historial) {
+    throw new Error(`No se puede eliminar el vehículo porque tiene historial: ${historial}.`);
+  }
+
   try {
     await tenantDb.vehiculo.delete({ where: { id } });
   } catch (err) {
     throw new Error(friendlyPrismaErrorMessage(err, "Error al eliminar vehículo"));
   }
   revalidatePath(`/clientes/${clienteId}`);
+}
+
+/**
+ * useActionState-compatible wrapper (same adapter shape as
+ * deleteProveedorFormAction): a refusal comes back as an inline error
+ * instead of crashing to the nearest error boundary.
+ */
+export async function deleteVehiculoFormAction(
+  id: string,
+  clienteId: string,
+  _prevState: VehiculoFormState,
+): Promise<VehiculoFormState> {
+  try {
+    await deleteVehiculoAction(id, clienteId);
+  } catch (err) {
+    if (typeof (err as { digest?: unknown })?.digest === "string" && (err as { digest: string }).digest.startsWith("NEXT_")) {
+      throw err;
+    }
+    return { error: err instanceof Error ? err.message : "Error al eliminar vehículo", success: false };
+  }
+  return { error: null, success: true };
 }

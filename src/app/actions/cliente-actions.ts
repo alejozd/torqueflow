@@ -6,6 +6,7 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { clienteInputSchema } from "@/lib/validation/cliente";
 import type { Cliente, Prisma } from "@/generated/prisma-tenant";
+import { describirHistorial, sumarConteos } from "@/lib/historial-eliminacion";
 
 export interface ClienteFormState {
   error: string | null;
@@ -186,13 +187,53 @@ export async function updateClienteAction(
   return { error: null, success: true };
 }
 
+/**
+ * A cliente can only be deleted while it has no history: no orden, factura,
+ * cita or cotización of its own, and none of its vehículos has any either.
+ * Its history-free vehículos go with it, in the same transaction.
+ */
 export async function deleteClienteAction(id: string): Promise<void> {
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const cliente = await tenantDb.cliente.findUnique({
+    where: { id },
+    select: {
+      _count: { select: { ordenes: true, facturas: true, citas: true, cotizaciones: true } },
+      vehiculos: { select: { _count: { select: { historial: true, ordenes: true, citas: true, cotizaciones: true } } } },
+    },
+  });
+  if (!cliente) throw new Error("Cliente no encontrado");
+
+  const historial = describirHistorial(sumarConteos([cliente._count, ...cliente.vehiculos.map((vehiculo) => vehiculo._count)]));
+  if (historial) {
+    throw new Error(`No se puede eliminar el cliente porque tiene historial: ${historial}.`);
+  }
+
   try {
-    await tenantDb.cliente.delete({ where: { id } });
+    await tenantDb.$transaction([
+      tenantDb.vehiculo.deleteMany({ where: { clienteId: id } }),
+      tenantDb.cliente.delete({ where: { id } }),
+    ]);
   } catch (err) {
     throw new Error(friendlyPrismaErrorMessage(err, "Error al eliminar cliente"));
   }
   revalidatePath("/clientes");
+}
+
+/**
+ * useActionState-compatible wrapper (same adapter shape as
+ * deleteProveedorFormAction): a refusal comes back as an inline error
+ * instead of crashing to the nearest error boundary.
+ */
+export async function deleteClienteFormAction(id: string, _prevState: ClienteFormState): Promise<ClienteFormState> {
+  try {
+    await deleteClienteAction(id);
+  } catch (err) {
+    if (typeof (err as { digest?: unknown })?.digest === "string" && (err as { digest: string }).digest.startsWith("NEXT_")) {
+      throw err;
+    }
+    return { error: err instanceof Error ? err.message : "Error al eliminar cliente", success: false };
+  }
+  return { error: null, success: true };
 }
