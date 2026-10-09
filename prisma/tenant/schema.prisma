@@ -59,29 +59,29 @@ enum ResultadoNotificacionOrden {
 }
 
 model Usuario {
-  id               String              @id @default(cuid())
-  email            String              @unique
-  passwordHash     String              @map("password_hash")
-  nombre           String
-  role             Role                @default(RECEPCION)
-  activo           Boolean             @default(true) @map("activo")
-  sedeDefectoId    String?             @map("sede_defecto_id")
-  sedeDefecto      Sede?               @relation("UsuarioSedeDefecto", fields: [sedeDefectoId], references: [id], onDelete: SetNull)
-  historialEntries HistorialVehiculo[]
-  auditLogEntries  AuditLog[]
-  ordenesCreadas   OrdenTrabajo[]      @relation("OrdenCreadoPor")
-  ordenesAsignadas OrdenTrabajo[]      @relation("OrdenMecanico")
-  manoDeObraAsignada ManoDeObra[]      @relation("ManoDeObraMecanico")
-  dviRealizados    Dvi[]
-  entradasCreadas  EntradaMercancia[]
-  facturasEmitidas Factura[]
-  pagosRegistrados Pago[]
-  citasCreadas     Cita[]              @relation("CitaCreadoPor")
-  cotizacionesCreadas Cotizacion[]     @relation("CotizacionCreadoPor")
+  id                            String                  @id @default(cuid())
+  email                         String                  @unique
+  passwordHash                  String                  @map("password_hash")
+  nombre                        String
+  role                          Role                    @default(RECEPCION)
+  activo                        Boolean                 @default(true) @map("activo")
+  sedeDefectoId                 String?                 @map("sede_defecto_id")
+  sedeDefecto                   Sede?                   @relation("UsuarioSedeDefecto", fields: [sedeDefectoId], references: [id], onDelete: SetNull)
+  historialEntries              HistorialVehiculo[]
+  auditLogEntries               AuditLog[]
+  ordenesCreadas                OrdenTrabajo[]          @relation("OrdenCreadoPor")
+  ordenesAsignadas              OrdenTrabajo[]          @relation("OrdenMecanico")
+  manoDeObraAsignada            ManoDeObra[]            @relation("ManoDeObraMecanico")
+  dviRealizados                 Dvi[]
+  entradasCreadas               EntradaMercancia[]
+  facturasEmitidas              Factura[]
+  pagosRegistrados              Pago[]
+  citasCreadas                  Cita[]                  @relation("CitaCreadoPor")
+  cotizacionesCreadas           Cotizacion[]            @relation("CotizacionCreadoPor")
   seguimientosCotizacionCreados CotizacionSeguimiento[] @relation("CotizacionSeguimientoCreadoPor")
-  sedes            UsuarioSede[]
-  createdAt        DateTime            @default(now()) @map("created_at")
-  updatedAt        DateTime            @updatedAt @map("updated_at")
+  sedes                         UsuarioSede[]
+  createdAt                     DateTime                @default(now()) @map("created_at")
+  updatedAt                     DateTime                @updatedAt @map("updated_at")
 
   @@map("usuarios")
 }
@@ -122,12 +122,12 @@ model MarcaVehiculo {
 }
 
 model ModeloVehiculo {
-  id        String     @id @default(cuid())
-  marcaId   String     @map("marca_id")
+  id        String        @id @default(cuid())
+  marcaId   String        @map("marca_id")
   marca     MarcaVehiculo @relation(fields: [marcaId], references: [id], onDelete: Restrict)
   nombre    String
   vehiculos Vehiculo[]
-  createdAt DateTime   @default(now()) @map("created_at")
+  createdAt DateTime      @default(now()) @map("created_at")
 
   @@unique([marcaId, nombre])
   @@index([marcaId])
@@ -196,17 +196,17 @@ model AuditLog {
 }
 
 model Sede {
-  id        String         @id @default(cuid())
-  nombre    String
-  direccion String?
-  ordenes   OrdenTrabajo[]
-  bodegas   Bodega[]
-  usuarios  UsuarioSede[]
-  citas     Cita[]
-  cotizaciones Cotizacion[]
-  usuariosPorDefecto Usuario[] @relation("UsuarioSedeDefecto")
-  createdAt DateTime       @default(now()) @map("created_at")
-  updatedAt DateTime       @updatedAt @map("updated_at")
+  id                 String         @id @default(cuid())
+  nombre             String
+  direccion          String?
+  ordenes            OrdenTrabajo[]
+  bodegas            Bodega[]
+  usuarios           UsuarioSede[]
+  citas              Cita[]
+  cotizaciones       Cotizacion[]
+  usuariosPorDefecto Usuario[]      @relation("UsuarioSedeDefecto")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
 
   @@map("sedes")
 }
@@ -351,39 +351,47 @@ model Bodega {
 }
 
 model Proveedor {
-  id        String             @id @default(cuid())
-  nombre    String
-  documento String?
-  direccion String?
-  contacto  String?
-  telefono  String?
-  email     String?
-  repuestos Repuesto[]
-  entradas  EntradaMercancia[]
-  createdAt DateTime           @default(now()) @map("created_at")
-  updatedAt DateTime           @updatedAt @map("updated_at")
+  id          String             @id @default(cuid())
+  nombre      String
+  documento   String?
+  direccion   String?
+  contacto    String?
+  telefono    String?
+  email       String?
+  /// Días que tarda el proveedor en entregar un pedido; alimenta la cantidad sugerida de las alertas de inventario.
+  diasEntrega Int                @default(3) @map("dias_entrega")
+  repuestos   Repuesto[]
+  entradas    EntradaMercancia[]
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
 
   @@map("proveedores")
 }
 
 model Repuesto {
-  id           String                 @id @default(cuid())
-  codigo       String                 @unique
-  nombre       String
-  descripcion  String?
-  precioCompra Decimal                @map("precio_compra") @db.Decimal(10, 2)
-  precioVenta  Decimal                @map("precio_venta") @db.Decimal(10, 2)
-  stockActual  Int                    @default(0) @map("stock_actual")
-  stockMinimo  Int                    @default(0) @map("stock_minimo")
-  bodegaId     String                 @map("bodega_id")
-  bodega       Bodega                 @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
-  proveedorId  String?                @map("proveedor_id")
-  proveedor    Proveedor?             @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
-  entradaItems EntradaMercanciaItem[]
-  itemsOrden   ItemOrden[]
-  itemsCotizacion ItemCotizacion[]
-  createdAt    DateTime               @default(now()) @map("created_at")
-  updatedAt    DateTime               @updatedAt @map("updated_at")
+  id                   String                 @id @default(cuid())
+  codigo               String                 @unique
+  nombre               String
+  descripcion          String?
+  precioCompra         Decimal                @map("precio_compra") @db.Decimal(10, 2)
+  precioVenta          Decimal                @map("precio_venta") @db.Decimal(10, 2)
+  stockActual          Int                    @default(0) @map("stock_actual")
+  stockMinimo          Int                    @default(0) @map("stock_minimo")
+  /// Hasta dónde reponer al pedir; sin valor, las alertas usan 2 × stockMinimo.
+  stockMaximo          Int?                   @map("stock_maximo")
+  /// Las cantidades sugeridas se redondean hacia arriba a este múltiplo (cajas, packs).
+  multiploCompra       Int                    @default(1) @map("multiplo_compra")
+  /// Mientras sea futura, la alerta del dashboard se muestra en "Pospuestas" en vez del listado principal.
+  alertaPospuestaHasta DateTime?              @map("alerta_pospuesta_hasta")
+  bodegaId             String                 @map("bodega_id")
+  bodega               Bodega                 @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
+  proveedorId          String?                @map("proveedor_id")
+  proveedor            Proveedor?             @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
+  entradaItems         EntradaMercanciaItem[]
+  itemsOrden           ItemOrden[]
+  itemsCotizacion      ItemCotizacion[]
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
 
   @@index([bodegaId])
   @@index([proveedorId])
@@ -593,31 +601,31 @@ enum TipoItemCotizacion {
 /// may never turn into an order, and ordenId is only set once staff approve it
 /// and create the resulting OrdenTrabajo -- see EstadoCotizacion.APROBADA.
 model Cotizacion {
-  id           String             @id @default(cuid())
-  numero       Int                @unique @default(autoincrement())
-  estado       EstadoCotizacion   @default(BORRADOR)
-  clienteId    String             @map("cliente_id")
-  cliente      Cliente            @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  vehiculoId   String             @map("vehiculo_id")
-  vehiculo     Vehiculo           @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
-  sedeId       String             @map("sede_id")
-  sede         Sede               @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  id           String                  @id @default(cuid())
+  numero       Int                     @unique @default(autoincrement())
+  estado       EstadoCotizacion        @default(BORRADOR)
+  clienteId    String                  @map("cliente_id")
+  cliente      Cliente                 @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  vehiculoId   String                  @map("vehiculo_id")
+  vehiculo     Vehiculo                @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  sedeId       String                  @map("sede_id")
+  sede         Sede                    @relation(fields: [sedeId], references: [id], onDelete: Restrict)
   motivo       String
-  validaHasta  DateTime?          @map("valida_hasta")
-  descuentoPct Decimal            @default(0) @map("descuento_pct") @db.Decimal(5, 2)
-  subtotal     Decimal            @default(0) @db.Decimal(10, 2)
-  descuento    Decimal            @default(0) @db.Decimal(10, 2)
-  iva          Decimal            @default(0) @db.Decimal(10, 2)
-  total        Decimal            @default(0) @db.Decimal(10, 2)
+  validaHasta  DateTime?               @map("valida_hasta")
+  descuentoPct Decimal                 @default(0) @map("descuento_pct") @db.Decimal(5, 2)
+  subtotal     Decimal                 @default(0) @db.Decimal(10, 2)
+  descuento    Decimal                 @default(0) @db.Decimal(10, 2)
+  iva          Decimal                 @default(0) @db.Decimal(10, 2)
+  total        Decimal                 @default(0) @db.Decimal(10, 2)
   notas        String?
-  creadoPorId  String             @map("creado_por_id")
-  creadoPor    Usuario            @relation("CotizacionCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
-  ordenId      String?            @unique @map("orden_id")
-  orden        OrdenTrabajo?      @relation(fields: [ordenId], references: [id], onDelete: SetNull)
+  creadoPorId  String                  @map("creado_por_id")
+  creadoPor    Usuario                 @relation("CotizacionCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  ordenId      String?                 @unique @map("orden_id")
+  orden        OrdenTrabajo?           @relation(fields: [ordenId], references: [id], onDelete: SetNull)
   items        ItemCotizacion[]
   seguimientos CotizacionSeguimiento[]
-  createdAt    DateTime           @default(now()) @map("created_at")
-  updatedAt    DateTime           @updatedAt @map("updated_at")
+  createdAt    DateTime                @default(now()) @map("created_at")
+  updatedAt    DateTime                @updatedAt @map("updated_at")
 
   @@index([clienteId])
   @@index([vehiculoId])
