@@ -62,7 +62,10 @@ export default async function PedidoCompraDetailPage({ params }: { params: Promi
       ? { titulo: "Recibido", valor: formatoFechaCorta.format(pedido.recibidoAt) }
       : pedido.fechaEsperada
         ? { titulo: "Llega aprox.", valor: formatoFechaCorta.format(pedido.fechaEsperada) }
-        : { titulo: "Tiempo de entrega", valor: `${pedido.proveedor.diasEntrega} días` };
+        : {
+            titulo: "Tiempo de entrega",
+            valor: `${pedido.proveedor.diasEntrega} ${pedido.proveedor.diasEntrega === 1 ? "día" : "días"}`,
+          };
 
   return (
     <main className="flex flex-col gap-4">
