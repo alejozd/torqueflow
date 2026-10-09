@@ -2,6 +2,7 @@ import { publicDb } from "@/lib/db/public-client";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { verifyCredentials } from "@/lib/auth/verify-credentials";
 import { resolveSedeInicial } from "@/lib/auth/sede-access";
+import { compararConHashDeRelleno } from "@/lib/auth/hash-de-relleno";
 
 export interface AuthorizedUser {
   id: string;
@@ -22,7 +23,9 @@ export interface AuthorizedUser {
  *
  * Order matters: the email->tenant lookup and password check both run
  * BEFORE any sede logic, so a wrong password never performs a sede lookup.
- * Every failure path returns null, one uniform message for the login form.
+ * Every failure path returns null, one uniform message for the login form,
+ * and every one of them pays for a bcrypt comparison (real or filler, see
+ * hash-de-relleno.ts) so response time does not reveal which emails exist.
  *
  * sedeActivaId/sedeActivaNombre come back as "" (not undefined) when no
  * sede can be auto-resolved (zero or more than one candidate) -- guards.ts's
@@ -42,13 +45,19 @@ export async function authorizeCredentials(
     where: { email },
     include: { tenant: true },
   });
-  if (!indexado) return null;
+  if (!indexado) {
+    await compararConHashDeRelleno(password);
+    return null;
+  }
 
   const tenant = indexado.tenant;
   // A suspended tenant fails the same way a wrong password does -- no
   // distinct message, consistent with this login flow already treating wrong
   // password/unknown email/suspended tenant as indistinguishable.
-  if (tenant.estado === "SUSPENDIDO") return null;
+  if (tenant.estado === "SUSPENDIDO") {
+    await compararConHashDeRelleno(password);
+    return null;
+  }
 
   const tenantDb = getTenantDb(tenant.schemaName);
   const usuario = await verifyCredentials(tenantDb, email, password);

@@ -9,6 +9,15 @@ import bcrypt from "bcryptjs";
 import { verifySuperAdminCredentials } from "./verify-credentials";
 
 describe("verifySuperAdminCredentials", () => {
+  it("still pays a bcrypt comparison when the email is unknown", async () => {
+    mockFindUnique.mockResolvedValue(null);
+    const compare = vi.spyOn(bcrypt, "compare");
+
+    expect(await verifySuperAdminCredentials("nadie@torqueflow.test", "clave")).toBeNull();
+    expect(compare).toHaveBeenCalledTimes(1);
+    compare.mockRestore();
+  });
+
   it("returns the admin when the password matches", async () => {
     const passwordHash = await bcrypt.hash("clave-larga-segura", 12);
     mockFindUnique.mockResolvedValue({ id: "sa1", email: "owner@torqueflow.test", passwordHash, nombre: "Alejo" });

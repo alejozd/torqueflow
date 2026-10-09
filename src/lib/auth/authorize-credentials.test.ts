@@ -20,6 +20,11 @@ vi.mock("@/lib/auth/sede-access", () => ({
   resolveSedeInicial: (...args: unknown[]) => mockResolveSedeInicial(...args),
 }));
 
+const mockCompararConHashDeRelleno = vi.fn();
+vi.mock("@/lib/auth/hash-de-relleno", () => ({
+  compararConHashDeRelleno: (...args: unknown[]) => mockCompararConHashDeRelleno(...args),
+}));
+
 import { authorizeCredentials } from "./authorize-credentials";
 
 const TENANT_ROW = {
@@ -34,6 +39,18 @@ describe("authorizeCredentials", () => {
     mockGetTenantDb.mockReset();
     mockVerifyCredentials.mockReset();
     mockResolveSedeInicial.mockReset();
+    mockCompararConHashDeRelleno.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("pays a filler bcrypt comparison for an unknown email and for a suspended tenant, so timing reveals neither", async () => {
+    mockTenantUserEmailFindUnique.mockResolvedValueOnce(null);
+    await authorizeCredentials({ email: "nadie@example.com", password: "x" });
+
+    mockTenantUserEmailFindUnique.mockResolvedValueOnce({ tenant: { ...TENANT_ROW, estado: "SUSPENDIDO" } });
+    await authorizeCredentials({ email: "user@example.com", password: "y" });
+
+    expect(mockCompararConHashDeRelleno).toHaveBeenNthCalledWith(1, "x");
+    expect(mockCompararConHashDeRelleno).toHaveBeenNthCalledWith(2, "y");
   });
 
   it("returns null and never looks up the email index when email or password is missing/non-string", async () => {

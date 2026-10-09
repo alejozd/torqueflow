@@ -10,12 +10,15 @@ function fakeTenantDb(usuario: unknown): TenantPrismaClient {
 }
 
 describe("verifyCredentials", () => {
-  it("returns null when no Usuario matches the email", async () => {
+  it("returns null when no Usuario matches the email, still paying a bcrypt comparison", async () => {
     const tenantDb = fakeTenantDb(null);
+    const compare = vi.spyOn(bcrypt, "compare");
 
     const result = await verifyCredentials(tenantDb, "nadie@example.com", "whatever");
 
     expect(result).toBeNull();
+    expect(compare).toHaveBeenCalledTimes(1);
+    compare.mockRestore();
   });
 
   it("returns null when the password does not match the stored hash", async () => {
