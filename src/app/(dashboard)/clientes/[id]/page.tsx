@@ -114,6 +114,8 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
   }
 
   const esAdmin = session.user.role === "ADMIN";
+  // Same roles as deleteClienteAction/deleteVehiculoAction.
+  const puedeEliminar = session.user.role !== "TECNICO";
 
   // EditarClienteDialog is a Client Component: it may only receive plain,
   // serializable props. `cliente` itself carries `ordenes`/`facturas` with
@@ -200,7 +202,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
             </p>
           </div>
         </div>
-        <EditarClienteDialog cliente={clienteEditable} />
+        <EditarClienteDialog cliente={clienteEditable} puedeEliminar={puedeEliminar} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -255,6 +257,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
                             marcas={marcas}
                             modelos={modelos}
                             esAdmin={esAdmin}
+                            puedeEliminar={puedeEliminar}
                             triggerClassName="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20"
                           />
                           <Link

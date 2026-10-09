@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { Pencil } from "lucide-react";
+import { toast } from "sonner";
 import { EditarVehiculoForm } from "./editar-vehiculo-form";
+import { deleteVehiculoFormAction } from "@/app/actions/vehiculo-actions";
+import { EliminarConConfirmacion } from "@/components/eliminar-con-confirmacion";
 import type { MarcaVehiculo, ModeloVehiculo, Vehiculo } from "@/generated/prisma-tenant";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,11 +23,14 @@ export function EditarVehiculoDialog({
   modelos,
   esAdmin,
   triggerClassName,
+  puedeEliminar = false,
 }: {
   vehiculo: Vehiculo;
   marcas: MarcaVehiculo[];
   modelos: ModeloVehiculo[];
   esAdmin: boolean;
+  /** ADMIN/RECEPCION only, same roles as deleteVehiculoAction. */
+  puedeEliminar?: boolean;
   /** Overrides the trigger's default outline look -- e.g. clientes/[id]'s vehicle cards use a soft amber style. */
   triggerClassName?: string;
 }) {
@@ -50,6 +56,17 @@ export function EditarVehiculoDialog({
           esAdmin={esAdmin}
           onUpdated={() => setOpen(false)}
         />
+        {puedeEliminar ? (
+          <EliminarConConfirmacion
+            etiqueta="Eliminar vehículo"
+            confirmacion={`¿Eliminar el vehículo ${vehiculo.placa}? Solo es posible si no tiene historial, y no se puede deshacer.`}
+            accion={() => deleteVehiculoFormAction(vehiculo.id, vehiculo.clienteId, { error: null, success: false })}
+            onEliminado={() => {
+              toast.success(`Vehículo ${vehiculo.placa} eliminado`);
+              setOpen(false);
+            }}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   );
