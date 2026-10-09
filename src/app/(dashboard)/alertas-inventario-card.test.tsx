@@ -20,7 +20,11 @@ function alerta(overrides: Partial<AlertaInventarioRow> & { id: string; nombre: 
     ordenes: [],
     precioCompra: 1000,
     bodega: { id: "b1", nombre: "Principal" },
-    proveedor: { id: "p1", nombre: "Bosch Colombia", telefono: null, email: null },
+    proveedor: { id: "p1", nombre: "Bosch Colombia", telefono: null, email: null, diasEntrega: 3 },
+    diasEntrega: 3,
+    multiploCompra: 1,
+    objetivoReposicion: 10,
+    seAgotaAntesDeEntrega: false,
     consumoSemanal: [0, 0, 0, 0, 0, 0, 1, 2],
     consumoDiario: 0,
     diasCobertura: null,
@@ -56,7 +60,7 @@ const motor = alerta({
   frenaOrdenes: true,
   ordenes: [{ id: "o1", estado: "EN_PROCESO", placa: "abc123", vehiculo: "Mazda 3", cantidad: 2 }],
 });
-const filtro = alerta({ id: "f1", nombre: "Filtro de aceite", proveedor: { id: "p2", nombre: "Autopartes Norte", telefono: null, email: null } });
+const filtro = alerta({ id: "f1", nombre: "Filtro de aceite", proveedor: { id: "p2", nombre: "Autopartes Norte", telefono: null, email: null, diasEntrega: 3 } });
 
 describe("AlertasInventarioCard", () => {
   beforeEach(() => {
@@ -104,6 +108,27 @@ describe("AlertasInventarioCard", () => {
       "Pedido para Bosch Colombia:\n- 9 x Motor de arranque (M1)\n\nPedido para Autopartes Norte:\n- 8 x Filtro de aceite (F1)",
     );
     expect(mockToastSuccess).toHaveBeenCalledWith("Pedido copiado al portapapeles");
+  });
+
+  it("warns when the repuesto runs out before delivery and steps the quantity by pack size", async () => {
+    const bujia = alerta({
+      id: "b1",
+      nombre: "Bujía",
+      disponible: 2,
+      diasCobertura: 2,
+      seAgotaAntesDeEntrega: true,
+      multiploCompra: 4,
+      cantidadSugerida: 8,
+    });
+    render(<AlertasInventarioCard data={datos([bujia])} />);
+
+    expect(screen.getByText("Se agota en ~2 días, antes de la entrega")).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText("Más Bujía"));
+    expect(screen.getByLabelText("Cantidad a pedir de Bujía")).toHaveTextContent("12");
+    await userEvent.click(screen.getByLabelText("Menos Bujía"));
+    await userEvent.click(screen.getByLabelText("Menos Bujía"));
+    await userEvent.click(screen.getByLabelText("Menos Bujía"));
+    expect(screen.getByLabelText("Cantidad a pedir de Bujía")).toHaveTextContent("4");
   });
 
   it("reveals purchase history and links to the ordenes using the repuesto", async () => {

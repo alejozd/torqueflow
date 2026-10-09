@@ -13,7 +13,7 @@ import type { EstadoOrden } from "@/generated/prisma-tenant";
 
 export const DIAS_CONSUMO = 90;
 export const SEMANAS_TENDENCIA = 8;
-/** Phase 1 default until Proveedor carries its own lead time. */
+/** Lead time for repuestos without a proveedor (same default as Proveedor.diasEntrega). */
 export const DIAS_ENTREGA_DEFAULT = 3;
 /** Extra days of demand the suggested quantity covers beyond the lead time. */
 export const DIAS_COBERTURA_OBJETIVO = 14;
@@ -31,8 +31,18 @@ export interface RepuestoAlertaInput {
   stockActual: number;
   stockMinimo: number;
   precioCompra: number;
+  stockMaximo: number | null;
+  multiploCompra: number;
   bodega: { id: string; nombre: string };
-  proveedor: { id: string; nombre: string; telefono: string | null; email: string | null } | null;
+  proveedor: ProveedorAlerta | null;
+}
+
+export interface ProveedorAlerta {
+  id: string;
+  nombre: string;
+  telefono: string | null;
+  email: string | null;
+  diasEntrega: number;
 }
 
 export interface ItemComprometidoInput {
@@ -78,7 +88,13 @@ export interface AlertaInventarioRow {
   ordenes: OrdenUsoRepuesto[];
   precioCompra: number;
   bodega: { id: string; nombre: string };
-  proveedor: { id: string; nombre: string; telefono: string | null; email: string | null } | null;
+  proveedor: ProveedorAlerta | null;
+  diasEntrega: number;
+  multiploCompra: number;
+  /** Stock level the suggested quantity restocks to (stockMaximo, or derived from minimum and demand). */
+  objetivoReposicion: number;
+  /** Runs out before an order placed today would arrive. */
+  seAgotaAntesDeEntrega: boolean;
   /** Units invoiced per week, oldest first, last SEMANAS_TENDENCIA weeks. */
   consumoSemanal: number[];
   consumoDiario: number;
@@ -135,13 +151,29 @@ export function consumoPorSemana(items: { cantidad: number; fecha: Date }[], hoy
 }
 
 /**
- * Enough to reach 2x the minimum or to cover lead time + target coverage at
- * the current pace, whichever is larger, minus what is already free. Never
- * below 1: a row only exists because something needs restocking.
+ * Level to restock to: the repuesto's own stockMaximo when set; otherwise
+ * enough for 2x the minimum or for lead time + target coverage at the
+ * current pace, whichever is larger.
  */
-export function calcularCantidadSugerida(disponible: number, stockMinimo: number, consumoDiario: number): number {
-  const objetivo = Math.max(stockMinimo * 2, Math.ceil(consumoDiario * (DIAS_ENTREGA_DEFAULT + DIAS_COBERTURA_OBJETIVO)));
-  return Math.max(1, objetivo - disponible);
+export function calcularObjetivoReposicion(input: {
+  stockMinimo: number;
+  stockMaximo: number | null;
+  consumoDiario: number;
+  diasEntrega: number;
+}): number {
+  if (input.stockMaximo !== null) return input.stockMaximo;
+  return Math.max(input.stockMinimo * 2, Math.ceil(input.consumoDiario * (input.diasEntrega + DIAS_COBERTURA_OBJETIVO)));
+}
+
+/**
+ * Units to order to reach the objetivo from what is free now, rounded up to
+ * the proveedor's pack size. Never below one pack: a row only exists because
+ * something needs restocking.
+ */
+export function calcularCantidadSugerida(disponible: number, objetivo: number, multiploCompra: number): number {
+  const multiplo = Math.max(1, multiploCompra);
+  const faltante = Math.max(1, objetivo - disponible);
+  return Math.ceil(faltante / multiplo) * multiplo;
 }
 
 function agruparPor<T extends { repuestoId: string }>(items: T[]): Map<string, T[]> {
@@ -187,7 +219,14 @@ export function construirAlertasInventario(input: {
     const consumidos = consumidosPorRepuesto.get(repuesto.id) ?? [];
     const consumoDiario = consumidos.reduce((suma, item) => suma + item.cantidad, 0) / DIAS_CONSUMO;
     const diasCobertura = disponible <= 0 ? 0 : consumoDiario > 0 ? Math.floor(disponible / consumoDiario) : null;
-    const cantidadSugerida = calcularCantidadSugerida(disponible, repuesto.stockMinimo, consumoDiario);
+    const diasEntrega = repuesto.proveedor?.diasEntrega ?? DIAS_ENTREGA_DEFAULT;
+    const objetivoReposicion = calcularObjetivoReposicion({
+      stockMinimo: repuesto.stockMinimo,
+      stockMaximo: repuesto.stockMaximo,
+      consumoDiario,
+      diasEntrega,
+    });
+    const cantidadSugerida = calcularCantidadSugerida(disponible, objetivoReposicion, repuesto.multiploCompra);
 
     const entradas = [...(entradasPorRepuesto.get(repuesto.id) ?? [])].sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
     const [ultima, anterior] = entradas;
@@ -206,6 +245,10 @@ export function construirAlertasInventario(input: {
       precioCompra: repuesto.precioCompra,
       bodega: repuesto.bodega,
       proveedor: repuesto.proveedor,
+      diasEntrega,
+      multiploCompra: repuesto.multiploCompra,
+      objetivoReposicion,
+      seAgotaAntesDeEntrega: disponible > 0 && diasCobertura !== null && diasCobertura <= diasEntrega,
       consumoSemanal: consumoPorSemana(consumidos, input.hoy),
       consumoDiario,
       diasCobertura,

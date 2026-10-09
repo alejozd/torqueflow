@@ -37,6 +37,7 @@ interface GrupoProveedor {
   key: string;
   nombre: string;
   proveedorId: string | null;
+  diasEntrega: number | null;
   alertas: AlertaInventarioRow[];
 }
 
@@ -46,7 +47,13 @@ function agruparPorProveedor(alertas: AlertaInventarioRow[]): GrupoProveedor[] {
     const key = alerta.proveedor?.id ?? SIN_PROVEEDOR;
     const grupo = grupos.get(key);
     if (grupo) grupo.alertas.push(alerta);
-    else grupos.set(key, { key, nombre: alerta.proveedor?.nombre ?? "Sin proveedor asignado", proveedorId: alerta.proveedor?.id ?? null, alertas: [alerta] });
+    else grupos.set(key, {
+        key,
+        nombre: alerta.proveedor?.nombre ?? "Sin proveedor asignado",
+        proveedorId: alerta.proveedor?.id ?? null,
+        diasEntrega: alerta.proveedor?.diasEntrega ?? null,
+        alertas: [alerta],
+      });
   }
   // Groups keep the urgency order of their first row; "Sin proveedor" always last.
   return [...grupos.values()].sort((a, b) => Number(a.key === SIN_PROVEEDOR) - Number(b.key === SIN_PROVEEDOR));
@@ -144,7 +151,11 @@ function ChipsAlerta({ alerta }: { alerta: AlertaInventarioRow }) {
             </Chip>
           ))
         : null}
-      {alerta.disponible > 0 && alerta.diasCobertura !== null && alerta.diasCobertura <= 14 ? (
+      {alerta.seAgotaAntesDeEntrega ? (
+        <Chip tono="danger">
+          Se agota en ~{alerta.diasCobertura} {alerta.diasCobertura === 1 ? "día" : "días"}, antes de la entrega
+        </Chip>
+      ) : alerta.disponible > 0 && alerta.diasCobertura !== null && alerta.diasCobertura <= 14 ? (
         <Chip tono="warning">Se agota en ~{alerta.diasCobertura} {alerta.diasCobertura === 1 ? "día" : "días"}</Chip>
       ) : null}
       {alerta.disponible <= 0 && !alerta.frenaOrdenes ? <Chip tono="danger">Sin disponible</Chip> : null}
@@ -203,7 +214,7 @@ function FilaAlerta({
             type="button"
             className="h-6 w-6 bg-muted text-sm hover:bg-muted/70"
             aria-label={`Menos ${alerta.nombre}`}
-            onClick={() => onCantidad(Math.max(1, cantidad - 1))}
+            onClick={() => onCantidad(Math.max(alerta.multiploCompra, cantidad - alerta.multiploCompra))}
           >
             −
           </button>
@@ -214,7 +225,7 @@ function FilaAlerta({
             type="button"
             className="h-6 w-6 bg-muted text-sm hover:bg-muted/70"
             aria-label={`Más ${alerta.nombre}`}
-            onClick={() => onCantidad(cantidad + 1)}
+            onClick={() => onCantidad(cantidad + alerta.multiploCompra)}
           >
             +
           </button>
@@ -231,7 +242,7 @@ function FilaAlerta({
         <ChevronDown className={cn("size-4 transition-transform", abierta && "rotate-180")} />
       </button>
       {abierta ? (
-        <dl className="col-span-full grid grid-cols-1 gap-x-6 gap-y-3 rounded-lg bg-muted/60 p-3 text-xs sm:grid-cols-2 md:col-start-3 lg:grid-cols-4">
+        <dl className="col-span-full grid grid-cols-1 gap-x-6 gap-y-3 rounded-lg bg-muted/60 p-3 text-xs sm:grid-cols-2 md:col-start-3 lg:grid-cols-3">
           <div>
             <dt className="font-semibold tracking-wide text-muted-foreground uppercase">Última compra</dt>
             <dd className="mt-0.5">
@@ -255,6 +266,14 @@ function FilaAlerta({
             <dt className="font-semibold tracking-wide text-muted-foreground uppercase">Consumo</dt>
             <dd className="mt-0.5">
               {alerta.consumoDiario > 0 ? `${(alerta.consumoDiario * 30).toFixed(1)} uds/mes (últimos 90 días)` : "Sin ventas en 90 días"} · {alerta.bodega.nombre}
+            </dd>
+          </div>
+          <div>
+            <dt className="font-semibold tracking-wide text-muted-foreground uppercase">Reposición</dt>
+            <dd className="mt-0.5">
+              Hasta {alerta.objetivoReposicion} uds
+              {alerta.multiploCompra > 1 ? ` · empaque de ${alerta.multiploCompra}` : ""} · entrega en {alerta.diasEntrega}{" "}
+              {alerta.diasEntrega === 1 ? "día" : "días"}
             </dd>
           </div>
           <div>
@@ -466,6 +485,11 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
                         <span>
                           {grupo.alertas.length} {grupo.alertas.length === 1 ? "repuesto" : "repuestos"}
                         </span>
+                        {grupo.diasEntrega !== null ? (
+                          <span>
+                            entrega en {grupo.diasEntrega} {grupo.diasEntrega === 1 ? "día" : "días"}
+                          </span>
+                        ) : null}
                         <span className="font-mono">{formatoMoneda.format(total)}</span>
                       </div>
                       <div className="flex flex-wrap gap-1.5">

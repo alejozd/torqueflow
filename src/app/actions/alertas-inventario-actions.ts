@@ -35,8 +35,10 @@ export async function getAlertasInventario(): Promise<AlertasInventario> {
         stockActual: true,
         stockMinimo: true,
         precioCompra: true,
+        stockMaximo: true,
+        multiploCompra: true,
         bodega: { select: { id: true, nombre: true } },
-        proveedor: { select: { id: true, nombre: true, telefono: true, email: true } },
+        proveedor: { select: { id: true, nombre: true, telefono: true, email: true, diasEntrega: true } },
       },
     }),
     tenantDb.itemOrden.findMany({

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calcularCantidadSugerida,
+  calcularObjetivoReposicion,
   calcularSeveridad,
   construirAlertasInventario,
   consumoPorSemana,
@@ -17,8 +18,10 @@ function repuesto(overrides: Partial<RepuestoAlertaInput> & { id: string }): Rep
     stockActual: 0,
     stockMinimo: 5,
     precioCompra: 1000,
+    stockMaximo: null,
+    multiploCompra: 1,
     bodega: { id: "b1", nombre: "Principal" },
-    proveedor: { id: "p1", nombre: "Bosch", telefono: null, email: null },
+    proveedor: { id: "p1", nombre: "Bosch", telefono: null, email: null, diasEntrega: 3 },
     ...overrides,
   };
 }
@@ -53,18 +56,33 @@ describe("consumoPorSemana", () => {
   });
 });
 
+describe("calcularObjetivoReposicion", () => {
+  it("uses the repuesto's stockMaximo when set, whatever the demand", () => {
+    expect(calcularObjetivoReposicion({ stockMinimo: 5, stockMaximo: 8, consumoDiario: 3, diasEntrega: 3 })).toBe(8);
+  });
+
+  it("falls back to twice the minimum without consumption history", () => {
+    expect(calcularObjetivoReposicion({ stockMinimo: 5, stockMaximo: null, consumoDiario: 0, diasEntrega: 3 })).toBe(10);
+  });
+
+  it("covers the proveedor's lead time + target coverage when demand is higher", () => {
+    // 1/day * (10 + 14) = 24 units
+    expect(calcularObjetivoReposicion({ stockMinimo: 3, stockMaximo: null, consumoDiario: 1, diasEntrega: 10 })).toBe(24);
+  });
+});
+
 describe("calcularCantidadSugerida", () => {
-  it("restocks to twice the minimum when there is no consumption history", () => {
-    expect(calcularCantidadSugerida(1, 5, 0)).toBe(9);
+  it("orders what is missing to reach the objetivo", () => {
+    expect(calcularCantidadSugerida(1, 10, 1)).toBe(9);
   });
 
-  it("covers lead time + target coverage when demand is higher than 2x minimum", () => {
-    // 1/day * (3 + 14) = 17 units, minus 2 available
-    expect(calcularCantidadSugerida(2, 3, 1)).toBe(15);
+  it("rounds up to the pack size", () => {
+    expect(calcularCantidadSugerida(1, 10, 6)).toBe(12);
   });
 
-  it("never suggests less than one unit", () => {
-    expect(calcularCantidadSugerida(0, 0, 0)).toBe(1);
+  it("never suggests less than one pack", () => {
+    expect(calcularCantidadSugerida(5, 5, 1)).toBe(1);
+    expect(calcularCantidadSugerida(5, 5, 4)).toBe(4);
   });
 });
 
@@ -121,6 +139,32 @@ describe("construirAlertasInventario", () => {
     expect(alerta.cantidadSugerida).toBe(7);
     expect(alerta.costoSugerido).toBe(14000);
     expect(resumen).toMatchObject({ total: 1, criticos: 0, bajoMinimo: 1, seAgotanEn7Dias: 1, costoReposicion: 14000 });
+  });
+
+  it("flags rows that run out before an order placed today would arrive", () => {
+    const { alertas } = construirAlertasInventario({
+      ...vacio,
+      repuestos: [
+        repuesto({
+          id: "a",
+          stockActual: 2,
+          stockMinimo: 5,
+          multiploCompra: 4,
+          proveedor: { id: "p1", nombre: "Bosch", telefono: null, email: null, diasEntrega: 5 },
+        }),
+      ],
+      consumidos: [{ repuestoId: "a", cantidad: 45, fecha: diasAtras(10) }],
+    });
+
+    // 0.5/day: 2 units last 4 days, delivery takes 5
+    expect(alertas[0]).toMatchObject({ diasCobertura: 4, diasEntrega: 5, seAgotaAntesDeEntrega: true });
+    // objetivo max(10, ceil(0.5 * 19) = 10) = 10 -> 8 missing -> 2 packs of 4
+    expect(alertas[0]).toMatchObject({ objetivoReposicion: 10, cantidadSugerida: 8 });
+  });
+
+  it("uses the default lead time for repuestos without proveedor", () => {
+    const { alertas } = construirAlertasInventario({ ...vacio, repuestos: [repuesto({ id: "a", stockActual: 1, proveedor: null })] });
+    expect(alertas[0].diasEntrega).toBe(3);
   });
 
   it("leaves diasCobertura null without consumption history", () => {
