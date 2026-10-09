@@ -20,8 +20,8 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
         email: { label: "Correo", type: "email" },
         password: { label: "Contraseña", type: "password" },
       },
-      async authorize(credentials) {
-        return authorizeCredentials(credentials);
+      async authorize(credentials, request) {
+        return authorizeCredentials(credentials, request);
       },
     }),
   ],

@@ -3,6 +3,7 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { verifyCredentials } from "@/lib/auth/verify-credentials";
 import { resolveSedeInicial } from "@/lib/auth/sede-access";
 import { compararConHashDeRelleno } from "@/lib/auth/hash-de-relleno";
+import { claveIp, crearLimitadorIntentos, type LimitadorIntentos } from "@/lib/auth/limitador-intentos";
 
 export interface AuthorizedUser {
   id: string;
@@ -13,6 +14,54 @@ export interface AuthorizedUser {
   tenantSchema: string;
   sedeActivaId: string;
   sedeActivaNombre: string;
+}
+
+const VENTANA_LIMITE_MS = 15 * 60 * 1000;
+const MAX_FALLOS_POR_CUENTA_E_IP = 5;
+const MAX_FALLOS_POR_IP = 30;
+
+let limitadorCuenta: LimitadorIntentos;
+let limitadorIp: LimitadorIntentos;
+
+/** Fresh, empty limiters -- runs once at module load; tests call it between cases. */
+export function reiniciarLimitadoresLogin(): void {
+  limitadorCuenta = crearLimitadorIntentos({ maxFallos: MAX_FALLOS_POR_CUENTA_E_IP, ventanaMs: VENTANA_LIMITE_MS });
+  limitadorIp = crearLimitadorIntentos({ maxFallos: MAX_FALLOS_POR_IP, ventanaMs: VENTANA_LIMITE_MS });
+}
+reiniciarLimitadoresLogin();
+
+/**
+ * Brute-force limit in front of autorizar(). The account key is email+IP, not
+ * email alone: keyed by email only, anyone could lock a real user out just by
+ * failing on purpose. The IP-only key caps one source spraying many emails.
+ * A blocked attempt answers exactly like a wrong password -- null, after a
+ * filler bcrypt comparison -- so the lock itself reveals nothing either.
+ */
+export async function authorizeCredentials(
+  credentials: Record<string, unknown> | undefined,
+  request?: Request,
+): Promise<AuthorizedUser | null> {
+  const email = credentials?.email;
+  const password = credentials?.password;
+  if (typeof email !== "string" || typeof password !== "string") {
+    return null;
+  }
+
+  const ip = claveIp(request);
+  const claveCuenta = `${email.trim().toLowerCase()}|${ip}`;
+  if (limitadorCuenta.estaBloqueado(claveCuenta) || limitadorIp.estaBloqueado(ip)) {
+    await compararConHashDeRelleno(password);
+    return null;
+  }
+
+  const usuario = await autorizar(email, password);
+  if (usuario) {
+    limitadorCuenta.limpiar(claveCuenta);
+  } else {
+    limitadorCuenta.registrarFallo(claveCuenta);
+    limitadorIp.registrarFallo(ip);
+  }
+  return usuario;
 }
 
 /**
@@ -32,15 +81,7 @@ export interface AuthorizedUser {
  * `!session.user.sedeActivaId` check already treats an empty string as "no
  * sede", and the session gets completed later at /seleccionar-sede.
  */
-export async function authorizeCredentials(
-  credentials: Record<string, unknown> | undefined,
-): Promise<AuthorizedUser | null> {
-  const email = credentials?.email;
-  const password = credentials?.password;
-  if (typeof email !== "string" || typeof password !== "string") {
-    return null;
-  }
-
+async function autorizar(email: string, password: string): Promise<AuthorizedUser | null> {
   const indexado = await publicDb.tenantUserEmail.findUnique({
     where: { email },
     include: { tenant: true },

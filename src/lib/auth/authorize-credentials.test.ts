@@ -25,7 +25,7 @@ vi.mock("@/lib/auth/hash-de-relleno", () => ({
   compararConHashDeRelleno: (...args: unknown[]) => mockCompararConHashDeRelleno(...args),
 }));
 
-import { authorizeCredentials } from "./authorize-credentials";
+import { authorizeCredentials, reiniciarLimitadoresLogin } from "./authorize-credentials";
 
 const TENANT_ROW = {
   slug: "taller-perez",
@@ -40,6 +40,7 @@ describe("authorizeCredentials", () => {
     mockVerifyCredentials.mockReset();
     mockResolveSedeInicial.mockReset();
     mockCompararConHashDeRelleno.mockReset().mockResolvedValue(undefined);
+    reiniciarLimitadoresLogin();
   });
 
   it("pays a filler bcrypt comparison for an unknown email and for a suspended tenant, so timing reveals neither", async () => {
@@ -219,5 +220,88 @@ describe("authorizeCredentials", () => {
 
     expect(result).toBeNull();
     expect(mockResolveSedeInicial).not.toHaveBeenCalled();
+  });
+
+  describe("límite de intentos", () => {
+    const USUARIO_ACTIVO = {
+      id: "u1",
+      email: "user@example.com",
+      nombre: "Juan Pérez",
+      role: "ADMIN",
+      passwordHash: "hashed",
+      activo: true,
+      sedeDefectoId: null,
+    };
+
+    function desde(ip: string): Request {
+      return new Request("http://x/api/auth/callback/credentials", { headers: { "x-forwarded-for": ip } });
+    }
+
+    beforeEach(() => {
+      mockTenantUserEmailFindUnique.mockResolvedValue({ email: "user@example.com", tenant: TENANT_ROW });
+      mockGetTenantDb.mockReturnValue({});
+      mockResolveSedeInicial.mockResolvedValue({ id: "sede-1", nombre: "Sede principal" });
+    });
+
+    async function fallar(veces: number, email: string, ip: string): Promise<void> {
+      mockVerifyCredentials.mockResolvedValue(null);
+      for (let i = 0; i < veces; i++) {
+        await authorizeCredentials({ email, password: "mala" }, desde(ip));
+      }
+    }
+
+    it("bloquea la cuenta desde esa IP tras 5 fallos, incluso con la contraseña correcta, pagando el hash de relleno", async () => {
+      await fallar(5, "user@example.com", "1.2.3.4");
+      mockVerifyCredentials.mockReset().mockResolvedValue(USUARIO_ACTIVO);
+      mockCompararConHashDeRelleno.mockClear();
+
+      const result = await authorizeCredentials({ email: "user@example.com", password: "correcta" }, desde("1.2.3.4"));
+
+      expect(result).toBeNull();
+      expect(mockVerifyCredentials).not.toHaveBeenCalled();
+      expect(mockCompararConHashDeRelleno).toHaveBeenCalledWith("correcta");
+    });
+
+    it("no bloquea la misma cuenta desde otra IP (un atacante no puede dejar fuera al usuario legítimo)", async () => {
+      await fallar(5, "user@example.com", "1.2.3.4");
+      mockVerifyCredentials.mockResolvedValue(USUARIO_ACTIVO);
+
+      const result = await authorizeCredentials({ email: "user@example.com", password: "correcta" }, desde("5.6.7.8"));
+
+      expect(result?.id).toBe("u1");
+    });
+
+    it("un login correcto limpia el contador de la cuenta", async () => {
+      await fallar(4, "user@example.com", "1.2.3.4");
+      mockVerifyCredentials.mockResolvedValue(USUARIO_ACTIVO);
+      await authorizeCredentials({ email: "user@example.com", password: "correcta" }, desde("1.2.3.4"));
+      await fallar(4, "user@example.com", "1.2.3.4");
+      mockVerifyCredentials.mockResolvedValue(USUARIO_ACTIVO);
+
+      const result = await authorizeCredentials({ email: "user@example.com", password: "correcta" }, desde("1.2.3.4"));
+
+      expect(result?.id).toBe("u1");
+    });
+
+    it("normaliza el email para la clave: variar mayúsculas/espacios no evita el bloqueo", async () => {
+      await fallar(3, "user@example.com", "1.2.3.4");
+      await fallar(2, "  USER@Example.com ", "1.2.3.4");
+      mockVerifyCredentials.mockReset().mockResolvedValue(USUARIO_ACTIVO);
+
+      const result = await authorizeCredentials({ email: "user@example.com", password: "correcta" }, desde("1.2.3.4"));
+
+      expect(result).toBeNull();
+      expect(mockVerifyCredentials).not.toHaveBeenCalled();
+    });
+
+    it("bloquea una IP tras 30 fallos repartidos entre cuentas distintas", async () => {
+      for (let i = 0; i < 30; i++) await fallar(1, `user${i}@example.com`, "9.9.9.9");
+      mockVerifyCredentials.mockReset().mockResolvedValue(USUARIO_ACTIVO);
+
+      const result = await authorizeCredentials({ email: "user@example.com", password: "correcta" }, desde("9.9.9.9"));
+
+      expect(result).toBeNull();
+      expect(mockVerifyCredentials).not.toHaveBeenCalled();
+    });
   });
 });
