@@ -21,20 +21,24 @@ const ACTIVITY_EVENTS = ["mousedown", "mousemove", "keydown", "scroll", "touchst
  * see @auth/core's session action), so there is no separate renewal
  * endpoint to keep in sync with the auth config.
  *
+ * Shared by both NextAuth instances: the tenant dashboard
+ * (DashboardSessionProvider) and /superadmin (its layout), each passing its
+ * own login page so the forced logout lands on the right screen.
+ *
  * DashboardSessionProvider disables SessionProvider's automatic
  * refetch-on-focus/interval on purpose: that endpoint re-signs the cookie on
  * every hit for the JWT strategy, so silent background polling would
  * re-extend the session without the user ever confirming -- defeating the
  * hourly re-validation this exists to guarantee.
  */
-export function SessionRenewalModal() {
+export function SessionRenewalModal({ loginPath = "/login" }: { loginPath?: string } = {}) {
   const { data: session, status, update } = useSession();
   const [showWarning, setShowWarning] = useState(false);
   const responseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const forceLogout = useCallback(() => {
-    void signOut({ callbackUrl: `${window.location.origin}/login` });
-  }, []);
+    void signOut({ callbackUrl: `${window.location.origin}${loginPath}` });
+  }, [loginPath]);
 
   useEffect(() => {
     if (status !== "authenticated" || !session?.expires) return;

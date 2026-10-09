@@ -1,6 +1,7 @@
 import NextAuth, { type User } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { verifySuperAdminCredentials } from "./verify-credentials";
+import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth/session-timing";
 
 /**
  * A second, fully independent NextAuth instance -- own basePath, own cookie
@@ -15,7 +16,11 @@ import { verifySuperAdminCredentials } from "./verify-credentials";
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
   basePath: "/api/superadmin/auth",
-  session: { strategy: "jwt" },
+  // Same 1-hour JWT as the tenant instance (default was 30 days): a
+  // super-admin can create/suspend every taller, so a stolen or forgotten
+  // session must not outlive the tenant ones. The /superadmin layout mounts
+  // the same SessionRenewalModal so an active operator is warned and renews.
+  session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_SECONDS },
   pages: { signIn: "/superadmin/login" },
   cookies: {
     sessionToken: {

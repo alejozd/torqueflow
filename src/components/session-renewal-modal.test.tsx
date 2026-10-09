@@ -102,6 +102,17 @@ describe("SessionRenewalModal", () => {
     expect(mockSignOut).toHaveBeenCalledWith({ callbackUrl: `${window.location.origin}/login` });
   });
 
+  it("sends a super-admin back to its own login page", () => {
+    authenticated(EXPIRY_WARNING_LEAD_MS * 10);
+    render(<SessionRenewalModal loginPath="/superadmin/login" />);
+
+    act(() => {
+      vi.advanceTimersByTime(INACTIVITY_TIMEOUT_MS);
+    });
+
+    expect(mockSignOut).toHaveBeenCalledWith({ callbackUrl: `${window.location.origin}/superadmin/login` });
+  });
+
   it("signs out after 15 minutes with no user activity", () => {
     authenticated(EXPIRY_WARNING_LEAD_MS * 10);
     render(<SessionRenewalModal />);

@@ -2,7 +2,7 @@
 
 import { SessionProvider } from "next-auth/react";
 import type { ReactNode } from "react";
-import { SessionRenewalModal } from "./session-renewal-modal";
+import { SessionRenewalModal } from "@/components/session-renewal-modal";
 
 /**
  * refetchOnWindowFocus is off deliberately: /api/auth/session re-signs the
