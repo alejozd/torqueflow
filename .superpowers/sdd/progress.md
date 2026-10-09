@@ -1150,3 +1150,17 @@ Task 7: final verification (tsc clean, full suite 791 passed with only the pre-e
 **Status: plan fully complete, all 7 tasks done and reviewed/verified, ready for the user's review.**
 
 **Status: Tasks 1-6 (all Fase 1 + Fase 2 implementation) COMPLETE and reviewed. Task 7 (final verification) next.**
+
+## Alertas de inventario (Fases 1-3) + deuda de seguridad (2026-10-09)
+
+Feature "Alertas de inventario" del dashboard completa y desplegada (commits `fase-alertas-inventario-task 1..18`): alertas sobre stock disponible (stock − comprometido en órdenes abiertas), cantidad sugerida con días de entrega/stock máximo/múltiplo de compra, posponer alertas, y pedidos de compra (`/pedidos-compra`) enviados por correo SMTP o wa.me, con recepción que crea la entrada de mercancía. Migraciones `20261009180000_alertas_inventario_configuracion` y `20261009210000_pedidos_compra` aplicadas en el servidor. Datos demo: `npm run inventario:seed-demo -- <schema> [--correo=...]`. Tenants de test sobrantes (`www`/`test_task6_www_fixture`, `test_task5_fixture`) eliminados.
+
+Deuda del backlog CERRADA (prioridad alta, a pedido del usuario):
+- `fase-deuda-task 1` (b87efe0): el cron de recordatorios solo recorre tenants ACTIVO (backlog Fase 9 #4). El cron de cotizaciones vencidas no se tocó: solo marca fechas internas y se pone al día solo al reactivar el tenant.
+- `fase-deuda-task 2` (49d6128): sesión de super-admin con `maxAge` de 1 hora y el mismo `SessionRenewalModal` (movido a `src/components/`, con `loginPath`) (backlog Fase 9 #1).
+- `fase-deuda-task 3` (6bf5f4c): login sin enumeración por tiempo — hash bcrypt de relleno (costo 12) en email desconocido / tenant suspendido / super-admin desconocido (backlog Fase 10 #1).
+
+Deuda que sigue ABIERTA (priorizada con el usuario el 2026-10-09):
+- Alta: tests de aprovisionamiento corren contra la base del servidor (falta una base de tests propia, p. ej. Postgres en Docker — decisión aplazada por el usuario).
+- Media: un ADMIN puede borrar su sede activa; formularios DVI visibles en órdenes facturadas; `productividad.error` no se muestra en Reportes; `handleContinue` del modal de renovación sin manejo de errores.
+- Baja: `Repuesto.codigo` único por tenant (decisión de producto antes de multi-sede real); borrar cliente/vehículo sin UI (y borraría historial); revalidatePath del listado de entradas al agregar ítem; `.email()` deprecado de zod; cantidad de entrada sin tope; test duplicado en guards; `as string` de `sedeActivaId` en los tipos de sesión.
