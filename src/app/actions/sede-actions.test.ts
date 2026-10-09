@@ -185,6 +185,15 @@ describe("deleteSedeAction", () => {
     expect(mockDelete).not.toHaveBeenCalled();
   });
 
+  it("refuses to delete the sede the ADMIN is currently working in", async () => {
+    mockFindUnique.mockResolvedValue({ id: "sede-1", nombre: "Sede principal" });
+
+    await expect(deleteSedeAction("sede-1")).rejects.toThrow(
+      "No puedes eliminar la sede en la que estás trabajando. Cambia de sede primero.",
+    );
+    expect(mockDelete).not.toHaveBeenCalled();
+  });
+
   it("refuses to delete the tenant's last sede", async () => {
     mockSedeCount.mockResolvedValue(1);
 

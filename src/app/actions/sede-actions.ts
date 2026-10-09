@@ -156,6 +156,12 @@ export async function deleteSedeAction(id: string): Promise<void> {
     throw new Error("Sede no encontrada");
   }
 
+  // The session keeps pointing at sedeActivaId: deleting it would leave every
+  // read silently empty and every write failing on an FK until re-login.
+  if (id === session.user.sedeActivaId) {
+    throw new Error("No puedes eliminar la sede en la que estás trabajando. Cambia de sede primero.");
+  }
+
   const totalSedes = await tenantDb.sede.count();
   if (totalSedes <= 1) {
     throw new Error("No puedes eliminar la única sede del taller.");
