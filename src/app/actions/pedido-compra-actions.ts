@@ -6,6 +6,7 @@ import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { publicDb } from "@/lib/db/public-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
+import { CANTIDAD_MAXIMA_LINEA } from "@/lib/validation/inventario";
 import { CONFIGURACION_SMTP_ID, descifrarConfiguracionSmtp, type ConfiguracionSmtpAlmacenada } from "@/lib/email/smtp-config";
 import { enviarEmail } from "@/lib/email/enviar-email";
 import { scopePedidoCompra, scopeRepuesto } from "@/lib/sede/scope";
@@ -88,7 +89,11 @@ const lineasSchema = z
   .array(
     z.object({
       repuestoId: z.string().min(1),
-      cantidad: z.coerce.number().int("Las cantidades deben ser enteras").min(1, "Las cantidades deben ser mayores que 0"),
+      cantidad: z.coerce
+        .number()
+        .int("Las cantidades deben ser enteras")
+        .min(1, "Las cantidades deben ser mayores que 0")
+        .max(CANTIDAD_MAXIMA_LINEA, "Las cantidades no pueden superar 100.000 unidades"),
     }),
   )
   .min(1, "Selecciona al menos un repuesto")
@@ -259,7 +264,16 @@ export async function cancelarPedidoCompraAction(id: string): Promise<AccionPedi
 }
 
 const recepcionSchema = z
-  .array(z.object({ itemId: z.string().min(1), cantidad: z.coerce.number().int("Usa cantidades enteras").min(0, "Las cantidades no pueden ser negativas") }))
+  .array(
+    z.object({
+      itemId: z.string().min(1),
+      cantidad: z.coerce
+        .number()
+        .int("Usa cantidades enteras")
+        .min(0, "Las cantidades no pueden ser negativas")
+        .max(CANTIDAD_MAXIMA_LINEA, "Las cantidades no pueden superar 100.000 unidades"),
+    }),
+  )
   .min(1);
 
 export interface RecibirPedidoResult {

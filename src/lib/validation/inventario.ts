@@ -79,9 +79,20 @@ export const entradaMercanciaInputSchema = z.object({
 
 export type EntradaMercanciaInput = z.infer<typeof entradaMercanciaInputSchema>;
 
+/**
+ * Upper bound for any single inventory line (entrada item, pedido line).
+ * Far above any real purchase, and far below Postgres INTEGER's 2^31-1, so a
+ * typo like 10000000000 gets a clear message instead of a DB overflow error.
+ */
+export const CANTIDAD_MAXIMA_LINEA = 100_000;
+
 export const entradaMercanciaItemInputSchema = z.object({
   repuestoId: z.string().min(1, "Selecciona un repuesto"),
-  cantidad: z.coerce.number().int().min(1, "La cantidad debe ser al menos 1"),
+  cantidad: z.coerce
+    .number()
+    .int()
+    .min(1, "La cantidad debe ser al menos 1")
+    .max(CANTIDAD_MAXIMA_LINEA, "La cantidad no puede superar 100.000 unidades"),
   precioCompraUnitario: requiredMoney("El precio de compra unitario es obligatorio"),
 });
 

@@ -136,6 +136,9 @@ describe("crearPedidosCompraAction", () => {
   it("rejects an empty selection or non-positive quantities before touching the DB", async () => {
     expect((await crearPedidosCompraAction([])).error).toBe("Selecciona al menos un repuesto");
     expect((await crearPedidosCompraAction([{ repuestoId: "r1", cantidad: 0 }])).error).toBe("Las cantidades deben ser mayores que 0");
+    expect((await crearPedidosCompraAction([{ repuestoId: "r1", cantidad: 100_001 }])).error).toBe(
+      "Las cantidades no pueden superar 100.000 unidades",
+    );
     expect(repuesto.findMany).not.toHaveBeenCalled();
   });
 });

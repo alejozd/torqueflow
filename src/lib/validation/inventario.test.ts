@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { proveedorInputSchema, repuestoInputSchema } from "./inventario";
+import { entradaMercanciaItemInputSchema, proveedorInputSchema, repuestoInputSchema } from "./inventario";
 
 const repuestoBase = {
   codigo: "FLT-001",
@@ -50,5 +50,16 @@ describe("proveedorInputSchema (diasEntrega)", () => {
     expect(proveedorInputSchema.parse({ nombre: "Bosch", diasEntrega: "0" }).diasEntrega).toBe(0);
     expect(proveedorInputSchema.safeParse({ nombre: "Bosch", diasEntrega: "91" }).success).toBe(false);
     expect(proveedorInputSchema.safeParse({ nombre: "Bosch", diasEntrega: "-1" }).success).toBe(false);
+  });
+});
+
+describe("entradaMercanciaItemInputSchema (cantidad)", () => {
+  const item = { repuestoId: "r1", precioCompraUnitario: "1000" };
+
+  it("accepts up to 100.000 units and rejects anything above with a clear message", () => {
+    expect(entradaMercanciaItemInputSchema.safeParse({ ...item, cantidad: "100000" }).success).toBe(true);
+    const resultado = entradaMercanciaItemInputSchema.safeParse({ ...item, cantidad: "10000000000" });
+    expect(resultado.success).toBe(false);
+    expect(resultado.error?.issues[0].message).toBe("La cantidad no puede superar 100.000 unidades");
   });
 });
