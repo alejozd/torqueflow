@@ -23,7 +23,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import { deleteClienteAction, deleteClienteFormAction } from "./cliente-actions";
 
 const sinHistorial = { ordenes: 0, facturas: 0, citas: 0, cotizaciones: 0 };
-const vehiculoSinHistorial = { _count: { historial: 0, ordenes: 0, citas: 0, cotizaciones: 0 } };
+const vehiculoSinHistorial = { _count: { historial: 0 } };
 
 describe("deleteClienteAction", () => {
   beforeEach(() => {
@@ -46,6 +46,17 @@ describe("deleteClienteAction", () => {
     ]);
   });
 
+  it("counts the vehículos' órdenes only once, through the cliente", async () => {
+    mockFindUnique.mockResolvedValue({ _count: { ...sinHistorial, ordenes: 27 }, vehiculos: [vehiculoSinHistorial] });
+
+    await expect(deleteClienteAction("c1")).rejects.toThrow("tiene historial: 27 órdenes.");
+    expect(mockFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ vehiculos: { select: { _count: { select: { historial: true } } } } }),
+      }),
+    );
+  });
+
   it("refuses when the cliente has its own history, saying what it has", async () => {
     mockFindUnique.mockResolvedValue({ _count: { ...sinHistorial, ordenes: 2, facturas: 1 }, vehiculos: [] });
 
@@ -55,14 +66,14 @@ describe("deleteClienteAction", () => {
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
-  it("refuses when one of its vehículos has history", async () => {
+  it("refuses when one of its vehículos has historial entries", async () => {
     mockFindUnique.mockResolvedValue({
       _count: sinHistorial,
-      vehiculos: [vehiculoSinHistorial, { _count: { historial: 3, ordenes: 0, citas: 1, cotizaciones: 0 } }],
+      vehiculos: [vehiculoSinHistorial, { _count: { historial: 3 } }],
     });
 
     await expect(deleteClienteAction("c1")).rejects.toThrow(
-      "No se puede eliminar el cliente porque tiene historial: 1 cita, 3 registros en el historial.",
+      "No se puede eliminar el cliente porque tiene historial: 3 registros en el historial.",
     );
     expect(mockTransaction).not.toHaveBeenCalled();
   });

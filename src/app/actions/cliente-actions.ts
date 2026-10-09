@@ -189,7 +189,10 @@ export async function updateClienteAction(
 
 /**
  * A cliente can only be deleted while it has no history: no orden, factura,
- * cita or cotización of its own, and none of its vehículos has any either.
+ * cita or cotización of its own, and none of its vehículos has historial
+ * entries. Órdenes/citas/cotizaciones of its vehículos are not counted again
+ * from the vehículo side: each one also points at this cliente, so the
+ * cliente's own counts already include them (counting both doubled them).
  * Its history-free vehículos go with it, in the same transaction.
  */
 export async function deleteClienteAction(id: string): Promise<void> {
@@ -200,7 +203,7 @@ export async function deleteClienteAction(id: string): Promise<void> {
     where: { id },
     select: {
       _count: { select: { ordenes: true, facturas: true, citas: true, cotizaciones: true } },
-      vehiculos: { select: { _count: { select: { historial: true, ordenes: true, citas: true, cotizaciones: true } } } },
+      vehiculos: { select: { _count: { select: { historial: true } } } },
     },
   });
   if (!cliente) throw new Error("Cliente no encontrado");
