@@ -46,8 +46,13 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
       session.user.role = token.role as "ADMIN" | "TECNICO" | "RECEPCION";
       session.user.tenantSlug = token.tenantSlug as string;
       session.user.tenantSchema = token.tenantSchema as string;
-      session.user.sedeActivaId = token.sedeActivaId as string;
-      session.user.sedeActivaNombre = token.sedeActivaNombre as string;
+      // JWT.sedeActivaId is optional; Session.user.sedeActivaId is a string
+      // where "" means "no sede yet" (requireSession sends that to
+      // /seleccionar-sede). Defaulting here, instead of an `as string` cast,
+      // keeps the declared type true -- the cast once hid a real bug from tsc.
+      // (token is typed loosely here, so the check is a real runtime narrow.)
+      session.user.sedeActivaId = typeof token.sedeActivaId === "string" ? token.sedeActivaId : "";
+      session.user.sedeActivaNombre = typeof token.sedeActivaNombre === "string" ? token.sedeActivaNombre : "";
       return session;
     },
   },

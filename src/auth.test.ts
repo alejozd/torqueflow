@@ -100,4 +100,14 @@ describe("auth callbacks", () => {
     expect(session.user.sedeActivaId).toBe("sede-1");
     expect(session.user.sedeActivaNombre).toBe("Sede principal");
   });
+
+  it("turns a token without sede into an empty sede (\"no sede yet\"), never undefined", async () => {
+    const session = await config().callbacks.session({
+      session: { user: {} },
+      token: { sub: "u1", role: "ADMIN", tenantSlug: "taller-perez", tenantSchema: "taller_perez" },
+    });
+
+    expect(session.user.sedeActivaId).toBe("");
+    expect(session.user.sedeActivaNombre).toBe("");
+  });
 });

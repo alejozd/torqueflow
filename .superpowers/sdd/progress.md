@@ -1168,6 +1168,15 @@ Deuda de prioridad media CERRADA (mismo día):
 
 Deuda que sigue ABIERTA (priorizada con el usuario el 2026-10-09):
 - Alta: tests de aprovisionamiento corren contra la base del servidor (falta una base de tests propia, p. ej. Postgres en Docker — decisión aplazada por el usuario).
-- Baja: borrar cliente/vehículo sin UI (y borraría historial); revalidatePath del listado de entradas al agregar ítem; `.email()` deprecado de zod; cantidad de entrada sin tope; test duplicado en guards; `as string` de `sedeActivaId` en los tipos de sesión.
 
 Decisión de producto (2026-10-09): `Repuesto.codigo` sigue único en todo el taller (no por sede/bodega); dos sedes que manejen el mismo repuesto usan códigos distintos. `fase-deuda-task 8`: el error de código duplicado ahora nombra el código y la regla en lugar del P2002 genérico.
+
+Deuda de prioridad baja CERRADA (2026-10-09):
+- `fase-deuda-task 9-11` (25524c6, 79840bf, 647b922): clientes y vehículos se pueden eliminar solo si no tienen historial (decisión del usuario); el rechazo dice qué historial tienen (sin contar dos veces las órdenes de los vehículos); botón "Eliminar" con confirmación en los diálogos de edición, oculto para TECNICO.
+- `fase-deuda-task 12` (7e5f751): agregar un ítem a una entrada refresca también el listado de entradas.
+- `fase-deuda-task 13` (b333f35): `z.string().email()` (obsoleto en zod 4) reemplazado por `z.email()`.
+- `fase-deuda-task 14` (e1d624e): tope de 100.000 unidades por línea en entradas, pedidos de compra y recepciones.
+- Test duplicado de `guards.test.ts`: ya estaba resuelto (uno de los dos cubre `sedeActivaId: ""`).
+- `fase-deuda-task 15`: `session.user.sedeActivaId/sedeActivaNombre` se asignan con un chequeo de tipo real (default `""`) en lugar de `as string`.
+
+Deuda abierta restante: solo la base de datos propia para los tests de aprovisionamiento (Docker, aplazado por el usuario).
