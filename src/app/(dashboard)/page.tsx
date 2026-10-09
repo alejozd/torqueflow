@@ -3,11 +3,13 @@ import { AlertCircle, CalendarCheck, Car, ChevronRight, FileText, Package, Wrenc
 import { requireSession } from "@/lib/auth/guards";
 import { getDashboardOverview } from "@/app/actions/dashboard-actions";
 import { getAlertasInventario } from "@/app/actions/alertas-inventario-actions";
+import { AlertasInventarioCard } from "./alertas-inventario-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
+import { formatoPlaca } from "@/lib/placa";
 import type { EstadoCita, EstadoOrden } from "@/generated/prisma-tenant";
 
 const formatoFechaLarga = new Intl.DateTimeFormat("es-CO", {
@@ -97,14 +99,6 @@ const ESTADO_CITA_TONO: Record<EstadoCita, { dot: string; badge: string }> = {
     badge: "bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300",
   },
 };
-
-const PLACA_CON_GUION = /^([A-Za-z]{3})(\d{3})$/;
-
-/** "xyz789" -> "XYZ-789". Only the common 3-letter+3-digit shape gets a dash; anything else is just uppercased. */
-function formatoPlaca(placa: string): string {
-  const match = placa.match(PLACA_CON_GUION);
-  return match ? `${match[1]}-${match[2]}`.toUpperCase() : placa.toUpperCase();
-}
 
 /** "14:30" -> "02:30 PM". `hora` is already a formatted "HH:MM" string from getDashboardOverview. */
 function formatoHora12h(hora24: string): string {
@@ -426,41 +420,7 @@ export default async function InicioPage() {
         </CardContent>
       </Card>
 
-      <Card id="alertas-inventario" className="scroll-mt-16">
-        <CardHeader className="flex flex-row items-center justify-between gap-2">
-          <CardTitle>Alertas de inventario</CardTitle>
-          <Link href="/repuestos" className="text-sm text-primary hover:underline">
-            Ver repuestos →
-          </Link>
-        </CardHeader>
-        <CardContent className="flex flex-col divide-y">
-          {alertasInventario.alertas.length === 0 ? (
-            <p className="py-2 text-sm text-muted-foreground">No hay repuestos con stock bajo en esta sede.</p>
-          ) : (
-            alertasInventario.alertas.map((repuesto) => {
-              const ratio = repuesto.stockMinimo > 0 ? repuesto.stockActual / repuesto.stockMinimo : 0;
-              return (
-                <div key={repuesto.id} className="flex flex-col gap-1.5 py-2.5 text-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span>
-                      <span className="font-mono text-xs text-muted-foreground">{repuesto.codigo}</span> — {repuesto.nombre}
-                    </span>
-                    <span className="font-mono text-xs">
-                      {repuesto.stockActual}/{repuesto.stockMinimo}
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={cn("h-full rounded-full", repuesto.stockActual === 0 ? "bg-[oklch(0.5_0.2_27)]" : "bg-[oklch(0.7_0.15_60)]")}
-                      style={{ width: `${Math.min(100, ratio * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </CardContent>
-      </Card>
+      <AlertasInventarioCard data={alertasInventario} />
     </main>
   );
 }

@@ -97,21 +97,30 @@ export default function InicioLoading() {
       </Card>
 
       {/* Alertas de inventario */}
-      <Card>
-        <CardHeader>
+      <Card className="gap-0 py-0">
+        <CardHeader className="py-4">
           <CardTitle>Alertas de inventario</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <Skeleton className="h-3.5 w-56" />
-                <Skeleton className="h-3.5 w-12" />
-              </div>
-              <Skeleton className="h-1.5 w-full rounded-full" />
+        <div className="grid grid-cols-2 gap-px border-y bg-border lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="flex flex-col gap-2 bg-card px-4 py-3">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-5 w-16" />
             </div>
           ))}
-        </CardContent>
+        </div>
+        <div className="flex flex-col">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="flex items-center gap-3 border-t px-4 py-3 first:border-t-0">
+              <Skeleton className="size-11 rounded-full" />
+              <div className="flex flex-1 flex-col gap-1.5">
+                <Skeleton className="h-3.5 w-56" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+              <Skeleton className="h-6 w-20" />
+            </div>
+          ))}
+        </div>
       </Card>
     </main>
   );
