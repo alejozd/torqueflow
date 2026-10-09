@@ -1,10 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { ChevronDown, ClipboardCopy, DollarSign, Hourglass, PackageCheck, PackagePlus, PackageX, Wrench } from "lucide-react";
+import { BellOff, BellRing, ChevronDown, ClipboardCopy, DollarSign, Hourglass, PackageCheck, PackagePlus, PackageX, Wrench } from "lucide-react";
 import { toast } from "sonner";
-import type { AlertaInventarioRow, AlertasInventario, OrdenFrenada, SeveridadAlerta } from "@/lib/dashboard/alertas-inventario";
+import { posponerAlertaInventarioAction, reactivarAlertaInventarioAction } from "@/app/actions/alertas-inventario-actions";
+import {
+  DIAS_POSPONER_ALERTA,
+  type AlertaInventarioRow,
+  type AlertasInventario,
+  type OrdenFrenada,
+  type SeveridadAlerta,
+} from "@/lib/dashboard/alertas-inventario";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
@@ -13,6 +20,7 @@ import { cn } from "@/lib/utils";
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 const formatoFecha = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Bogota" });
+const formatoFechaCorta = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short", timeZone: "America/Bogota" });
 
 const SEVERIDAD: Record<SeveridadAlerta, { label: string; dot: string; stroke: string }> = {
   SIN_DISPONIBLE: { label: "sin disponible", dot: "bg-red-500", stroke: "stroke-red-500" },
@@ -24,9 +32,10 @@ const CHIP = {
   danger: "bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300",
   warning: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
   success: "bg-green-50 text-green-700 dark:bg-green-500/15 dark:text-green-300",
+  neutral: "bg-muted text-muted-foreground",
 } as const;
 
-type Pestana = "proveedor" | "urgencia" | "ordenes";
+type Pestana = "proveedor" | "urgencia" | "ordenes" | "pospuestas";
 
 /** Rows shown per list (urgencia/ordenes) or per proveedor group before "Mostrar todas". */
 const LIMITE_URGENCIA = 8;
@@ -159,6 +168,7 @@ function ChipsAlerta({ alerta }: { alerta: AlertaInventarioRow }) {
         <Chip tono="warning">Se agota en ~{alerta.diasCobertura} {alerta.diasCobertura === 1 ? "día" : "días"}</Chip>
       ) : null}
       {alerta.disponible <= 0 && !alerta.frenaOrdenes ? <Chip tono="danger">Sin disponible</Chip> : null}
+      {alerta.pospuestaHasta ? <Chip tono="neutral">Pospuesta hasta el {formatoFechaCorta.format(new Date(alerta.pospuestaHasta))}</Chip> : null}
     </>
   );
 }
@@ -171,6 +181,8 @@ function FilaAlerta({
   onToggleSeleccion,
   onCantidad,
   onToggleDetalle,
+  onCambiarPospuesta,
+  cambiandoPospuesta,
 }: {
   alerta: AlertaInventarioRow;
   seleccionada: boolean;
@@ -179,6 +191,8 @@ function FilaAlerta({
   onToggleSeleccion: () => void;
   onCantidad: (cantidad: number) => void;
   onToggleDetalle: () => void;
+  onCambiarPospuesta: () => void;
+  cambiandoPospuesta: boolean;
 }) {
   const variacion = alerta.ultimaCompra?.variacionPrecioPct ?? null;
   return (
@@ -288,6 +302,12 @@ function FilaAlerta({
                   ))}
             </dd>
           </div>
+          <div className="flex items-end">
+            <Button type="button" variant="outline" size="sm" disabled={cambiandoPospuesta} onClick={onCambiarPospuesta}>
+              {alerta.pospuestaHasta ? <BellRing /> : <BellOff />}
+              {alerta.pospuestaHasta ? "Reactivar alerta" : `Posponer ${DIAS_POSPONER_ALERTA} días`}
+            </Button>
+          </div>
         </dl>
       ) : null}
     </div>
@@ -297,14 +317,27 @@ function FilaAlerta({
 export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
   const { resumen, alertas } = data;
   // Grouping by proveedor only helps once repuestos have one assigned.
+  const activas = useMemo(() => alertas.filter((alerta) => !alerta.pospuestaHasta), [alertas]);
+  const pospuestas = useMemo(() => alertas.filter((alerta) => alerta.pospuestaHasta), [alertas]);
   const [pestana, setPestana] = useState<Pestana>(() => (alertas.some((alerta) => alerta.proveedor) ? "proveedor" : "urgencia"));
+  const [cambiandoPospuesta, startCambioPospuesta] = useTransition();
   const [mostrarTodas, setMostrarTodas] = useState(false);
   const [seleccion, setSeleccion] = useState<Set<string>>(() => new Set());
   const [abiertas, setAbiertas] = useState<Set<string>>(() => new Set());
   const [cantidades, setCantidades] = useState<Record<string, number>>({});
 
-  const grupos = useMemo(() => agruparPorProveedor(alertas), [alertas]);
-  const frenan = useMemo(() => alertas.filter((alerta) => alerta.frenaOrdenes), [alertas]);
+  const grupos = useMemo(() => agruparPorProveedor(activas), [activas]);
+  const frenan = useMemo(() => activas.filter((alerta) => alerta.frenaOrdenes), [activas]);
+
+  function cambiarPospuesta(alerta: AlertaInventarioRow) {
+    startCambioPospuesta(async () => {
+      const resultado = alerta.pospuestaHasta
+        ? await reactivarAlertaInventarioAction(alerta.id)
+        : await posponerAlertaInventarioAction(alerta.id);
+      if (resultado.error) toast.error(resultado.error);
+      else toast.success(alerta.pospuestaHasta ? `Alerta de ${alerta.nombre} reactivada` : `Alerta de ${alerta.nombre} pospuesta ${DIAS_POSPONER_ALERTA} días`);
+    });
+  }
   const cantidadDe = (alerta: AlertaInventarioRow) => cantidades[alerta.id] ?? alerta.cantidadSugerida;
 
   function alternar(conjunto: Set<string>, id: string, set: (valor: Set<string>) => void) {
@@ -347,10 +380,18 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
       onToggleSeleccion={() => alternar(seleccion, alerta.id, setSeleccion)}
       onCantidad={(cantidad) => setCantidades((actual) => ({ ...actual, [alerta.id]: cantidad }))}
       onToggleDetalle={() => alternar(abiertas, alerta.id, setAbiertas)}
+      onCambiarPospuesta={() => cambiarPospuesta(alerta)}
+      cambiandoPospuesta={cambiandoPospuesta}
     />
   );
 
-  const listaPlana = pestana === "urgencia" ? alertas : frenan;
+  const listaPlana = pestana === "urgencia" ? activas : pestana === "pospuestas" ? pospuestas : frenan;
+  const mensajeVacio =
+    pestana === "ordenes"
+      ? "Ninguna orden abierta está esperando repuestos."
+      : pestana === "pospuestas"
+        ? "No hay alertas pospuestas."
+        : "Todas las alertas están pospuestas.";
   const ocultas =
     pestana === "proveedor"
       ? grupos.reduce((suma, grupo) => suma + Math.max(0, grupo.alertas.length - LIMITE_POR_PROVEEDOR), 0)
@@ -358,8 +399,9 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
 
   const pestanas: { id: Pestana; label: string; count: number }[] = [
     { id: "proveedor", label: "Por proveedor", count: grupos.length },
-    { id: "urgencia", label: "Por urgencia", count: alertas.length },
+    { id: "urgencia", label: "Por urgencia", count: activas.length },
     { id: "ordenes", label: "Frenan órdenes", count: frenan.length },
+    ...(pospuestas.length > 0 ? [{ id: "pospuestas" as const, label: "Pospuestas", count: pospuestas.length }] : []),
   ];
 
   return (
@@ -473,7 +515,7 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
           </div>
 
           <div role="tabpanel">
-            {pestana === "proveedor" ? (
+            {pestana === "proveedor" && grupos.length > 0 ? (
               grupos.map((grupo, indice) => {
                 const total = grupo.alertas.reduce((suma, alerta) => suma + cantidadDe(alerta) * alerta.precioCompra, 0);
                 const todas = grupo.alertas.every((alerta) => seleccion.has(alerta.id));
@@ -506,8 +548,8 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
                   </div>
                 );
               })
-            ) : listaPlana.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-muted-foreground">Ninguna orden abierta está esperando repuestos.</p>
+            ) : pestana === "proveedor" || listaPlana.length === 0 ? (
+              <p className="px-4 py-8 text-center text-sm text-muted-foreground">{mensajeVacio}</p>
             ) : (
               (mostrarTodas ? listaPlana : listaPlana.slice(0, LIMITE_URGENCIA)).map(renderFila)
             )}

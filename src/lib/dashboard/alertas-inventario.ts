@@ -17,6 +17,8 @@ export const SEMANAS_TENDENCIA = 8;
 export const DIAS_ENTREGA_DEFAULT = 3;
 /** Extra days of demand the suggested quantity covers beyond the lead time. */
 export const DIAS_COBERTURA_OBJETIVO = 14;
+/** How long "Posponer" hides an alert from the dashboard lists. */
+export const DIAS_POSPONER_ALERTA = 7;
 
 const MS_DIA = 24 * 60 * 60 * 1000;
 
@@ -33,6 +35,7 @@ export interface RepuestoAlertaInput {
   precioCompra: number;
   stockMaximo: number | null;
   multiploCompra: number;
+  alertaPospuestaHasta: Date | null;
   bodega: { id: string; nombre: string };
   proveedor: ProveedorAlerta | null;
 }
@@ -95,6 +98,12 @@ export interface AlertaInventarioRow {
   objetivoReposicion: number;
   /** Runs out before an order placed today would arrive. */
   seAgotaAntesDeEntrega: boolean;
+  /**
+   * ISO date while the alert is snoozed ("Posponer"): the card lists it under
+   * "Pospuestas" instead of the main lists. It still counts in the resumen,
+   * the sidebar badge and the Repuestos page, so those numbers always match.
+   */
+  pospuestaHasta: string | null;
   /** Units invoiced per week, oldest first, last SEMANAS_TENDENCIA weeks. */
   consumoSemanal: number[];
   consumoDiario: number;
@@ -126,6 +135,7 @@ export interface ResumenAlertas {
   ordenesFrenadas: OrdenFrenada[];
   seAgotanEn7Dias: number;
   costoReposicion: number;
+  pospuestas: number;
 }
 
 export interface AlertasInventario {
@@ -249,6 +259,8 @@ export function construirAlertasInventario(input: {
       multiploCompra: repuesto.multiploCompra,
       objetivoReposicion,
       seAgotaAntesDeEntrega: disponible > 0 && diasCobertura !== null && diasCobertura <= diasEntrega,
+      pospuestaHasta:
+        repuesto.alertaPospuestaHasta && repuesto.alertaPospuestaHasta > input.hoy ? repuesto.alertaPospuestaHasta.toISOString() : null,
       consumoSemanal: consumoPorSemana(consumidos, input.hoy),
       consumoDiario,
       diasCobertura,
@@ -295,6 +307,7 @@ export function construirAlertasInventario(input: {
         (alerta) => alerta.disponible > 0 && alerta.diasCobertura !== null && alerta.diasCobertura <= 7,
       ).length,
       costoReposicion: alertas.reduce((suma, alerta) => suma + alerta.costoSugerido, 0),
+      pospuestas: alertas.filter((alerta) => alerta.pospuestaHasta !== null).length,
     },
     alertas,
   };

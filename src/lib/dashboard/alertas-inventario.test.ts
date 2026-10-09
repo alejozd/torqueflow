@@ -20,6 +20,7 @@ function repuesto(overrides: Partial<RepuestoAlertaInput> & { id: string }): Rep
     precioCompra: 1000,
     stockMaximo: null,
     multiploCompra: 1,
+    alertaPospuestaHasta: null,
     bodega: { id: "b1", nombre: "Principal" },
     proveedor: { id: "p1", nombre: "Bosch", telefono: null, email: null, diasEntrega: 3 },
     ...overrides,
@@ -160,6 +161,20 @@ describe("construirAlertasInventario", () => {
     expect(alertas[0]).toMatchObject({ diasCobertura: 4, diasEntrega: 5, seAgotaAntesDeEntrega: true });
     // objetivo max(10, ceil(0.5 * 19) = 10) = 10 -> 8 missing -> 2 packs of 4
     expect(alertas[0]).toMatchObject({ objetivoReposicion: 10, cantidadSugerida: 8 });
+  });
+
+  it("marks only alerts snoozed into the future as pospuestas, and keeps counting them", () => {
+    const { alertas, resumen } = construirAlertasInventario({
+      ...vacio,
+      repuestos: [
+        repuesto({ id: "futura", stockActual: 1, alertaPospuestaHasta: new Date(HOY.getTime() + 2 * 24 * 60 * 60 * 1000) }),
+        repuesto({ id: "vencida", stockActual: 1, alertaPospuestaHasta: diasAtras(1) }),
+      ],
+    });
+
+    expect(alertas.find((alerta) => alerta.id === "futura")?.pospuestaHasta).toBe("2026-10-11T15:00:00.000Z");
+    expect(alertas.find((alerta) => alerta.id === "vencida")?.pospuestaHasta).toBeNull();
+    expect(resumen).toMatchObject({ total: 2, pospuestas: 1 });
   });
 
   it("uses the default lead time for repuestos without proveedor", () => {

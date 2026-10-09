@@ -1,11 +1,16 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 const mockRequireSession = vi.fn();
+const mockRequireRole = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
   requireSession: () => mockRequireSession(),
+  requireRole: (roles: string[]) => mockRequireRole(roles),
 }));
 
-const repuesto = { findMany: vi.fn() };
+const mockRevalidatePath = vi.fn();
+vi.mock("next/cache", () => ({ revalidatePath: (path: string) => mockRevalidatePath(path) }));
+
+const repuesto = { findMany: vi.fn(), updateMany: vi.fn() };
 const itemOrden = { findMany: vi.fn() };
 const entradaMercanciaItem = { findMany: vi.fn() };
 
@@ -13,7 +18,7 @@ vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({ repuesto, itemOrden, entradaMercanciaItem }),
 }));
 
-import { getAlertasInventario } from "./alertas-inventario-actions";
+import { getAlertasInventario, posponerAlertaInventarioAction, reactivarAlertaInventarioAction } from "./alertas-inventario-actions";
 
 const SEDE_ID = "sede-1";
 const HOY = new Date("2026-10-09T15:00:00.000Z");
@@ -26,8 +31,11 @@ function repuestoRow(id: string, stockActual: number, stockMinimo: number) {
     stockActual,
     stockMinimo,
     precioCompra: { toString: () => "1500" },
+    stockMaximo: null,
+    multiploCompra: 1,
+    alertaPospuestaHasta: null,
     bodega: { id: "b1", nombre: "Principal" },
-    proveedor: { id: "p1", nombre: "Bosch", telefono: "3100000000", email: null },
+    proveedor: { id: "p1", nombre: "Bosch", telefono: "3100000000", email: null, diasEntrega: 2 },
   };
 }
 
@@ -118,5 +126,45 @@ describe("getAlertasInventario", () => {
     });
     expect(alertas[0].consumoDiario).toBeCloseTo(0.1);
     expect(resumen.total).toBe(1);
+  });
+});
+
+describe("posponer / reactivar alerta", () => {
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockResolvedValue({ user: { tenantSchema: "taller_perez", sedeActivaId: SEDE_ID } });
+    mockRevalidatePath.mockReset();
+    repuesto.updateMany.mockReset().mockResolvedValue({ count: 1 });
+    vi.useFakeTimers();
+    vi.setSystemTime(HOY);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("snoozes for 7 days, scoped to the sede, with the same roles as editing a repuesto", async () => {
+    const resultado = await posponerAlertaInventarioAction("r1");
+
+    expect(resultado).toEqual({ error: null });
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(repuesto.updateMany).toHaveBeenCalledWith({
+      where: { id: "r1", bodega: { sedeId: SEDE_ID } },
+      data: { alertaPospuestaHasta: new Date("2026-10-16T15:00:00.000Z") },
+    });
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/");
+  });
+
+  it("reactivates by clearing the date", async () => {
+    await reactivarAlertaInventarioAction("r1");
+    expect(repuesto.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { alertaPospuestaHasta: null } }));
+  });
+
+  it("reports a repuesto outside the sede without revalidating", async () => {
+    repuesto.updateMany.mockResolvedValue({ count: 0 });
+
+    const resultado = await posponerAlertaInventarioAction("ajeno");
+
+    expect(resultado).toEqual({ error: "Repuesto no encontrado en tu sede activa." });
+    expect(mockRevalidatePath).not.toHaveBeenCalled();
   });
 });

@@ -6,6 +6,13 @@ import type { AlertaInventarioRow, AlertasInventario } from "@/lib/dashboard/ale
 const mockToastSuccess = vi.fn();
 vi.mock("sonner", () => ({ toast: { success: (...args: unknown[]) => mockToastSuccess(...args), error: vi.fn() } }));
 
+const mockPosponer = vi.fn();
+const mockReactivar = vi.fn();
+vi.mock("@/app/actions/alertas-inventario-actions", () => ({
+  posponerAlertaInventarioAction: (...args: unknown[]) => mockPosponer(...args),
+  reactivarAlertaInventarioAction: (...args: unknown[]) => mockReactivar(...args),
+}));
+
 import { AlertasInventarioCard } from "./alertas-inventario-card";
 
 function alerta(overrides: Partial<AlertaInventarioRow> & { id: string; nombre: string }): AlertaInventarioRow {
@@ -25,6 +32,7 @@ function alerta(overrides: Partial<AlertaInventarioRow> & { id: string; nombre: 
     multiploCompra: 1,
     objetivoReposicion: 10,
     seAgotaAntesDeEntrega: false,
+    pospuestaHasta: null,
     consumoSemanal: [0, 0, 0, 0, 0, 0, 1, 2],
     consumoDiario: 0,
     diasCobertura: null,
@@ -46,6 +54,7 @@ function datos(alertas: AlertaInventarioRow[]): AlertasInventario {
       ordenesFrenadas: [],
       seAgotanEn7Dias: 0,
       costoReposicion: alertas.reduce((s, a) => s + a.costoSugerido, 0),
+      pospuestas: alertas.filter((a) => a.pospuestaHasta).length,
     },
   };
 }
@@ -65,6 +74,8 @@ const filtro = alerta({ id: "f1", nombre: "Filtro de aceite", proveedor: { id: "
 describe("AlertasInventarioCard", () => {
   beforeEach(() => {
     mockToastSuccess.mockReset();
+    mockPosponer.mockReset().mockResolvedValue({ error: null });
+    mockReactivar.mockReset().mockResolvedValue({ error: null });
   });
 
   it("shows a calm empty state when nothing is below its minimum", () => {
@@ -129,6 +140,32 @@ describe("AlertasInventarioCard", () => {
     await userEvent.click(screen.getByLabelText("Menos Bujía"));
     await userEvent.click(screen.getByLabelText("Menos Bujía"));
     expect(screen.getByLabelText("Cantidad a pedir de Bujía")).toHaveTextContent("4");
+  });
+
+  it("moves snoozed alerts to a Pospuestas tab and lets them be reactivated", async () => {
+    const pospuesta = alerta({ id: "p1", nombre: "Correa", pospuestaHasta: "2026-10-16T15:00:00.000Z" });
+    render(<AlertasInventarioCard data={datos([filtro, pospuesta])} />);
+
+    expect(within(screen.getByRole("tabpanel")).queryByText("Correa")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: /Pospuestas/ }));
+    const panel = screen.getByRole("tabpanel");
+    expect(within(panel).getByText("Correa")).toBeInTheDocument();
+    expect(within(panel).getByText(/Pospuesta hasta el 16/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByLabelText("Detalle de Correa"));
+    await userEvent.click(screen.getByRole("button", { name: /Reactivar alerta/ }));
+    expect(mockReactivar).toHaveBeenCalledWith("p1");
+  });
+
+  it("snoozes an alert for 7 days from its detail", async () => {
+    render(<AlertasInventarioCard data={datos([filtro])} />);
+
+    await userEvent.click(screen.getByLabelText("Detalle de Filtro de aceite"));
+    await userEvent.click(screen.getByRole("button", { name: /Posponer 7 días/ }));
+
+    expect(mockPosponer).toHaveBeenCalledWith("f1");
+    await vi.waitFor(() => expect(mockToastSuccess).toHaveBeenCalledWith("Alerta de Filtro de aceite pospuesta 7 días"));
   });
 
   it("reveals purchase history and links to the ordenes using the repuesto", async () => {

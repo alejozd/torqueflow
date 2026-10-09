@@ -1,10 +1,16 @@
 "use server";
 
-import { requireSession } from "@/lib/auth/guards";
+import { revalidatePath } from "next/cache";
+import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { scopeRepuesto } from "@/lib/sede/scope";
 import { whereItemsComprometidos } from "@/lib/inventario/comprometido";
-import { construirAlertasInventario, DIAS_CONSUMO, type AlertasInventario } from "@/lib/dashboard/alertas-inventario";
+import {
+  construirAlertasInventario,
+  DIAS_CONSUMO,
+  DIAS_POSPONER_ALERTA,
+  type AlertasInventario,
+} from "@/lib/dashboard/alertas-inventario";
 
 const MS_DIA = 24 * 60 * 60 * 1000;
 
@@ -37,6 +43,7 @@ export async function getAlertasInventario(): Promise<AlertasInventario> {
         precioCompra: true,
         stockMaximo: true,
         multiploCompra: true,
+        alertaPospuestaHasta: true,
         bodega: { select: { id: true, nombre: true } },
         proveedor: { select: { id: true, nombre: true, telefono: true, email: true, diasEntrega: true } },
       },
@@ -117,4 +124,32 @@ export async function getAlertasInventario(): Promise<AlertasInventario> {
     })),
     hoy,
   });
+}
+
+export interface PosponerAlertaResult {
+  error: string | null;
+}
+
+/**
+ * Snoozes (or, with `null`, reactivates) a repuesto's dashboard alert. Same
+ * roles as editing a repuesto; scoped to the sede activa through the bodega.
+ */
+async function guardarPospuesta(repuestoId: string, hasta: Date | null): Promise<PosponerAlertaResult> {
+  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  const { count } = await tenantDb.repuesto.updateMany({
+    where: { id: repuestoId, ...scopeRepuesto(session.user.sedeActivaId) },
+    data: { alertaPospuestaHasta: hasta },
+  });
+  if (count === 0) return { error: "Repuesto no encontrado en tu sede activa." };
+  revalidatePath("/");
+  return { error: null };
+}
+
+export async function posponerAlertaInventarioAction(repuestoId: string): Promise<PosponerAlertaResult> {
+  return guardarPospuesta(repuestoId, new Date(Date.now() + DIAS_POSPONER_ALERTA * MS_DIA));
+}
+
+export async function reactivarAlertaInventarioAction(repuestoId: string): Promise<PosponerAlertaResult> {
+  return guardarPospuesta(repuestoId, null);
 }
