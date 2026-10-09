@@ -145,7 +145,7 @@ describe("createCitaAction", () => {
         clienteId: "cli-1",
         vehiculoId: "veh-1",
         sedeId: "sede-1",
-        fechaHora: new Date("2026-09-01T10:30"),
+        fechaHora: new Date("2026-09-01T10:30-05:00"),
         motivo: "Cambio de aceite",
         notas: null,
         creadoPorId: "u-rec",
@@ -185,7 +185,7 @@ describe("updateCitaAction", () => {
       data: {
         vehiculoId: "veh-1",
         clienteId: "cli-1",
-        fechaHora: new Date("2026-09-01T10:30"),
+        fechaHora: new Date("2026-09-01T10:30-05:00"),
         motivo: "Cambio de aceite",
         notas: null,
       },
