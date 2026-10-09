@@ -40,11 +40,14 @@ export function DviChecklistForm({
   checklist,
   items: initialItems,
   esAdmin = false,
+  soloLectura = false,
 }: {
   ordenId: string;
   checklist: DviChecklist | null;
   items: DviChecklistItem[];
   esAdmin?: boolean;
+  /** Invoiced/closed orden: show the saved values, offer no edit controls (the actions would refuse them). */
+  soloLectura?: boolean;
 }) {
   const current = checklist ?? {};
   const [items, setItems] = useState(initialItems);
@@ -98,6 +101,7 @@ export function DviChecklistForm({
                   id={item.key}
                   name={item.key}
                   defaultValue={valor}
+                  disabled={soloLectura}
                   size="sm"
                   className="h-7 w-[90px] shrink-0 px-1.5 text-xs"
                   items={DVI_CHECKLIST_STATUSES.map((estado) => ({
@@ -105,7 +109,7 @@ export function DviChecklistForm({
                     label: ESTADO_LABELS[estado],
                   }))}
                 />
-                {esAdmin ? (
+                {esAdmin && !soloLectura ? (
                   <Button
                     type="button"
                     variant="ghost"
@@ -124,14 +128,14 @@ export function DviChecklistForm({
           })}
         </div>
 
-        {esAdmin ? (
+        {esAdmin && !soloLectura ? (
           <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => setNuevoItemOpen(true)}>
             <Plus className="size-3.5" />
             Agregar ítem
           </Button>
         ) : null}
 
-        {esAdmin && itemsInactivos.length > 0 ? (
+        {esAdmin && !soloLectura && itemsInactivos.length > 0 ? (
           <div className="flex flex-col gap-2">
             <Button
               type="button"
@@ -192,9 +196,13 @@ export function DviChecklistForm({
         ) : null}
       </FormGroup>
 
-      <Button type="submit" disabled={isPending} className="self-end">
-        {isPending ? "Guardando..." : "Guardar checklist"}
-      </Button>
+      {soloLectura ? (
+        <p className="text-xs text-muted-foreground">La orden ya está facturada o cerrada: el checklist queda solo de consulta.</p>
+      ) : (
+        <Button type="submit" disabled={isPending} className="self-end">
+          {isPending ? "Guardando..." : "Guardar checklist"}
+        </Button>
+      )}
 
       {state.error ? (
         <Alert variant="destructive">

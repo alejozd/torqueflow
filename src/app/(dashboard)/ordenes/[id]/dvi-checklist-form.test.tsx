@@ -46,6 +46,17 @@ describe("DviChecklistForm", () => {
     expect(screen.getByLabelText("Luces (altas, bajas, direccionales)")).toHaveTextContent("OK");
   });
 
+  it("in soloLectura shows the saved values without any edit control", () => {
+    render(<DviChecklistForm ordenId="o1" checklist={{ frenos: "CRITICO" }} items={ITEMS} esAdmin soloLectura />);
+
+    expect(screen.getByLabelText("Frenos")).toHaveTextContent("Crítico");
+    expect(screen.getByLabelText("Frenos")).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Guardar checklist" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Agregar ítem/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Desactivar/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/solo de consulta/)).toBeInTheDocument();
+  });
+
   it("submits the status the user actually picked for a given item, not just its default", async () => {
     render(<DviChecklistForm ordenId="o1" checklist={{ frenos: "OK" }} items={ITEMS} />);
 

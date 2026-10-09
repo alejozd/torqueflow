@@ -13,6 +13,7 @@ import { AgregarItemForm } from "./agregar-item-form";
 import { AgregarManoObraForm } from "./agregar-mano-obra-form";
 import { DviChecklistForm } from "./dvi-checklist-form";
 import { DviFotoForm } from "./dvi-foto-form";
+import { esOrdenMutable } from "@/lib/orden/mutable-guard";
 import { GenerarFacturaForm } from "./generar-factura-form";
 import type { DviChecklist } from "@/lib/dvi/checklist-items";
 import type { EstadoOrden } from "@/generated/prisma-tenant";
@@ -348,8 +349,14 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
               ) : null}
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <DviChecklistForm ordenId={orden.id} checklist={checklist} items={dviItems} esAdmin={esAdmin} />
-              <DviFotoForm ordenId={orden.id} fotos={orden.dvi?.fotos ?? []} />
+              <DviChecklistForm
+                ordenId={orden.id}
+                checklist={checklist}
+                items={dviItems}
+                esAdmin={esAdmin}
+                soloLectura={!esOrdenMutable(orden)}
+              />
+              <DviFotoForm ordenId={orden.id} fotos={orden.dvi?.fotos ?? []} soloLectura={!esOrdenMutable(orden)} />
             </CardContent>
           </Card>
         </div>

@@ -22,6 +22,20 @@ describe("DviFotoForm", () => {
     expect(screen.getByLabelText("Foto")).toBeInTheDocument();
   });
 
+  it("in soloLectura keeps the gallery but drops the upload form", () => {
+    render(
+      <DviFotoForm
+        ordenId="o1"
+        soloLectura
+        fotos={[{ id: "f1", url: "/fotos/f1.jpg", momento: "ANTES" } as never]}
+      />,
+    );
+
+    expect(screen.queryByLabelText("Foto")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Subir foto" })).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /antes de la inspección/ })).toBeInTheDocument();
+  });
+
   it("submits the momento the user actually picked, not just the default", async () => {
     render(<DviFotoForm ordenId="o1" fotos={[]} />);
 

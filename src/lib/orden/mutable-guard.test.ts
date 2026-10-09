@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { assertOrdenMutable } from "./mutable-guard";
+import { assertOrdenMutable, esOrdenMutable } from "./mutable-guard";
+
+describe("esOrdenMutable", () => {
+  it("answers with the same rule assertOrdenMutable enforces", () => {
+    expect(esOrdenMutable({ estado: "EN_PROCESO", factura: null })).toBe(true);
+    expect(esOrdenMutable({ estado: "TERMINADA", factura: { id: "f1" } })).toBe(false);
+    expect(esOrdenMutable({ estado: "ENTREGADA", factura: null })).toBe(false);
+    expect(esOrdenMutable({ estado: "ANULADA", factura: null })).toBe(false);
+  });
+});
 
 describe("assertOrdenMutable", () => {
   it("throws for estado ENTREGADA", () => {
