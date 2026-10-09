@@ -114,6 +114,20 @@ describe("createRepuestoAction", () => {
     });
   });
 
+  it("names the code and the taller-wide rule when the codigo already exists", async () => {
+    mockCreate.mockRejectedValue(Object.assign(new Error("Unique constraint failed"), { code: "P2002" }));
+    const formData = baseFormData();
+    formData.set("stockActual", "0");
+
+    const result = await createRepuestoAction(initialState, formData);
+
+    expect(result).toEqual({
+      error: 'Ya existe un repuesto con el código "FRN-001" en el taller. Los códigos son únicos en todas las sedes.',
+      success: false,
+      repuestoId: null,
+    });
+  });
+
   it("defaults proveedorId to null when not provided", async () => {
     mockCreate.mockResolvedValue({ id: "r1" });
     const formData = baseFormData();

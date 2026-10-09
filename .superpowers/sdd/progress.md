@@ -1168,4 +1168,6 @@ Deuda de prioridad media CERRADA (mismo día):
 
 Deuda que sigue ABIERTA (priorizada con el usuario el 2026-10-09):
 - Alta: tests de aprovisionamiento corren contra la base del servidor (falta una base de tests propia, p. ej. Postgres en Docker — decisión aplazada por el usuario).
-- Baja: `Repuesto.codigo` único por tenant (decisión de producto antes de multi-sede real); borrar cliente/vehículo sin UI (y borraría historial); revalidatePath del listado de entradas al agregar ítem; `.email()` deprecado de zod; cantidad de entrada sin tope; test duplicado en guards; `as string` de `sedeActivaId` en los tipos de sesión.
+- Baja: borrar cliente/vehículo sin UI (y borraría historial); revalidatePath del listado de entradas al agregar ítem; `.email()` deprecado de zod; cantidad de entrada sin tope; test duplicado en guards; `as string` de `sedeActivaId` en los tipos de sesión.
+
+Decisión de producto (2026-10-09): `Repuesto.codigo` sigue único en todo el taller (no por sede/bodega); dos sedes que manejen el mismo repuesto usan códigos distintos. `fase-deuda-task 8`: el error de código duplicado ahora nombra el código y la regla en lugar del P2002 genérico.

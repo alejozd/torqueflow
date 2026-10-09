@@ -34,6 +34,19 @@ export interface RepuestoOption {
   stockMinimo: number;
 }
 
+/**
+ * `Repuesto.codigo` is unique across the whole taller, not per sede/bodega --
+ * a deliberate product decision (2026-10-09): two sedes stocking the same
+ * part use different codes. A duplicate therefore gets a message naming the
+ * code and that rule instead of the generic P2002 text.
+ */
+function errorRepuesto(err: unknown, codigo: string, fallback: string): string {
+  if (err && typeof err === "object" && (err as { code?: unknown }).code === "P2002") {
+    return `Ya existe un repuesto con el código "${codigo}" en el taller. Los códigos son únicos en todas las sedes.`;
+  }
+  return friendlyPrismaErrorMessage(err, fallback);
+}
+
 const BODEGA_AJENA = "La bodega seleccionada no pertenece a tu sede activa.";
 const REPUESTO_NO_ENCONTRADO = "Repuesto no encontrado en tu sede activa.";
 
@@ -151,7 +164,7 @@ export async function createRepuestoAction(
       },
     });
   } catch (err) {
-    return { error: friendlyPrismaErrorMessage(err, "Error al crear el repuesto"), success: false, repuestoId: null };
+    return { error: errorRepuesto(err, parsed.data.codigo, "Error al crear el repuesto"), success: false, repuestoId: null };
   }
 
   revalidatePath("/repuestos");
@@ -199,7 +212,7 @@ export async function updateRepuestoAction(
       return { error: REPUESTO_NO_ENCONTRADO, success: false, repuestoId: null };
     }
   } catch (err) {
-    return { error: friendlyPrismaErrorMessage(err, "Error al actualizar el repuesto"), success: false, repuestoId: null };
+    return { error: errorRepuesto(err, parsed.data.codigo, "Error al actualizar el repuesto"), success: false, repuestoId: null };
   }
 
   revalidatePath("/repuestos");
