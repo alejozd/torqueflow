@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ClipboardCopy, PackageCheck, PackagePlus } from "lucide-react";
+import { ChevronDown, ClipboardCopy, DollarSign, Hourglass, PackageCheck, PackagePlus, PackageX, Wrench } from "lucide-react";
 import { toast } from "sonner";
-import type { AlertaInventarioRow, AlertasInventario, SeveridadAlerta } from "@/lib/dashboard/alertas-inventario";
+import type { AlertaInventarioRow, AlertasInventario, OrdenFrenada, SeveridadAlerta } from "@/lib/dashboard/alertas-inventario";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { formatoPlaca } from "@/lib/placa";
 import { cn } from "@/lib/utils";
 
@@ -69,6 +70,14 @@ function textoPedido(alertas: AlertaInventarioRow[], cantidades: Record<string, 
       ].join("\n"),
     )
     .join("\n\n");
+}
+
+/** "Mazda 3 XYZ-789 y 2 más": KPI subtitles are one short line. */
+function resumenOrdenesFrenadas(ordenes: OrdenFrenada[]): string {
+  if (ordenes.length === 0) return "Ninguna esperando repuestos";
+  const [primera] = ordenes;
+  const texto = `${primera.vehiculo} ${formatoPlaca(primera.placa)}`;
+  return ordenes.length > 1 ? `${texto} y ${ordenes.length - 1} más` : texto;
 }
 
 function AnilloDisponible({ alerta }: { alerta: AlertaInventarioRow }) {
@@ -164,7 +173,7 @@ function FilaAlerta({
   return (
     <div
       className={cn(
-        "grid grid-cols-[16px_44px_minmax(0,1fr)_auto_28px] items-center gap-x-3 gap-y-2 border-t px-4 py-3 md:grid-cols-[16px_44px_minmax(0,1fr)_92px_auto_28px]",
+        "grid grid-cols-[16px_44px_minmax(0,1fr)_28px] items-center gap-x-3 gap-y-2 border-t px-4 py-3 md:grid-cols-[16px_44px_minmax(0,1fr)_92px_auto_28px]",
         seleccionada && "bg-primary/5",
       )}
     >
@@ -188,7 +197,7 @@ function FilaAlerta({
         </div>
       </div>
       <TendenciaConsumo semanas={alerta.consumoSemanal} />
-      <div className="flex flex-col items-end gap-0.5">
+      <div className="col-start-3 row-start-2 flex items-center gap-2 md:col-start-auto md:row-start-auto md:flex-col md:items-end md:gap-0.5">
         <div className="inline-flex items-center overflow-hidden rounded-md border">
           <button
             type="button"
@@ -217,7 +226,7 @@ function FilaAlerta({
         onClick={onToggleDetalle}
         aria-expanded={abierta}
         aria-label={`Detalle de ${alerta.nombre}`}
-        className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-muted"
+        className="col-start-4 row-start-1 grid size-7 place-items-center md:col-start-auto md:row-start-auto rounded-md text-muted-foreground hover:bg-muted"
       >
         <ChevronDown className={cn("size-4 transition-transform", abierta && "rotate-180")} />
       </button>
@@ -358,10 +367,52 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-px border-y bg-border lg:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))]">
-            <div className="col-span-2 flex min-w-0 flex-col gap-1.5 bg-card px-4 py-3 lg:col-span-1">
-              <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Estado</span>
-              <div className="flex h-2 gap-0.5 overflow-hidden rounded-full" role="img" aria-label={`${resumen.sinDisponible} sin disponible, ${resumen.criticos} críticos, ${resumen.bajoMinimo} bajo mínimo`}>
+          <div className="flex flex-col gap-3 px-4 pb-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <KpiCard
+                title="Sin disponible"
+                value={resumen.sinDisponible}
+                valueColor={resumen.sinDisponible > 0 ? "danger" : "default"}
+                subtitle={`${resumen.criticos} críticos · ${resumen.bajoMinimo} bajo mínimo`}
+                icon={<PackageX className={cn("size-5", KPI_TONE.danger.icon)} />}
+                iconBgColor={KPI_TONE.danger.iconBg}
+                className={KPI_TONE.danger.cardBg}
+              />
+              <KpiCard
+                title="Órdenes frenadas"
+                value={resumen.ordenesFrenadas.length}
+                valueColor={resumen.ordenesFrenadas.length > 0 ? "danger" : "default"}
+                subtitle={resumenOrdenesFrenadas(resumen.ordenesFrenadas)}
+                subtitleColor={resumen.ordenesFrenadas.length > 0 ? "danger" : "default"}
+                highlight={resumen.ordenesFrenadas.length > 0}
+                icon={<Wrench className={cn("size-5", KPI_TONE.warning.icon)} />}
+                iconBgColor={KPI_TONE.warning.iconBg}
+                className={KPI_TONE.warning.cardBg}
+              />
+              <KpiCard
+                title="Se agotan en 7 días"
+                value={resumen.seAgotanEn7Dias}
+                subtitle="Según consumo de 90 días"
+                icon={<Hourglass className={cn("size-5", KPI_TONE.purple.icon)} />}
+                iconBgColor={KPI_TONE.purple.iconBg}
+                className={KPI_TONE.purple.cardBg}
+              />
+              <KpiCard
+                title="Costo de reposición"
+                value={formatoMoneda.format(resumen.costoReposicion)}
+                valueColor="success"
+                subtitle="Con las cantidades sugeridas"
+                icon={<DollarSign className={cn("size-5", KPI_TONE.success.icon)} />}
+                iconBgColor={KPI_TONE.success.iconBg}
+                className={KPI_TONE.success.cardBg}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <div
+                className="flex h-2 gap-0.5 overflow-hidden rounded-full"
+                role="img"
+                aria-label={`${resumen.sinDisponible} sin disponible, ${resumen.criticos} críticos, ${resumen.bajoMinimo} bajo mínimo`}
+              >
                 {resumen.sinDisponible > 0 ? <i className="bg-red-500" style={{ flex: resumen.sinDisponible }} /> : null}
                 {resumen.criticos > 0 ? <i className="bg-amber-500" style={{ flex: resumen.criticos }} /> : null}
                 {resumen.bajoMinimo > 0 ? <i className="bg-yellow-400" style={{ flex: resumen.bajoMinimo }} /> : null}
@@ -381,28 +432,9 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
                 ))}
               </div>
             </div>
-            <div className="flex min-w-0 flex-col gap-0.5 bg-card px-4 py-3">
-              <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Órdenes frenadas</span>
-              <span className={cn("font-mono text-xl font-semibold", resumen.ordenesFrenadas.length > 0 && "text-red-600 dark:text-red-400")}>
-                {resumen.ordenesFrenadas.length}
-              </span>
-              <span className="truncate text-xs text-muted-foreground">
-                {resumen.ordenesFrenadas.length > 0 ? [...new Set(resumen.ordenesFrenadas.map((orden) => `${orden.vehiculo} ${formatoPlaca(orden.placa)}`))].join(" · ") : "Ninguna esperando repuestos"}
-              </span>
-            </div>
-            <div className="flex flex-col gap-0.5 bg-card px-4 py-3">
-              <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Se agotan en 7 días</span>
-              <span className="font-mono text-xl font-semibold">{resumen.seAgotanEn7Dias}</span>
-              <span className="text-xs text-muted-foreground">según consumo de 90 días</span>
-            </div>
-            <div className="flex flex-col gap-0.5 bg-card px-4 py-3">
-              <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Costo de reposición</span>
-              <span className="font-mono text-xl font-semibold">{formatoMoneda.format(resumen.costoReposicion)}</span>
-              <span className="text-xs text-muted-foreground">con las cantidades sugeridas</span>
-            </div>
           </div>
 
-          <div role="tablist" aria-label="Agrupar alertas" className="flex gap-1 overflow-x-auto overflow-y-hidden border-b px-3 pt-2">
+          <div role="tablist" aria-label="Agrupar alertas" className="flex gap-1 overflow-x-auto overflow-y-hidden border-y px-3 pt-2">
             {pestanas.map((tab) => (
               <button
                 key={tab.id}
