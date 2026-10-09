@@ -401,12 +401,18 @@ export default async function InicioPage() {
         <CardContent>
           <div className="flex h-32 items-end gap-3">
             {overview.facturacion7Dias.map((dia) => (
-              <div key={dia.fecha} className="flex flex-1 flex-col items-center gap-1.5">
-                <div
-                  className="w-full min-w-2 rounded-t-sm bg-primary/80"
-                  style={{ height: `${Math.max(4, (dia.total / facturacionMax) * 100)}%` }}
-                  title={formatoMoneda.format(dia.total)}
-                />
+              <div key={dia.fecha} className="flex h-full flex-1 flex-col items-center gap-1.5">
+                {/*
+                  The bar's % height needs a parent with a definite height:
+                  this flex-1 track fills the column above the date label.
+                */}
+                <div className="flex w-full flex-1 items-end">
+                  <div
+                    className="w-full min-w-2 rounded-t-sm bg-primary/80"
+                    style={{ height: `${Math.max(4, (dia.total / facturacionMax) * 100)}%` }}
+                    title={formatoMoneda.format(dia.total)}
+                  />
+                </div>
                 <span className="text-[0.6875rem] text-muted-foreground">
                   {new Date(`${dia.fecha}T00:00:00.000Z`).toLocaleDateString("es-CO", {
                     day: "2-digit",
