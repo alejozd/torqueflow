@@ -347,7 +347,11 @@ export default async function InicioPage() {
 
             {overview.ordenesRecientes.length > 0 ? (
               <p className="text-center text-xs text-muted-foreground">
-                Mostrando {overview.ordenesRecientes.length} de {overview.ordenesActivasCount} órdenes activas hoy
+                {/* ordenesActivasCount = every non-anulada orden of the sede, any date
+                    (entregadas included), and the list is the most recently updated
+                    ones -- so neither "activas" nor "hoy" would be accurate here. */}
+                Mostrando las {overview.ordenesRecientes.length} con movimiento más reciente de{" "}
+                {overview.ordenesActivasCount} órdenes
               </p>
             ) : null}
           </CardContent>
