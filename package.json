@@ -63,6 +63,7 @@
     "vitest": "^4.1.10"
   },
   "overrides": {
-    "nodemailer": "$nodemailer"
+    "nodemailer": "$nodemailer",
+    "deepmerge-ts": "^8.0.0"
   }
 }
