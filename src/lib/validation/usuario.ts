@@ -48,7 +48,7 @@ function withSedeRules<T extends z.ZodTypeAny>(schema: T) {
 export const usuarioCreateInputSchema = withSedeRules(
   z.object({
     nombre: z.string().min(1, "El nombre es obligatorio"),
-    email: z.string().email("Correo inválido"),
+    email: z.email("Correo inválido"),
     password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres"),
     role: roleSchema,
     activo: activoSchema,
@@ -67,7 +67,7 @@ export type UsuarioCreateInput = z.infer<typeof usuarioCreateInputSchema>;
 export const usuarioUpdateInputSchema = withSedeRules(
   z.object({
     nombre: z.string().min(1, "El nombre es obligatorio"),
-    email: z.string().email("Correo inválido"),
+    email: z.email("Correo inválido"),
     password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres").optional().or(z.literal("")),
     role: roleSchema,
     activo: activoSchema,

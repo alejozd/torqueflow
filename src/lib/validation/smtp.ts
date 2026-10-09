@@ -21,7 +21,7 @@ export const smtpConfigInputSchema = z.object({
     .max(65535, "El puerto debe estar entre 1 y 65535"),
   usuario: z.string().min(1, "El usuario SMTP es obligatorio"),
   password: z.string().optional().or(z.literal("")),
-  fromEmail: z.string().min(1, "El correo remitente es obligatorio").email("El correo remitente no es válido"),
+  fromEmail: z.string().min(1, "El correo remitente es obligatorio").pipe(z.email("El correo remitente no es válido")),
   fromNombre: z.string().min(1, "El nombre del remitente es obligatorio"),
   activo: z.string().optional().transform((valor) => valor === "on" || valor === "true"),
 });

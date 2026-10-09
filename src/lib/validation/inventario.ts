@@ -16,7 +16,7 @@ export const proveedorInputSchema = z.object({
   direccion: z.string().optional().or(z.literal("")),
   contacto: z.string().optional().or(z.literal("")),
   telefono: z.string().optional().or(z.literal("")),
-  email: z.string().email("Correo inválido").optional().or(z.literal("")),
+  email: z.email("Correo inválido").optional().or(z.literal("")),
   diasEntrega: z.preprocess(
     vacioComoUndefined,
     z.coerce
