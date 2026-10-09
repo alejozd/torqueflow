@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  ClipboardList,
   BarChart3,
   CalendarDays,
   FileText,
@@ -69,6 +70,7 @@ const INVENTARIO: NavGroup = {
     { href: "/bodegas", label: "Bodegas", icon: Warehouse },
     { href: "/proveedores", label: "Proveedores", icon: Truck },
     { href: "/repuestos", label: "Repuestos", icon: Package },
+    { href: "/pedidos-compra", label: "Pedidos", icon: ClipboardList },
     { href: "/entradas-mercancia", label: "Entradas", icon: PackagePlus },
   ],
 };
