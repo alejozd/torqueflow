@@ -22,7 +22,6 @@ export function DescuentoCotizacionForm({ cotizacionId, descuentoPct }: { cotiza
     } else if (state.error) {
       toast.error(state.error);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
   return (

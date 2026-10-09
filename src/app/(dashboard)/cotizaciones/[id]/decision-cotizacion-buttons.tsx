@@ -46,7 +46,6 @@ export function DecisionCotizacionButtons({ cotizacionId }: { cotizacionId: stri
     } else if (rechazarState.error) {
       toast.error(rechazarState.error);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rechazarState]);
 
   return (

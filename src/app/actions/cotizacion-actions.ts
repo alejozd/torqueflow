@@ -481,8 +481,8 @@ export async function enviarCotizacionAction(
 
 export async function aprobarCotizacionAction(
   cotizacionId: string,
-  prevState: AprobarCotizacionFormState,
-  formData: FormData,
+  _prevState: AprobarCotizacionFormState,
+  _formData: FormData,
 ): Promise<AprobarCotizacionFormState> {
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
@@ -551,8 +551,8 @@ export async function aprobarCotizacionAction(
 
 export async function rechazarCotizacionAction(
   cotizacionId: string,
-  prevState: RechazarCotizacionFormState,
-  formData: FormData,
+  _prevState: RechazarCotizacionFormState,
+  _formData: FormData,
 ): Promise<RechazarCotizacionFormState> {
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);

@@ -15,13 +15,11 @@ async function dropTenant(slug: string, schemaName: string) {
 }
 
 let tenantAId: string;
-let tenantBId: string;
 
 beforeAll(async () => {
   const tenantA = await provisionTenant({ slug: SLUG_A, schemaName: SCHEMA_A });
-  const tenantB = await provisionTenant({ slug: SLUG_B, schemaName: SCHEMA_B });
+  await provisionTenant({ slug: SLUG_B, schemaName: SCHEMA_B });
   tenantAId = tenantA.id;
-  tenantBId = tenantB.id;
 });
 
 afterAll(async () => {

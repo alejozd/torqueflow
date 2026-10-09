@@ -151,7 +151,7 @@ export async function deleteBodegaAction(id: string): Promise<void> {
  */
 export async function deleteBodegaFormAction(
   id: string,
-  prevState: BodegaFormState,
+  _prevState: BodegaFormState,
 ): Promise<BodegaFormState> {
   try {
     await deleteBodegaAction(id);

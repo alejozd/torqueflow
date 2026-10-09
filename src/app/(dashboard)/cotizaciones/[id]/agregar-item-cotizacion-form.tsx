@@ -90,7 +90,7 @@ export function AgregarItemCotizacionForm({
     <form
       noValidate
       ref={formRef}
-      onSubmit={handleSubmit((data) =>
+      onSubmit={(evento) => handleSubmit((data) =>
         startTransition(() => {
           const formData = new FormData(formRef.current!);
           // tipo/repuestoId are Combobox/toggle-controlled (react-hook-form,
@@ -100,7 +100,7 @@ export function AgregarItemCotizacionForm({
           formData.set("repuestoId", data.repuestoId ?? "");
           formAction(formData);
         }),
-      )}
+      )(evento)}
       className="flex flex-col gap-3"
     >
       <div className="flex gap-2">

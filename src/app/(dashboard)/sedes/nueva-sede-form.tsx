@@ -30,7 +30,7 @@ export function NuevaSedeForm() {
     <form
       noValidate
       ref={formRef}
-      onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+      onSubmit={(evento) => handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))(evento)}
       className="flex flex-col gap-4"
     >
       <FormGroup label="Datos">

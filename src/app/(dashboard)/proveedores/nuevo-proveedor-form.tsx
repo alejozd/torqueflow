@@ -54,7 +54,7 @@ export function NuevoProveedorForm({
   }
 
   return (
-    <form noValidate ref={formRef} onSubmit={handleSubmit(onValid)} className="flex flex-col gap-4">
+    <form noValidate ref={formRef} onSubmit={(evento) => handleSubmit(onValid)(evento)} className="flex flex-col gap-4">
       <FormGroup label="Empresa">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">

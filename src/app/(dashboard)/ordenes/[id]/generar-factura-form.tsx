@@ -53,7 +53,7 @@ export function GenerarFacturaForm({ ordenId }: { ordenId: string }) {
   }
 
   return (
-    <form noValidate ref={formRef} onSubmit={handleSubmit(onValid)} className="flex flex-col gap-6">
+    <form noValidate ref={formRef} onSubmit={(evento) => handleSubmit(onValid)(evento)} className="flex flex-col gap-6">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="descuento">Descuento</Label>
         <Input

@@ -71,7 +71,7 @@ export function ConfiguracionSmtpForm({
         noValidate
         ref={formRef}
         id={GUARDAR_FORM_ID}
-        onSubmit={handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))}
+        onSubmit={(evento) => handleSubmit(() => startTransition(() => formAction(new FormData(formRef.current!))))(evento)}
         className="flex flex-col gap-4"
       >
         <FormGroup label="Servidor">

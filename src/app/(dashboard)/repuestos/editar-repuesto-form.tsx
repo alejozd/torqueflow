@@ -90,7 +90,7 @@ export function EditarRepuestoForm({
       <form
         noValidate
         ref={formRef}
-        onSubmit={handleSubmit((data) =>
+        onSubmit={(evento) => handleSubmit((data) =>
           startTransition(() => {
             const formData = new FormData(formRef.current!);
             // proveedorId (Combobox) and bodegaId (SelectField) are both
@@ -101,7 +101,7 @@ export function EditarRepuestoForm({
             formData.set("bodegaId", data.bodegaId ?? "");
             formAction(formData);
           }),
-        )}
+        )(evento)}
         className="flex flex-col gap-4"
       >
         <FormGroup label="Identificación">

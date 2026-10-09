@@ -44,7 +44,7 @@ export function RegistrarPagoForm({ facturaId, estado }: { facturaId: string; es
     <form
       noValidate
       ref={formRef}
-      onSubmit={handleSubmit((data) =>
+      onSubmit={(evento) => handleSubmit((data) =>
         startTransition(() => {
           const formData = new FormData(formRef.current!);
           // metodoPago is a SelectField (react-hook-form-controlled, not a
@@ -54,7 +54,7 @@ export function RegistrarPagoForm({ facturaId, estado }: { facturaId: string; es
           formData.set("metodoPago", data.metodoPago ?? "");
           formAction(formData);
         }),
-      )}
+      )(evento)}
       className="flex flex-col gap-3"
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">

@@ -130,7 +130,7 @@ describe("disconnectEvictedClient", () => {
 
     // Should not throw or reject.
     await expect(
-      Promise.resolve(disconnectEvictedClient(schemaName, mockClient as any)),
+      Promise.resolve(disconnectEvictedClient(schemaName, mockClient as never)),
     ).resolves.toBeUndefined();
 
     // Wait a tick to ensure the .catch() handler completes.
@@ -153,7 +153,7 @@ describe("disconnectEvictedClient", () => {
 
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    disconnectEvictedClient(schemaName, mockClient as any);
+    disconnectEvictedClient(schemaName, mockClient as never);
 
     // Wait a tick to ensure the promise chain completes.
     await new Promise((resolve) => setTimeout(resolve, 0));

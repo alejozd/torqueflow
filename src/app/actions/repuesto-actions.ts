@@ -212,7 +212,7 @@ export async function deleteRepuestoAction(id: string): Promise<void> {
  */
 export async function deleteRepuestoFormAction(
   id: string,
-  prevState: RepuestoFormState,
+  _prevState: RepuestoFormState,
 ): Promise<RepuestoFormState> {
   try {
     await deleteRepuestoAction(id);

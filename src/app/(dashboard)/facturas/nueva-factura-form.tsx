@@ -81,7 +81,7 @@ export function NuevaFacturaForm({ ordenes }: { ordenes: OrdenFacturableOption[]
   }
 
   return (
-    <form noValidate ref={formRef} onSubmit={handleSubmit(onValid)} className="flex flex-col gap-4">
+    <form noValidate ref={formRef} onSubmit={(evento) => handleSubmit(onValid)(evento)} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="ordenId">Orden</Label>
         <Combobox
