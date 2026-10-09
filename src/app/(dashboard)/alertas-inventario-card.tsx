@@ -316,10 +316,12 @@ function FilaAlerta({
 
 export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
   const { resumen, alertas } = data;
-  // Grouping by proveedor only helps once repuestos have one assigned.
   const activas = useMemo(() => alertas.filter((alerta) => !alerta.pospuestaHasta), [alertas]);
   const pospuestas = useMemo(() => alertas.filter((alerta) => alerta.pospuestaHasta), [alertas]);
-  const [pestana, setPestana] = useState<Pestana>(() => (alertas.some((alerta) => alerta.proveedor) ? "proveedor" : "urgencia"));
+  // Grouping by proveedor only helps once repuestos have one assigned.
+  const [pestanaElegida, setPestana] = useState<Pestana>(() => (alertas.some((alerta) => alerta.proveedor) ? "proveedor" : "urgencia"));
+  // Reactivating the last pospuesta removes its tab: fall back to "Por urgencia".
+  const pestana: Pestana = pestanaElegida === "pospuestas" && pospuestas.length === 0 ? "urgencia" : pestanaElegida;
   const [cambiandoPospuesta, startCambioPospuesta] = useTransition();
   const [mostrarTodas, setMostrarTodas] = useState(false);
   const [seleccion, setSeleccion] = useState<Set<string>>(() => new Set());

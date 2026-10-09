@@ -158,6 +158,18 @@ describe("AlertasInventarioCard", () => {
     expect(mockReactivar).toHaveBeenCalledWith("p1");
   });
 
+  it("falls back to Por urgencia when the last pospuesta is reactivated", async () => {
+    const pospuesta = alerta({ id: "p1", nombre: "Correa", pospuestaHasta: "2026-10-16T15:00:00.000Z" });
+    const { rerender } = render(<AlertasInventarioCard data={datos([filtro, pospuesta])} />);
+    await userEvent.click(screen.getByRole("tab", { name: /Pospuestas/ }));
+
+    rerender(<AlertasInventarioCard data={datos([filtro, { ...pospuesta, pospuestaHasta: null }])} />);
+
+    expect(screen.queryByRole("tab", { name: /Pospuestas/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Por urgencia/ })).toHaveAttribute("aria-selected", "true");
+    expect(within(screen.getByRole("tabpanel")).getByText("Correa")).toBeInTheDocument();
+  });
+
   it("snoozes an alert for 7 days from its detail", async () => {
     render(<AlertasInventarioCard data={datos([filtro])} />);
 
