@@ -34,6 +34,8 @@ const ACTIVITY_EVENTS = ["mousedown", "mousemove", "keydown", "scroll", "touchst
 export function SessionRenewalModal({ loginPath = "/login" }: { loginPath?: string } = {}) {
   const { data: session, status, update } = useSession();
   const [showWarning, setShowWarning] = useState(false);
+  const [renovando, setRenovando] = useState(false);
+  const [errorRenovacion, setErrorRenovacion] = useState(false);
   const responseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const forceLogout = useCallback(() => {
@@ -89,9 +91,21 @@ export function SessionRenewalModal({ loginPath = "/login" }: { loginPath?: stri
     };
   }, [status, forceLogout]);
 
+  // update() resolves null (or throws on a network error) when the renewal
+  // did not happen; the warning must stay up and say so, otherwise the user
+  // believes the session was extended and gets logged out mid-work anyway.
   async function handleContinue() {
-    await update();
-    setShowWarning(false);
+    setRenovando(true);
+    setErrorRenovacion(false);
+    try {
+      const renovada = await update();
+      if (!renovada) throw new Error("renewal returned no session");
+      setShowWarning(false);
+    } catch {
+      setErrorRenovacion(true);
+    } finally {
+      setRenovando(false);
+    }
   }
 
   if (!showWarning) return null;
@@ -99,8 +113,11 @@ export function SessionRenewalModal({ loginPath = "/login" }: { loginPath?: stri
   return (
     <div role="alertdialog" aria-modal="true" aria-labelledby="session-expiry-message">
       <p id="session-expiry-message">Tu sesión está a punto de expirar. ¿Deseas continuar?</p>
-      <button type="button" onClick={handleContinue}>
-        Continuar
+      {errorRenovacion ? (
+        <p role="alert">No se pudo renovar la sesión. Revisa tu conexión e inténtalo de nuevo.</p>
+      ) : null}
+      <button type="button" onClick={handleContinue} disabled={renovando}>
+        {renovando ? "Renovando..." : "Continuar"}
       </button>
       <button type="button" onClick={forceLogout}>
         Cerrar sesión

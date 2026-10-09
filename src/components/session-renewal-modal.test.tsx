@@ -35,7 +35,7 @@ describe("SessionRenewalModal", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     mockSignOut.mockReset();
-    mockUpdate.mockReset().mockResolvedValue(undefined);
+    mockUpdate.mockReset().mockResolvedValue({ expires: new Date(Date.now() + 60 * 60 * 1000).toISOString() });
   });
 
   afterEach(() => {
@@ -56,6 +56,25 @@ describe("SessionRenewalModal", () => {
 
     expect(screen.getByRole("alertdialog")).toBeTruthy();
     expect(screen.getByText("Tu sesión está a punto de expirar. ¿Deseas continuar?")).toBeTruthy();
+  });
+
+  it.each([
+    ["resolves no session", () => mockUpdate.mockResolvedValue(null)],
+    ["throws (network error)", () => mockUpdate.mockRejectedValue(new Error("fetch failed"))],
+  ])("keeps the warning and says so when the renewal %s", async (_caso, configurar) => {
+    configurar();
+    authenticated(EXPIRY_WARNING_LEAD_MS - 1000);
+    render(<SessionRenewalModal />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toBe("No se pudo renovar la sesión. Revisa tu conexión e inténtalo de nuevo.");
+    expect(screen.getByRole("button", { name: "Continuar" })).toBeTruthy();
   });
 
   it("renews the session and hides the warning when the user accepts", async () => {
