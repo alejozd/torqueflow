@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import { describe, expect, it, beforeEach, vi, type Mock } from "vitest";
 import { seedRepuestos, PARTES, MARCAS } from "./seed-repuestos";
 
 vi.mock("@/lib/db/tenant-client");
@@ -13,7 +13,7 @@ describe("seedRepuestos", () => {
     const mockRepuestoUpsert = vi.fn().mockResolvedValue({ id: "rep-1", codigo: "SEED-0001" });
     const mockBodegaFindFirst = vi.fn().mockResolvedValue({ id: "bodega-1" });
 
-    (getTenantDb as any).mockReturnValue({
+    (getTenantDb as unknown as Mock).mockReturnValue({
       repuesto: { upsert: mockRepuestoUpsert },
       bodega: { findFirst: mockBodegaFindFirst },
     });
@@ -44,7 +44,7 @@ describe("seedRepuestos", () => {
     const mockRepuestoUpsert = vi.fn().mockResolvedValue({ id: "rep-1" });
     const mockBodegaFindFirst = vi.fn();
 
-    (getTenantDb as any).mockReturnValue({
+    (getTenantDb as unknown as Mock).mockReturnValue({
       repuesto: { upsert: mockRepuestoUpsert },
       bodega: { findFirst: mockBodegaFindFirst },
     });
@@ -64,7 +64,7 @@ describe("seedRepuestos", () => {
     const mockRepuestoUpsert = vi.fn().mockResolvedValue({ id: "rep-1" });
     const mockBodegaFindFirst = vi.fn().mockResolvedValue({ id: "bodega-oldest" });
 
-    (getTenantDb as any).mockReturnValue({
+    (getTenantDb as unknown as Mock).mockReturnValue({
       repuesto: { upsert: mockRepuestoUpsert },
       bodega: { findFirst: mockBodegaFindFirst },
     });
@@ -86,7 +86,7 @@ describe("seedRepuestos", () => {
     const mockRepuestoUpsert = vi.fn().mockResolvedValue({ id: "rep-1" });
     const mockBodegaFindFirst = vi.fn().mockResolvedValue({ id: "bodega-1" });
 
-    (getTenantDb as any).mockReturnValue({
+    (getTenantDb as unknown as Mock).mockReturnValue({
       repuesto: { upsert: mockRepuestoUpsert },
       bodega: { findFirst: mockBodegaFindFirst },
     });
@@ -133,7 +133,7 @@ describe("seedRepuestos", () => {
     const mockRepuestoUpsert = vi.fn().mockResolvedValue({ id: "rep-1" });
     const mockBodegaFindFirst = vi.fn().mockResolvedValue({ id: "bodega-1" });
 
-    (getTenantDb as any).mockReturnValue({
+    (getTenantDb as unknown as Mock).mockReturnValue({
       repuesto: { upsert: mockRepuestoUpsert },
       bodega: { findFirst: mockBodegaFindFirst },
     });
@@ -165,7 +165,7 @@ describe("seedRepuestos", () => {
     const mockRepuestoUpsert = vi.fn().mockResolvedValue({ id: "rep-1" });
     const mockBodegaFindFirst = vi.fn().mockResolvedValue({ id: "bodega-1" });
 
-    (getTenantDb as any).mockReturnValue({
+    (getTenantDb as unknown as Mock).mockReturnValue({
       repuesto: { upsert: mockRepuestoUpsert },
       bodega: { findFirst: mockBodegaFindFirst },
     });
@@ -191,7 +191,7 @@ describe("seedRepuestos", () => {
     const mockRepuestoUpsert = vi.fn().mockResolvedValue({ id: "rep-1" });
     const mockBodegaFindFirst = vi.fn().mockResolvedValue({ id: "bodega-1" });
 
-    (getTenantDb as any).mockReturnValue({
+    (getTenantDb as unknown as Mock).mockReturnValue({
       repuesto: { upsert: mockRepuestoUpsert },
       bodega: { findFirst: mockBodegaFindFirst },
     });
@@ -211,7 +211,7 @@ describe("seedRepuestos", () => {
     const mockRepuestoUpsert = vi.fn().mockResolvedValue({ id: "rep-1" });
     const mockBodegaFindFirst = vi.fn().mockResolvedValue({ id: "bodega-1" });
 
-    (getTenantDb as any).mockReturnValue({
+    (getTenantDb as unknown as Mock).mockReturnValue({
       repuesto: { upsert: mockRepuestoUpsert },
       bodega: { findFirst: mockBodegaFindFirst },
     });
@@ -231,7 +231,7 @@ describe("seedRepuestos", () => {
     const mockRepuestoUpsert = vi.fn().mockResolvedValue({ id: "rep-1" });
     const mockBodegaFindFirst = vi.fn().mockResolvedValue({ id: "bodega-test-123" });
 
-    (getTenantDb as any).mockReturnValue({
+    (getTenantDb as unknown as Mock).mockReturnValue({
       repuesto: { upsert: mockRepuestoUpsert },
       bodega: { findFirst: mockBodegaFindFirst },
     });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { AtSign, Plus } from "lucide-react";
 import { crearTenantAction, type CrearTenantResult } from "@/app/actions/super-admin-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -41,12 +41,15 @@ export function CrearTenantForm({ planes }: { planes: { id: string; nombre: stri
 
   // Al crear exitosamente: cerrar el modal de creación y recién ahí abrir el
   // de credenciales, para que nunca queden los dos Dialog abiertos a la vez.
-  useEffect(() => {
+  // Se ajusta durante el render (no en un efecto) al detectar credenciales nuevas.
+  const [credencialesVistas, setCredencialesVistas] = useState(state.credenciales);
+  if (state.credenciales !== credencialesVistas) {
+    setCredencialesVistas(state.credenciales);
     if (state.credenciales) {
       setFormOpen(false);
       setCredencialesOpen(true);
     }
-  }, [state.credenciales]);
+  }
 
   function handleNombreChange(value: string) {
     setNombre(value);

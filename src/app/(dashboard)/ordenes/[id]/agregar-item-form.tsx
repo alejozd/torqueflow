@@ -128,7 +128,7 @@ export function AgregarItemForm({
       <form
         noValidate
         ref={formRef}
-        onSubmit={handleSubmit((data) =>
+        onSubmit={(evento) => handleSubmit((data) =>
           startTransition(() => {
             const formData = new FormData(formRef.current!);
             // repuestoId is a Combobox (react-hook-form-controlled, not a native
@@ -137,7 +137,7 @@ export function AgregarItemForm({
             formData.set("repuestoId", data.repuestoId ?? "");
             formAction(formData);
           }),
-        )}
+        )(evento)}
         className="flex flex-col gap-4"
       >
         <FormGroup label="Repuesto">

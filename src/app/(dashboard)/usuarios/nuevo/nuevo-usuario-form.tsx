@@ -80,7 +80,7 @@ export function NuevoUsuarioForm({
     <form
       noValidate
       ref={formRef}
-      onSubmit={handleSubmit((data) =>
+      onSubmit={(evento) => handleSubmit((data) =>
         startTransition(() => {
           const formData = new FormData(formRef.current!);
           // role/activo/sedeDefectoId are SelectFields (react-hook-form-
@@ -93,7 +93,7 @@ export function NuevoUsuarioForm({
           formData.set("sedeDefectoId", data.sedeDefectoId ?? "");
           formAction(formData);
         }),
-      )}
+      )(evento)}
       className="flex flex-col gap-4"
     >
       <FormGroup label="Persona">

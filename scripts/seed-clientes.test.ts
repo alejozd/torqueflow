@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import { describe, expect, it, beforeEach, vi, type Mock } from "vitest";
 import { seedClientes, NOMBRES, APELLIDOS } from "./seed-clientes";
 
 vi.mock("@/lib/db/tenant-client");
@@ -13,7 +13,7 @@ describe("seedClientes", () => {
     const mockClienteFindFirst = vi.fn().mockResolvedValue(null);
     const mockClienteCreate = vi.fn().mockResolvedValue({ id: "cli-1", documento: "1000000001" });
 
-    (getTenantDb as any).mockReturnValue({
+    (getTenantDb as unknown as Mock).mockReturnValue({
       cliente: { findFirst: mockClienteFindFirst, create: mockClienteCreate },
     });
 
@@ -50,7 +50,7 @@ describe("seedClientes", () => {
       .mockResolvedValueOnce({ id: "existing-cli", documento: "1000000001" })
       .mockResolvedValueOnce(null);
 
-    (getTenantDb as any).mockReturnValue({
+    (getTenantDb as unknown as Mock).mockReturnValue({
       cliente: { findFirst: mockClienteFindFirst, create: mockClienteCreate },
     });
 
@@ -70,7 +70,7 @@ describe("seedClientes", () => {
     const mockClienteFindFirst = vi.fn().mockResolvedValue(null);
     const mockClienteCreate = vi.fn().mockResolvedValue({ id: "cli-1" });
 
-    (getTenantDb as any).mockReturnValue({
+    (getTenantDb as unknown as Mock).mockReturnValue({
       cliente: { findFirst: mockClienteFindFirst, create: mockClienteCreate },
     });
 
@@ -105,7 +105,7 @@ describe("seedClientes", () => {
     const mockClienteFindFirst = vi.fn().mockResolvedValue(null);
     const mockClienteCreate = vi.fn().mockResolvedValue({ id: "cli-1" });
 
-    (getTenantDb as any).mockReturnValue({
+    (getTenantDb as unknown as Mock).mockReturnValue({
       cliente: { findFirst: mockClienteFindFirst, create: mockClienteCreate },
     });
 
@@ -133,7 +133,7 @@ describe("seedClientes", () => {
     const mockClienteFindFirst = vi.fn().mockResolvedValue(null);
     const mockClienteCreate = vi.fn().mockResolvedValue({ id: "cli-1" });
 
-    (getTenantDb as any).mockReturnValue({
+    (getTenantDb as unknown as Mock).mockReturnValue({
       cliente: { findFirst: mockClienteFindFirst, create: mockClienteCreate },
     });
 
@@ -162,7 +162,7 @@ describe("seedClientes", () => {
     const mockClienteFindFirst = vi.fn().mockResolvedValue(null);
     const mockClienteCreate = vi.fn().mockResolvedValue({ id: "cli-1" });
 
-    (getTenantDb as any).mockReturnValue({
+    (getTenantDb as unknown as Mock).mockReturnValue({
       cliente: { findFirst: mockClienteFindFirst, create: mockClienteCreate },
     });
 
@@ -179,7 +179,7 @@ describe("seedClientes", () => {
     const mockClienteFindFirst = vi.fn().mockResolvedValue(null);
     const mockClienteCreate = vi.fn().mockResolvedValue({ id: "cli-1" });
 
-    (getTenantDb as any).mockReturnValue({
+    (getTenantDb as unknown as Mock).mockReturnValue({
       cliente: { findFirst: mockClienteFindFirst, create: mockClienteCreate },
     });
 
@@ -202,7 +202,7 @@ describe("seedClientes", () => {
     // All exist
     mockClienteFindFirst.mockResolvedValue({ id: "existing" });
 
-    (getTenantDb as any).mockReturnValue({
+    (getTenantDb as unknown as Mock).mockReturnValue({
       cliente: { findFirst: mockClienteFindFirst, create: mockClienteCreate },
     });
 

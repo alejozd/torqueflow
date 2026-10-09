@@ -47,7 +47,7 @@ export function AgregarManoObraForm({
     <form
       noValidate
       ref={formRef}
-      onSubmit={handleSubmit((data) =>
+      onSubmit={(evento) => handleSubmit((data) =>
         startTransition(() => {
           const formData = new FormData(formRef.current!);
           // mecanicoId is a SelectField (react-hook-form-controlled, not a
@@ -57,7 +57,7 @@ export function AgregarManoObraForm({
           formData.set("mecanicoId", data.mecanicoId ?? "");
           formAction(formData);
         }),
-      )}
+      )(evento)}
       className="flex flex-col gap-4"
     >
       <FormGroup label="Trabajo">

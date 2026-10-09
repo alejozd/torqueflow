@@ -98,7 +98,7 @@ export function RegistrarSeguimientoForm({
     <form
       noValidate
       ref={formRef}
-      onSubmit={handleSubmit((data) =>
+      onSubmit={(evento) => handleSubmit((data) =>
         startTransition(() => {
           const formData = new FormData(formRef.current!);
           // tipo is a SelectField (react-hook-form-controlled, not a native
@@ -107,7 +107,7 @@ export function RegistrarSeguimientoForm({
           formData.set("tipo", data.tipo ?? "");
           formAction(formData);
         }),
-      )}
+      )(evento)}
       className="flex flex-col gap-4"
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

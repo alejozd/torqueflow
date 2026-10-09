@@ -83,7 +83,7 @@ export function NuevoVehiculoForm({
   }
 
   return (
-    <form noValidate ref={formRef} onSubmit={handleSubmit(onValid)} className="flex flex-col gap-5">
+    <form noValidate ref={formRef} onSubmit={(evento) => handleSubmit(onValid)(evento)} className="flex flex-col gap-5">
       <VehiculoFormFields
         register={register}
         errors={errors}

@@ -93,7 +93,7 @@ export function AgregarEntradaItemForm({
     <form
       noValidate
       ref={formRef}
-      onSubmit={handleSubmit((data) =>
+      onSubmit={(evento) => handleSubmit((data) =>
         startTransition(() => {
           const formData = new FormData(formRef.current!);
           // repuestoId is a Combobox (react-hook-form-controlled, not a
@@ -103,7 +103,7 @@ export function AgregarEntradaItemForm({
           formData.set("repuestoId", data.repuestoId ?? "");
           formAction(formData);
         }),
-      )}
+      )(evento)}
       className="flex flex-col gap-2"
     >
       <div className="flex flex-wrap items-end gap-3">
