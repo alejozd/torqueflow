@@ -69,6 +69,23 @@ export interface EntradaRecienteInput {
   proveedorNombre: string;
 }
 
+/** A line of a pedido de compra already sent to the proveedor (estado ENVIADO). */
+export interface ItemEnCaminoInput {
+  repuestoId: string;
+  cantidad: number;
+  precioCompraUnitario: number;
+  pedido: { id: string; numero: number; proveedorNombre: string; fechaEsperada: Date | null };
+}
+
+export interface PedidoEnCamino {
+  id: string;
+  numero: number;
+  proveedorNombre: string;
+  fechaEsperada: string | null;
+  referencias: number;
+  total: number;
+}
+
 export interface OrdenUsoRepuesto {
   id: string;
   estado: EstadoOrden;
@@ -104,6 +121,8 @@ export interface AlertaInventarioRow {
    * the sidebar badge and the Repuestos page, so those numbers always match.
    */
   pospuestaHasta: string | null;
+  /** Units already ordered (pedidos ENVIADO); they reduce the suggested quantity. */
+  enCamino: { cantidad: number; pedidos: { id: string; numero: number; fechaEsperada: string | null }[] } | null;
   /** Units invoiced per week, oldest first, last SEMANAS_TENDENCIA weeks. */
   consumoSemanal: number[];
   consumoDiario: number;
@@ -136,6 +155,7 @@ export interface ResumenAlertas {
   seAgotanEn7Dias: number;
   costoReposicion: number;
   pospuestas: number;
+  pedidosEnCamino: PedidoEnCamino[];
 }
 
 export interface AlertasInventario {
@@ -176,14 +196,16 @@ export function calcularObjetivoReposicion(input: {
 }
 
 /**
- * Units to order to reach the objetivo from what is free now, rounded up to
- * the proveedor's pack size. Never below one pack: a row only exists because
- * something needs restocking.
+ * Units to order to reach the objetivo from what is free now plus what is
+ * already on its way, rounded up to the proveedor's pack size. Zero when the
+ * pedidos en camino already cover it; otherwise never below one pack, since a
+ * row only exists because something needs restocking.
  */
-export function calcularCantidadSugerida(disponible: number, objetivo: number, multiploCompra: number): number {
+export function calcularCantidadSugerida(disponible: number, objetivo: number, multiploCompra: number, enCamino = 0): number {
   const multiplo = Math.max(1, multiploCompra);
-  const faltante = Math.max(1, objetivo - disponible);
-  return Math.ceil(faltante / multiplo) * multiplo;
+  const faltante = objetivo - disponible - enCamino;
+  if (enCamino > 0 && faltante <= 0) return 0;
+  return Math.ceil(Math.max(1, faltante) / multiplo) * multiplo;
 }
 
 function agruparPor<T extends { repuestoId: string }>(items: T[]): Map<string, T[]> {
@@ -206,9 +228,11 @@ export function construirAlertasInventario(input: {
   comprometidos: ItemComprometidoInput[];
   consumidos: ItemConsumidoInput[];
   entradas: EntradaRecienteInput[];
+  enCamino?: ItemEnCaminoInput[];
   hoy: Date;
 }): AlertasInventario {
   const comprometidosPorRepuesto = agruparPor(input.comprometidos);
+  const enCaminoPorRepuesto = agruparPor(input.enCamino ?? []);
   const consumidosPorRepuesto = agruparPor(input.consumidos);
   const entradasPorRepuesto = agruparPor(input.entradas);
 
@@ -236,7 +260,9 @@ export function construirAlertasInventario(input: {
       consumoDiario,
       diasEntrega,
     });
-    const cantidadSugerida = calcularCantidadSugerida(disponible, objetivoReposicion, repuesto.multiploCompra);
+    const enCaminoItems = enCaminoPorRepuesto.get(repuesto.id) ?? [];
+    const cantidadEnCamino = enCaminoItems.reduce((suma, item) => suma + item.cantidad, 0);
+    const cantidadSugerida = calcularCantidadSugerida(disponible, objetivoReposicion, repuesto.multiploCompra, cantidadEnCamino);
 
     const entradas = [...(entradasPorRepuesto.get(repuesto.id) ?? [])].sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
     const [ultima, anterior] = entradas;
@@ -259,6 +285,17 @@ export function construirAlertasInventario(input: {
       multiploCompra: repuesto.multiploCompra,
       objetivoReposicion,
       seAgotaAntesDeEntrega: disponible > 0 && diasCobertura !== null && diasCobertura <= diasEntrega,
+      enCamino:
+        cantidadEnCamino > 0
+          ? {
+              cantidad: cantidadEnCamino,
+              pedidos: enCaminoItems.map((item) => ({
+                id: item.pedido.id,
+                numero: item.pedido.numero,
+                fechaEsperada: item.pedido.fechaEsperada?.toISOString() ?? null,
+              })),
+            }
+          : null,
       pospuestaHasta:
         repuesto.alertaPospuestaHasta && repuesto.alertaPospuestaHasta > input.hoy ? repuesto.alertaPospuestaHasta.toISOString() : null,
       consumoSemanal: consumoPorSemana(consumidos, input.hoy),
@@ -308,7 +345,30 @@ export function construirAlertasInventario(input: {
       ).length,
       costoReposicion: alertas.reduce((suma, alerta) => suma + alerta.costoSugerido, 0),
       pospuestas: alertas.filter((alerta) => alerta.pospuestaHasta !== null).length,
+      pedidosEnCamino: resumirPedidosEnCamino(input.enCamino ?? []),
     },
     alertas,
   };
+}
+
+/** Every pedido ENVIADO of the sede, soonest expected first (undated last). */
+function resumirPedidosEnCamino(items: ItemEnCaminoInput[]): PedidoEnCamino[] {
+  const pedidos = new Map<string, PedidoEnCamino>();
+  for (const item of items) {
+    const pedido = pedidos.get(item.pedido.id);
+    if (pedido) {
+      pedido.referencias += 1;
+      pedido.total += item.cantidad * item.precioCompraUnitario;
+    } else {
+      pedidos.set(item.pedido.id, {
+        id: item.pedido.id,
+        numero: item.pedido.numero,
+        proveedorNombre: item.pedido.proveedorNombre,
+        fechaEsperada: item.pedido.fechaEsperada?.toISOString() ?? null,
+        referencias: 1,
+        total: item.cantidad * item.precioCompraUnitario,
+      });
+    }
+  }
+  return [...pedidos.values()].sort((a, b) => (a.fechaEsperada ?? "9999").localeCompare(b.fechaEsperada ?? "9999"));
 }

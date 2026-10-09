@@ -13,9 +13,10 @@ vi.mock("next/cache", () => ({ revalidatePath: (path: string) => mockRevalidateP
 const repuesto = { findMany: vi.fn(), updateMany: vi.fn() };
 const itemOrden = { findMany: vi.fn() };
 const entradaMercanciaItem = { findMany: vi.fn() };
+const pedidoCompraItem = { findMany: vi.fn() };
 
 vi.mock("@/lib/db/tenant-client", () => ({
-  getTenantDb: () => ({ repuesto, itemOrden, entradaMercanciaItem }),
+  getTenantDb: () => ({ repuesto, itemOrden, entradaMercanciaItem, pedidoCompraItem }),
 }));
 
 import { getAlertasInventario, posponerAlertaInventarioAction, reactivarAlertaInventarioAction } from "./alertas-inventario-actions";
@@ -52,6 +53,7 @@ describe("getAlertasInventario", () => {
     repuesto.findMany.mockReset().mockResolvedValue([]);
     itemOrden.findMany.mockReset();
     entradaMercanciaItem.findMany.mockReset().mockResolvedValue([]);
+    pedidoCompraItem.findMany.mockReset().mockResolvedValue([]);
     stubItemOrden({});
     vi.useFakeTimers();
     vi.setSystemTime(HOY);
@@ -76,6 +78,28 @@ describe("getAlertasInventario", () => {
 
     const consumo = itemOrden.findMany.mock.calls.map(([args]) => args).find((args) => args.where.orden.factura !== null);
     expect(consumo.where.orden.factura.createdAt.gte).toEqual(new Date("2026-07-11T15:00:00.000Z"));
+  });
+
+  it("reads only pedidos ENVIADO of the sede as en camino", async () => {
+    repuesto.findMany.mockResolvedValue([repuestoRow("a", 1, 5)]);
+    pedidoCompraItem.findMany.mockResolvedValue([
+      {
+        repuestoId: "a",
+        cantidad: 4,
+        precioCompraUnitario: { toString: () => "1500" },
+        pedido: { id: "pc1", numero: 3, fechaEsperada: new Date("2026-10-12T15:00:00.000Z"), proveedor: { nombre: "Bosch" } },
+      },
+    ]);
+
+    const { alertas, resumen } = await getAlertasInventario();
+
+    expect(pedidoCompraItem.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { pedido: { estado: "ENVIADO", bodega: { sedeId: SEDE_ID } } } }),
+    );
+    expect(alertas[0].enCamino).toEqual({ cantidad: 4, pedidos: [{ id: "pc1", numero: 3, fechaEsperada: "2026-10-12T15:00:00.000Z" }] });
+    expect(resumen.pedidosEnCamino).toEqual([
+      { id: "pc1", numero: 3, proveedorNombre: "Bosch", fechaEsperada: "2026-10-12T15:00:00.000Z", referencias: 1, total: 6000 },
+    ]);
   });
 
   it("skips the purchase-history query when nothing is alerted", async () => {

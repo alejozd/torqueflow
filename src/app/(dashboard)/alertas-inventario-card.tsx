@@ -2,9 +2,11 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { BellOff, BellRing, ChevronDown, ClipboardCopy, DollarSign, Hourglass, PackageCheck, PackagePlus, PackageX, Wrench } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { BellOff, BellRing, ChevronDown, ClipboardCopy, ClipboardList, Truck, DollarSign, Hourglass, PackageCheck, PackagePlus, PackageX, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { posponerAlertaInventarioAction, reactivarAlertaInventarioAction } from "@/app/actions/alertas-inventario-actions";
+import { crearPedidosCompraAction } from "@/app/actions/pedido-compra-actions";
 import {
   DIAS_POSPONER_ALERTA,
   type AlertaInventarioRow,
@@ -35,7 +37,7 @@ const CHIP = {
   neutral: "bg-muted text-muted-foreground",
 } as const;
 
-type Pestana = "proveedor" | "urgencia" | "ordenes" | "pospuestas";
+type Pestana = "proveedor" | "urgencia" | "ordenes" | "pospuestas" | "en-camino";
 
 /** Rows shown per list (urgencia/ordenes) or per proveedor group before "Mostrar todas". */
 const LIMITE_URGENCIA = 8;
@@ -168,6 +170,14 @@ function ChipsAlerta({ alerta }: { alerta: AlertaInventarioRow }) {
         <Chip tono="warning">Se agota en ~{alerta.diasCobertura} {alerta.diasCobertura === 1 ? "día" : "días"}</Chip>
       ) : null}
       {alerta.disponible <= 0 && !alerta.frenaOrdenes ? <Chip tono="danger">Sin disponible</Chip> : null}
+      {alerta.enCamino ? (
+        <Chip tono="success">
+          En camino {alerta.enCamino.cantidad} uds
+          {alerta.enCamino.pedidos[0]?.fechaEsperada
+            ? ` · llega el ${formatoFechaCorta.format(new Date(alerta.enCamino.pedidos[0].fechaEsperada))}`
+            : ""}
+        </Chip>
+      ) : null}
       {alerta.pospuestaHasta ? <Chip tono="neutral">Pospuesta hasta el {formatoFechaCorta.format(new Date(alerta.pospuestaHasta))}</Chip> : null}
     </>
   );
@@ -228,7 +238,7 @@ function FilaAlerta({
             type="button"
             className="h-6 w-6 bg-muted text-sm hover:bg-muted/70"
             aria-label={`Menos ${alerta.nombre}`}
-            onClick={() => onCantidad(Math.max(alerta.multiploCompra, cantidad - alerta.multiploCompra))}
+            onClick={() => onCantidad(Math.max(0, cantidad - alerta.multiploCompra))}
           >
             −
           </button>
@@ -363,6 +373,30 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
   const totalSeleccion = seleccionadas.reduce((suma, alerta) => suma + cantidadDe(alerta) * alerta.precioCompra, 0);
   const proveedoresSeleccion = new Set(seleccionadas.flatMap((alerta) => (alerta.proveedor ? [alerta.proveedor.id] : []))).size;
 
+  const router = useRouter();
+  const [creandoPedidos, startCrearPedidos] = useTransition();
+
+  function crearPedidos() {
+    const lineas = seleccionadas
+      .map((alerta) => ({ repuestoId: alerta.id, cantidad: cantidadDe(alerta) }))
+      .filter((linea) => linea.cantidad > 0);
+    if (lineas.length === 0) {
+      toast.error("Las cantidades seleccionadas están en 0.");
+      return;
+    }
+    startCrearPedidos(async () => {
+      const resultado = await crearPedidosCompraAction(lineas);
+      if (resultado.error) {
+        toast.error(resultado.error);
+        return;
+      }
+      const creados = resultado.pedidoIds.length;
+      toast.success(creados === 1 ? "Pedido creado: revísalo y envíalo al proveedor" : `${creados} pedidos creados, uno por proveedor`);
+      setSeleccion(new Set());
+      router.push(creados === 1 ? `/pedidos-compra/${resultado.pedidoIds[0]}` : "/pedidos-compra?estado=BORRADOR");
+    });
+  }
+
   async function copiarPedido() {
     try {
       await navigator.clipboard.writeText(textoPedido(seleccionadas, cantidades));
@@ -394,7 +428,7 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
       : pestana === "pospuestas"
         ? "No hay alertas pospuestas."
         : "Todas las alertas están pospuestas.";
-  const ocultas =
+  const ocultas = pestana === "en-camino" ? 0 :
     pestana === "proveedor"
       ? grupos.reduce((suma, grupo) => suma + Math.max(0, grupo.alertas.length - LIMITE_POR_PROVEEDOR), 0)
       : Math.max(0, listaPlana.length - LIMITE_URGENCIA);
@@ -403,6 +437,9 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
     { id: "proveedor", label: "Por proveedor", count: grupos.length },
     { id: "urgencia", label: "Por urgencia", count: activas.length },
     { id: "ordenes", label: "Frenan órdenes", count: frenan.length },
+    ...(resumen.pedidosEnCamino.length > 0
+      ? [{ id: "en-camino" as const, label: "En camino", count: resumen.pedidosEnCamino.length }]
+      : []),
     ...(pospuestas.length > 0 ? [{ id: "pospuestas" as const, label: "Pospuestas", count: pospuestas.length }] : []),
   ];
 
@@ -464,7 +501,11 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
                 title="Costo de reposición"
                 value={formatoMoneda.format(resumen.costoReposicion)}
                 valueColor="success"
-                subtitle="Con las cantidades sugeridas"
+                subtitle={
+                  resumen.pedidosEnCamino.length > 0
+                    ? `Descontando ${resumen.pedidosEnCamino.length} ${resumen.pedidosEnCamino.length === 1 ? "pedido" : "pedidos"} en camino`
+                    : "Con las cantidades sugeridas"
+                }
                 icon={<DollarSign className={cn("size-5", KPI_TONE.success.icon)} />}
                 iconBgColor={KPI_TONE.success.iconBg}
                 className={KPI_TONE.success.cardBg}
@@ -517,7 +558,26 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
           </div>
 
           <div role="tabpanel">
-            {pestana === "proveedor" && grupos.length > 0 ? (
+            {pestana === "en-camino" ? (
+              resumen.pedidosEnCamino.map((pedido) => (
+                <Link
+                  key={pedido.id}
+                  href={`/pedidos-compra/${pedido.id}`}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t px-4 py-3 text-sm first:border-t-0 hover:bg-muted/50"
+                >
+                  <Truck className="size-4 text-blue-600 dark:text-blue-400" />
+                  <span className="font-mono font-medium">#{pedido.numero}</span>
+                  <span className="font-medium">{pedido.proveedorNombre}</span>
+                  <span className="text-muted-foreground">
+                    {pedido.referencias} {pedido.referencias === 1 ? "referencia" : "referencias"}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {pedido.fechaEsperada ? `llega el ${formatoFechaCorta.format(new Date(pedido.fechaEsperada))}` : "sin fecha"}
+                  </span>
+                  <span className="ml-auto font-mono">{formatoMoneda.format(pedido.total)}</span>
+                </Link>
+              ))
+            ) : pestana === "proveedor" && grupos.length > 0 ? (
               grupos.map((grupo, indice) => {
                 const total = grupo.alertas.reduce((suma, alerta) => suma + cantidadDe(alerta) * alerta.precioCompra, 0);
                 const todas = grupo.alertas.every((alerta) => seleccion.has(alerta.id));
@@ -577,9 +637,13 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
                   <Button type="button" variant="outline" size="sm" onClick={() => setSeleccion(new Set())}>
                     Limpiar
                   </Button>
-                  <Button type="button" size="sm" onClick={copiarPedido}>
+                  <Button type="button" variant="outline" size="sm" onClick={copiarPedido}>
                     <ClipboardCopy />
-                    Copiar pedido
+                    Copiar
+                  </Button>
+                  <Button type="button" size="sm" disabled={creandoPedidos} onClick={crearPedidos}>
+                    <ClipboardList />
+                    {creandoPedidos ? "Creando..." : proveedoresSeleccion > 1 ? "Crear pedidos" : "Crear pedido"}
                   </Button>
                 </span>
               </>

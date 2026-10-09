@@ -81,6 +81,12 @@ describe("calcularCantidadSugerida", () => {
     expect(calcularCantidadSugerida(1, 10, 6)).toBe(12);
   });
 
+  it("discounts units already on their way, down to zero when they cover the objetivo", () => {
+    expect(calcularCantidadSugerida(1, 10, 1, 4)).toBe(5);
+    expect(calcularCantidadSugerida(1, 10, 1, 9)).toBe(0);
+    expect(calcularCantidadSugerida(1, 10, 4, 3)).toBe(8);
+  });
+
   it("never suggests less than one pack", () => {
     expect(calcularCantidadSugerida(5, 5, 1)).toBe(1);
     expect(calcularCantidadSugerida(5, 5, 4)).toBe(4);

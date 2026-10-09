@@ -6,6 +6,14 @@ import type { AlertaInventarioRow, AlertasInventario } from "@/lib/dashboard/ale
 const mockToastSuccess = vi.fn();
 vi.mock("sonner", () => ({ toast: { success: (...args: unknown[]) => mockToastSuccess(...args), error: vi.fn() } }));
 
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush }) }));
+
+const mockCrearPedidos = vi.fn();
+vi.mock("@/app/actions/pedido-compra-actions", () => ({
+  crearPedidosCompraAction: (...args: unknown[]) => mockCrearPedidos(...args),
+}));
+
 const mockPosponer = vi.fn();
 const mockReactivar = vi.fn();
 vi.mock("@/app/actions/alertas-inventario-actions", () => ({
@@ -33,6 +41,7 @@ function alerta(overrides: Partial<AlertaInventarioRow> & { id: string; nombre: 
     objetivoReposicion: 10,
     seAgotaAntesDeEntrega: false,
     pospuestaHasta: null,
+    enCamino: null,
     consumoSemanal: [0, 0, 0, 0, 0, 0, 1, 2],
     consumoDiario: 0,
     diasCobertura: null,
@@ -55,6 +64,7 @@ function datos(alertas: AlertaInventarioRow[]): AlertasInventario {
       seAgotanEn7Dias: 0,
       costoReposicion: alertas.reduce((s, a) => s + a.costoSugerido, 0),
       pospuestas: alertas.filter((a) => a.pospuestaHasta).length,
+      pedidosEnCamino: [],
     },
   };
 }
@@ -75,6 +85,8 @@ describe("AlertasInventarioCard", () => {
   beforeEach(() => {
     mockToastSuccess.mockReset();
     mockPosponer.mockReset().mockResolvedValue({ error: null });
+    mockPush.mockReset();
+    mockCrearPedidos.mockReset().mockResolvedValue({ error: null, pedidoIds: ["pc1"] });
     mockReactivar.mockReset().mockResolvedValue({ error: null });
   });
 
@@ -113,7 +125,7 @@ describe("AlertasInventarioCard", () => {
     await user.click(screen.getByLabelText("Seleccionar Motor de arranque"));
     await user.click(screen.getByLabelText("Más Motor de arranque"));
     await user.click(screen.getByLabelText("Seleccionar Filtro de aceite"));
-    await user.click(screen.getByRole("button", { name: /Copiar pedido/ }));
+    await user.click(screen.getByRole("button", { name: "Copiar" }));
 
     expect(writeText).toHaveBeenCalledWith(
       "Pedido para Bosch Colombia:\n- 9 x Motor de arranque (M1)\n\nPedido para Autopartes Norte:\n- 8 x Filtro de aceite (F1)",
@@ -138,8 +150,11 @@ describe("AlertasInventarioCard", () => {
     expect(screen.getByLabelText("Cantidad a pedir de Bujía")).toHaveTextContent("12");
     await userEvent.click(screen.getByLabelText("Menos Bujía"));
     await userEvent.click(screen.getByLabelText("Menos Bujía"));
-    await userEvent.click(screen.getByLabelText("Menos Bujía"));
     expect(screen.getByLabelText("Cantidad a pedir de Bujía")).toHaveTextContent("4");
+    // Down to 0 to leave a selected line out of the pedido, never negative.
+    await userEvent.click(screen.getByLabelText("Menos Bujía"));
+    await userEvent.click(screen.getByLabelText("Menos Bujía"));
+    expect(screen.getByLabelText("Cantidad a pedir de Bujía")).toHaveTextContent("0");
   });
 
   it("moves snoozed alerts to a Pospuestas tab and lets them be reactivated", async () => {
@@ -168,6 +183,36 @@ describe("AlertasInventarioCard", () => {
     expect(screen.queryByRole("tab", { name: /Pospuestas/ })).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Por urgencia/ })).toHaveAttribute("aria-selected", "true");
     expect(within(screen.getByRole("tabpanel")).getByText("Correa")).toBeInTheDocument();
+  });
+
+  it("creates a pedido from the selection, leaving out lines at 0, and opens it", async () => {
+    const user = userEvent.setup();
+    render(<AlertasInventarioCard data={datos([motor, filtro])} />);
+
+    await user.click(screen.getByLabelText("Seleccionar Motor de arranque"));
+    await user.click(screen.getByLabelText("Seleccionar Filtro de aceite"));
+    for (let i = 0; i < 8; i++) await user.click(screen.getByLabelText("Menos Filtro de aceite"));
+    await user.click(screen.getByRole("button", { name: /Crear pedido/ }));
+
+    await vi.waitFor(() => expect(mockCrearPedidos).toHaveBeenCalledWith([{ repuestoId: "m1", cantidad: 8 }]));
+    await vi.waitFor(() => expect(mockPush).toHaveBeenCalledWith("/pedidos-compra/pc1"));
+  });
+
+  it("shows units on their way and lists pedidos en camino in their own tab", async () => {
+    const enCamino = alerta({
+      id: "e1",
+      nombre: "Bujía",
+      enCamino: { cantidad: 8, pedidos: [{ id: "pc9", numero: 9, fechaEsperada: "2026-10-12T15:00:00.000Z" }] },
+    });
+    const data = datos([enCamino]);
+    data.resumen.pedidosEnCamino = [
+      { id: "pc9", numero: 9, proveedorNombre: "Bosch Colombia", fechaEsperada: "2026-10-12T15:00:00.000Z", referencias: 2, total: 50000 },
+    ];
+    render(<AlertasInventarioCard data={data} />);
+
+    expect(screen.getByText(/En camino 8 uds · llega el 12/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: /En camino/ }));
+    expect(screen.getByRole("link", { name: /#9.*Bosch Colombia/ })).toHaveAttribute("href", "/pedidos-compra/pc9");
   });
 
   it("snoozes an alert for 7 days from its detail", async () => {

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
-import { scopeRepuesto } from "@/lib/sede/scope";
+import { scopePedidoCompra, scopeRepuesto } from "@/lib/sede/scope";
 import { whereItemsComprometidos } from "@/lib/inventario/comprometido";
 import {
   construirAlertasInventario,
@@ -31,7 +31,7 @@ export async function getAlertasInventario(): Promise<AlertasInventario> {
   const scope = scopeRepuesto(session.user.sedeActivaId);
   const hoy = new Date();
 
-  const [repuestos, comprometidos, consumidos] = await Promise.all([
+  const [repuestos, comprometidos, consumidos, enCamino] = await Promise.all([
     tenantDb.repuesto.findMany({
       where: scope,
       select: {
@@ -65,7 +65,27 @@ export async function getAlertasInventario(): Promise<AlertasInventario> {
       },
       select: { repuestoId: true, cantidad: true, orden: { select: { factura: { select: { createdAt: true } } } } },
     }),
+    tenantDb.pedidoCompraItem.findMany({
+      where: { pedido: { estado: "ENVIADO", ...scopePedidoCompra(session.user.sedeActivaId) } },
+      select: {
+        repuestoId: true,
+        cantidad: true,
+        precioCompraUnitario: true,
+        pedido: { select: { id: true, numero: true, fechaEsperada: true, proveedor: { select: { nombre: true } } } },
+      },
+    }),
   ]);
+  const enCaminoInput = enCamino.map((item) => ({
+    repuestoId: item.repuestoId,
+    cantidad: item.cantidad,
+    precioCompraUnitario: Number(item.precioCompraUnitario),
+    pedido: {
+      id: item.pedido.id,
+      numero: item.pedido.numero,
+      proveedorNombre: item.pedido.proveedor.nombre,
+      fechaEsperada: item.pedido.fechaEsperada,
+    },
+  }));
 
   const repuestosInput = repuestos.map((repuesto) => ({ ...repuesto, precioCompra: Number(repuesto.precioCompra) }));
   const comprometidosInput = comprometidos.flatMap((item) =>
@@ -95,6 +115,7 @@ export async function getAlertasInventario(): Promise<AlertasInventario> {
     comprometidos: comprometidosInput,
     consumidos: consumidosInput,
     entradas: [],
+    enCamino: enCaminoInput,
     hoy,
   });
   if (sinHistorial.alertas.length === 0) return sinHistorial;
@@ -122,6 +143,7 @@ export async function getAlertasInventario(): Promise<AlertasInventario> {
       fecha: item.createdAt,
       proveedorNombre: item.entrada.proveedor.nombre,
     })),
+    enCamino: enCaminoInput,
     hoy,
   });
 }
