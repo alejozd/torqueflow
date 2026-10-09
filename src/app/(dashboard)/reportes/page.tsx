@@ -177,13 +177,20 @@ export default async function ReportesPage({
           <CardTitle>Productividad por técnico</CardTitle>
         </CardHeader>
         <CardContent>
-          <DataTable
-            columns={COLUMNS}
-            rows={productividad.filas}
-            getRowKey={(fila) => fila.mecanicoId ?? "sin-asignar"}
-            emptyMessage="No hay órdenes entregadas en este rango."
-            headerClassName="bg-muted"
-          />
+          {/* An error must not read as "no data": show it instead of an empty table. */}
+          {productividad.error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{productividad.error}</AlertDescription>
+            </Alert>
+          ) : (
+            <DataTable
+              columns={COLUMNS}
+              rows={productividad.filas}
+              getRowKey={(fila) => fila.mecanicoId ?? "sin-asignar"}
+              emptyMessage="No hay órdenes entregadas en este rango."
+              headerClassName="bg-muted"
+            />
+          )}
         </CardContent>
       </Card>
     </main>
