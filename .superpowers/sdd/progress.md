@@ -1160,7 +1160,12 @@ Deuda del backlog CERRADA (prioridad alta, a pedido del usuario):
 - `fase-deuda-task 2` (49d6128): sesión de super-admin con `maxAge` de 1 hora y el mismo `SessionRenewalModal` (movido a `src/components/`, con `loginPath`) (backlog Fase 9 #1).
 - `fase-deuda-task 3` (6bf5f4c): login sin enumeración por tiempo — hash bcrypt de relleno (costo 12) en email desconocido / tenant suspendido / super-admin desconocido (backlog Fase 10 #1).
 
+Deuda de prioridad media CERRADA (mismo día):
+- `fase-deuda-task 4` (7983fed): `deleteSedeAction` rechaza borrar la sede activa de la sesión.
+- `fase-deuda-task 5` (c42c523): DVI en modo solo consulta (`soloLectura`) cuando la orden no es mutable; nuevo `esOrdenMutable` junto a `assertOrdenMutable`.
+- `fase-deuda-task 6` (30c13bd): Reportes muestra `productividad.error` en lugar de la tabla vacía (primer test de una página server en el repo: `reportes/page.test.tsx`).
+- `fase-deuda-task 7` (922af20): `SessionRenewalModal` deshabilita "Continuar" mientras renueva y muestra un error si `update()` devuelve null o falla.
+
 Deuda que sigue ABIERTA (priorizada con el usuario el 2026-10-09):
 - Alta: tests de aprovisionamiento corren contra la base del servidor (falta una base de tests propia, p. ej. Postgres en Docker — decisión aplazada por el usuario).
-- Media: un ADMIN puede borrar su sede activa; formularios DVI visibles en órdenes facturadas; `productividad.error` no se muestra en Reportes; `handleContinue` del modal de renovación sin manejo de errores.
 - Baja: `Repuesto.codigo` único por tenant (decisión de producto antes de multi-sede real); borrar cliente/vehículo sin UI (y borraría historial); revalidatePath del listado de entradas al agregar ítem; `.email()` deprecado de zod; cantidad de entrada sin tope; test duplicado en guards; `as string` de `sedeActivaId` en los tipos de sesión.
