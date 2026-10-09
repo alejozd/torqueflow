@@ -8,10 +8,9 @@ vi.mock("@/lib/auth/guards", () => ({
 const ordenTrabajo = { count: vi.fn(), findMany: vi.fn() };
 const cita = { count: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() };
 const factura = { aggregate: vi.fn(), count: vi.fn(), findMany: vi.fn() };
-const repuesto = { findMany: vi.fn() };
 
 vi.mock("@/lib/db/tenant-client", () => ({
-  getTenantDb: () => ({ ordenTrabajo, cita, factura, repuesto }),
+  getTenantDb: () => ({ ordenTrabajo, cita, factura }),
 }));
 
 import { getDashboardOverview } from "./dashboard-actions";
@@ -30,7 +29,6 @@ function resetMocks() {
   factura.aggregate.mockReset();
   factura.count.mockReset();
   factura.findMany.mockReset();
-  repuesto.findMany.mockReset();
 }
 
 /** Wires every query to a harmless empty/zero default so a test only needs to override what it checks. */
@@ -43,7 +41,6 @@ function stubDefaults() {
   factura.aggregate.mockResolvedValue({ _sum: { saldoPendiente: null } });
   factura.count.mockResolvedValue(0);
   factura.findMany.mockResolvedValue([]);
-  repuesto.findMany.mockResolvedValue([]);
 }
 
 describe("getDashboardOverview", () => {
@@ -71,9 +68,6 @@ describe("getDashboardOverview", () => {
     expect(cita.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ sedeId: SEDE_ID }) }));
     expect(factura.aggregate).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ orden: { sedeId: SEDE_ID } }) }),
-    );
-    expect(repuesto.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ bodega: { sedeId: SEDE_ID } } ) }),
     );
   });
 
@@ -141,20 +135,6 @@ describe("getDashboardOverview", () => {
     const overview = await getDashboardOverview();
 
     expect(overview.cartera).toEqual({ saldoPendiente: 0, facturasPendientes: 0 });
-  });
-
-  it("computes stockBajo total and sinExistencias from scoped repuestos, without inventing a two-column DB filter", async () => {
-    repuesto.findMany.mockResolvedValue([
-      { id: "r1", codigo: "A1", nombre: "Filtro", stockActual: 0, stockMinimo: 4 },
-      { id: "r2", codigo: "A2", nombre: "Bujía", stockActual: 3, stockMinimo: 5 },
-      { id: "r3", codigo: "A3", nombre: "Aceite", stockActual: 10, stockMinimo: 5 },
-    ]);
-
-    const overview = await getDashboardOverview();
-
-    expect(overview.stockBajo).toEqual({ count: 2, sinExistencias: 1 });
-    // Most critical (biggest deficit) first.
-    expect(overview.alertasInventario.map((r) => r.codigo)).toEqual(["A1", "A2"]);
   });
 
   it("computes flujo del taller counts by estado, entregadasHoy scoped to entregadaAt today", async () => {

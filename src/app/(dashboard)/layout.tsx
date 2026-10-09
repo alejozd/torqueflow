@@ -100,8 +100,9 @@ async function loadFacturasPendientes(session: Awaited<ReturnType<typeof require
 }
 
 /**
- * Sidebar badge on "Repuestos" -- same "stockBajo.count" definition as the
- * Inicio dashboard's own KPI: stockActual <= stockMinimo, computed in JS
+ * Sidebar badge on "Repuestos" -- same raw-stock definition as the Repuestos
+ * page (the Inicio KPI instead counts stock still free after open ordenes,
+ * see getAlertasInventario): stockActual <= stockMinimo, computed in JS
  * because Prisma cannot compare two columns of the same row in a `where`.
  */
 async function loadRepuestosStockBajo(session: Awaited<ReturnType<typeof requireSession>>): Promise<number> {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agruparFacturacionPorDia, ordenarPorCriticidad, totalOrden, ultimosNDiasIso } from "./calculos";
+import { agruparFacturacionPorDia, totalOrden, ultimosNDiasIso } from "./calculos";
 
 describe("totalOrden", () => {
   it("sums items (cantidad x precioUnitario) plus mano de obra (flat valor per línea)", () => {
@@ -53,17 +53,5 @@ describe("agruparFacturacionPorDia", () => {
     const facturas = [{ createdAt: new Date("2026-01-01T00:00:00.000Z"), total: 999 }];
 
     expect(agruparFacturacionPorDia(facturas, dias)).toEqual([{ fecha: "2026-08-25", total: 0 }]);
-  });
-});
-
-describe("ordenarPorCriticidad", () => {
-  it("sorts repuestos by biggest deficit (stockActual - stockMinimo) first", () => {
-    const repuestos = [
-      { id: "a", stockActual: 3, stockMinimo: 5 }, // deficit -2
-      { id: "b", stockActual: 0, stockMinimo: 4 }, // deficit -4
-      { id: "c", stockActual: 4, stockMinimo: 5 }, // deficit -1
-    ];
-
-    expect(ordenarPorCriticidad(repuestos).map((r) => r.id)).toEqual(["b", "a", "c"]);
   });
 });

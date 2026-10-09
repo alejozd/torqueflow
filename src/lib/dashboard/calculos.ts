@@ -53,12 +53,3 @@ export function agruparFacturacionPorDia(
   }
   return dias.map((fecha) => ({ fecha, total: totalesPorDia.get(fecha) ?? 0 }));
 }
-
-/**
- * Most critical first: biggest (stockActual - stockMinimo) deficit at the
- * top. Plain-JS sort because Prisma cannot compare two columns of the same
- * row in a `where` clause without raw SQL.
- */
-export function ordenarPorCriticidad<T extends { stockActual: number; stockMinimo: number }>(repuestos: T[]): T[] {
-  return [...repuestos].sort((a, b) => a.stockActual - a.stockMinimo - (b.stockActual - b.stockMinimo));
-}

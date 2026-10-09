@@ -2,9 +2,9 @@
 
 import { requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
-import { scopeCita, scopeFactura, scopeOrden, scopeRepuesto } from "@/lib/sede/scope";
+import { scopeCita, scopeFactura, scopeOrden } from "@/lib/sede/scope";
 import { buildRangoFechas } from "@/lib/reportes/rango-fechas";
-import { agruparFacturacionPorDia, ordenarPorCriticidad, totalOrden, ultimosNDiasIso } from "@/lib/dashboard/calculos";
+import { agruparFacturacionPorDia, totalOrden, ultimosNDiasIso } from "@/lib/dashboard/calculos";
 import type { EstadoCita, EstadoOrden } from "@/generated/prisma-tenant";
 
 /**
@@ -43,26 +43,16 @@ export interface CitaHoyRow {
   estado: EstadoCita;
 }
 
-export interface RepuestoAlertaRow {
-  id: string;
-  codigo: string;
-  nombre: string;
-  stockActual: number;
-  stockMinimo: number;
-}
-
 export interface DashboardOverview {
   enTaller: { total: number; terminadasHoy: number };
   citasHoy: { total: number; proxima: { hora: string; placa: string } | null };
   porFacturar: { count: number; monto: number };
   cartera: { saldoPendiente: number; facturasPendientes: number };
-  stockBajo: { count: number; sinExistencias: number };
   flujo: { borrador: number; enProceso: number; terminadas: number; entregadasHoy: number };
   ordenesActivasCount: number;
   ordenesRecientes: OrdenRecienteRow[];
   agendaHoy: CitaHoyRow[];
   facturacion7Dias: { fecha: string; total: number }[];
-  alertasInventario: RepuestoAlertaRow[];
 }
 
 /**
@@ -73,11 +63,8 @@ export interface DashboardOverview {
  * local-timezone limitation as src/lib/reportes/rango-fechas.ts, not
  * re-litigated here.
  *
- * stockBajo/alertasInventario are computed in JS after a single scoped
- * findMany rather than a `stockActual <= stockMinimo` DB filter: Prisma
- * cannot compare two columns of the same row in a `where` clause without
- * raw SQL, and the per-tenant repuesto count is small enough that fetching
- * the scoped set and filtering here is the honest cheap option.
+ * Inventory alerts (and the "Stock bajo" KPI) come from the separate
+ * getAlertasInventario action.
  */
 export async function getDashboardOverview(): Promise<DashboardOverview> {
   const session = await requireSession();
@@ -98,7 +85,6 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     ordenesPorFacturar,
     carteraAgg,
     facturasPendientesCount,
-    repuestosScoped,
     borradorCount,
     enProcesoCount,
     terminadasCount,
@@ -134,10 +120,6 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       _sum: { saldoPendiente: true },
     }),
     tenantDb.factura.count({ where: { ...scopeFactura(sedeActivaId), estado: "PENDIENTE" } }),
-    tenantDb.repuesto.findMany({
-      where: scopeRepuesto(sedeActivaId),
-      select: { id: true, codigo: true, nombre: true, stockActual: true, stockMinimo: true },
-    }),
     tenantDb.ordenTrabajo.count({ where: { ...scopeOrden(sedeActivaId), estado: "BORRADOR" } }),
     tenantDb.ordenTrabajo.count({ where: { ...scopeOrden(sedeActivaId), estado: "EN_PROCESO" } }),
     tenantDb.ordenTrabajo.count({ where: { ...scopeOrden(sedeActivaId), estado: "TERMINADA" } }),
@@ -178,10 +160,6 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     }),
   ]);
 
-  const repuestosBajoStock = ordenarPorCriticidad(
-    repuestosScoped.filter((repuesto) => repuesto.stockActual <= repuesto.stockMinimo),
-  );
-
   return {
     enTaller: { total: enTallerTotal, terminadasHoy: terminadasHoyCount },
     citasHoy: {
@@ -203,10 +181,6 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     cartera: {
       saldoPendiente: Number(carteraAgg._sum.saldoPendiente ?? 0),
       facturasPendientes: facturasPendientesCount,
-    },
-    stockBajo: {
-      count: repuestosBajoStock.length,
-      sinExistencias: repuestosBajoStock.filter((repuesto) => repuesto.stockActual === 0).length,
     },
     flujo: {
       borrador: borradorCount,
@@ -245,6 +219,5 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       facturasUltimos7Dias.map((factura) => ({ createdAt: factura.createdAt, total: Number(factura.total) })),
       dias7,
     ),
-    alertasInventario: repuestosBajoStock,
   };
 }

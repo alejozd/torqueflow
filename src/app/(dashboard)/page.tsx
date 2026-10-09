@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AlertCircle, CalendarCheck, Car, ChevronRight, FileText, Package, Wrench } from "lucide-react";
 import { requireSession } from "@/lib/auth/guards";
 import { getDashboardOverview } from "@/app/actions/dashboard-actions";
+import { getAlertasInventario } from "@/app/actions/alertas-inventario-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -131,7 +132,11 @@ const SECCIONES_DASHBOARD = [
 ] as const;
 
 export default async function InicioPage() {
-  const [session, overview] = await Promise.all([requireSession(), getDashboardOverview()]);
+  const [session, overview, alertasInventario] = await Promise.all([
+    requireSession(),
+    getDashboardOverview(),
+    getAlertasInventario(),
+  ]);
 
   const nombre = session.user.name ?? session.user.email;
   const flujoTotal =
@@ -240,11 +245,11 @@ export default async function InicioPage() {
 
         <KpiCard
           title="Stock bajo"
-          value={overview.stockBajo.count}
+          value={alertasInventario.resumen.total}
           valueColor="danger"
-          subtitle={overview.stockBajo.sinExistencias > 0 ? `${overview.stockBajo.sinExistencias} sin existencias` : undefined}
+          subtitle={alertasInventario.resumen.sinDisponible > 0 ? `${alertasInventario.resumen.sinDisponible} sin disponible` : undefined}
           subtitleColor="danger"
-          highlight={overview.stockBajo.sinExistencias > 0}
+          highlight={alertasInventario.resumen.sinDisponible > 0}
           icon={<Package className={cn("size-5", KPI_TONE.danger.icon)} />}
           iconBgColor={KPI_TONE.danger.iconBg}
           className={KPI_TONE.danger.cardBg}
@@ -429,10 +434,10 @@ export default async function InicioPage() {
           </Link>
         </CardHeader>
         <CardContent className="flex flex-col divide-y">
-          {overview.alertasInventario.length === 0 ? (
+          {alertasInventario.alertas.length === 0 ? (
             <p className="py-2 text-sm text-muted-foreground">No hay repuestos con stock bajo en esta sede.</p>
           ) : (
-            overview.alertasInventario.map((repuesto) => {
+            alertasInventario.alertas.map((repuesto) => {
               const ratio = repuesto.stockMinimo > 0 ? repuesto.stockActual / repuesto.stockMinimo : 0;
               return (
                 <div key={repuesto.id} className="flex flex-col gap-1.5 py-2.5 text-sm">
