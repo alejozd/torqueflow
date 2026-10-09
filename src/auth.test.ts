@@ -15,6 +15,12 @@ vi.mock("next-auth/providers/credentials", () => ({
 
 vi.mock("@/lib/auth/authorize-credentials", () => ({ authorizeCredentials: vi.fn() }));
 
+const resolveSedeActivaMock = vi.hoisted(() => vi.fn());
+const tenantDbFake = vi.hoisted(() => ({}));
+
+vi.mock("@/lib/auth/sede-access", () => ({ resolveSedeActiva: resolveSedeActivaMock }));
+vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: vi.fn(() => tenantDbFake) }));
+
 import "./auth";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -60,16 +66,59 @@ describe("auth callbacks", () => {
     expect(token.sedeActivaNombre).toBe("Sede principal");
   });
 
-  it("merges sedeActivaId/sedeActivaNombre from an update({ user }) call (Fase 10 /seleccionar-sede)", async () => {
+  it("re-validates an update({ user }) sede against the DB and takes the nombre from it", async () => {
+    resolveSedeActivaMock.mockResolvedValueOnce({ id: "sede-2", nombre: "Sede Norte (BD)" });
+
     const token = await config().callbacks.jwt({
-      token: { sedeActivaId: "", sedeActivaNombre: "" },
+      token: { sub: "u1", role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "", sedeActivaNombre: "" },
       user: undefined,
       trigger: "update",
-      session: { user: { sedeActivaId: "sede-2", sedeActivaNombre: "Sede Norte" } },
+      session: { user: { sedeActivaId: "sede-2", sedeActivaNombre: "nombre del cliente" } },
     });
 
+    expect(resolveSedeActivaMock).toHaveBeenCalledWith(tenantDbFake, "u1", "TECNICO", "sede-2");
     expect(token.sedeActivaId).toBe("sede-2");
-    expect(token.sedeActivaNombre).toBe("Sede Norte");
+    expect(token.sedeActivaNombre).toBe("Sede Norte (BD)");
+  });
+
+  it("rejects an update() to a sede the user may not use (forged POST /api/auth/session)", async () => {
+    resolveSedeActivaMock.mockResolvedValueOnce(null);
+
+    const token = await config().callbacks.jwt({
+      token: {
+        sub: "u1",
+        role: "TECNICO",
+        tenantSchema: "taller_perez",
+        sedeActivaId: "sede-1",
+        sedeActivaNombre: "Sede principal",
+      },
+      user: undefined,
+      trigger: "update",
+      session: { user: { sedeActivaId: "sede-ajena", sedeActivaNombre: "X" } },
+    });
+
+    expect(token.sedeActivaId).toBe("sede-1");
+    expect(token.sedeActivaNombre).toBe("Sede principal");
+  });
+
+  it("ignores a non-string sedeActivaId in update() without querying the DB", async () => {
+    resolveSedeActivaMock.mockClear();
+
+    const token = await config().callbacks.jwt({
+      token: {
+        sub: "u1",
+        role: "TECNICO",
+        tenantSchema: "taller_perez",
+        sedeActivaId: "sede-1",
+        sedeActivaNombre: "Sede principal",
+      },
+      user: undefined,
+      trigger: "update",
+      session: { user: { sedeActivaId: { not: "a string" } } },
+    });
+
+    expect(resolveSedeActivaMock).not.toHaveBeenCalled();
+    expect(token.sedeActivaId).toBe("sede-1");
   });
 
   it("ignores an update() call that carries no sede data", async () => {

@@ -2,6 +2,9 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { authorizeCredentials } from "@/lib/auth/authorize-credentials";
 import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth/session-timing";
+import { resolveSedeActiva } from "@/lib/auth/sede-access";
+import type { Role } from "@/lib/auth/guards";
+import { getTenantDb } from "@/lib/db/tenant-client";
 
 export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
   trustHost: true,
@@ -32,12 +35,23 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
         token.sedeActivaNombre = user.sedeActivaNombre;
       }
       // Fase 10: /seleccionar-sede completes a session that signed in with no
-      // auto-resolved sede by calling unstable_update({ user: { sedeActivaId,
-      // sedeActivaNombre } }) -- merge that in without touching anything else
-      // on the token. `session` here is whatever was passed to update(), raw.
-      if (trigger === "update" && session?.user?.sedeActivaId) {
-        token.sedeActivaId = session.user.sedeActivaId;
-        token.sedeActivaNombre = session.user.sedeActivaNombre;
+      // auto-resolved sede by calling unstable_update({ user: { sedeActivaId } }).
+      // But `session` here is whatever reached update() -- including a
+      // hand-crafted POST /api/auth/session from the browser, not only
+      // seleccionarSedeAction. So the requested sede is re-validated here, and
+      // the nombre comes from the DB, never from the client.
+      const sedeSolicitada = trigger === "update" ? session?.user?.sedeActivaId : undefined;
+      if (typeof sedeSolicitada === "string" && sedeSolicitada) {
+        const sedeActiva = await resolveSedeActiva(
+          getTenantDb(token.tenantSchema as string),
+          token.sub as string,
+          token.role as Role,
+          sedeSolicitada,
+        );
+        if (sedeActiva) {
+          token.sedeActivaId = sedeActiva.id;
+          token.sedeActivaNombre = sedeActiva.nombre;
+        }
       }
       return token;
     },
