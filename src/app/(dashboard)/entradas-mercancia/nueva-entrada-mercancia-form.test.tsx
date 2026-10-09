@@ -67,6 +67,19 @@ describe("NuevaEntradaMercanciaForm", () => {
     await vi.waitFor(() => expect(mockPush).toHaveBeenCalledWith("/entradas-mercancia/e1"));
   });
 
+  it("submits the preselected proveedor and bodega without touching the fields", async () => {
+    renderInDialog(
+      <NuevaEntradaMercanciaForm proveedores={proveedores} bodegas={bodegas} defaultProveedorId="p1" defaultBodegaId="b1" />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Crear entrada" }));
+
+    await vi.waitFor(() => expect(mockCreateEntradaMercanciaAction).toHaveBeenCalledTimes(1));
+    const formData = mockCreateEntradaMercanciaAction.mock.calls[0][1] as FormData;
+    expect(formData.get("proveedorId")).toBe("p1");
+    expect(formData.get("bodegaId")).toBe("b1");
+  });
+
   it("blocks submission and shows a field error when nothing is selected, without calling the server", async () => {
     renderInDialog(<NuevaEntradaMercanciaForm proveedores={proveedores} bodegas={bodegas} />);
 

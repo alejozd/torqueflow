@@ -67,12 +67,25 @@ function buildColumns(ahora: Date): DataTableColumn<EntradaWithDetalle>[] {
   ];
 }
 
-export default async function EntradasMercanciaPage() {
+/**
+ * `?nueva=1&proveedorId=…&bodegaId=…` (linked from the dashboard's inventory
+ * alerts) opens the "Nueva entrada" dialog preselected. Ids that are not in
+ * this sede's lists are ignored rather than trusted.
+ */
+export default async function EntradasMercanciaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ nueva?: string; proveedorId?: string; bodegaId?: string }>;
+}) {
+  const { nueva, proveedorId, bodegaId } = await searchParams;
   const [entradas, proveedores, bodegas] = await Promise.all([
     listEntradas(),
     listProveedores(),
     listBodegas(),
   ]);
+
+  const defaultProveedorId = proveedores.some((proveedor) => proveedor.id === proveedorId) ? proveedorId : undefined;
+  const defaultBodegaId = bodegas.some((bodega) => bodega.id === bodegaId) ? bodegaId : undefined;
 
   const ahora = new Date();
   const inicioMes = inicioMesBogota(ahora);
@@ -91,7 +104,13 @@ export default async function EntradasMercanciaPage() {
             {entradasMes} {entradasMes === 1 ? "entrada" : "entradas"} este mes
           </Badge>
         </div>
-        <NuevaEntradaMercanciaDialog proveedores={proveedores} bodegas={bodegas} />
+        <NuevaEntradaMercanciaDialog
+          proveedores={proveedores}
+          bodegas={bodegas}
+          defaultOpen={nueva === "1"}
+          defaultProveedorId={defaultProveedorId}
+          defaultBodegaId={defaultBodegaId}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">

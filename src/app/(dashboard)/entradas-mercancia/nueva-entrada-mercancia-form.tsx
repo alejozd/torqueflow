@@ -21,9 +21,14 @@ const initialState: EntradaFormState = { error: null, success: false, entradaId:
 export function NuevaEntradaMercanciaForm({
   proveedores,
   bodegas,
+  defaultProveedorId = "",
+  defaultBodegaId = "",
 }: {
   proveedores: Proveedor[];
   bodegas: Bodega[];
+  /** Preselection when arriving from the dashboard's inventory alerts. */
+  defaultProveedorId?: string;
+  defaultBodegaId?: string;
 }) {
   const router = useRouter();
   const [state, setState] = useState<EntradaFormState>(initialState);
@@ -35,7 +40,7 @@ export function NuevaEntradaMercanciaForm({
     formState: { errors },
   } = useForm<EntradaMercanciaInput>({
     resolver: zodResolver(entradaMercanciaInputSchema),
-    defaultValues: { proveedorId: "", bodegaId: "" },
+    defaultValues: { proveedorId: defaultProveedorId, bodegaId: defaultBodegaId },
   });
   const { field: proveedorIdField } = useController({ name: "proveedorId", control });
   const { field: bodegaIdField } = useController({ name: "bodegaId", control });

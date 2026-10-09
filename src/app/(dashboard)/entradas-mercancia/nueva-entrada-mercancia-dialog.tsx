@@ -17,11 +17,17 @@ import {
 export function NuevaEntradaMercanciaDialog({
   proveedores,
   bodegas,
+  defaultOpen = false,
+  defaultProveedorId,
+  defaultBodegaId,
 }: {
   proveedores: Proveedor[];
   bodegas: Bodega[];
+  defaultOpen?: boolean;
+  defaultProveedorId?: string;
+  defaultBodegaId?: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -36,7 +42,12 @@ export function NuevaEntradaMercanciaDialog({
             Registra el proveedor y la bodega; los ítems recibidos se agregan en el detalle de la entrada.
           </DialogDescription>
         </DialogHeader>
-        <NuevaEntradaMercanciaForm proveedores={proveedores} bodegas={bodegas} />
+        <NuevaEntradaMercanciaForm
+          proveedores={proveedores}
+          bodegas={bodegas}
+          defaultProveedorId={defaultProveedorId}
+          defaultBodegaId={defaultBodegaId}
+        />
       </DialogContent>
     </Dialog>
   );
