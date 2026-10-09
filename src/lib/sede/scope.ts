@@ -49,3 +49,8 @@ export function scopeFactura(sedeActivaId: string): { orden: { sedeId: string } 
 export function scopeCotizacion(sedeActivaId: string): { sedeId: string } {
   return { sedeId: sedeActivaId };
 }
+
+/** PedidoCompra has no sede_id; it inherits one through its required Bodega. */
+export function scopePedidoCompra(sedeActivaId: string): { bodega: { sedeId: string } } {
+  return { bodega: { sedeId: sedeActivaId } };
+}
