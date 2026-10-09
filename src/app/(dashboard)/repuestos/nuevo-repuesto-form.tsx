@@ -5,7 +5,7 @@ import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createRepuestoAction, type RepuestoFormState } from "@/app/actions/repuesto-actions";
-import { repuestoInputSchema, repuestoStockInicialSchema } from "@/lib/validation/inventario";
+import { conStockMaximoValido, repuestoBaseSchema, repuestoStockInicialSchema } from "@/lib/validation/inventario";
 import type { Bodega, Proveedor } from "@/generated/prisma-tenant";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 const initialState: RepuestoFormState = { error: null, success: false, repuestoId: null };
 
-const repuestoFormSchema = repuestoInputSchema.extend({ stockActual: repuestoStockInicialSchema });
+const repuestoFormSchema = conStockMaximoValido(repuestoBaseSchema.extend({ stockActual: repuestoStockInicialSchema }));
 type RepuestoFormInput = z.input<typeof repuestoFormSchema>;
 
 export function NuevoRepuestoForm({
@@ -67,6 +67,8 @@ export function NuevoRepuestoForm({
       precioVenta: "",
       stockActual: 0,
       stockMinimo: 0,
+      stockMaximo: "",
+      multiploCompra: 1,
       bodegaId: "",
       proveedorId: "",
     },
@@ -229,6 +231,45 @@ export function NuevoRepuestoForm({
               {...register("stockMinimo")}
             />
             {errors.stockMinimo ? <p id="stockMinimo-error" className="text-xs text-destructive">{errors.stockMinimo.message}</p> : null}
+          </div>
+        </div>
+      </FormGroup>
+
+      <FormGroup label="Reposición">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="stockMaximo">Stock máximo</Label>
+            <Input
+              id="stockMaximo"
+              type="number"
+              min="1" placeholder="Opcional"
+              className="font-mono"
+              aria-invalid={errors.stockMaximo ? true : undefined}
+              aria-describedby={errors.stockMaximo ? "stockMaximo-error" : "stockMaximo-ayuda"}
+              {...register("stockMaximo")}
+            />
+            {errors.stockMaximo ? (
+              <p id="stockMaximo-error" className="text-xs text-destructive">{errors.stockMaximo.message}</p>
+            ) : (
+              <p id="stockMaximo-ayuda" className="text-xs text-muted-foreground">Hasta dónde reponer. Vacío: el doble del mínimo.</p>
+            )}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="multiploCompra">Múltiplo de compra</Label>
+            <Input
+              id="multiploCompra"
+              type="number"
+              min="1"
+              className="font-mono"
+              aria-invalid={errors.multiploCompra ? true : undefined}
+              aria-describedby={errors.multiploCompra ? "multiploCompra-error" : "multiploCompra-ayuda"}
+              {...register("multiploCompra")}
+            />
+            {errors.multiploCompra ? (
+              <p id="multiploCompra-error" className="text-xs text-destructive">{errors.multiploCompra.message}</p>
+            ) : (
+              <p id="multiploCompra-ayuda" className="text-xs text-muted-foreground">Unidades por caja o paquete del proveedor.</p>
+            )}
           </div>
         </div>
       </FormGroup>

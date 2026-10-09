@@ -8,7 +8,8 @@ import {
   deleteProveedorFormAction,
   type ProveedorFormState,
 } from "@/app/actions/proveedor-actions";
-import { proveedorInputSchema, type ProveedorInput } from "@/lib/validation/inventario";
+import type { z } from "zod";
+import { proveedorInputSchema } from "@/lib/validation/inventario";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ export interface ProveedorEditable {
   contacto: string | null;
   telefono: string | null;
   email: string | null;
+  diasEntrega: number;
 }
 
 export function EditarProveedorForm({ proveedor }: { proveedor: ProveedorEditable }) {
@@ -42,7 +44,7 @@ export function EditarProveedorForm({ proveedor }: { proveedor: ProveedorEditabl
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<ProveedorInput>({
+  } = useForm<z.input<typeof proveedorInputSchema>>({
     resolver: zodResolver(proveedorInputSchema),
     defaultValues: {
       nombre: proveedor.nombre,
@@ -51,6 +53,7 @@ export function EditarProveedorForm({ proveedor }: { proveedor: ProveedorEditabl
       contacto: proveedor.contacto ?? "",
       telefono: proveedor.telefono ?? "",
       email: proveedor.email ?? "",
+      diasEntrega: String(proveedor.diasEntrega),
     },
   });
 
@@ -132,6 +135,27 @@ export function EditarProveedorForm({ proveedor }: { proveedor: ProveedorEditabl
                 {...register("email")}
               />
               {errors.email ? <p id={`email-${proveedor.id}-error`}>{errors.email.message}</p> : null}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`diasEntrega-${proveedor.id}`}>Días de entrega</Label>
+              <Input
+                id={`diasEntrega-${proveedor.id}`}
+                type="number"
+                min="0"
+                max="90"
+                className="font-mono"
+                aria-invalid={errors.diasEntrega ? true : undefined}
+                aria-describedby={errors.diasEntrega ? `diasEntrega-${proveedor.id}-error` : `diasEntrega-${proveedor.id}-ayuda`}
+                {...register("diasEntrega")}
+              />
+              {errors.diasEntrega ? (
+                <p id={`diasEntrega-${proveedor.id}-error`}>{errors.diasEntrega.message}</p>
+              ) : (
+                <p id={`diasEntrega-${proveedor.id}-ayuda`} className="text-xs text-muted-foreground">
+                  Cuánto tarda en llegar un pedido.
+                </p>
+              )}
             </div>
           </div>
         </FormGroup>

@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { requiredMoney } from "./money";
 
+/** Empty inputs and missing FormData keys (null) mean "not provided". */
+const vacioComoUndefined = (valor: unknown) => (valor === "" || valor === null ? undefined : valor);
+
 export const bodegaInputSchema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio"),
 });
@@ -14,20 +17,53 @@ export const proveedorInputSchema = z.object({
   contacto: z.string().optional().or(z.literal("")),
   telefono: z.string().optional().or(z.literal("")),
   email: z.string().email("Correo inválido").optional().or(z.literal("")),
+  diasEntrega: z.preprocess(
+    vacioComoUndefined,
+    z.coerce
+      .number()
+      .int("Usa un número entero de días")
+      .min(0, "Los días de entrega no pueden ser negativos")
+      .max(90, "Máximo 90 días de entrega")
+      .default(3),
+  ),
 });
 
 export type ProveedorInput = z.infer<typeof proveedorInputSchema>;
 
-export const repuestoInputSchema = z.object({
+const repuestoInputSchemaSinValidarMaximo = z.object({
   codigo: z.string().min(1, "El código es obligatorio"),
   nombre: z.string().min(1, "El nombre es obligatorio"),
   descripcion: z.string().optional().or(z.literal("")),
   precioCompra: requiredMoney("El precio de compra es obligatorio"),
   precioVenta: requiredMoney("El precio de venta es obligatorio"),
   stockMinimo: z.coerce.number().int().min(0, "El stock mínimo no puede ser negativo"),
+  stockMaximo: z.preprocess(
+    vacioComoUndefined,
+    z.coerce.number().int("Usa un número entero").min(1, "El stock máximo debe ser mayor que 0").optional(),
+  ),
+  multiploCompra: z.preprocess(
+    vacioComoUndefined,
+    z.coerce.number().int("Usa un número entero").min(1, "El múltiplo de compra debe ser al menos 1").default(1),
+  ),
   bodegaId: z.string().min(1, "Selecciona una bodega"),
   proveedorId: z.string().optional().or(z.literal("")),
 });
+
+/**
+ * Plain object (no refinements) so forms can `.extend()` it; every parse
+ * that accepts user input must go through `conStockMaximoValido`.
+ */
+export const repuestoBaseSchema = repuestoInputSchemaSinValidarMaximo;
+
+/** stockMaximo is "restock up to": it only makes sense above the minimum. */
+export function conStockMaximoValido<T extends z.ZodType<{ stockMinimo: number; stockMaximo?: number }>>(schema: T) {
+  return schema.refine((datos) => datos.stockMaximo === undefined || datos.stockMaximo > datos.stockMinimo, {
+    message: "El stock máximo debe ser mayor que el stock mínimo",
+    path: ["stockMaximo"],
+  });
+}
+
+export const repuestoInputSchema = conStockMaximoValido(repuestoBaseSchema);
 
 export type RepuestoInput = z.infer<typeof repuestoInputSchema>;
 

@@ -27,6 +27,7 @@ function parseProveedorFormData(formData: FormData) {
     contacto: formData.get("contacto") ?? "",
     telefono: formData.get("telefono") ?? "",
     email: formData.get("email") ?? "",
+    diasEntrega: formData.get("diasEntrega"),
   });
 }
 
@@ -78,6 +79,7 @@ export async function createProveedorAction(
         contacto: parsed.data.contacto || null,
         telefono: parsed.data.telefono || null,
         email: parsed.data.email || null,
+        diasEntrega: parsed.data.diasEntrega,
       },
     });
   } catch (err) {
@@ -111,6 +113,7 @@ export async function updateProveedorAction(
         contacto: parsed.data.contacto || null,
         telefono: parsed.data.telefono || null,
         email: parsed.data.email || null,
+        diasEntrega: parsed.data.diasEntrega,
       },
     });
   } catch (err) {

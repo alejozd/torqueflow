@@ -24,6 +24,7 @@ function buildColumns(ahora: Date): DataTableColumn<ProveedorConInventario>[] {
             contacto: proveedor.contacto,
             telefono: proveedor.telefono,
             email: proveedor.email,
+            diasEntrega: proveedor.diasEntrega,
           }}
         />
         <span className="font-medium">{proveedor.nombre}</span>

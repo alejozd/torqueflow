@@ -5,7 +5,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { createProveedorAction, type ProveedorFormState } from "@/app/actions/proveedor-actions";
-import { proveedorInputSchema, type ProveedorInput } from "@/lib/validation/inventario";
+import type { z } from "zod";
+import { proveedorInputSchema } from "@/lib/validation/inventario";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -33,9 +34,9 @@ export function NuevoProveedorForm({
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<ProveedorInput>({
+  } = useForm<z.input<typeof proveedorInputSchema>>({
     resolver: zodResolver(proveedorInputSchema),
-    defaultValues: { nombre: "", documento: "", direccion: "", contacto: "", telefono: "", email: "" },
+    defaultValues: { nombre: "", documento: "", direccion: "", contacto: "", telefono: "", email: "", diasEntrega: "3" },
   });
 
   function onValid() {
@@ -129,6 +130,25 @@ export function NuevoProveedorForm({
               {...register("email")}
             />
             {errors.email ? <p id="email-error" className="text-xs text-destructive">{errors.email.message}</p> : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="diasEntrega">Días de entrega</Label>
+            <Input
+              id="diasEntrega"
+              type="number"
+              min="0"
+              max="90"
+              className="font-mono"
+              aria-invalid={errors.diasEntrega ? true : undefined}
+              aria-describedby={errors.diasEntrega ? "diasEntrega-error" : "diasEntrega-ayuda"}
+              {...register("diasEntrega")}
+            />
+            {errors.diasEntrega ? (
+              <p id="diasEntrega-error" className="text-xs text-destructive">{errors.diasEntrega.message}</p>
+            ) : (
+              <p id="diasEntrega-ayuda" className="text-xs text-muted-foreground">Cuánto tarda en llegar un pedido.</p>
+            )}
           </div>
         </div>
       </FormGroup>

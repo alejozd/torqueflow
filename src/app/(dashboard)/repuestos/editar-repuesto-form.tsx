@@ -33,6 +33,8 @@ export interface RepuestoEditable {
   precioCompra: number;
   precioVenta: number;
   stockMinimo: number;
+  stockMaximo: number | null;
+  multiploCompra: number;
   bodegaId: string;
   proveedorId: string | null;
 }
@@ -69,6 +71,8 @@ export function EditarRepuestoForm({
       precioCompra: String(repuesto.precioCompra),
       precioVenta: String(repuesto.precioVenta),
       stockMinimo: String(repuesto.stockMinimo),
+      stockMaximo: repuesto.stockMaximo === null ? "" : String(repuesto.stockMaximo),
+      multiploCompra: String(repuesto.multiploCompra),
       bodegaId: repuesto.bodegaId,
       proveedorId: repuesto.proveedorId ?? "",
     },
@@ -229,6 +233,45 @@ export function EditarRepuestoForm({
               {errors.stockMinimo ? (
                 <p id={`stockMinimo-${repuesto.id}-error`}>{errors.stockMinimo.message}</p>
               ) : null}
+            </div>
+          </div>
+        </FormGroup>
+
+        <FormGroup label="Reposición">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`stockMaximo-${repuesto.id}`}>Stock máximo</Label>
+              <Input
+                id={`stockMaximo-${repuesto.id}`}
+                type="number"
+                min="1" placeholder="Opcional"
+                className="font-mono"
+                aria-invalid={errors.stockMaximo ? true : undefined}
+                aria-describedby={errors.stockMaximo ? `stockMaximo-${repuesto.id}-error` : `stockMaximo-${repuesto.id}-ayuda`}
+                {...register("stockMaximo")}
+              />
+              {errors.stockMaximo ? (
+                <p id={`stockMaximo-${repuesto.id}-error`}>{errors.stockMaximo.message}</p>
+              ) : (
+                <p id={`stockMaximo-${repuesto.id}-ayuda`} className="text-xs text-muted-foreground">Hasta dónde reponer. Vacío: el doble del mínimo.</p>
+              )}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`multiploCompra-${repuesto.id}`}>Múltiplo de compra</Label>
+              <Input
+                id={`multiploCompra-${repuesto.id}`}
+                type="number"
+                min="1"
+                className="font-mono"
+                aria-invalid={errors.multiploCompra ? true : undefined}
+                aria-describedby={errors.multiploCompra ? `multiploCompra-${repuesto.id}-error` : `multiploCompra-${repuesto.id}-ayuda`}
+                {...register("multiploCompra")}
+              />
+              {errors.multiploCompra ? (
+                <p id={`multiploCompra-${repuesto.id}-error`}>{errors.multiploCompra.message}</p>
+              ) : (
+                <p id={`multiploCompra-${repuesto.id}-ayuda`} className="text-xs text-muted-foreground">Unidades por caja o paquete del proveedor.</p>
+              )}
             </div>
           </div>
         </FormGroup>

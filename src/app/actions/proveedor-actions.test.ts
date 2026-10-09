@@ -63,6 +63,7 @@ describe("createProveedorAction", () => {
         contacto: null,
         telefono: null,
         email: null,
+        diasEntrega: 3,
       },
     });
   });
@@ -85,6 +86,7 @@ describe("createProveedorAction", () => {
         contacto: null,
         telefono: null,
         email: null,
+        diasEntrega: 3,
       },
     });
   });
@@ -110,6 +112,7 @@ describe("updateProveedorAction", () => {
         contacto: null,
         telefono: "555-1234",
         email: null,
+        diasEntrega: 3,
       },
     });
   });

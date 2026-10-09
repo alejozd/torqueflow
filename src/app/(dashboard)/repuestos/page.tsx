@@ -81,6 +81,8 @@ function toEditable(repuesto: RepuestoWithDetalle): RepuestoEditable {
     precioCompra: Number(repuesto.precioCompra),
     precioVenta: Number(repuesto.precioVenta),
     stockMinimo: repuesto.stockMinimo,
+    stockMaximo: repuesto.stockMaximo,
+    multiploCompra: repuesto.multiploCompra,
     bodegaId: repuesto.bodegaId,
     proveedorId: repuesto.proveedorId,
   };
