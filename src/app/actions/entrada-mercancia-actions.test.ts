@@ -25,7 +25,8 @@ vi.mock("@/lib/db/tenant-client", () => ({
   }),
 }));
 
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+const mockRevalidatePath = vi.fn();
+vi.mock("next/cache", () => ({ revalidatePath: (path: string) => mockRevalidatePath(path) }));
 
 import {
   createEntradaMercanciaAction,
@@ -140,6 +141,9 @@ describe("addEntradaItemAction", () => {
       data: { stockActual: { increment: 20 } },
     });
     expect(mockTransaction).toHaveBeenCalledTimes(1);
+    // The entradas list shows per-entrada totals, so it must refresh too.
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/entradas-mercancia");
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/entradas-mercancia/e1");
   });
 
   it("surfaces a friendly error when the transaction rejects", async () => {

@@ -152,6 +152,8 @@ export async function addEntradaItemAction(
   }
 
   revalidatePath(`/entradas-mercancia/${entradaId}`);
+  // The list shows each entrada's item/unit/cost totals, which just changed.
+  revalidatePath("/entradas-mercancia");
   revalidatePath("/repuestos");
   return { error: null, success: true, entradaId };
 }
