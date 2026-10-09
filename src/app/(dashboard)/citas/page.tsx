@@ -62,12 +62,6 @@ const ESTADO_DOT_COLOR: Record<EstadoCita, string> = {
   COMPLETADA: "oklch(0.4 0.1 150)",
 };
 
-const formatoFecha = new Intl.DateTimeFormat("es-CO", {
-  dateStyle: "medium",
-  timeStyle: "short",
-  timeZone: "America/Bogota",
-});
-
 const formatoHora = new Intl.DateTimeFormat("es-CO", {
   hour: "2-digit",
   minute: "2-digit",

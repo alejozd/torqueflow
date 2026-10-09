@@ -214,8 +214,8 @@ export async function guardarConfiguracionSmtpAction(
  * is an open relay with extra steps.
  */
 export async function probarConfiguracionSmtpAction(
-  prevState: SmtpFormState,
-  formData: FormData,
+  _prevState: SmtpFormState,
+  _formData: FormData,
 ): Promise<SmtpFormState> {
   const session = await requireRole(["ADMIN"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);

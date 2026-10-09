@@ -139,7 +139,7 @@ export async function deleteProveedorAction(id: string): Promise<void> {
  */
 export async function deleteProveedorFormAction(
   id: string,
-  prevState: ProveedorFormState,
+  _prevState: ProveedorFormState,
 ): Promise<ProveedorFormState> {
   try {
     await deleteProveedorAction(id);

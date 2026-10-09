@@ -52,7 +52,7 @@ export function ClientVehicleSelector({
 
   const clientesPorId = useMemo(() => new Map(clientes.map((cliente) => [cliente.id, cliente])), [clientes]);
   const clienteSeleccionado = clientesPorId.get(clienteId) ?? null;
-  const vehiculosDisponibles = clienteSeleccionado?.vehiculos ?? [];
+  const vehiculosDisponibles = useMemo(() => clienteSeleccionado?.vehiculos ?? [], [clienteSeleccionado]);
 
   const clienteOptions: ComboboxOption[] = useMemo(
     () => clientes.map((cliente) => ({ value: cliente.id, label: cliente.nombre })),

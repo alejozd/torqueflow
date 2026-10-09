@@ -143,7 +143,7 @@ describe("seedClientes", () => {
     });
 
     mockClienteCreate.mock.calls.forEach((call) => {
-      const { email, nombre } = call[0].data;
+      const { email } = call[0].data;
 
       // Email should be lowercase
       expect(email).toBe(email.toLowerCase());

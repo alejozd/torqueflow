@@ -84,7 +84,6 @@ function createTenantClientCache(): LruCache<string, TenantPrismaClient> {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var __torqueflowTenantClients: LruCache<string, TenantPrismaClient> | undefined;
 }
 

@@ -194,7 +194,7 @@ export async function deleteSedeAction(id: string): Promise<void> {
  */
 export async function deleteSedeFormAction(
   id: string,
-  prevState: SedeFormState,
+  _prevState: SedeFormState,
 ): Promise<SedeFormState> {
   try {
     await deleteSedeAction(id);
