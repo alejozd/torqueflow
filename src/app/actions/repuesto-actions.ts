@@ -6,6 +6,7 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { repuestoInputSchema, repuestoStockInicialSchema as stockInicialSchema } from "@/lib/validation/inventario";
 import { scopeBodega, scopeRepuesto } from "@/lib/sede/scope";
+import { comprometidoPorRepuesto } from "@/lib/inventario/comprometido";
 import type { Prisma } from "@/generated/prisma-tenant";
 
 export interface RepuestoFormState {
@@ -57,6 +58,17 @@ export async function listRepuestos(): Promise<RepuestoWithDetalle[]> {
     include: REPUESTO_DETAIL_INCLUDE,
     orderBy: { nombre: "asc" },
   });
+}
+
+/**
+ * Units of each repuesto held by open (uninvoiced) ordenes in la sede activa,
+ * keyed by repuestoId -- the Repuestos page uses it for the same "stock bajo"
+ * rule as the dashboard alerts and the sidebar badge.
+ */
+export async function getComprometidoPorRepuesto(): Promise<Record<string, number>> {
+  const session = await requireSession();
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  return Object.fromEntries(await comprometidoPorRepuesto(tenantDb, session.user.sedeActivaId));
 }
 
 export async function listRepuestoOptions(bodegaId?: string): Promise<RepuestoOption[]> {

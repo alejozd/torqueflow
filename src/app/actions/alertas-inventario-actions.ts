@@ -3,6 +3,7 @@
 import { requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { scopeRepuesto } from "@/lib/sede/scope";
+import { whereItemsComprometidos } from "@/lib/inventario/comprometido";
 import { construirAlertasInventario, DIAS_CONSUMO, type AlertasInventario } from "@/lib/dashboard/alertas-inventario";
 
 const MS_DIA = 24 * 60 * 60 * 1000;
@@ -39,7 +40,7 @@ export async function getAlertasInventario(): Promise<AlertasInventario> {
       },
     }),
     tenantDb.itemOrden.findMany({
-      where: { repuesto: scope, orden: { estado: { not: "ANULADA" }, factura: null } },
+      where: whereItemsComprometidos(session.user.sedeActivaId),
       select: {
         repuestoId: true,
         cantidad: true,

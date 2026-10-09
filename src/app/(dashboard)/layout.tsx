@@ -6,6 +6,7 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { publicDb } from "@/lib/db/public-client";
 import { esCotizacionPendienteDeSeguimiento } from "@/lib/cotizacion/seguimiento-pendiente";
 import { scopeCita, scopeCotizacion, scopeFactura, scopeOrden, scopeRepuesto } from "@/lib/sede/scope";
+import { comprometidoPorRepuesto, estaBajoMinimo } from "@/lib/inventario/comprometido";
 import { buildRangoFechas } from "@/lib/reportes/rango-fechas";
 import { ultimosNDiasIso } from "@/lib/dashboard/calculos";
 import { SignOutButton } from "./sign-out-button";
@@ -100,18 +101,21 @@ async function loadFacturasPendientes(session: Awaited<ReturnType<typeof require
 }
 
 /**
- * Sidebar badge on "Repuestos" -- same raw-stock definition as the Repuestos
- * page (the Inicio KPI instead counts stock still free after open ordenes,
- * see getAlertasInventario): stockActual <= stockMinimo, computed in JS
+ * Sidebar badge on "Repuestos" -- same definition as the Inicio inventory
+ * alerts and the Repuestos page: stock still free after open ordenes is at or
+ * below stockMinimo (see src/lib/inventario/comprometido.ts), computed in JS
  * because Prisma cannot compare two columns of the same row in a `where`.
  */
 async function loadRepuestosStockBajo(session: Awaited<ReturnType<typeof requireSession>>): Promise<number> {
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  const repuestos = await tenantDb.repuesto.findMany({
-    where: scopeRepuesto(session.user.sedeActivaId),
-    select: { stockActual: true, stockMinimo: true },
-  });
-  return repuestos.filter((repuesto) => repuesto.stockActual <= repuesto.stockMinimo).length;
+  const [repuestos, comprometido] = await Promise.all([
+    tenantDb.repuesto.findMany({
+      where: scopeRepuesto(session.user.sedeActivaId),
+      select: { id: true, stockActual: true, stockMinimo: true },
+    }),
+    comprometidoPorRepuesto(tenantDb, session.user.sedeActivaId),
+  ]);
+  return repuestos.filter((repuesto) => estaBajoMinimo(repuesto, comprometido.get(repuesto.id) ?? 0)).length;
 }
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {

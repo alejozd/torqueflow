@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AlertCircle, DollarSign, Package, XCircle } from "lucide-react";
-import { listRepuestos, type RepuestoWithDetalle } from "@/app/actions/repuesto-actions";
+import { getComprometidoPorRepuesto, listRepuestos, type RepuestoWithDetalle } from "@/app/actions/repuesto-actions";
 import { listBodegas } from "@/app/actions/bodega-actions";
 import { listProveedores } from "@/app/actions/proveedor-actions";
 import { EditarRepuestoDialog } from "./editar-repuesto-dialog";
@@ -11,13 +11,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
+import { estaBajoMinimo } from "@/lib/inventario/comprometido";
 import type { Bodega, Proveedor } from "@/generated/prisma-tenant";
 
 type EstadoStock = "ok" | "bajo" | "sin-existencias";
 
-function estadoStock(repuesto: RepuestoWithDetalle): EstadoStock {
+function estadoStock(repuesto: RepuestoWithDetalle, comprometido: Comprometido): EstadoStock {
   if (repuesto.stockActual === 0) return "sin-existencias";
-  if (repuesto.stockActual <= repuesto.stockMinimo) return "bajo";
+  if (esStockBajo(repuesto, comprometido)) return "bajo";
   return "ok";
 }
 
@@ -58,8 +59,11 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", {
 
 const formatoPorcentaje = new Intl.NumberFormat("es-CO", { style: "percent", maximumFractionDigits: 0 });
 
-function esStockBajo(repuesto: RepuestoWithDetalle): boolean {
-  return repuesto.stockActual <= repuesto.stockMinimo;
+/** Units on open ordenes per repuestoId; see src/lib/inventario/comprometido.ts. */
+type Comprometido = Record<string, number>;
+
+function esStockBajo(repuesto: RepuestoWithDetalle, comprometido: Comprometido): boolean {
+  return estaBajoMinimo(repuesto, comprometido[repuesto.id] ?? 0);
 }
 
 function calcularMargen(repuesto: RepuestoWithDetalle): number | null {
@@ -82,7 +86,11 @@ function toEditable(repuesto: RepuestoWithDetalle): RepuestoEditable {
   };
 }
 
-function buildColumns(bodegas: Bodega[], proveedores: Proveedor[]): DataTableColumn<RepuestoWithDetalle>[] {
+function buildColumns(
+  bodegas: Bodega[],
+  proveedores: Proveedor[],
+  comprometido: Comprometido,
+): DataTableColumn<RepuestoWithDetalle>[] {
   return [
     {
       header: "Código",
@@ -107,7 +115,7 @@ function buildColumns(bodegas: Bodega[], proveedores: Proveedor[]): DataTableCol
     {
       header: "Estado",
       cell: (repuesto) => {
-        const estado = estadoStock(repuesto);
+        const estado = estadoStock(repuesto, comprometido);
         return (
           <Badge className={cn("gap-1.5", ESTADO_STOCK_CLASSNAME[estado])}>
             <span
@@ -122,13 +130,20 @@ function buildColumns(bodegas: Bodega[], proveedores: Proveedor[]): DataTableCol
     {
       header: "Stock",
       className: "text-right",
-      cell: (repuesto) => <span className="font-mono">{repuesto.stockActual}</span>,
+      cell: (repuesto) => (
+        <div className="flex flex-col items-end">
+          <span className="font-mono">{repuesto.stockActual}</span>
+          {comprometido[repuesto.id] ? (
+            <span className="text-xs text-muted-foreground">{comprometido[repuesto.id]} en órdenes</span>
+          ) : null}
+        </div>
+      ),
     },
     {
       header: "Mínimo",
       className: "text-right",
       cell: (repuesto) => (
-        <span className={cn("font-mono", esStockBajo(repuesto) && "font-medium text-[oklch(0.5_0.2_27)]")}>
+        <span className={cn("font-mono", esStockBajo(repuesto, comprometido) && "font-medium text-[oklch(0.5_0.2_27)]")}>
           {repuesto.stockMinimo}
         </span>
       ),
@@ -168,10 +183,15 @@ export default async function RepuestosPage({
 
   // Fetched once, unfiltered: the KPI cards summarize every repuesto of la
   // sede regardless of which filtro the list below is currently applying.
-  const [repuestos, bodegas, proveedores] = await Promise.all([listRepuestos(), listBodegas(), listProveedores()]);
+  const [repuestos, bodegas, proveedores, comprometido] = await Promise.all([
+    listRepuestos(),
+    listBodegas(),
+    listProveedores(),
+    getComprometidoPorRepuesto(),
+  ]);
   const filtrados =
     filtroActivo === "stock-bajo"
-      ? repuestos.filter(esStockBajo)
+      ? repuestos.filter((repuesto) => esStockBajo(repuesto, comprometido))
       : filtroActivo === "sin-existencias"
         ? repuestos.filter((repuesto) => repuesto.stockActual === 0)
         : repuestos;
@@ -180,9 +200,9 @@ export default async function RepuestosPage({
     (suma, repuesto) => suma + repuesto.stockActual * Number(repuesto.precioCompra),
     0,
   );
-  const stockBajo = repuestos.filter(esStockBajo);
+  const stockBajo = repuestos.filter((repuesto) => esStockBajo(repuesto, comprometido));
   const sinExistencias = repuestos.filter((repuesto) => repuesto.stockActual === 0).length;
-  const columns = buildColumns(bodegas, proveedores);
+  const columns = buildColumns(bodegas, proveedores, comprometido);
 
   return (
     <main className="flex flex-col gap-6">
