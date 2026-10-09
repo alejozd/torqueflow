@@ -17,6 +17,7 @@
     "tenant:backfill-dvi-checklist-items": "tsx scripts/cli/backfill-dvi-checklist-items.ts",
     "repuestos:seed": "tsx scripts/cli/seed-repuestos.ts",
     "clientes:seed": "tsx scripts/cli/seed-clientes.ts",
+    "inventario:seed-demo": "tsx scripts/cli/seed-demo-inventario.ts",
     "superadmin:seed": "tsx scripts/cli/seed-super-admin.ts"
   },
   "dependencies": {
