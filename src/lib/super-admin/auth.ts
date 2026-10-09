@@ -1,6 +1,6 @@
 import NextAuth, { type User } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { verifySuperAdminCredentials } from "./verify-credentials";
+import { authorizeSuperAdmin } from "./authorize-super-admin";
 import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth/session-timing";
 
 /**
@@ -39,12 +39,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: { label: "Correo", type: "email" },
         password: { label: "Contraseña", type: "password" },
       },
-      async authorize(credentials) {
-        const email = credentials?.email;
-        const password = credentials?.password;
-        if (typeof email !== "string" || typeof password !== "string") return null;
-
-        const admin = await verifySuperAdminCredentials(email, password);
+      async authorize(credentials, request) {
+        const admin = await authorizeSuperAdmin(credentials, request);
         if (!admin) return null;
 
         // `User` is globally augmented by src/types/next-auth.d.ts for the
@@ -56,7 +52,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // the one place that type mismatch is bridged -- nothing downstream
         // trusts a super-admin session's tenant fields (guards.ts reads only
         // id/email/name and returns the narrow SuperAdminSession type).
-        return { id: admin.id, email: admin.email, name: admin.nombre } as User;
+        return admin as User;
       },
     }),
   ],
