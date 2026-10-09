@@ -74,6 +74,7 @@ model Usuario {
   manoDeObraAsignada            ManoDeObra[]            @relation("ManoDeObraMecanico")
   dviRealizados                 Dvi[]
   entradasCreadas               EntradaMercancia[]
+  pedidosCompraCreados          PedidoCompra[]
   facturasEmitidas              Factura[]
   pagosRegistrados              Pago[]
   citasCreadas                  Cita[]                  @relation("CitaCreadoPor")
@@ -337,33 +338,35 @@ model DviChecklistItem {
 }
 
 model Bodega {
-  id        String             @id @default(cuid())
-  nombre    String
-  sedeId    String             @map("sede_id")
-  sede      Sede               @relation(fields: [sedeId], references: [id], onDelete: Restrict)
-  repuestos Repuesto[]
-  entradas  EntradaMercancia[]
-  createdAt DateTime           @default(now()) @map("created_at")
-  updatedAt DateTime           @updatedAt @map("updated_at")
+  id            String             @id @default(cuid())
+  nombre        String
+  sedeId        String             @map("sede_id")
+  sede          Sede               @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  repuestos     Repuesto[]
+  entradas      EntradaMercancia[]
+  pedidosCompra PedidoCompra[]
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
 
   @@index([sedeId])
   @@map("bodegas")
 }
 
 model Proveedor {
-  id          String             @id @default(cuid())
-  nombre      String
-  documento   String?
-  direccion   String?
-  contacto    String?
-  telefono    String?
-  email       String?
+  id            String             @id @default(cuid())
+  nombre        String
+  documento     String?
+  direccion     String?
+  contacto      String?
+  telefono      String?
+  email         String?
   /// Días que tarda el proveedor en entregar un pedido; alimenta la cantidad sugerida de las alertas de inventario.
-  diasEntrega Int                @default(3) @map("dias_entrega")
-  repuestos   Repuesto[]
-  entradas    EntradaMercancia[]
-  createdAt   DateTime           @default(now()) @map("created_at")
-  updatedAt   DateTime           @updatedAt @map("updated_at")
+  diasEntrega   Int                @default(3) @map("dias_entrega")
+  repuestos     Repuesto[]
+  entradas      EntradaMercancia[]
+  pedidosCompra PedidoCompra[]
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
 
   @@map("proveedores")
 }
@@ -388,6 +391,7 @@ model Repuesto {
   proveedorId          String?                @map("proveedor_id")
   proveedor            Proveedor?             @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
   entradaItems         EntradaMercanciaItem[]
+  pedidoCompraItems    PedidoCompraItem[]
   itemsOrden           ItemOrden[]
   itemsCotizacion      ItemCotizacion[]
   createdAt            DateTime               @default(now()) @map("created_at")
@@ -399,15 +403,17 @@ model Repuesto {
 }
 
 model EntradaMercancia {
-  id          String                 @id @default(cuid())
-  proveedorId String                 @map("proveedor_id")
-  proveedor   Proveedor              @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
-  bodegaId    String                 @map("bodega_id")
-  bodega      Bodega                 @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
-  creadoPorId String                 @map("creado_por_id")
-  creadoPor   Usuario                @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
-  items       EntradaMercanciaItem[]
-  createdAt   DateTime               @default(now()) @map("created_at")
+  id           String                 @id @default(cuid())
+  proveedorId  String                 @map("proveedor_id")
+  proveedor    Proveedor              @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  bodegaId     String                 @map("bodega_id")
+  bodega       Bodega                 @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
+  creadoPorId  String                 @map("creado_por_id")
+  creadoPor    Usuario                @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  items        EntradaMercanciaItem[]
+  /// Set when the entrada was created by receiving a pedido de compra.
+  pedidoCompra PedidoCompra?
+  createdAt    DateTime               @default(now()) @map("created_at")
 
   @@index([proveedorId])
   @@index([bodegaId])
@@ -678,4 +684,60 @@ model CotizacionSeguimiento {
 
   @@index([cotizacionId])
   @@map("cotizacion_seguimientos")
+}
+
+enum EstadoPedidoCompra {
+  BORRADOR
+  ENVIADO
+  RECIBIDO
+  CANCELADO
+}
+
+enum CanalPedidoCompra {
+  EMAIL
+  WHATSAPP
+}
+
+/// Purchase order to a proveedor, born from the dashboard's inventory alerts.
+/// ENVIADO pedidos count as "en camino" for the alerts; receiving one creates
+/// the EntradaMercancia that actually moves stock.
+model PedidoCompra {
+  id            String             @id @default(cuid())
+  numero        Int                @unique @default(autoincrement())
+  estado        EstadoPedidoCompra @default(BORRADOR)
+  proveedorId   String             @map("proveedor_id")
+  proveedor     Proveedor          @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  bodegaId      String             @map("bodega_id")
+  bodega        Bodega             @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
+  creadoPorId   String             @map("creado_por_id")
+  creadoPor     Usuario            @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  canal         CanalPedidoCompra?
+  enviadoAt     DateTime?          @map("enviado_at")
+  /// enviadoAt + proveedor.diasEntrega, fixed when sent.
+  fechaEsperada DateTime?          @map("fecha_esperada")
+  recibidoAt    DateTime?          @map("recibido_at")
+  entradaId     String?            @unique @map("entrada_id")
+  entrada       EntradaMercancia?  @relation(fields: [entradaId], references: [id], onDelete: SetNull)
+  items         PedidoCompraItem[]
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  @@index([proveedorId])
+  @@index([bodegaId])
+  @@index([estado])
+  @@map("pedidos_compra")
+}
+
+model PedidoCompraItem {
+  id                   String       @id @default(cuid())
+  pedidoId             String       @map("pedido_id")
+  pedido               PedidoCompra @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  repuestoId           String       @map("repuesto_id")
+  repuesto             Repuesto     @relation(fields: [repuestoId], references: [id], onDelete: Restrict)
+  cantidad             Int
+  precioCompraUnitario Decimal      @map("precio_compra_unitario") @db.Decimal(10, 2)
+
+  @@unique([pedidoId, repuestoId])
+  @@index([repuestoId])
+  @@map("pedido_compra_items")
 }
