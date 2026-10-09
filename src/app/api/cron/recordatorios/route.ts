@@ -49,7 +49,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   try {
     const resumen = await ejecutarRecordatorios({
-      listarTenants: () => publicDb.tenant.findMany({ select: { schemaName: true } }),
+      // A SUSPENDIDO tenant is locked out of the app, so it must not keep
+      // emailing its clientes either: only ACTIVO tenants are swept.
+      listarTenants: () => publicDb.tenant.findMany({ where: { estado: "ACTIVO" }, select: { schemaName: true } }),
       gateway: prismaRecordatoriosGateway,
       descifrarConfiguracion: descifrarConfiguracionSmtp,
       enviarEmail,

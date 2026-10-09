@@ -99,13 +99,14 @@ describe("GET /api/cron/recordatorios", () => {
     expect(response.status).toBe(401);
   });
 
-  it("enumerates tenants from the public schema and injects a real clock", async () => {
+  it("enumerates only ACTIVO tenants from the public schema and injects a real clock", async () => {
     await GET(pedido(`Bearer ${SECRETO}`));
 
     const deps = mockEjecutar.mock.calls[0][0];
     await deps.listarTenants();
 
-    expect(mockTenantFindMany).toHaveBeenCalledWith({ select: { schemaName: true } });
+    // SUSPENDIDO tenants are locked out of the app and must not keep emailing clientes.
+    expect(mockTenantFindMany).toHaveBeenCalledWith({ where: { estado: "ACTIVO" }, select: { schemaName: true } });
     expect(deps.ahora).toBeInstanceOf(Date);
   });
 
