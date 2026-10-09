@@ -22,7 +22,6 @@ const SEVERIDAD: Record<SeveridadAlerta, { label: string; dot: string; stroke: s
 const CHIP = {
   danger: "bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300",
   warning: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
-  info: "bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
   success: "bg-green-50 text-green-700 dark:bg-green-500/15 dark:text-green-300",
 } as const;
 
@@ -107,6 +106,9 @@ function TendenciaConsumo({ semanas }: { semanas: number[] }) {
   const linea = puntos.map(([x, y], indice) => `${indice ? "L" : "M"}${x} ${y.toFixed(1)}`).join(" ");
   const [ultimoX, ultimoY] = puntos[puntos.length - 1];
   const ultimas4 = semanas.slice(-4).reduce((suma, valor) => suma + valor, 0);
+  if (semanas.every((valor) => valor === 0)) {
+    return <span className="hidden text-[11px] whitespace-nowrap text-muted-foreground md:block">Sin consumo</span>;
+  }
   return (
     <div className="hidden flex-col gap-0.5 md:flex">
       <svg viewBox="0 0 90 26" className="h-[26px] w-[88px]" aria-hidden="true">
@@ -133,7 +135,6 @@ function ChipsAlerta({ alerta }: { alerta: AlertaInventarioRow }) {
             </Chip>
           ))
         : null}
-      {!alerta.frenaOrdenes && alerta.comprometido > 0 ? <Chip tono="info">{alerta.comprometido} en órdenes abiertas</Chip> : null}
       {alerta.disponible > 0 && alerta.diasCobertura !== null && alerta.diasCobertura <= 14 ? (
         <Chip tono="warning">Se agota en ~{alerta.diasCobertura} {alerta.diasCobertura === 1 ? "día" : "días"}</Chip>
       ) : null}
@@ -244,8 +245,7 @@ function FilaAlerta({
           <div>
             <dt className="font-semibold tracking-wide text-muted-foreground uppercase">Consumo</dt>
             <dd className="mt-0.5">
-              {alerta.consumoDiario > 0 ? `${(alerta.consumoDiario * 30).toFixed(1)} uds/mes (últimos 90 días)` : "Sin ventas en 90 días"} · bodega{" "}
-              {alerta.bodega.nombre}
+              {alerta.consumoDiario > 0 ? `${(alerta.consumoDiario * 30).toFixed(1)} uds/mes (últimos 90 días)` : "Sin ventas en 90 días"} · {alerta.bodega.nombre}
             </dd>
           </div>
           <div>
@@ -268,7 +268,8 @@ function FilaAlerta({
 
 export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
   const { resumen, alertas } = data;
-  const [pestana, setPestana] = useState<Pestana>("proveedor");
+  // Grouping by proveedor only helps once repuestos have one assigned.
+  const [pestana, setPestana] = useState<Pestana>(() => (alertas.some((alerta) => alerta.proveedor) ? "proveedor" : "urgencia"));
   const [mostrarTodas, setMostrarTodas] = useState(false);
   const [seleccion, setSeleccion] = useState<Set<string>>(() => new Set());
   const [abiertas, setAbiertas] = useState<Set<string>>(() => new Set());
@@ -297,7 +298,7 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
 
   const seleccionadas = alertas.filter((alerta) => seleccion.has(alerta.id));
   const totalSeleccion = seleccionadas.reduce((suma, alerta) => suma + cantidadDe(alerta) * alerta.precioCompra, 0);
-  const proveedoresSeleccion = new Set(seleccionadas.map((alerta) => alerta.proveedor?.id ?? SIN_PROVEEDOR)).size;
+  const proveedoresSeleccion = new Set(seleccionadas.flatMap((alerta) => (alerta.proveedor ? [alerta.proveedor.id] : []))).size;
 
   async function copiarPedido() {
     try {
@@ -357,8 +358,8 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-px border-y bg-border lg:grid-cols-[1.3fr_1fr_1fr_1fr]">
-            <div className="col-span-2 flex flex-col gap-1.5 bg-card px-4 py-3 lg:col-span-1">
+          <div className="grid grid-cols-2 gap-px border-y bg-border lg:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))]">
+            <div className="col-span-2 flex min-w-0 flex-col gap-1.5 bg-card px-4 py-3 lg:col-span-1">
               <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Estado</span>
               <div className="flex h-2 gap-0.5 overflow-hidden rounded-full" role="img" aria-label={`${resumen.sinDisponible} sin disponible, ${resumen.criticos} críticos, ${resumen.bajoMinimo} bajo mínimo`}>
                 {resumen.sinDisponible > 0 ? <i className="bg-red-500" style={{ flex: resumen.sinDisponible }} /> : null}
@@ -380,13 +381,13 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
                 ))}
               </div>
             </div>
-            <div className="flex flex-col gap-0.5 bg-card px-4 py-3">
+            <div className="flex min-w-0 flex-col gap-0.5 bg-card px-4 py-3">
               <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Órdenes frenadas</span>
               <span className={cn("font-mono text-xl font-semibold", resumen.ordenesFrenadas.length > 0 && "text-red-600 dark:text-red-400")}>
                 {resumen.ordenesFrenadas.length}
               </span>
               <span className="truncate text-xs text-muted-foreground">
-                {resumen.ordenesFrenadas.length > 0 ? resumen.ordenesFrenadas.map((orden) => orden.vehiculo).join(" · ") : "Ninguna esperando repuestos"}
+                {resumen.ordenesFrenadas.length > 0 ? [...new Set(resumen.ordenesFrenadas.map((orden) => `${orden.vehiculo} ${formatoPlaca(orden.placa)}`))].join(" · ") : "Ninguna esperando repuestos"}
               </span>
             </div>
             <div className="flex flex-col gap-0.5 bg-card px-4 py-3">
@@ -401,7 +402,7 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
             </div>
           </div>
 
-          <div role="tablist" aria-label="Agrupar alertas" className="flex gap-1 overflow-x-auto border-b px-3 pt-2">
+          <div role="tablist" aria-label="Agrupar alertas" className="flex gap-1 overflow-x-auto overflow-y-hidden border-b px-3 pt-2">
             {pestanas.map((tab) => (
               <button
                 key={tab.id}
@@ -410,7 +411,7 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
                 aria-selected={pestana === tab.id}
                 onClick={() => setPestana(tab.id)}
                 className={cn(
-                  "-mb-px inline-flex items-center gap-1.5 border-b-2 border-transparent px-2.5 py-2 text-sm whitespace-nowrap text-muted-foreground",
+                  "inline-flex items-center gap-1.5 border-b-2 border-transparent px-2.5 py-2 text-sm whitespace-nowrap text-muted-foreground",
                   pestana === tab.id && "border-primary font-medium text-foreground",
                 )}
               >
@@ -469,8 +470,8 @@ export function AlertasInventarioCard({ data }: { data: AlertasInventario }) {
               <>
                 <span>
                   <b className="font-semibold">{seleccionadas.length}</b> {seleccionadas.length === 1 ? "repuesto" : "repuestos"} ·{" "}
-                  <b className="font-mono font-semibold">{formatoMoneda.format(totalSeleccion)}</b> · {proveedoresSeleccion}{" "}
-                  {proveedoresSeleccion === 1 ? "proveedor" : "proveedores"}
+                  <b className="font-mono font-semibold">{formatoMoneda.format(totalSeleccion)}</b>
+                  {proveedoresSeleccion > 0 ? ` · ${proveedoresSeleccion} ${proveedoresSeleccion === 1 ? "proveedor" : "proveedores"}` : ""}
                 </span>
                 <span className="flex flex-wrap gap-1.5">
                   <Button type="button" variant="outline" size="sm" onClick={() => setSeleccion(new Set())}>

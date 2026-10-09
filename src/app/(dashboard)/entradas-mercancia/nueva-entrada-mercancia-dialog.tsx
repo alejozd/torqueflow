@@ -29,8 +29,17 @@ export function NuevaEntradaMercanciaDialog({
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
+  function onOpenChange(siguiente: boolean) {
+    setOpen(siguiente);
+    // Opened from the dashboard via ?nueva=1: drop the params on close so a
+    // refresh doesn't pop the dialog open again.
+    if (!siguiente && defaultOpen && window.location.search) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger render={<Button />}>
         <Plus />
         Nueva entrada
