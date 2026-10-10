@@ -11,6 +11,7 @@ import {
 } from "@/app/actions/cotizacion-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { ConfirmacionEnLinea } from "@/components/confirmacion-en-linea";
 
 const aprobarInitialState: AprobarCotizacionFormState = { error: null, success: false, ordenId: null };
 const rechazarInitialState: RechazarCotizacionFormState = { error: null, success: false };
@@ -18,6 +19,7 @@ const rechazarInitialState: RechazarCotizacionFormState = { error: null, success
 export function DecisionCotizacionButtons({ cotizacionId }: { cotizacionId: string }) {
   const router = useRouter();
   const [aprobarState, setAprobarState] = useState<AprobarCotizacionFormState>(aprobarInitialState);
+  const [confirmando, setConfirmando] = useState<"aprobar" | "rechazar" | null>(null);
   const [isAprobando, startAprobar] = useTransition();
   const [rechazarState, rechazarAction, isRechazando] = useActionState(
     rechazarCotizacionAction.bind(null, cotizacionId),
@@ -36,11 +38,13 @@ export function DecisionCotizacionButtons({ cotizacionId }: { cotizacionId: stri
       } else {
         toast.error(result.error ?? "Error al aprobar la cotización");
         setAprobarState(result);
+        setConfirmando(null);
       }
     });
   }
 
   useEffect(() => {
+    setConfirmando(null);
     if (rechazarState.success) {
       toast.success("Cotización rechazada");
     } else if (rechazarState.error) {
@@ -50,16 +54,41 @@ export function DecisionCotizacionButtons({ cotizacionId }: { cotizacionId: stri
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex gap-2">
-        <Button type="button" onClick={onAprobar} disabled={isAprobando || isRechazando} className="flex-1">
-          {isAprobando ? "Aprobando..." : "Aprobar"}
-        </Button>
-        <form action={rechazarAction} className="flex-1">
-          <Button type="submit" variant="outline" disabled={isAprobando || isRechazando} className="w-full">
-            {isRechazando ? "Rechazando..." : "Rechazar"}
-          </Button>
+      {confirmando === "aprobar" ? (
+        <ConfirmacionEnLinea
+          pregunta="¿Aprobar la cotización? Se creará una orden de trabajo con sus ítems."
+          etiquetaConfirmar={isAprobando ? "Aprobando..." : "Sí, aprobar"}
+          destructiva={false}
+          pendiente={isAprobando}
+          onConfirmar={onAprobar}
+          onCancelar={() => setConfirmando(null)}
+        />
+      ) : confirmando === "rechazar" ? (
+        <form action={rechazarAction}>
+          <ConfirmacionEnLinea
+            pregunta="¿Rechazar la cotización?"
+            etiquetaConfirmar={isRechazando ? "Rechazando..." : "Sí, rechazar"}
+            enviaFormulario
+            pendiente={isRechazando}
+            onCancelar={() => setConfirmando(null)}
+          />
         </form>
-      </div>
+      ) : (
+        <div className="flex gap-2">
+          <Button type="button" onClick={() => setConfirmando("aprobar")} disabled={isAprobando || isRechazando} className="flex-1">
+            Aprobar
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setConfirmando("rechazar")}
+            disabled={isAprobando || isRechazando}
+            className="flex-1"
+          >
+            Rechazar
+          </Button>
+        </div>
+      )}
 
       {aprobarState.error ? (
         <Alert variant="destructive">
