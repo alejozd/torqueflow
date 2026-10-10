@@ -1,4 +1,5 @@
-import { FileText, Package, Percent, Receipt, TrendingUp, Wrench } from "lucide-react";
+import Link from "next/link";
+import { FileText, Package, Percent, Receipt, Target, TrendingUp, Wallet, Wrench } from "lucide-react";
 import {
   getReporteProductividad,
   getReporteRentabilidad,
@@ -39,6 +40,22 @@ const COLUMNS: DataTableColumn<FilaProductividad>[] = [
   },
 ];
 
+type FilaGasto = Awaited<ReturnType<typeof getReporteRentabilidad>>["gastosPorCategoria"][number];
+
+const COLUMNS_GASTOS: DataTableColumn<FilaGasto>[] = [
+  { header: "Categoría", cell: (fila) => fila.categoria },
+  {
+    header: "Monto",
+    className: "text-right",
+    cell: (fila) => <span className="font-mono font-medium">{formatoMoneda.format(fila.monto)}</span>,
+  },
+  {
+    header: "% del total",
+    className: "text-right",
+    cell: (fila) => <span className="font-mono">{fila.porcentaje}%</span>,
+  },
+];
+
 export default async function ReportesPage({
   searchParams,
 }: {
@@ -57,6 +74,19 @@ export default async function ReportesPage({
   const rentabilidad = await getReporteRentabilidad(filtros);
   const productividad = await getReporteProductividad(filtros);
   const sedes = await listSedes();
+
+  const neta = rentabilidad.neta;
+  const utilidadPositiva = neta.utilidadNeta >= 0;
+  const tonoUtilidad = utilidadPositiva ? KPI_TONE.success : KPI_TONE.danger;
+  const sinVentas = rentabilidad.totales.facturasCount === 0 && neta.gastosTotal > 0;
+  const subtituloEquilibrio =
+    neta.puntoEquilibrioVentas === null || neta.diferenciaEquilibrio === null
+      ? sinVentas
+        ? "Sin ventas en el periodo"
+        : "No alcanzable con el margen actual"
+      : `≈ ${neta.puntoEquilibrioFacturas ?? 0} facturas · ${
+          neta.diferenciaEquilibrio >= 0 ? "Sobran" : "Faltan"
+        } ${formatoMoneda.format(Math.abs(neta.diferenciaEquilibrio))}`;
 
   return (
     <main className="flex flex-col gap-6">
@@ -167,6 +197,73 @@ export default async function ReportesPage({
               icon={<Wrench className={cn("size-5", KPI_TONE.info.icon)} />}
               iconBgColor={KPI_TONE.info.iconBg}
               className={KPI_TONE.info.cardBg}
+            />
+          </div>
+
+          {rentabilidad.recurrentesSinConfirmar > 0 ? (
+            <Alert>
+              <AlertDescription className="flex flex-wrap items-center gap-2">
+                <span>
+                  Hay {rentabilidad.recurrentesSinConfirmar}{" "}
+                  {rentabilidad.recurrentesSinConfirmar === 1 ? "gasto recurrente sin confirmar" : "gastos recurrentes sin confirmar"}{" "}
+                  en este periodo; la utilidad puede estar sobreestimada.
+                </span>
+                <Link href={filtros.sedeId ? `/gastos?sedeId=${encodeURIComponent(filtros.sedeId)}` : "/gastos"} className="font-medium underline">
+                  Revisar gastos
+                </Link>
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <KpiCard
+              title="Gastos del periodo"
+              value={formatoMoneda.format(neta.gastosTotal)}
+              valueColor="danger"
+              icon={<Wallet className={cn("size-5", KPI_TONE.danger.icon)} />}
+              iconBgColor={KPI_TONE.danger.iconBg}
+              className={KPI_TONE.danger.cardBg}
+            />
+            <KpiCard
+              title="Utilidad neta"
+              value={formatoMoneda.format(neta.utilidadNeta)}
+              valueColor={utilidadPositiva ? "success" : "danger"}
+              icon={<TrendingUp className={cn("size-5", tonoUtilidad.icon)} />}
+              iconBgColor={tonoUtilidad.iconBg}
+              className={tonoUtilidad.cardBg}
+            />
+            <KpiCard
+              title="Margen neto (%)"
+              value={neta.margenNetoPorcentaje}
+              valueColor={utilidadPositiva ? "success" : "danger"}
+              icon={<Percent className={cn("size-5", tonoUtilidad.icon)} />}
+              iconBgColor={tonoUtilidad.iconBg}
+              className={tonoUtilidad.cardBg}
+            />
+            <KpiCard
+              title="Punto de equilibrio"
+              value={
+                neta.puntoEquilibrioVentas === null
+                  ? sinVentas
+                    ? "Sin ventas"
+                    : "No alcanzable"
+                  : formatoMoneda.format(neta.puntoEquilibrioVentas)
+              }
+              subtitle={subtituloEquilibrio}
+              icon={<Target className={cn("size-5", KPI_TONE.info.icon)} />}
+              iconBgColor={KPI_TONE.info.iconBg}
+              className={KPI_TONE.info.cardBg}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <h3 className="text-sm font-medium">Gastos por categoría</h3>
+            <DataTable
+              columns={COLUMNS_GASTOS}
+              rows={rentabilidad.gastosPorCategoria}
+              getRowKey={(fila) => fila.categoria}
+              emptyMessage="No hay gastos registrados en este periodo."
+              headerClassName="bg-muted"
             />
           </div>
         </CardContent>

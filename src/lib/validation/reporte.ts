@@ -12,7 +12,7 @@ function esFechaDeCalendario(valor: string): boolean {
   return fecha.toISOString().slice(0, 10) === valor;
 }
 
-const fechaSchema = z
+export const fechaSchema = z
   .string({ error: "La fecha es obligatoria" })
   .regex(/^\d{4}-\d{2}-\d{2}$/, "La fecha debe tener el formato AAAA-MM-DD")
   .refine(esFechaDeCalendario, { message: "La fecha no existe en el calendario" });

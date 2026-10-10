@@ -18,6 +18,7 @@ import {
   Truck,
   UserCog,
   Users,
+  Wallet,
   Warehouse,
   Wrench,
   type LucideIcon,
@@ -65,6 +66,8 @@ const OPERACION: NavGroup = {
     { href: "/facturas", label: "Facturas", icon: Receipt },
   ],
 };
+
+const GASTOS: NavItem = { href: "/gastos", label: "Gastos", icon: Wallet };
 
 const INVENTARIO: NavGroup = {
   label: "Inventario",
@@ -161,6 +164,7 @@ export interface SidebarPlanInfo {
 
 export function DashboardSidebar({
   esAdmin,
+  puedeVerGastos,
   tenantSlug,
   plan,
   cotizacionesPendientesSeguimiento,
@@ -170,6 +174,7 @@ export function DashboardSidebar({
   repuestosStockBajo,
 }: {
   esAdmin: boolean;
+  puedeVerGastos: boolean;
   tenantSlug: string;
   plan: SidebarPlanInfo | null;
   cotizacionesPendientesSeguimiento?: number;
@@ -179,6 +184,7 @@ export function DashboardSidebar({
   repuestosStockBajo?: number;
 }) {
   const pathname = usePathname();
+  const operacion = puedeVerGastos ? { ...OPERACION, items: [...OPERACION.items, GASTOS] } : OPERACION;
 
   return (
     <div className="dark">
@@ -207,7 +213,7 @@ export function DashboardSidebar({
             </SidebarGroupContent>
           </SidebarGroup>
           <NavGroupSection
-            group={OPERACION}
+            group={operacion}
             pathname={pathname}
             badgeCountByHref={{
               "/cotizaciones": cotizacionesPendientesSeguimiento,

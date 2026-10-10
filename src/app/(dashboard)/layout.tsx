@@ -121,6 +121,7 @@ async function loadRepuestosStockBajo(session: Awaited<ReturnType<typeof require
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const session = await requireSession();
   const esAdmin = session.user.role === "ADMIN";
+  const puedeVerGastos = session.user.role !== "TECNICO";
   // Remembers the sidebar's collapsed/expanded state per browser (SidebarProvider
   // writes this cookie on every toggle), so a preference set on a smaller screen
   // doesn't reset to expanded on the next page load.
@@ -151,6 +152,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         <SidebarProvider defaultOpen={sidebarOpen}>
           <DashboardSidebar
             esAdmin={esAdmin}
+            puedeVerGastos={puedeVerGastos}
             tenantSlug={session.user.tenantSlug}
             plan={plan}
             cotizacionesPendientesSeguimiento={cotizacionesPendientesSeguimiento}

@@ -5,6 +5,9 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { reporteFiltrosSchema } from "@/lib/validation/reporte";
 import { buildRangoFechas } from "@/lib/reportes/rango-fechas";
 import { computeRentabilidad, type RentabilidadTotales } from "@/lib/reportes/rentabilidad";
+import { computeRentabilidadNeta, type RentabilidadNeta } from "@/lib/gastos/rentabilidad-neta";
+import { contarRecurrentesPendientesEnRango } from "@/lib/gastos/pendientes-db";
+import { roundMoney } from "@/lib/money/round";
 import { computeProductividad, type ProductividadFila } from "@/lib/reportes/productividad";
 
 /** Raw filters as they arrive from the URL. The date range is mandatory. */
@@ -25,6 +28,9 @@ export interface ReporteRentabilidadResult {
   filtros: ReporteFiltrosAplicados;
   error: string | null;
   totales: RentabilidadTotales;
+  neta: RentabilidadNeta;
+  gastosPorCategoria: { categoria: string; monto: number; porcentaje: number }[];
+  recurrentesSinConfirmar: number;
 }
 
 export async function getReporteRentabilidad(filtros: ReporteFiltros): Promise<ReporteRentabilidadResult> {
@@ -46,6 +52,9 @@ export async function getReporteRentabilidad(filtros: ReporteFiltros): Promise<R
       },
       error: parsed.error.issues[0]?.message ?? "Filtros inválidos",
       totales: computeRentabilidad([]),
+      neta: computeRentabilidadNeta(computeRentabilidad([]), 0),
+      gastosPorCategoria: [],
+      recurrentesSinConfirmar: 0,
     };
   }
 
@@ -94,7 +103,42 @@ export async function getReporteRentabilidad(filtros: ReporteFiltros): Promise<R
     })),
   );
 
-  return { filtros: aplicados, error: null, totales };
+  const gastosAgrupados = await tenantDb.gasto.groupBy({
+    by: ["categoriaId"],
+    where: { sedeId, fecha: { gte: rango.gte, lt: rango.lt } },
+    _sum: { monto: true },
+  });
+  const categorias = await tenantDb.categoriaGasto.findMany({
+    where: { id: { in: gastosAgrupados.map((fila) => fila.categoriaId) } },
+    select: { id: true, nombre: true },
+  });
+  const nombrePorId = new Map(categorias.map((categoria) => [categoria.id, categoria.nombre]));
+  const gastosTotal = roundMoney(gastosAgrupados.reduce((suma, fila) => suma + Number(fila._sum.monto ?? 0), 0));
+  const gastosPorCategoria = gastosAgrupados
+    .map((fila) => {
+      const monto = roundMoney(Number(fila._sum.monto ?? 0));
+      return {
+        categoria: nombrePorId.get(fila.categoriaId) ?? "Sin categoría",
+        monto,
+        porcentaje: gastosTotal === 0 ? 0 : roundMoney((monto / gastosTotal) * 100),
+      };
+    })
+    .sort((a, b) => b.monto - a.monto);
+  const recurrentesSinConfirmar = await contarRecurrentesPendientesEnRango(
+    session.user.tenantSchema,
+    sedeId,
+    rango.gte,
+    rango.lt,
+  );
+
+  return {
+    filtros: aplicados,
+    error: null,
+    totales,
+    neta: computeRentabilidadNeta(totales, gastosTotal),
+    gastosPorCategoria,
+    recurrentesSinConfirmar,
+  };
 }
 
 export interface ReporteProductividadResult {

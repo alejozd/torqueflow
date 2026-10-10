@@ -23,6 +23,8 @@ export interface RentabilidadTotales {
   facturasCount: number;
   /** Sum of Factura.total — already net of descuento and inclusive of IVA. */
   totalFacturado: number;
+  /** Suma de base sin IVA (subtotal − descuento); denominador del margen y del punto de equilibrio. */
+  baseFacturada: number;
   costoRepuestos: number;
   margen: number;
   margenPorcentaje: number;
@@ -56,6 +58,7 @@ export function computeRentabilidad(facturas: RentabilidadFactura[]): Rentabilid
   return {
     facturasCount: facturas.length,
     totalFacturado,
+    baseFacturada: baseTotal,
     costoRepuestos,
     margen,
     margenPorcentaje: baseTotal === 0 ? 0 : roundMoney((margen / baseTotal) * 100),
