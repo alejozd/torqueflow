@@ -6,6 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { updateSedeAction, deleteSedeFormAction, type SedeFormState } from "@/app/actions/sede-actions";
 import { sedeInputSchema, type SedeInput } from "@/lib/validation/sede";
 import type { Sede } from "@/generated/prisma-tenant";
+import { toast } from "sonner";
+import { EliminarConConfirmacion } from "@/components/eliminar-con-confirmacion";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -18,10 +20,6 @@ const initialState: SedeFormState = { error: null, success: false };
 export function EditarSedeForm({ sede }: { sede: Sede }) {
   const [state, formAction, isPending] = useActionState(
     updateSedeAction.bind(null, sede.id),
-    initialState,
-  );
-  const [deleteState, deleteFormAction, isDeletePending] = useActionState(
-    deleteSedeFormAction.bind(null, sede.id),
     initialState,
   );
   const formRef = useRef<HTMLFormElement>(null);
@@ -86,16 +84,12 @@ export function EditarSedeForm({ sede }: { sede: Sede }) {
         {state.success ? <p role="status">Sede actualizada</p> : null}
       </form>
 
-      <form action={deleteFormAction} className="flex flex-col gap-1.5 border-t border-border pt-4">
-        <Button type="submit" variant="destructive" disabled={isDeletePending}>
-          Eliminar {sede.nombre}
-        </Button>
-        {deleteState.error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{deleteState.error}</AlertDescription>
-          </Alert>
-        ) : null}
-      </form>
+      <EliminarConConfirmacion
+        etiqueta={`Eliminar ${sede.nombre}`}
+        confirmacion={`¿Eliminar la sede ${sede.nombre}? No se puede deshacer.`}
+        accion={() => deleteSedeFormAction(sede.id, initialState)}
+        onEliminado={() => toast.success(`Sede ${sede.nombre} eliminada`)}
+      />
     </div>
   );
 }

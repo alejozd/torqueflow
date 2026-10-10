@@ -10,6 +10,8 @@ import {
 } from "@/app/actions/proveedor-actions";
 import type { z } from "zod";
 import { proveedorInputSchema } from "@/lib/validation/inventario";
+import { toast } from "sonner";
+import { EliminarConConfirmacion } from "@/components/eliminar-con-confirmacion";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -33,10 +35,6 @@ export interface ProveedorEditable {
 export function EditarProveedorForm({ proveedor }: { proveedor: ProveedorEditable }) {
   const [state, formAction, isPending] = useActionState(
     updateProveedorAction.bind(null, proveedor.id),
-    initialState,
-  );
-  const [deleteState, deleteFormAction, isDeletePending] = useActionState(
-    deleteProveedorFormAction.bind(null, proveedor.id),
     initialState,
   );
   const formRef = useRef<HTMLFormElement>(null);
@@ -177,16 +175,12 @@ export function EditarProveedorForm({ proveedor }: { proveedor: ProveedorEditabl
         {state.success ? <p role="status">Proveedor actualizado</p> : null}
       </form>
 
-      <form action={deleteFormAction} className="flex flex-col gap-1.5 border-t border-border pt-4">
-        <Button type="submit" variant="destructive" disabled={isDeletePending}>
-          Eliminar {proveedor.nombre}
-        </Button>
-        {deleteState.error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{deleteState.error}</AlertDescription>
-          </Alert>
-        ) : null}
-      </form>
+      <EliminarConConfirmacion
+        etiqueta={`Eliminar ${proveedor.nombre}`}
+        confirmacion={`¿Eliminar el proveedor ${proveedor.nombre}? No se puede deshacer.`}
+        accion={() => deleteProveedorFormAction(proveedor.id, initialState)}
+        onEliminado={() => toast.success(`Proveedor ${proveedor.nombre} eliminado`)}
+      />
     </div>
   );
 }

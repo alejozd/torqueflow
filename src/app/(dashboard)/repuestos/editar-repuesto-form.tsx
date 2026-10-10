@@ -11,6 +11,8 @@ import {
 } from "@/app/actions/repuesto-actions";
 import { repuestoInputSchema } from "@/lib/validation/inventario";
 import type { Bodega, Proveedor } from "@/generated/prisma-tenant";
+import { toast } from "sonner";
+import { EliminarConConfirmacion } from "@/components/eliminar-con-confirmacion";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -50,10 +52,6 @@ export function EditarRepuestoForm({
 }) {
   const [state, formAction, isPending] = useActionState(
     updateRepuestoAction.bind(null, repuesto.id),
-    initialState,
-  );
-  const [deleteState, deleteFormAction, isDeletePending] = useActionState(
-    deleteRepuestoFormAction.bind(null, repuesto.id),
     initialState,
   );
   const formRef = useRef<HTMLFormElement>(null);
@@ -293,16 +291,12 @@ export function EditarRepuestoForm({
         {state.success ? <p role="status">Repuesto actualizado</p> : null}
       </form>
 
-      <form action={deleteFormAction} className="flex flex-col gap-1.5 border-t border-border pt-4">
-        <Button type="submit" variant="destructive" disabled={isDeletePending}>
-          Eliminar {repuesto.nombre}
-        </Button>
-        {deleteState.error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{deleteState.error}</AlertDescription>
-          </Alert>
-        ) : null}
-      </form>
+      <EliminarConConfirmacion
+        etiqueta={`Eliminar ${repuesto.nombre}`}
+        confirmacion={`¿Eliminar el repuesto ${repuesto.nombre}? No se puede deshacer.`}
+        accion={() => deleteRepuestoFormAction(repuesto.id, initialState)}
+        onEliminado={() => toast.success(`Repuesto ${repuesto.nombre} eliminado`)}
+      />
     </div>
   );
 }

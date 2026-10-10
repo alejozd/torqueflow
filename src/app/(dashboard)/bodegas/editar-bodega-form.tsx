@@ -5,6 +5,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { updateBodegaAction, deleteBodegaFormAction, type BodegaFormState } from "@/app/actions/bodega-actions";
 import { bodegaInputSchema, type BodegaInput } from "@/lib/validation/inventario";
+import { toast } from "sonner";
+import { EliminarConConfirmacion } from "@/components/eliminar-con-confirmacion";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -22,10 +24,6 @@ export interface BodegaEditable {
 export function EditarBodegaForm({ bodega }: { bodega: BodegaEditable }) {
   const [state, formAction, isPending] = useActionState(
     updateBodegaAction.bind(null, bodega.id),
-    initialState,
-  );
-  const [deleteState, deleteFormAction, isDeletePending] = useActionState(
-    deleteBodegaFormAction.bind(null, bodega.id),
     initialState,
   );
   const formRef = useRef<HTMLFormElement>(null);
@@ -77,16 +75,12 @@ export function EditarBodegaForm({ bodega }: { bodega: BodegaEditable }) {
         {state.success ? <p role="status">Bodega actualizada</p> : null}
       </form>
 
-      <form action={deleteFormAction} className="flex flex-col gap-1.5 border-t border-border pt-4">
-        <Button type="submit" variant="destructive" disabled={isDeletePending}>
-          Eliminar {bodega.nombre}
-        </Button>
-        {deleteState.error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{deleteState.error}</AlertDescription>
-          </Alert>
-        ) : null}
-      </form>
+      <EliminarConConfirmacion
+        etiqueta={`Eliminar ${bodega.nombre}`}
+        confirmacion={`¿Eliminar la bodega ${bodega.nombre}? No se puede deshacer.`}
+        accion={() => deleteBodegaFormAction(bodega.id, initialState)}
+        onEliminado={() => toast.success(`Bodega ${bodega.nombre} eliminada`)}
+      />
     </div>
   );
 }
