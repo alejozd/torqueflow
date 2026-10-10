@@ -1,11 +1,15 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 vi.mock("@/app/actions/cita-actions", () => ({
   cambiarEstadoCitaAction: vi.fn(),
 }));
 
+import { cambiarEstadoCitaAction } from "@/app/actions/cita-actions";
 import { CambiarEstadoCitaForm } from "./cambiar-estado-cita-form";
+
+const mockCambiarEstado = vi.mocked(cambiarEstadoCitaAction);
 
 const ESTADOS: [string, string][] = [
   ["PROGRAMADA", "Programada"],
@@ -15,6 +19,10 @@ const ESTADOS: [string, string][] = [
 ];
 
 describe("CambiarEstadoCitaForm", () => {
+  beforeEach(() => {
+    mockCambiarEstado.mockReset();
+  });
+
   it("offers the four estados and preselects the current one", () => {
     render(<CambiarEstadoCitaForm citaId="cita-1" estadoActual="CONFIRMADA" />);
 
@@ -35,5 +43,28 @@ describe("CambiarEstadoCitaForm", () => {
     render(<CambiarEstadoCitaForm citaId="cita-1" estadoActual="PROGRAMADA" />);
 
     expect(screen.getByRole("button", { name: "Actualizar estado" })).toBeInTheDocument();
+  });
+
+  it("asks before cancelling the cita", async () => {
+    mockCambiarEstado.mockResolvedValue({ error: null, success: true });
+    render(<CambiarEstadoCitaForm citaId="c1" estadoActual="PROGRAMADA" />);
+
+    await userEvent.click(screen.getByLabelText("Cancelada"));
+    await userEvent.click(screen.getByRole("button", { name: "Actualizar estado" }));
+    expect(mockCambiarEstado).not.toHaveBeenCalled();
+    expect(screen.getByText("¿Cancelar la cita? Se puede volver a programar después.")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Sí, cancelar" }));
+    await vi.waitFor(() => expect(mockCambiarEstado).toHaveBeenCalled());
+  });
+
+  it("does not ask for other estados", async () => {
+    mockCambiarEstado.mockResolvedValue({ error: null, success: true });
+    render(<CambiarEstadoCitaForm citaId="c1" estadoActual="PROGRAMADA" />);
+
+    await userEvent.click(screen.getByLabelText("Confirmada"));
+    await userEvent.click(screen.getByRole("button", { name: "Actualizar estado" }));
+
+    await vi.waitFor(() => expect(mockCambiarEstado).toHaveBeenCalled());
   });
 });

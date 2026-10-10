@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, type FormEvent } from "react";
+import { ConfirmacionEnLinea } from "@/components/confirmacion-en-linea";
 import { cambiarEstadoCitaAction, type CitaFormState } from "@/app/actions/cita-actions";
 import type { EstadoCita } from "@/generated/prisma-tenant";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -31,9 +32,26 @@ export function CambiarEstadoCitaForm({
     cambiarEstadoCitaAction.bind(null, citaId),
     initialState,
   );
+  const [confirmando, setConfirmando] = useState(false);
+
+  function onSubmit(evento: FormEvent<HTMLFormElement>) {
+    const estado = new FormData(evento.currentTarget).get("estado");
+    if (estado === "CANCELADA" && estadoActual !== "CANCELADA" && !confirmando) {
+      evento.preventDefault();
+      setConfirmando(true);
+      return;
+    }
+    setConfirmando(false);
+  }
 
   return (
-    <form noValidate action={formAction} className="flex flex-col gap-4">
+    <form
+      noValidate
+      action={formAction}
+      onSubmit={onSubmit}
+      onChange={() => setConfirmando(false)}
+      className="flex flex-col gap-4"
+    >
       {/*
         Radio list, not a <select>: no transition table restricts which
         estados are pickable (cambiarEstadoCitaAction's own comment -- an
@@ -68,9 +86,19 @@ export function CambiarEstadoCitaForm({
         ))}
       </fieldset>
 
-      <Button type="submit" disabled={isPending} className="self-end">
-        {isPending ? "Guardando..." : "Actualizar estado"}
-      </Button>
+      {confirmando ? (
+        <ConfirmacionEnLinea
+          pregunta="¿Cancelar la cita? Se puede volver a programar después."
+          etiquetaConfirmar="Sí, cancelar"
+          enviaFormulario
+          pendiente={isPending}
+          onCancelar={() => setConfirmando(false)}
+        />
+      ) : (
+        <Button type="submit" disabled={isPending} className="self-end">
+          {isPending ? "Guardando..." : "Actualizar estado"}
+        </Button>
+      )}
 
       {state.error ? (
         <Alert variant="destructive">
