@@ -59,7 +59,7 @@ describe("createVehiculoAction", () => {
 
     expect(result).toEqual({ error: null, success: true, vehiculo: { id: "v1", placa: "ABC123" } });
     expect(mockCreate).toHaveBeenCalledWith({
-      data: { placa: "ABC123", marca: "Toyota", modelo: "Corolla", anio: 2020, clienteId: "c1" },
+      data: { placa: "ABC123", marca: "Toyota", modelo: "Corolla", anio: 2020, tipo: "CARRO", clienteId: "c1" },
     });
   });
 
@@ -90,6 +90,7 @@ describe("createVehiculoAction", () => {
         proximoMantenimiento: new Date("2026-12-01"),
         transmision: "AUTOMATICA",
         observaciones: "Rines de posventa, llave de repuesto en recepción",
+        tipo: "CARRO",
         clienteId: "c1",
       },
     });
@@ -115,6 +116,7 @@ describe("createVehiculoAction", () => {
         proximoMantenimiento: undefined,
         transmision: undefined,
         observaciones: undefined,
+        tipo: "CARRO",
         clienteId: "c1",
       },
     });
@@ -198,6 +200,10 @@ describe("updateVehiculoAction", () => {
         proximoMantenimiento: new Date("2026-12-01"),
         transmision: "AUTOMATICA",
         observaciones: "Rines de posventa",
+        tipo: "CARRO",
+        vin: null,
+        soatVence: null,
+        tecnomecanicaVence: null,
       },
       select: { clienteId: true },
     });
@@ -273,5 +279,60 @@ describe("listVehiculosByCliente", () => {
 
     expect(result).toEqual([{ id: "v1", placa: "ABC123" }]);
     expect(mockFindMany).toHaveBeenCalledWith({ where: { clienteId: "c1" }, orderBy: { placa: "asc" } });
+  });
+});
+
+describe("Fase 15 — campos de tipo, VIN y vencimientos", () => {
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockCreate.mockReset().mockResolvedValue({ id: "v1" });
+    mockUpdate.mockReset().mockResolvedValue({ clienteId: "c1" });
+  });
+
+  function formBase(): FormData {
+    const formData = new FormData();
+    formData.set("placa", "ABC12D");
+    formData.set("marca", "Yamaha");
+    formData.set("modelo", "NMAX");
+    return formData;
+  }
+
+  it("createVehiculoAction guarda tipo, VIN y vencimientos", async () => {
+    const formData = formBase();
+    formData.set("tipo", "MOTO");
+    formData.set("vin", "9bwzzz377vt004251");
+    formData.set("soatVence", "2026-11-30");
+    formData.set("tecnomecanicaVence", "2027-01-15");
+
+    await createVehiculoAction("c1", initialState, formData);
+
+    const data = mockCreate.mock.calls[0][0].data;
+    expect(data.tipo).toBe("MOTO");
+    expect(data.vin).toBe("9BWZZZ377VT004251");
+    expect(data.soatVence.toISOString()).toBe("2026-11-30T00:00:00.000Z");
+    expect(data.tecnomecanicaVence.toISOString()).toBe("2027-01-15T00:00:00.000Z");
+  });
+
+  it("updateVehiculoAction limpia VIN y vencimientos cuando llegan vacíos", async () => {
+    const formData = formBase();
+    formData.set("vin", "");
+    formData.set("soatVence", "");
+    formData.set("tecnomecanicaVence", "");
+
+    await updateVehiculoAction("v1", initialState, formData);
+
+    const data = mockUpdate.mock.calls[0][0].data;
+    expect(data.tipo).toBe("CARRO");
+    expect(data.vin).toBeNull();
+    expect(data.soatVence).toBeNull();
+    expect(data.tecnomecanicaVence).toBeNull();
+  });
+
+  it("rechaza un VIN inválido sin tocar la base", async () => {
+    const formData = formBase();
+    formData.set("vin", "123");
+    const result = await createVehiculoAction("c1", initialState, formData);
+    expect(result.success).toBe(false);
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 });

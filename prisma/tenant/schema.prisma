@@ -48,6 +48,23 @@ enum TipoTransmision {
   MECANICA
 }
 
+enum TipoVehiculo {
+  CARRO
+  MOTO
+  CAMIONETA
+  CAMION
+}
+
+enum TipoDocumentoVehiculo {
+  SOAT
+  TECNOMECANICA
+}
+
+enum CanalAviso {
+  EMAIL
+  WHATSAPP
+}
+
 enum MotivoRecordatorio {
   KILOMETRAJE
   TIEMPO
@@ -81,6 +98,7 @@ model Usuario {
   cotizacionesCreadas           Cotizacion[]            @relation("CotizacionCreadoPor")
   seguimientosCotizacionCreados CotizacionSeguimiento[] @relation("CotizacionSeguimientoCreadoPor")
   sedes                         UsuarioSede[]
+  avisosVencimientoEnviados     AvisoVencimiento[]
   createdAt                     DateTime                @default(now()) @map("created_at")
   updatedAt                     DateTime                @updatedAt @map("updated_at")
 
@@ -151,6 +169,10 @@ model Vehiculo {
   proximoMantenimiento DateTime?             @map("proximo_mantenimiento")
   transmision          TipoTransmision?
   observaciones        String?
+  tipo                 TipoVehiculo          @default(CARRO)
+  vin                  String?
+  soatVence            DateTime?             @map("soat_vence") @db.Date
+  tecnomecanicaVence   DateTime?             @map("tecnomecanica_vence") @db.Date
   clienteId            String                @map("cliente_id")
   cliente              Cliente               @relation(fields: [clienteId], references: [id], onDelete: Restrict)
   historial            HistorialVehiculo[]
@@ -158,6 +180,7 @@ model Vehiculo {
   citas                Cita[]
   cotizaciones         Cotizacion[]
   recordatorios        RecordatorioEnviado[]
+  avisosVencimiento    AvisoVencimiento[]
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
 
@@ -740,4 +763,33 @@ model PedidoCompraItem {
   @@unique([pedidoId, repuestoId])
   @@index([repuestoId])
   @@map("pedido_compra_items")
+}
+
+/// Aviso de vencimiento de SOAT/RTM enviado a un cliente. Único por fecha y
+/// canal: una misma fecha se avisa una vez por canal; al renovar (fecha nueva)
+/// se puede volver a avisar. enviadoPorId null = lo envió el cron.
+model AvisoVencimiento {
+  id               String                @id @default(cuid())
+  vehiculoId       String                @map("vehiculo_id")
+  vehiculo         Vehiculo              @relation(fields: [vehiculoId], references: [id], onDelete: Cascade)
+  tipo             TipoDocumentoVehiculo
+  fechaVencimiento DateTime              @map("fecha_vencimiento") @db.Date
+  canal            CanalAviso
+  destino          String
+  enviadoPorId     String?               @map("enviado_por_id")
+  enviadoPor       Usuario?              @relation(fields: [enviadoPorId], references: [id], onDelete: SetNull)
+  enviadoAt        DateTime              @default(now()) @map("enviado_at")
+
+  @@unique([vehiculoId, tipo, fechaVencimiento, canal])
+  @@index([enviadoPorId])
+  @@map("avisos_vencimiento")
+}
+
+/// Configuración general del taller (una fila por tenant, id "singleton").
+model ConfiguracionTaller {
+  id                   String   @id @default("singleton")
+  diasAvisoVencimiento Int      @default(30) @map("dias_aviso_vencimiento")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("configuracion_taller")
 }
