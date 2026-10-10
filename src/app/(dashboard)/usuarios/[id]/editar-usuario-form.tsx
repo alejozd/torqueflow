@@ -1,16 +1,19 @@
 "use client";
 
 import { startTransition, useActionState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { useController, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
 import {
   updateUsuarioAction,
-  deleteUsuarioAction,
+  deleteUsuarioFormAction,
   type UsuarioFormState,
   type SedeCheckboxOption,
 } from "@/app/actions/usuario-actions";
 import { usuarioUpdateInputSchema } from "@/lib/validation/usuario";
+import { EliminarConConfirmacion } from "@/components/eliminar-con-confirmacion";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -55,6 +58,7 @@ export function EditarUsuarioForm({
    */
   showCancelButton?: boolean;
 }) {
+  const router = useRouter();
   const updateEsteUsuario = updateUsuarioAction.bind(null, usuario.id);
   const [state, formAction, isPending] = useActionState(updateEsteUsuario, initialState);
   const formRef = useRef<HTMLFormElement>(null);
@@ -250,11 +254,15 @@ export function EditarUsuarioForm({
         {state.success ? <p role="status">Usuario actualizado</p> : null}
       </form>
 
-      <form action={deleteUsuarioAction.bind(null, usuario.id)} className="border-t border-border pt-4">
-        <Button type="submit" variant="destructive">
-          Eliminar usuario
-        </Button>
-      </form>
+      <EliminarConConfirmacion
+        etiqueta="Eliminar usuario"
+        confirmacion={`¿Eliminar a ${usuario.nombre} (${usuario.email})? Perderá el acceso y no se puede deshacer.`}
+        accion={() => deleteUsuarioFormAction(usuario.id)}
+        onEliminado={() => {
+          toast.success(`Usuario ${usuario.nombre} eliminado`);
+          router.push("/usuarios");
+        }}
+      />
     </div>
   );
 }

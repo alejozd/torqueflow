@@ -3,10 +3,12 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockUpdateUsuarioAction = vi.fn();
-const mockDeleteUsuarioAction = vi.fn();
+const mockDeleteUsuarioFormAction = vi.fn();
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush, refresh: vi.fn() }) }));
 vi.mock("@/app/actions/usuario-actions", () => ({
   updateUsuarioAction: (...args: unknown[]) => mockUpdateUsuarioAction(...args),
-  deleteUsuarioAction: (...args: unknown[]) => mockDeleteUsuarioAction(...args),
+  deleteUsuarioFormAction: (...args: unknown[]) => mockDeleteUsuarioFormAction(...args),
 }));
 
 import { EditarUsuarioForm } from "./editar-usuario-form";
@@ -30,7 +32,8 @@ describe("EditarUsuarioForm", () => {
   beforeEach(() => {
     mockUpdateUsuarioAction.mockReset();
     mockUpdateUsuarioAction.mockResolvedValue({ error: null, success: false });
-    mockDeleteUsuarioAction.mockReset();
+    mockDeleteUsuarioFormAction.mockReset();
+    mockPush.mockReset();
   });
 
   it("pre-fills nombre/email/role from the given usuario, leaving password blank", () => {
@@ -85,12 +88,29 @@ describe("EditarUsuarioForm", () => {
     );
   });
 
-  it("calls deleteUsuarioAction with the usuario id when the delete button is clicked", async () => {
-    mockDeleteUsuarioAction.mockResolvedValue(undefined);
+  it("asks before deleting, then deletes and goes back to /usuarios", async () => {
+    mockDeleteUsuarioFormAction.mockResolvedValue({ error: null, success: true });
     render(<EditarUsuarioForm usuario={USUARIO} sedes={SEDES} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Eliminar usuario" }));
+    await userEvent.click(screen.getByRole("button", { name: /Eliminar usuario/ }));
+    expect(mockDeleteUsuarioFormAction).not.toHaveBeenCalled();
 
-    expect(mockDeleteUsuarioAction).toHaveBeenCalledWith("u1", expect.any(FormData));
+    await userEvent.click(screen.getByRole("button", { name: "Sí, eliminar" }));
+    await vi.waitFor(() => expect(mockDeleteUsuarioFormAction).toHaveBeenCalledWith("u1"));
+    await vi.waitFor(() => expect(mockPush).toHaveBeenCalledWith("/usuarios"));
+  });
+
+  it("shows why the delete was refused", async () => {
+    mockDeleteUsuarioFormAction.mockResolvedValue({
+      error: "No puedes eliminar al único administrador del taller.",
+      success: false,
+    });
+    render(<EditarUsuarioForm usuario={USUARIO} sedes={SEDES} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Eliminar usuario/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Sí, eliminar" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("único administrador");
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });
