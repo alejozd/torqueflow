@@ -198,7 +198,7 @@ export default async function InicioPage() {
       <div
         id="resumen"
         className={cn(
-          "grid scroll-mt-16grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3",
+          "grid scroll-mt-16 grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3",
           mostrarVencimientos ? "xl:grid-cols-6" : "xl:grid-cols-5",
         )}>
         <KpiCard
