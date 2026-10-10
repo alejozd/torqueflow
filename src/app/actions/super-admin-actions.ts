@@ -8,6 +8,7 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { provisionTenant } from "../../../scripts/provision-tenant";
 import { seedTenantUser } from "../../../scripts/seed-tenant-user";
 import { TenantUserEmailConflictError } from "@/lib/tenant/tenant-user-email";
+import { assertSafeSchemaName } from "@/lib/tenant/schema-name";
 import { registrarEventoAuditoriaPlataforma } from "@/lib/auditoria/registrarEventoPlataforma";
 import type { AuditLogConActor } from "@/app/actions/auditoria-actions";
 import type { Plan, Prisma, TipoEventoAuditoriaPlataforma } from "@/generated/prisma-public";
@@ -111,6 +112,14 @@ const ERRORES_PROVISIONAMIENTO_CONOCIDOS = /Invalid slug|Invalid schema name|alr
  */
 async function rollbackTenantProvisioning(tenantId: string, schemaName: string): Promise<void> {
   await publicDb.tenant.delete({ where: { id: tenantId } }).catch(() => {});
+  try {
+    assertSafeSchemaName(schemaName);
+  } catch {
+    // Best-effort cleanup: an unsafe name is skipped (logged), never thrown --
+    // it must not mask the original error the caller is about to report.
+    console.error(`[rollbackTenantProvisioning] schemaName inseguro, no se ejecuta DROP SCHEMA: ${JSON.stringify(schemaName)}`);
+    return;
+  }
   await publicDb.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`).catch(() => {});
 }
 

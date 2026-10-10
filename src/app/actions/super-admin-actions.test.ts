@@ -360,6 +360,18 @@ describe("crearTenantAction", () => {
     expect(mockTenantDelete).toHaveBeenCalledWith({ where: { id: "t1" } });
     expect(mockExecuteRawUnsafe).toHaveBeenCalledWith('DROP SCHEMA IF EXISTS "taller_familiar" CASCADE');
   });
+
+  it("never interpolates an unsafe schema name into the rollback DROP SCHEMA, but still deletes the tenant row", async () => {
+    // provisionTenant is mocked here, so its own validation does not run --
+    // exactly the "someone removed the upstream check" case this guards.
+    mockProvisionTenant.mockResolvedValue({ id: "t1" });
+    mockSeedTenantUser.mockRejectedValue(new Error("boom"));
+
+    await crearTenantAction(initialCrearTenantState, buildCrearTenantFormData({ slug: 'x"; DROP SCHEMA public; --' }));
+
+    expect(mockTenantDelete).toHaveBeenCalledWith({ where: { id: "t1" } });
+    expect(mockExecuteRawUnsafe).not.toHaveBeenCalled();
+  });
 });
 
 describe("contarUsuariosGlobal", () => {

@@ -2,6 +2,7 @@ import { execSync } from "node:child_process";
 import { publicDb } from "@/lib/db/public-client";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { isValidTenantSlug } from "@/lib/tenant/subdomain";
+import { assertSafeSchemaName } from "@/lib/tenant/schema-name";
 import { DEFAULT_DVI_CHECKLIST_ITEMS } from "@/lib/dvi/checklist-items";
 import type { Tenant } from "@/generated/prisma-public";
 
@@ -11,8 +12,6 @@ export interface ProvisionTenantInput {
   planId?: string;
   nombre?: string;
 }
-
-const SAFE_IDENTIFIER = /^[a-z][a-z0-9_]*$/;
 
 export async function provisionTenant({
   slug,
@@ -26,9 +25,7 @@ export async function provisionTenant({
     );
   }
 
-  if (!SAFE_IDENTIFIER.test(schemaName)) {
-    throw new Error(`Invalid schema name: "${schemaName}" (expected lowercase snake_case)`);
-  }
+  assertSafeSchemaName(schemaName);
 
   const existing = await publicDb.tenant.findFirst({ where: { OR: [{ slug }, { schemaName }] } });
   if (existing) {
