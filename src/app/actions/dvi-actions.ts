@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
+import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { saveDviFoto } from "@/lib/storage/local-file-storage";
 import type { DviChecklist } from "@/lib/dvi/checklist-items";
@@ -137,4 +138,8 @@ export async function deleteDviFotoAction(id: string, ordenId: string): Promise<
     throw new Error("Foto no encontrada en esta orden");
   }
   revalidatePath(`/ordenes/${ordenId}`);
+}
+
+export async function deleteDviFotoFormAction(id: string, ordenId: string): Promise<ResultadoAccion> {
+  return resultadoDeAccion(() => deleteDviFotoAction(id, ordenId), "Error al eliminar la foto");
 }

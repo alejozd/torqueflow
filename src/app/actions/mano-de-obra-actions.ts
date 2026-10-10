@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
+import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { manoDeObraInputSchema } from "@/lib/validation/orden";
 import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
@@ -99,4 +100,8 @@ export async function deleteManoDeObraAction(id: string, ordenId: string): Promi
     throw new Error(friendlyPrismaErrorMessage(err, "Error al eliminar la mano de obra"));
   }
   revalidatePath(`/ordenes/${ordenId}`);
+}
+
+export async function deleteManoDeObraFormAction(id: string, ordenId: string): Promise<ResultadoAccion> {
+  return resultadoDeAccion(() => deleteManoDeObraAction(id, ordenId), "Error al quitar la mano de obra");
 }

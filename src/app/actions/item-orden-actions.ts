@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
+import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { itemOrdenInputSchema } from "@/lib/validation/orden";
 import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
@@ -103,4 +104,8 @@ export async function deleteItemOrdenAction(id: string, ordenId: string): Promis
     throw new Error(friendlyPrismaErrorMessage(err, "Error al eliminar el ítem"));
   }
   revalidatePath(`/ordenes/${ordenId}`);
+}
+
+export async function deleteItemOrdenFormAction(id: string, ordenId: string): Promise<ResultadoAccion> {
+  return resultadoDeAccion(() => deleteItemOrdenAction(id, ordenId), "Error al quitar el ítem");
 }

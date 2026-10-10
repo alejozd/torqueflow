@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
+import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import {
   crearCotizacionInputSchema,
@@ -322,6 +323,10 @@ export async function eliminarItemCotizacionAction(id: string, cotizacionId: str
     throw new Error(friendlyPrismaErrorMessage(err, "Error al eliminar el ítem"));
   }
   revalidarCotizaciones(cotizacionId);
+}
+
+export async function eliminarItemCotizacionFormAction(id: string, cotizacionId: string): Promise<ResultadoAccion> {
+  return resultadoDeAccion(() => eliminarItemCotizacionAction(id, cotizacionId), "Error al quitar el ítem");
 }
 
 export async function actualizarDescuentoCotizacionAction(

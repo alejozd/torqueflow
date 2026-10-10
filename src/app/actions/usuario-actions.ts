@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
+import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import bcrypt from "bcryptjs";
 import { usuarioCreateInputSchema, usuarioUpdateInputSchema } from "@/lib/validation/usuario";
@@ -414,4 +415,8 @@ export async function deleteUsuarioAction(usuarioId: string): Promise<void> {
   await releaseTenantUserEmail(usuario.email);
 
   revalidatePath("/usuarios");
+}
+
+export async function deleteUsuarioFormAction(usuarioId: string): Promise<ResultadoAccion> {
+  return resultadoDeAccion(() => deleteUsuarioAction(usuarioId), "Error al eliminar el usuario");
 }

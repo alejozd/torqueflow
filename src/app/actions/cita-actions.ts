@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
+import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { citaInputSchema, estadoCitaSchema } from "@/lib/validation/cita";
 import { scopeCita } from "@/lib/sede/scope";
@@ -242,4 +243,8 @@ export async function deleteCitaAction(id: string): Promise<void> {
   }
 
   revalidarCitas();
+}
+
+export async function deleteCitaFormAction(id: string): Promise<ResultadoAccion> {
+  return resultadoDeAccion(() => deleteCitaAction(id), "Error al eliminar la cita");
 }
