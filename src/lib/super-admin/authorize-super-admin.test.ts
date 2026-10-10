@@ -15,7 +15,7 @@ import { authorizeSuperAdmin, reiniciarLimitadoresSuperAdmin } from "./authorize
 const ADMIN = { id: "sa1", email: "owner@torqueflow.test", nombre: "Alejo", passwordHash: "hashed" };
 
 function desde(ip: string): Request {
-  return new Request("http://x/api/superadmin/auth/callback/credentials", { headers: { "x-forwarded-for": ip } });
+  return new Request("http://x/api/superadmin/auth/callback/credentials", { headers: { "cf-connecting-ip": ip } });
 }
 
 async function fallar(veces: number, email: string, ip: string): Promise<void> {

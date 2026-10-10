@@ -61,12 +61,14 @@ export function crearLimitadorIntentos({
 }
 
 /**
- * The client IP as the reverse proxy reports it (first X-Forwarded-For hop).
- * Without the header every request shares the "desconocida" key, which turns
- * the per-IP limit into a global one -- the proxy must set it.
+ * The client IP as Cloudflare Tunnel reports it. The app listens only on
+ * 127.0.0.1 (package.json "start"), so every request comes through
+ * cloudflared, and Cloudflare always overwrites CF-Connecting-IP with the
+ * real client address. X-Forwarded-For is deliberately NOT used: Cloudflare
+ * keeps whatever the client sent there and only appends to it, so its first
+ * hop is attacker-controlled. No header (local dev) -> the shared
+ * "desconocida" key.
  */
 export function claveIp(request: Request | undefined): string {
-  const reenviadoPor = request?.headers.get("x-forwarded-for");
-  const primera = reenviadoPor?.split(",")[0]?.trim();
-  return primera || "desconocida";
+  return request?.headers.get("cf-connecting-ip")?.trim() || "desconocida";
 }

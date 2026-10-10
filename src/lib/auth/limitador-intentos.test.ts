@@ -46,10 +46,20 @@ describe("crearLimitadorIntentos", () => {
 });
 
 describe("claveIp", () => {
-  it("toma el primer valor de x-forwarded-for", () => {
-    const request = new Request("http://x", { headers: { "x-forwarded-for": "1.2.3.4, 10.0.0.1" } });
+  it("usa CF-Connecting-IP, la IP real que Cloudflare reescribe siempre", () => {
+    const request = new Request("http://x", { headers: { "cf-connecting-ip": "1.2.3.4" } });
 
     expect(claveIp(request)).toBe("1.2.3.4");
+  });
+
+  it("ignora X-Forwarded-For: Cloudflare conserva el valor que manda el cliente, así que es falsificable", () => {
+    const request = new Request("http://x", {
+      headers: { "cf-connecting-ip": "1.2.3.4", "x-forwarded-for": "6.6.6.6, 1.2.3.4" },
+    });
+    const soloXff = new Request("http://x", { headers: { "x-forwarded-for": "6.6.6.6" } });
+
+    expect(claveIp(request)).toBe("1.2.3.4");
+    expect(claveIp(soloXff)).toBe("desconocida");
   });
 
   it("devuelve 'desconocida' sin cabecera o sin request", () => {

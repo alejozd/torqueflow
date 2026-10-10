@@ -234,7 +234,7 @@ describe("authorizeCredentials", () => {
     };
 
     function desde(ip: string): Request {
-      return new Request("http://x/api/auth/callback/credentials", { headers: { "x-forwarded-for": ip } });
+      return new Request("http://x/api/auth/callback/credentials", { headers: { "cf-connecting-ip": ip } });
     }
 
     beforeEach(() => {
