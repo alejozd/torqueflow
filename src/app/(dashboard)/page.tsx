@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { AlertCircle, CalendarCheck, Car, ChevronRight, FileText, Package, Wrench } from "lucide-react";
+import { AlertCircle, CalendarCheck, Car, ChevronRight, FileText, Package, ShieldAlert, Wrench } from "lucide-react";
 import { requireSession } from "@/lib/auth/guards";
 import { getDashboardOverview } from "@/app/actions/dashboard-actions";
 import { getAlertasInventario } from "@/app/actions/alertas-inventario-actions";
+import { listVencimientos } from "@/app/actions/vencimiento-actions";
 import { AlertasInventarioCard } from "./alertas-inventario-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -131,6 +132,10 @@ export default async function InicioPage() {
     getDashboardOverview(),
     getAlertasInventario(),
   ]);
+  // El KPI de vencimientos es solo para ADMIN y RECEPCION (spec §4).
+  const mostrarVencimientos = session.user.role !== "TECNICO";
+  const vencimientos = mostrarVencimientos ? await listVencimientos() : [];
+  const vencimientosVencidos = vencimientos.filter((fila) => fila.estado === "VENCIDO").length;
 
   const nombre = session.user.name ?? session.user.email;
   const flujoTotal =
@@ -190,7 +195,12 @@ export default async function InicioPage() {
         ))}
       </nav>
 
-      <div id="resumen" className="grid scroll-mt-16 grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div
+        id="resumen"
+        className={cn(
+          "grid scroll-mt-16 grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3",
+          mostrarVencimientos ? "xl:grid-cols-6" : "xl:grid-cols-5",
+        )}>
         <KpiCard
           title="En el taller"
           value={overview.enTaller.total}
@@ -248,6 +258,26 @@ export default async function InicioPage() {
           iconBgColor={KPI_TONE.danger.iconBg}
           className={KPI_TONE.danger.cardBg}
         />
+
+        {mostrarVencimientos ? (
+          <Link href="/vencimientos" className="rounded-xl focus-visible:outline-2">
+            <KpiCard
+              title="Vencimientos"
+              value={vencimientos.length}
+              valueColor="warning"
+              subtitle={
+                vencimientosVencidos > 0
+                  ? `${vencimientosVencidos} ${vencimientosVencidos === 1 ? "vencido" : "vencidos"}`
+                  : undefined
+              }
+              subtitleColor="warning"
+              highlight={vencimientos.length > 0}
+              icon={<ShieldAlert className={cn("size-5", KPI_TONE.warning.icon)} />}
+              iconBgColor={KPI_TONE.warning.iconBg}
+              className={KPI_TONE.warning.cardBg}
+            />
+          </Link>
+        ) : null}
       </div>
 
       <div id="flujo-taller" className="grid scroll-mt-16 grid-cols-1 gap-4 lg:grid-cols-3">

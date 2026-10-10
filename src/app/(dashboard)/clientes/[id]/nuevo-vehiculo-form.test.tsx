@@ -150,4 +150,42 @@ describe("NuevoVehiculoForm", () => {
     expect(await screen.findByText("La placa es obligatoria")).toBeInTheDocument();
     expect(mockCreateVehiculoAction).not.toHaveBeenCalled();
   });
+
+  it("muestra aviso no bloqueante si la placa no tiene el formato del tipo", async () => {
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} />);
+
+    await userEvent.type(screen.getByLabelText("Placa"), "ABC12D");
+
+    expect(
+      screen.getByText("El formato de placa no es el habitual para este tipo de vehículo."),
+    ).toBeInTheDocument();
+  });
+
+  it("no muestra el aviso con una placa de carro habitual", async () => {
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} />);
+
+    await userEvent.type(screen.getByLabelText("Placa"), "ABC123");
+
+    expect(
+      screen.queryByText("El formato de placa no es el habitual para este tipo de vehículo."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("envía tipo, VIN y vencimientos", async () => {
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} />);
+
+    await userEvent.type(screen.getByLabelText("Placa"), "ABC123");
+    await seleccionarMarcaYModelo();
+    await userEvent.type(screen.getByLabelText("VIN"), "9BWZZZ377VT004251");
+    await userEvent.type(screen.getByLabelText("SOAT vence"), "2026-11-30");
+    await userEvent.type(screen.getByLabelText("Tecnomecánica vence"), "2026-12-15");
+    await userEvent.click(screen.getByRole("button", { name: "Agregar vehículo" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Vehículo agregado");
+    const formData = mockCreateVehiculoAction.mock.calls[0]![2] as FormData;
+    expect(formData.get("tipo")).toBe("CARRO");
+    expect(formData.get("vin")).toBe("9BWZZZ377VT004251");
+    expect(formData.get("soatVence")).toBe("2026-11-30");
+    expect(formData.get("tecnomecanicaVence")).toBe("2026-12-15");
+  });
 });

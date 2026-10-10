@@ -81,7 +81,7 @@ const MAX_ERRORES_REPORTADOS = 50;
  * errors routinely embed hosts, usernames and -- in a badly built error string
  * -- the credential itself; this summary is returned over HTTP.
  */
-function describirError(err: unknown): string {
+export function describirError(err: unknown): string {
   return err instanceof Error ? err.constructor.name : "Error desconocido";
 }
 

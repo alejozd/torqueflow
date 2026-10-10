@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getVehiculo } from "@/app/actions/vehiculo-actions";
+import { getDiasAvisoVencimiento } from "@/app/actions/configuracion-taller-actions";
 import { listOrdenesByVehiculo, listTecnicos, type OrdenDeVehiculo } from "@/app/actions/orden-actions";
 import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/vehiculo-marca-modelo-actions";
 import { EditarVehiculoDialog } from "../../clientes/[id]/editar-vehiculo-dialog";
@@ -11,7 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSession } from "@/lib/auth/guards";
 import { totalOrden } from "@/lib/dashboard/calculos";
+import { VencimientoBadge } from "@/components/vencimiento-badge";
 import { cn } from "@/lib/utils";
+import { ETIQUETA_TIPO_VEHICULO } from "@/lib/validation/vehiculo";
+import { estadoVencimiento } from "@/lib/vencimientos/estado-vencimiento";
 import type { EstadoOrden } from "@/generated/prisma-tenant";
 
 const ESTADO_LABELS: Record<EstadoOrden, string> = {
@@ -81,14 +85,17 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
     notFound();
   }
 
-  const [ordenes, tecnicos, session, marcas, modelos] = await Promise.all([
+  const [ordenes, tecnicos, session, marcas, modelos, diasAviso] = await Promise.all([
     listOrdenesByVehiculo(id),
     listTecnicos(),
     requireSession(),
     listMarcasVehiculo(),
     listTodosLosModelosVehiculo(),
+    getDiasAvisoVencimiento(),
   ]);
   const esAdmin = session.user.role === "ADMIN";
+
+  const ahora = new Date();
 
   const enTaller = ordenes.some((orden) => ESTADOS_ACTIVOS.includes(orden.estado));
 
@@ -174,6 +181,11 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
             vehiculoId={vehiculo.id}
             placa={vehiculo.placa}
             tecnicos={tecnicos}
+            vencimientos={{
+              soatVence: vehiculo.soatVence,
+              tecnomecanicaVence: vehiculo.tecnomecanicaVence,
+              diasAviso,
+            }}
           />
         </div>
       </div>
@@ -197,6 +209,39 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
         </div>
 
         <div className="flex flex-col gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Vehículo</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <div>
+                <p className="text-xs text-muted-foreground">Tipo</p>
+                <p className="text-sm">{ETIQUETA_TIPO_VEHICULO[vehiculo.tipo]}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">VIN</p>
+                <p className="font-mono text-sm">{vehiculo.vin ?? "—"}</p>
+              </div>
+              <div className="flex flex-col gap-2 border-t border-border pt-3">
+                <p className="text-xs font-medium text-muted-foreground">Vencimientos</p>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm">SOAT</span>
+                  <VencimientoBadge
+                    estado={estadoVencimiento(vehiculo.soatVence, ahora, diasAviso)}
+                    fecha={vehiculo.soatVence}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm">Tecnomecánica</span>
+                  <VencimientoBadge
+                    estado={estadoVencimiento(vehiculo.tecnomecanicaVence, ahora, diasAviso)}
+                    fecha={vehiculo.tecnomecanicaVence}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Propietario</CardTitle>

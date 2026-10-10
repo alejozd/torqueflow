@@ -60,6 +60,10 @@ export function EditarVehiculoForm({
       proximoMantenimiento: toDateInputValue(vehiculo.proximoMantenimiento),
       transmision: vehiculo.transmision ?? "",
       observaciones: vehiculo.observaciones ?? "",
+      tipo: vehiculo.tipo,
+      vin: vehiculo.vin ?? "",
+      soatVence: toDateInputValue(vehiculo.soatVence),
+      tecnomecanicaVence: toDateInputValue(vehiculo.tecnomecanicaVence),
     },
   });
 
@@ -72,6 +76,7 @@ export function EditarVehiculoForm({
       // explicitly here before submitting.
       formData.set("combustible", (data.combustible as string | undefined) ?? "");
       formData.set("transmision", (data.transmision as string | undefined) ?? "");
+      formData.set("tipo", (data.tipo as string | undefined) ?? "CARRO");
       formData.set("marcaId", (data.marcaId as string | undefined) ?? "");
       formData.set("modeloId", (data.modeloId as string | undefined) ?? "");
       const result = await updateVehiculoAction(vehiculo.id, initialState, formData);

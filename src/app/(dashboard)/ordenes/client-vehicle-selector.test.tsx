@@ -39,7 +39,7 @@ function baseClientes(): ClienteParaOrden[] {
     {
       id: "c1",
       nombre: "Ana Pérez",
-      vehiculos: [{ id: "v1", placa: "ABC123", marca: "Toyota", modelo: "Corolla", kilometrajeActual: 78420 }],
+      vehiculos: [{ id: "v1", placa: "ABC123", marca: "Toyota", modelo: "Corolla", kilometrajeActual: 78420, soatVence: null, tecnomecanicaVence: null }],
     },
     { id: "c2", nombre: "María Gómez", vehiculos: [] },
   ];

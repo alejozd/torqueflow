@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createOrdenAction, type OrdenFormState, type TecnicoOption } from "@/app/actions/orden-actions";
 import { ordenTrabajoInputSchema } from "@/lib/validation/orden";
+import { AvisoVencimientosOrden } from "@/components/aviso-vencimientos-orden";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -32,11 +33,14 @@ export function NuevaOrdenForm({
   clienteId,
   vehiculoId,
   tecnicos,
+  vencimientos,
   onCreated,
 }: {
   clienteId: string;
   vehiculoId: string;
   tecnicos: TecnicoOption[];
+  /** Opcional: si viene, avisa SOAT/tecnomecánica vencidos o por vencer. */
+  vencimientos?: { soatVence: Date | null; tecnomecanicaVence: Date | null; diasAviso: number };
   /**
    * Fired synchronously right after a successful create, with the new
    * orden's id -- instead of a status message, so a caller like
@@ -82,6 +86,13 @@ export function NuevaOrdenForm({
 
   return (
     <form noValidate ref={formRef} onSubmit={(evento) => handleSubmit(onValid)(evento)} className="flex flex-col gap-4">
+      {vencimientos ? (
+        <AvisoVencimientosOrden
+          soatVence={vencimientos.soatVence}
+          tecnomecanicaVence={vencimientos.tecnomecanicaVence}
+          diasAviso={vencimientos.diasAviso}
+        />
+      ) : null}
       <FormGroup label="Ingreso">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">

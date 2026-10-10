@@ -3,6 +3,7 @@ import { AlertCircle, AlertTriangle, ArrowDown, ArrowUp, Car, DollarSign, UserPl
 import { listOrdenes, listTecnicos, type OrdenWithDetalle } from "@/app/actions/orden-actions";
 import { listClientesParaOrden } from "@/app/actions/cliente-actions";
 import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/vehiculo-marca-modelo-actions";
+import { getDiasAvisoVencimiento } from "@/app/actions/configuracion-taller-actions";
 import { requireSession } from "@/lib/auth/guards";
 import { NuevaOrdenDialog } from "./nueva-orden-dialog";
 import type { EstadoOrden } from "@/generated/prisma-tenant";
@@ -293,13 +294,14 @@ export default async function OrdenesPage({
   // Fetched once, unfiltered: the KPI cards summarize every orden of the sede
   // regardless of which estado the list below is currently filtered to, so a
   // single read is filtered client-side rather than re-querying per filter.
-  const [ordenes, clientes, tecnicos, session, marcas, modelos] = await Promise.all([
+  const [ordenes, clientes, tecnicos, session, marcas, modelos, diasAviso] = await Promise.all([
     listOrdenes(),
     listClientesParaOrden(),
     listTecnicos(),
     requireSession(),
     listMarcasVehiculo(),
     listTodosLosModelosVehiculo(),
+    getDiasAvisoVencimiento(),
   ]);
   const esAdmin = session.user.role === "ADMIN";
   const filtradas = estadoFiltro ? ordenes.filter((orden) => orden.estado === estadoFiltro) : ordenes;
@@ -345,7 +347,7 @@ export default async function OrdenesPage({
             {ordenesMes} {ordenesMes === 1 ? "orden" : "órdenes"} este mes
           </Badge>
         </div>
-        <NuevaOrdenDialog clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} esAdmin={esAdmin} />
+        <NuevaOrdenDialog clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} esAdmin={esAdmin} diasAviso={diasAviso} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">

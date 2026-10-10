@@ -52,6 +52,10 @@ export async function createVehiculoAction(
     proximoMantenimiento: formData.get("proximoMantenimiento") || undefined,
     transmision: formData.get("transmision") || undefined,
     observaciones: formData.get("observaciones") || undefined,
+    tipo: formData.get("tipo") || undefined,
+    vin: formData.get("vin") || undefined,
+    soatVence: formData.get("soatVence") || undefined,
+    tecnomecanicaVence: formData.get("tecnomecanicaVence") || undefined,
   });
 
   if (!parsed.success) {
@@ -77,6 +81,10 @@ export async function createVehiculoAction(
         proximoMantenimiento: parsed.data.proximoMantenimiento,
         transmision: parsed.data.transmision,
         observaciones: parsed.data.observaciones,
+        tipo: parsed.data.tipo,
+        vin: parsed.data.vin,
+        soatVence: parsed.data.soatVence,
+        tecnomecanicaVence: parsed.data.tecnomecanicaVence,
         clienteId,
       },
     });
@@ -85,6 +93,7 @@ export async function createVehiculoAction(
   }
 
   revalidatePath(`/clientes/${clienteId}`);
+  revalidatePath("/vencimientos");
   return { error: null, success: true, vehiculo };
 }
 
@@ -106,6 +115,10 @@ export async function updateVehiculoAction(
     proximoMantenimiento: formData.get("proximoMantenimiento") || undefined,
     transmision: formData.get("transmision") || undefined,
     observaciones: formData.get("observaciones") || undefined,
+    tipo: formData.get("tipo") || undefined,
+    vin: formData.get("vin") || undefined,
+    soatVence: formData.get("soatVence") || undefined,
+    tecnomecanicaVence: formData.get("tecnomecanicaVence") || undefined,
   });
 
   if (!parsed.success) {
@@ -132,6 +145,10 @@ export async function updateVehiculoAction(
         proximoMantenimiento: parsed.data.proximoMantenimiento,
         transmision: parsed.data.transmision,
         observaciones: parsed.data.observaciones,
+        tipo: parsed.data.tipo,
+        vin: parsed.data.vin ?? null,
+        soatVence: parsed.data.soatVence ?? null,
+        tecnomecanicaVence: parsed.data.tecnomecanicaVence ?? null,
       },
       select: { clienteId: true },
     });
@@ -142,6 +159,7 @@ export async function updateVehiculoAction(
 
   revalidatePath(`/clientes/${clienteId}`);
   revalidatePath(`/vehiculos/${id}`);
+  revalidatePath("/vencimientos");
   return { error: null, success: true };
 }
 

@@ -2,10 +2,15 @@
 
 import { useMemo, useState } from "react";
 import { z } from "zod";
-import { useController } from "react-hook-form";
+import { useController, useWatch } from "react-hook-form";
 import type { Control, FieldErrors, UseFormRegister, UseFormSetValue } from "react-hook-form";
 import { Plus } from "lucide-react";
-import { vehiculoInputSchema } from "@/lib/validation/vehiculo";
+import {
+  ETIQUETA_TIPO_VEHICULO,
+  placaFormatoHabitual,
+  vehiculoInputSchema,
+  type TipoVehiculoValor,
+} from "@/lib/validation/vehiculo";
 import type { MarcaVehiculo, ModeloVehiculo } from "@/generated/prisma-tenant";
 import { NuevaMarcaDialog } from "./nueva-marca-dialog";
 import { NuevoModeloDialog } from "./nuevo-modelo-dialog";
@@ -28,11 +33,14 @@ export const vehiculoFormSchema = vehiculoInputSchema.extend({
   kilometraje: z.preprocess(blankToUndefined, vehiculoInputSchema.shape.kilometraje),
   proximoMantenimiento: z.preprocess(blankToUndefined, vehiculoInputSchema.shape.proximoMantenimiento),
   transmision: z.preprocess(blankToUndefined, vehiculoInputSchema.shape.transmision),
+  vin: z.preprocess(blankToUndefined, vehiculoInputSchema.shape.vin),
+  soatVence: z.preprocess(blankToUndefined, vehiculoInputSchema.shape.soatVence),
+  tecnomecanicaVence: z.preprocess(blankToUndefined, vehiculoInputSchema.shape.tecnomecanicaVence),
 });
 export type VehiculoFormInput = z.input<typeof vehiculoFormSchema>;
 
 // Shared by NuevoVehiculoForm and EditarVehiculoForm -- both need the exact
-// same 9-field, 4-group layout, only the submit action and defaultValues differ.
+// same 14-field, 5-group layout, only the submit action and defaultValues differ.
 export function VehiculoFormFields({
   register,
   errors,
@@ -52,6 +60,8 @@ export function VehiculoFormFields({
 }) {
   const { field: combustibleField } = useController({ name: "combustible", control });
   const { field: transmisionField } = useController({ name: "transmision", control });
+  const { field: tipoField } = useController({ name: "tipo", control });
+  const placa = useWatch({ control, name: "placa" });
   const { field: marcaIdField } = useController({ name: "marcaId", control });
   const { field: modeloIdField } = useController({ name: "modeloId", control });
 
@@ -116,6 +126,35 @@ export function VehiculoFormFields({
               {...register("placa")}
             />
             {errors.placa ? <p id="placa-error" className="text-xs text-destructive">{errors.placa.message}</p> : null}
+            {placa && !placaFormatoHabitual(placa, (tipoField.value as TipoVehiculoValor | undefined) ?? "CARRO") ? (
+              <p className="text-xs text-[oklch(0.55_0.15_60)]">
+                El formato de placa no es el habitual para este tipo de vehículo.
+              </p>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <Label htmlFor="tipo">Tipo</Label>
+            <SelectField
+              id="tipo"
+              value={(tipoField.value as string | undefined) ?? "CARRO"}
+              onValueChange={tipoField.onChange}
+              placeholder="Seleccionar..."
+              items={Object.entries(ETIQUETA_TIPO_VEHICULO).map(([value, label]) => ({ value, label }))}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <Label htmlFor="vin">VIN</Label>
+            <Input
+              id="vin"
+              maxLength={17}
+              className="font-mono uppercase"
+              aria-invalid={errors.vin ? true : undefined}
+              aria-describedby={errors.vin ? "vin-error" : undefined}
+              {...register("vin")}
+            />
+            {errors.vin ? <p id="vin-error" className="text-xs text-destructive">{errors.vin.message}</p> : null}
           </div>
         </div>
       </FormGroup>
@@ -283,6 +322,40 @@ export function VehiculoFormFields({
                 { value: "MECANICA", label: "Mecánica" },
               ]}
             />
+          </div>
+        </div>
+      </FormGroup>
+
+      <FormGroup label="Vencimientos">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
+          <div className="flex flex-col gap-1.5 sm:col-span-3">
+            <Label htmlFor="soatVence">SOAT vence</Label>
+            <Input
+              id="soatVence"
+              type="date"
+              aria-invalid={errors.soatVence ? true : undefined}
+              aria-describedby={errors.soatVence ? "soatVence-error" : undefined}
+              {...register("soatVence")}
+            />
+            {errors.soatVence ? (
+              <p id="soatVence-error" className="text-xs text-destructive">{errors.soatVence.message}</p>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5 sm:col-span-3">
+            <Label htmlFor="tecnomecanicaVence">Tecnomecánica vence</Label>
+            <Input
+              id="tecnomecanicaVence"
+              type="date"
+              aria-invalid={errors.tecnomecanicaVence ? true : undefined}
+              aria-describedby={errors.tecnomecanicaVence ? "tecnomecanicaVence-error" : undefined}
+              {...register("tecnomecanicaVence")}
+            />
+            {errors.tecnomecanicaVence ? (
+              <p id="tecnomecanicaVence-error" className="text-xs text-destructive">
+                {errors.tecnomecanicaVence.message}
+              </p>
+            ) : null}
           </div>
         </div>
       </FormGroup>

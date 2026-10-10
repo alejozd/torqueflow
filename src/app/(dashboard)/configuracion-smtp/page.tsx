@@ -1,5 +1,7 @@
 import { getConfiguracionSmtp, getUltimosEnviosSmtp } from "@/app/actions/smtp-actions";
+import { getDiasAvisoVencimiento } from "@/app/actions/configuracion-taller-actions";
 import { ConfiguracionSmtpForm } from "./configuracion-smtp-form";
+import { RecordatoriosForm } from "./recordatorios-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatoFechaRelativa } from "@/lib/fecha-bogota";
@@ -12,7 +14,11 @@ const ESTADO_BADGE_CLASSNAME = "border-transparent bg-[oklch(0.4_0.1_150/0.1)] t
 export default async function ConfiguracionSmtpPage() {
   // getConfiguracionSmtp calls requireRole(["ADMIN"]), so a TECNICO/RECEPCION
   // reaching this URL is redirected before anything renders.
-  const [configuracion, envios] = await Promise.all([getConfiguracionSmtp(), getUltimosEnviosSmtp()]);
+  const [configuracion, envios, diasAviso] = await Promise.all([
+    getConfiguracionSmtp(),
+    getUltimosEnviosSmtp(),
+    getDiasAvisoVencimiento(),
+  ]);
   const ahora = new Date();
 
   return (
@@ -20,37 +26,49 @@ export default async function ConfiguracionSmtpPage() {
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Configuración SMTP</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          TorqueFlow envía los recordatorios de mantenimiento usando el servidor de correo de tu propio taller. La
-          contraseña se guarda cifrada y nunca se muestra de vuelta.
+          TorqueFlow envía los recordatorios de mantenimiento y los avisos de vencimiento de SOAT y
+          tecnomecánica usando el servidor de correo de tu propio taller. La contraseña se guarda cifrada y
+          nunca se muestra de vuelta.
         </p>
       </div>
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Servidor</CardTitle>
-            {configuracion ? (
-              <Badge
-                variant={configuracion.activo ? "default" : "outline"}
-                className={cn("gap-1.5", configuracion.activo && ESTADO_BADGE_CLASSNAME)}
-              >
-                <span
-                  className="size-1.5 shrink-0 rounded-full"
-                  style={{ background: configuracion.activo ? "oklch(0.4 0.1 150)" : "oklch(0.7 0 0)" }}
-                />
-                {configuracion.activo ? "Activo" : "Inactivo"}
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="gap-1.5">
-                <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground" />
-                Sin configurar
-              </Badge>
-            )}
-          </CardHeader>
-          <CardContent>
-            <ConfiguracionSmtpForm configuracion={configuracion} />
-          </CardContent>
-        </Card>
+        <div className="flex flex-col gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Servidor</CardTitle>
+              {configuracion ? (
+                <Badge
+                  variant={configuracion.activo ? "default" : "outline"}
+                  className={cn("gap-1.5", configuracion.activo && ESTADO_BADGE_CLASSNAME)}
+                >
+                  <span
+                    className="size-1.5 shrink-0 rounded-full"
+                    style={{ background: configuracion.activo ? "oklch(0.4 0.1 150)" : "oklch(0.7 0 0)" }}
+                  />
+                  {configuracion.activo ? "Activo" : "Inactivo"}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="gap-1.5">
+                  <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground" />
+                  Sin configurar
+                </Badge>
+              )}
+            </CardHeader>
+            <CardContent>
+              <ConfiguracionSmtpForm configuracion={configuracion} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Recordatorios</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RecordatoriosForm diasAviso={diasAviso} />
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="sticky top-4 flex flex-col gap-4">
           <Card>

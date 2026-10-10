@@ -55,6 +55,8 @@ export interface ClienteParaOrden {
      * vehiculos/[id] use, so "Nueva orden" never disagrees with them about
      * the same vehículo's mileage. */
     kilometrajeActual: number | null;
+    soatVence: Date | null;
+    tecnomecanicaVence: Date | null;
   }[];
 }
 
@@ -79,6 +81,8 @@ export async function listClientesParaOrden(): Promise<ClienteParaOrden[]> {
           marca: true,
           modelo: true,
           kilometraje: true,
+          soatVence: true,
+          tecnomecanicaVence: true,
           ordenes: { select: { kilometrajeIngreso: true }, orderBy: { createdAt: "desc" } },
         },
         orderBy: { placa: "asc" },

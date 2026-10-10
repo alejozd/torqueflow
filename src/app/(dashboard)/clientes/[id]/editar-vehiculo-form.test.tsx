@@ -43,6 +43,10 @@ const vehiculo = {
   proximoMantenimiento: new Date("2026-12-01T00:00:00.000Z"),
   transmision: "AUTOMATICA" as const,
   observaciones: "Rines de posventa",
+  tipo: "CARRO" as const,
+  vin: null,
+  soatVence: null,
+  tecnomecanicaVence: null,
   clienteId: "c1",
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -101,5 +105,34 @@ describe("EditarVehiculoForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Ya existe un registro con ese valor.");
+  });
+
+  it("precarga tipo, VIN y vencimientos y reenvía el tipo", async () => {
+    renderInDialog(
+      <EditarVehiculoForm
+        vehiculo={{
+          ...vehiculo,
+          tipo: "MOTO" as const,
+          vin: "9BWZZZ377VT004251",
+          soatVence: new Date("2026-11-30T00:00:00Z"),
+          tecnomecanicaVence: new Date("2027-01-05T00:00:00Z"),
+        }}
+        marcas={marcas}
+        modelos={modelos}
+        esAdmin={false}
+      />,
+    );
+
+    expect(screen.getByRole("combobox", { name: "Tipo" })).toHaveTextContent("Moto");
+    expect(screen.getByLabelText("VIN")).toHaveValue("9BWZZZ377VT004251");
+    expect(screen.getByLabelText("SOAT vence")).toHaveValue("2026-11-30");
+    expect(screen.getByLabelText("Tecnomecánica vence")).toHaveValue("2027-01-05");
+
+    await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => expect(mockUpdateVehiculoAction).toHaveBeenCalled());
+    const formData = mockUpdateVehiculoAction.mock.calls[0]![2] as FormData;
+    expect(formData.get("tipo")).toBe("MOTO");
+    expect(formData.get("soatVence")).toBe("2026-11-30");
   });
 });

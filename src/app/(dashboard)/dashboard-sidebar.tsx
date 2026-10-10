@@ -14,6 +14,7 @@ import {
   Package,
   PackagePlus,
   Receipt,
+  ShieldAlert,
   Truck,
   UserCog,
   Users,
@@ -60,6 +61,7 @@ const OPERACION: NavGroup = {
     { href: "/cotizaciones", label: "Cotizaciones", icon: FileText },
     { href: "/ordenes", label: "Órdenes", icon: Wrench },
     { href: "/citas", label: "Citas", icon: CalendarDays },
+    { href: "/vencimientos", label: "Vencimientos", icon: ShieldAlert },
     { href: "/facturas", label: "Facturas", icon: Receipt },
   ],
 };

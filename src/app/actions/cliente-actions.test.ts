@@ -134,6 +134,8 @@ describe("listClientesParaOrden", () => {
             marca: "Toyota",
             modelo: "Corolla",
             kilometraje: 50000,
+            soatVence: null,
+            tecnomecanicaVence: null,
             ordenes: [{ kilometrajeIngreso: null }, { kilometrajeIngreso: 78420 }],
           },
         ],
@@ -146,7 +148,7 @@ describe("listClientesParaOrden", () => {
       {
         id: "c1",
         nombre: "Ana",
-        vehiculos: [{ id: "v1", placa: "ABC123", marca: "Toyota", modelo: "Corolla", kilometrajeActual: 78420 }],
+        vehiculos: [{ id: "v1", placa: "ABC123", marca: "Toyota", modelo: "Corolla", kilometrajeActual: 78420, soatVence: null, tecnomecanicaVence: null }],
       },
     ]);
     expect(mockFindMany).toHaveBeenCalledWith({
@@ -161,6 +163,8 @@ describe("listClientesParaOrden", () => {
             marca: true,
             modelo: true,
             kilometraje: true,
+            soatVence: true,
+            tecnomecanicaVence: true,
             ordenes: { select: { kilometrajeIngreso: true }, orderBy: { createdAt: "desc" } },
           },
           orderBy: { placa: "asc" },
