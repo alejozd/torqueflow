@@ -50,6 +50,22 @@ describe("GastoDialog", () => {
     expect(fd.get("fecha")).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
+  it("envía pagadoEnEfectivo según el checkbox (por defecto false)", async () => {
+    const user = userEvent.setup();
+    render(<GastoDialog modo="crear" categorias={categorias} sedeIdPorDefecto="s1" />);
+    await user.click(screen.getByRole("button", { name: "Nuevo gasto" }));
+    await user.click(await screen.findByRole("combobox", { name: /categoría/i }));
+    await user.click(await screen.findByRole("option", { name: "Insumos" }));
+    await user.type(screen.getByLabelText("Descripción"), "Aceite");
+    await user.type(screen.getByLabelText("Monto"), "200000");
+    const checkbox = screen.getByLabelText("Pagado en efectivo de la caja");
+    expect(checkbox).not.toBeChecked();
+    await user.click(checkbox);
+    await user.click(screen.getByRole("button", { name: "Registrar gasto" }));
+    await waitFor(() => expect(mockCrear).toHaveBeenCalledTimes(1));
+    expect((mockCrear.mock.calls[0][1] as FormData).get("pagadoEnEfectivo")).toBe("true");
+  });
+
   it("en modo crear la fecha por defecto es hoy en el periodo actual y el día 1 en otro", async () => {
     const user = userEvent.setup();
     const actual = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date());

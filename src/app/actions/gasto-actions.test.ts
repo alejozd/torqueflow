@@ -42,7 +42,7 @@ describe("gastos", () => {
     expect(db.gasto.create).toHaveBeenCalledWith({
       data: {
         sedeId: "s1", categoriaId: "cat_arriendo", descripcion: "Arriendo", monto: 1500000,
-        fecha: new Date("2026-10-05T00:00:00.000Z"), referencia: null, registradoPorId: "u2",
+        fecha: new Date("2026-10-05T00:00:00.000Z"), referencia: null, registradoPorId: "u2", pagadoEnEfectivo: false,
       },
     });
   });
@@ -77,6 +77,18 @@ describe("gastos", () => {
     db.gasto.delete.mockResolvedValue({});
     expect(await eliminarGastoAction("g1")).toEqual({ error: null });
     expect(mockRequireRole).toHaveBeenLastCalledWith(["ADMIN"]);
+  });
+
+  it("guarda pagadoEnEfectivo al crear y al actualizar", async () => {
+    mockRequireRole.mockResolvedValue(ADMIN);
+    db.categoriaGasto.findUnique.mockResolvedValue({ id: "cat_arriendo", activo: true });
+    db.gasto.findUnique.mockResolvedValue(ACTUAL);
+    await crearGastoAction(inicial, form({ ...valido, pagadoEnEfectivo: "true" }));
+    expect(db.gasto.create.mock.calls[0][0].data.pagadoEnEfectivo).toBe(true);
+    await actualizarGastoAction("g1", inicial, form({ ...valido, pagadoEnEfectivo: "true" }));
+    expect(db.gasto.update.mock.calls[0][0].data.pagadoEnEfectivo).toBe(true);
+    await actualizarGastoAction("g1", inicial, form(valido));
+    expect(db.gasto.update.mock.calls[1][0].data.pagadoEnEfectivo).toBe(false);
   });
 
   it("actualizar permite conservar la categoría actual aunque esté inactiva", async () => {
