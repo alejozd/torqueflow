@@ -6,6 +6,13 @@ export const tipoTransmisionSchema = z.enum(["AUTOMATICA", "MECANICA"]);
 export const tipoVehiculoSchema = z.enum(["CARRO", "MOTO", "CAMIONETA", "CAMION"]);
 export type TipoVehiculoValor = z.infer<typeof tipoVehiculoSchema>;
 
+export const ETIQUETA_TIPO_VEHICULO: Record<TipoVehiculoValor, string> = {
+  CARRO: "Carro",
+  MOTO: "Moto",
+  CAMIONETA: "Camioneta",
+  CAMION: "Camión",
+};
+
 export const MENSAJE_VIN_INVALIDO = "El VIN debe tener 17 caracteres (letras y números, sin I, O ni Q)";
 const VIN_REGEX = /^[A-HJ-NPR-Z0-9]{17}$/;
 

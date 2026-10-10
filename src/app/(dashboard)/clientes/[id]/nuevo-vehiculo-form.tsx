@@ -56,6 +56,10 @@ export function NuevoVehiculoForm({
       proximoMantenimiento: "",
       transmision: "",
       observaciones: "",
+      tipo: "CARRO",
+      vin: "",
+      soatVence: "",
+      tecnomecanicaVence: "",
     },
   });
 
@@ -68,6 +72,7 @@ export function NuevoVehiculoForm({
       // explicitly here before submitting.
       formData.set("combustible", (data.combustible as string | undefined) ?? "");
       formData.set("transmision", (data.transmision as string | undefined) ?? "");
+      formData.set("tipo", (data.tipo as string | undefined) ?? "CARRO");
       formData.set("marcaId", (data.marcaId as string | undefined) ?? "");
       formData.set("modeloId", (data.modeloId as string | undefined) ?? "");
       const result = await createVehiculoAction(clienteId, initialState, formData);
