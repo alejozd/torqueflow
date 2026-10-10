@@ -34,6 +34,17 @@ describe("QuitarConConfirmacion", () => {
     expect(screen.getByRole("button", { name: "Quitar Filtro" })).toBeInTheDocument();
   });
 
+  it("toasts a generic error when the action rejects", async () => {
+    const accion = vi.fn().mockRejectedValue(new Error("boom"));
+    render(<QuitarConConfirmacion etiqueta="Quitar Filtro" pregunta="¿Quitar Filtro?" accion={accion} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Quitar Filtro" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sí, quitar" }));
+
+    await vi.waitFor(() => expect(mockToastError).toHaveBeenCalledWith("No se pudo quitar. Intenta de nuevo."));
+    expect(screen.getByRole("button", { name: "Quitar Filtro" })).toBeInTheDocument();
+  });
+
   it("'No' backs out without calling the action", async () => {
     const accion = vi.fn();
     render(<QuitarConConfirmacion etiqueta="Quitar Filtro" pregunta="¿Quitar Filtro?" accion={accion} />);

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -24,8 +25,15 @@ export function ConfirmacionEnLinea({
   enviaFormulario?: boolean;
   destructiva?: boolean;
 }) {
+  // The trigger button unmounts when this strip appears, so focus would fall
+  // to <body>; park it on the safe choice ("No") instead.
+  const cancelarRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    cancelarRef.current?.focus();
+  }, []);
+
   return (
-    <div className="flex flex-wrap items-center gap-2 text-sm">
+    <div role="group" aria-label={pregunta} className="flex flex-wrap items-center gap-2 text-sm">
       <span>{pregunta}</span>
       <Button
         type={enviaFormulario ? "submit" : "button"}
@@ -36,7 +44,7 @@ export function ConfirmacionEnLinea({
       >
         {etiquetaConfirmar}
       </Button>
-      <Button type="button" variant="ghost" size="sm" disabled={pendiente} onClick={onCancelar}>
+      <Button ref={cancelarRef} type="button" variant="ghost" size="sm" disabled={pendiente} onClick={onCancelar}>
         No
       </Button>
     </div>

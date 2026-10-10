@@ -106,6 +106,7 @@ describe("DviFotoForm", () => {
 
     await userEvent.click(screen.getAllByRole("button", { name: /Eliminar foto/ })[0]);
     expect(mockDeleteDviFotoFormAction).not.toHaveBeenCalled();
+    expect(screen.getByText("¿Quitar esta foto? No se puede deshacer.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Sí, quitar" }));
 
     await vi.waitFor(() => expect(mockDeleteDviFotoFormAction).toHaveBeenCalledWith("f1", "o1"));

@@ -235,6 +235,12 @@ describe("deleteDviFotoAction", () => {
     expect(mockFotoDeleteMany).toHaveBeenCalledWith({ where: { id: "f1", dvi: { ordenId: "o1" } } });
   });
 
+  it("hides raw database errors behind a friendly message", async () => {
+    mockFotoDeleteMany.mockRejectedValue(new Error("Can't reach database server at db:5432"));
+
+    await expect(deleteDviFotoAction("f1", "o1")).rejects.toThrow("No se pudo eliminar la foto");
+  });
+
   it("blocks deleting a foto when the order is in a terminal state (ENTREGADA)", async () => {
     mockOrdenFindFirst.mockResolvedValue({ estado: "ENTREGADA", factura: null });
 

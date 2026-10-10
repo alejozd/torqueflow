@@ -33,6 +33,13 @@ describe("ConfirmacionEnLinea", () => {
     expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 
+  it("moves focus to 'No' and labels the group with the question", () => {
+    render(<ConfirmacionEnLinea pregunta="¿Anular la orden?" etiquetaConfirmar="Sí, anular" onCancelar={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "No" })).toHaveFocus();
+    expect(screen.getByRole("group", { name: "¿Anular la orden?" })).toBeInTheDocument();
+  });
+
   it("disables both buttons while pendiente", () => {
     render(<ConfirmacionEnLinea pregunta="¿Seguro?" etiquetaConfirmar="Sí" pendiente onCancelar={vi.fn()} />);
 

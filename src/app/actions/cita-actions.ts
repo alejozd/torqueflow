@@ -235,9 +235,14 @@ export async function deleteCitaAction(id: string): Promise<void> {
   const session = await requireRole(["ADMIN"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  const { count } = await tenantDb.cita.deleteMany({
-    where: { id, ...scopeCita(session.user.sedeActivaId) },
-  });
+  let count: number;
+  try {
+    ({ count } = await tenantDb.cita.deleteMany({
+      where: { id, ...scopeCita(session.user.sedeActivaId) },
+    }));
+  } catch (err) {
+    throw new Error(friendlyPrismaErrorMessage(err, "No se pudo eliminar la cita"));
+  }
   if (count === 0) {
     throw new Error(NO_ENCONTRADA);
   }

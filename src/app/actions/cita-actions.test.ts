@@ -254,4 +254,11 @@ describe("deleteCitaAction", () => {
 
     await expect(deleteCitaAction("cita-ajena")).rejects.toThrow("Cita no encontrada");
   });
+
+  it("hides raw database errors behind a friendly message", async () => {
+    mockRequireRole.mockResolvedValue(ADMIN);
+    mockCitaDeleteMany.mockRejectedValue(new Error("Can't reach database server at db:5432"));
+
+    await expect(deleteCitaAction("cita-1")).rejects.toThrow("No se pudo eliminar la cita");
+  });
 });

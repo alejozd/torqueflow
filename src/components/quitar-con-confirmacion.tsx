@@ -28,7 +28,14 @@ export function QuitarConConfirmacion({
 
   function quitar() {
     startTransition(async () => {
-      const resultado = await accion();
+      let resultado: ResultadoAccion;
+      try {
+        resultado = await accion();
+      } catch {
+        setConfirmando(false);
+        toast.error("No se pudo quitar. Intenta de nuevo.");
+        return;
+      }
       setConfirmando(false);
       if (resultado.error) {
         toast.error(resultado.error);

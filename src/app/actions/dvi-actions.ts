@@ -124,16 +124,26 @@ export async function deleteDviFotoAction(id: string, ordenId: string): Promise<
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
-  const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
-    select: { estado: true, factura: { select: { id: true } } },
-  });
+  let orden;
+  try {
+    orden = await tenantDb.ordenTrabajo.findFirst({
+      where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
+      select: { estado: true, factura: { select: { id: true } } },
+    });
+  } catch (err) {
+    throw new Error(friendlyPrismaErrorMessage(err, "No se pudo eliminar la foto"));
+  }
   if (!orden) {
     throw new Error("Orden no encontrada");
   }
   assertOrdenMutable(orden);
 
-  const { count } = await tenantDb.dviFoto.deleteMany({ where: { id, dvi: { ordenId } } });
+  let count: number;
+  try {
+    ({ count } = await tenantDb.dviFoto.deleteMany({ where: { id, dvi: { ordenId } } }));
+  } catch (err) {
+    throw new Error(friendlyPrismaErrorMessage(err, "No se pudo eliminar la foto"));
+  }
   if (count === 0) {
     throw new Error("Foto no encontrada en esta orden");
   }

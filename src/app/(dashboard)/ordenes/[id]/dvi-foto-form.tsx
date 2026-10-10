@@ -98,7 +98,7 @@ export function DviFotoForm({
                 {puedeEliminar ? (
                   <QuitarConConfirmacion
                     etiqueta={`Eliminar foto ${foto.momento === "ANTES" ? "antes" : "después"}`}
-                    pregunta="¿Eliminar esta foto?"
+                    pregunta="¿Quitar esta foto? No se puede deshacer."
                     accion={() => deleteDviFotoFormAction(foto.id, ordenId)}
                   />
                 ) : null}

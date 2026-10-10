@@ -21,9 +21,9 @@ const ESTADO_LABELS: Record<EstadoOrden, string> = {
 };
 
 // Estados después de los cuales la orden ya no se puede editar (mutable-guard.ts).
-const CONFIRMACIONES: Partial<Record<EstadoOrden, { pregunta: string; etiqueta: string }>> = {
-  ENTREGADA: { pregunta: "¿Marcar la orden como entregada? Ya no se podrá editar.", etiqueta: "Sí, entregar" },
-  ANULADA: { pregunta: "¿Anular la orden? Ya no se podrá editar.", etiqueta: "Sí, anular" },
+const CONFIRMACIONES: Partial<Record<EstadoOrden, { pregunta: string; etiqueta: string; destructiva: boolean }>> = {
+  ENTREGADA: { pregunta: "¿Marcar la orden como entregada? Ya no se podrá editar.", etiqueta: "Sí, entregar", destructiva: false },
+  ANULADA: { pregunta: "¿Anular la orden? Ya no se podrá editar.", etiqueta: "Sí, anular", destructiva: true },
 };
 
 export function CambiarEstadoForm({ ordenId, estadoActual }: { ordenId: string; estadoActual: EstadoOrden }) {
@@ -63,6 +63,7 @@ export function CambiarEstadoForm({ ordenId, estadoActual }: { ordenId: string; 
         <ConfirmacionEnLinea
           pregunta={CONFIRMACIONES[confirmando]!.pregunta}
           etiquetaConfirmar={CONFIRMACIONES[confirmando]!.etiqueta}
+          destructiva={CONFIRMACIONES[confirmando]!.destructiva}
           enviaFormulario
           pendiente={isPending}
           onCancelar={() => setConfirmando(null)}

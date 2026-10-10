@@ -153,7 +153,9 @@ const MANO_OBRA_COLUMNS: DataTableColumn<ManoObraRow>[] = [
 ];
 
 // Remove column only while the orden is still editable and for the roles the
-// delete actions accept (ADMIN/RECEPCION) -- same rule as the add forms.
+// delete actions accept: `esOrdenMutable(orden) && role !== "TECNICO"`, mirroring
+// their requireRole(ADMIN/RECEPCION). The add forms are looser (only gated by
+// `!orden.factura`; the add actions allow TECNICO).
 function conColumnaQuitar<T extends { id: string }>(
   columns: DataTableColumn<T>[],
   puedeQuitar: boolean,
