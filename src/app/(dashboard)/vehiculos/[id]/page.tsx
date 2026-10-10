@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getVehiculo } from "@/app/actions/vehiculo-actions";
+import { getDiasAvisoVencimiento } from "@/app/actions/configuracion-taller-actions";
 import { listOrdenesByVehiculo, listTecnicos, type OrdenDeVehiculo } from "@/app/actions/orden-actions";
 import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/vehiculo-marca-modelo-actions";
 import { EditarVehiculoDialog } from "../../clientes/[id]/editar-vehiculo-dialog";
@@ -14,7 +15,7 @@ import { totalOrden } from "@/lib/dashboard/calculos";
 import { VencimientoBadge } from "@/components/vencimiento-badge";
 import { cn } from "@/lib/utils";
 import { ETIQUETA_TIPO_VEHICULO } from "@/lib/validation/vehiculo";
-import { DIAS_AVISO_POR_DEFECTO, estadoVencimiento } from "@/lib/vencimientos/estado-vencimiento";
+import { estadoVencimiento } from "@/lib/vencimientos/estado-vencimiento";
 import type { EstadoOrden } from "@/generated/prisma-tenant";
 
 const ESTADO_LABELS: Record<EstadoOrden, string> = {
@@ -84,18 +85,17 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
     notFound();
   }
 
-  const [ordenes, tecnicos, session, marcas, modelos] = await Promise.all([
+  const [ordenes, tecnicos, session, marcas, modelos, diasAviso] = await Promise.all([
     listOrdenesByVehiculo(id),
     listTecnicos(),
     requireSession(),
     listMarcasVehiculo(),
     listTodosLosModelosVehiculo(),
+    getDiasAvisoVencimiento(),
   ]);
   const esAdmin = session.user.role === "ADMIN";
 
-  // Task 4 reemplaza DIAS_AVISO_POR_DEFECTO por la configuración real del taller.
   const ahora = new Date();
-  const diasAviso = DIAS_AVISO_POR_DEFECTO;
 
   const enTaller = ordenes.some((orden) => ESTADOS_ACTIVOS.includes(orden.estado));
 
