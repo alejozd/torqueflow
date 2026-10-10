@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState, type FormEvent } from "react";
 import {
   cambiarEstadoTenantAction,
   cambiarPlanTenantAction,
   type SuperAdminFormState,
 } from "@/app/actions/super-admin-actions";
+import { ConfirmacionEnLinea } from "@/components/confirmacion-en-linea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -17,28 +18,50 @@ const initialState: SuperAdminFormState = { error: null, success: false };
 /** "Suspender"/"Activar" for the Acciones column -- one control, aligned with the row. */
 export function EstadoTenantButton({
   tenantId,
+  nombre,
   estadoActual,
 }: {
   tenantId: string;
+  nombre: string;
   estadoActual: "ACTIVO" | "SUSPENDIDO";
 }) {
   const cambiarEstadoDeEsteTenant = cambiarEstadoTenantAction.bind(null, tenantId);
   const [estadoState, estadoFormAction, estadoPending] = useActionState(cambiarEstadoDeEsteTenant, initialState);
 
   const nuevoEstado = estadoActual === "ACTIVO" ? "SUSPENDIDO" : "ACTIVO";
+  const [confirmando, setConfirmando] = useState(false);
+
+  function onSubmit(evento: FormEvent<HTMLFormElement>) {
+    if (nuevoEstado === "SUSPENDIDO" && !confirmando) {
+      evento.preventDefault();
+      setConfirmando(true);
+      return;
+    }
+    setConfirmando(false);
+  }
 
   return (
-    <form action={estadoFormAction} className="flex flex-col gap-1.5">
+    <form action={estadoFormAction} onSubmit={onSubmit} className="flex flex-col gap-1.5">
       <input type="hidden" name="estado" value={nuevoEstado} />
-      <Button
-        type="submit"
-        variant="outline"
-        size="sm"
-        disabled={estadoPending}
-        className={estadoActual === "ACTIVO" ? "text-red-600 hover:bg-red-50" : undefined}
-      >
-        {estadoActual === "ACTIVO" ? "Suspender" : "Activar"}
-      </Button>
+      {confirmando ? (
+        <ConfirmacionEnLinea
+          pregunta={`¿Suspender ${nombre}? Sus usuarios no podrán entrar hasta que lo actives.`}
+          etiquetaConfirmar="Sí, suspender"
+          enviaFormulario
+          pendiente={estadoPending}
+          onCancelar={() => setConfirmando(false)}
+        />
+      ) : (
+        <Button
+          type="submit"
+          variant="outline"
+          size="sm"
+          disabled={estadoPending}
+          className={estadoActual === "ACTIVO" ? "text-red-600 hover:bg-red-50" : undefined}
+        >
+          {estadoActual === "ACTIVO" ? "Suspender" : "Activar"}
+        </Button>
+      )}
       {estadoState.error ? (
         <Alert variant="destructive">
           <AlertDescription>{estadoState.error}</AlertDescription>

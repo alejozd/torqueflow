@@ -131,7 +131,7 @@ export default async function SuperAdminPage({
       header: "Acciones",
       cell: (tenant) => (
         <div className="flex flex-col gap-1.5">
-          <EstadoTenantButton tenantId={tenant.id} estadoActual={tenant.estado} />
+          <EstadoTenantButton tenantId={tenant.id} nombre={tenant.nombre ?? tenant.slug} estadoActual={tenant.estado} />
           <VerAuditoriaButton tenantId={tenant.id} />
         </div>
       ),

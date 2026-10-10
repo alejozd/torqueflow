@@ -23,11 +23,32 @@ describe("EstadoTenantButton", () => {
   });
 
   it("offers 'Suspender' for an ACTIVO tenant and 'Activar' for a SUSPENDIDO one", () => {
-    const { rerender } = render(<EstadoTenantButton tenantId="t1" estadoActual="ACTIVO" />);
+    const { rerender } = render(<EstadoTenantButton tenantId="t1" nombre="Taller Norte" estadoActual="ACTIVO" />);
     expect(screen.getByRole("button", { name: "Suspender" })).toBeInTheDocument();
 
-    rerender(<EstadoTenantButton tenantId="t1" estadoActual="SUSPENDIDO" />);
+    rerender(<EstadoTenantButton tenantId="t1" nombre="Taller Norte" estadoActual="SUSPENDIDO" />);
     expect(screen.getByRole("button", { name: "Activar" })).toBeInTheDocument();
+  });
+
+  it("asks before suspending a tenant", async () => {
+    mockCambiarEstadoTenantAction.mockResolvedValue({ error: null, success: true });
+    render(<EstadoTenantButton tenantId="t1" nombre="Taller Norte" estadoActual="ACTIVO" />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Suspender" }));
+    expect(mockCambiarEstadoTenantAction).not.toHaveBeenCalled();
+    expect(screen.getByText("¿Suspender Taller Norte? Sus usuarios no podrán entrar hasta que lo actives.")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Sí, suspender" }));
+    await vi.waitFor(() => expect(mockCambiarEstadoTenantAction).toHaveBeenCalled());
+  });
+
+  it("activates without asking", async () => {
+    mockCambiarEstadoTenantAction.mockResolvedValue({ error: null, success: true });
+    render(<EstadoTenantButton tenantId="t1" nombre="Taller Norte" estadoActual="SUSPENDIDO" />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Activar" }));
+
+    await vi.waitFor(() => expect(mockCambiarEstadoTenantAction).toHaveBeenCalled());
   });
 });
 
