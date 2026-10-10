@@ -22,13 +22,53 @@ const TOTALES = {
   manoDeObraFacturada: 0,
 };
 
+const NETA = {
+  gastosTotal: 0,
+  utilidadNeta: 0,
+  margenNetoPorcentaje: 0,
+  ticketPromedioBase: 0,
+  puntoEquilibrioVentas: 0,
+  puntoEquilibrioFacturas: 0,
+  diferenciaEquilibrio: 0,
+};
+const RENTABILIDAD = {
+  filtros: FILTROS,
+  error: null,
+  totales: TOTALES,
+  neta: NETA,
+  gastosPorCategoria: [],
+  recurrentesSinConfirmar: 0,
+};
+
 async function renderPage() {
   render(await ReportesPage({ searchParams: Promise.resolve({}) }));
 }
 
 describe("ReportesPage", () => {
   beforeEach(() => {
-    mockRentabilidad.mockReset().mockResolvedValue({ filtros: FILTROS, error: null, totales: TOTALES });
+    mockRentabilidad.mockReset().mockResolvedValue(RENTABILIDAD);
+    mockProductividad.mockReset().mockResolvedValue({ filtros: FILTROS, error: null, filas: [] });
+  });
+
+  it("muestra utilidad neta y el aviso de recurrentes en singular", async () => {
+    mockRentabilidad.mockResolvedValue({ ...RENTABILIDAD, recurrentesSinConfirmar: 1 });
+
+    await renderPage();
+
+    expect(screen.getByText("Utilidad neta")).toBeInTheDocument();
+    expect(screen.getByText(/1 gasto recurrente sin confirmar/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Revisar gastos" })).toHaveAttribute("href", "/gastos");
+  });
+
+  it("indica que el punto de equilibrio no es alcanzable cuando es null", async () => {
+    mockRentabilidad.mockResolvedValue({
+      ...RENTABILIDAD,
+      neta: { ...NETA, puntoEquilibrioVentas: null, puntoEquilibrioFacturas: null, diferenciaEquilibrio: null },
+    });
+
+    await renderPage();
+
+    expect(screen.getByText("No alcanzable con el margen actual")).toBeInTheDocument();
   });
 
   it("shows the productividad error instead of an empty-looking table", async () => {

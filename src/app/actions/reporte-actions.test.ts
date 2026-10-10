@@ -9,12 +9,21 @@ vi.mock("@/lib/auth/guards", () => ({
 const mockSedeFindFirst = vi.fn();
 const mockFacturaFindMany = vi.fn();
 const mockOrdenFindMany = vi.fn();
+const mockGastoGroupBy = vi.fn();
+const mockCategoriaFindMany = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     sede: { findFirst: mockSedeFindFirst },
     factura: { findMany: mockFacturaFindMany },
     ordenTrabajo: { findMany: mockOrdenFindMany },
+    gasto: { groupBy: mockGastoGroupBy },
+    categoriaGasto: { findMany: mockCategoriaFindMany },
   }),
+}));
+
+const mockContarPendientes = vi.fn();
+vi.mock("@/lib/gastos/pendientes-db", () => ({
+  contarRecurrentesPendientesEnRango: (...args: unknown[]) => mockContarPendientes(...args),
 }));
 
 import { getReporteRentabilidad, getReporteProductividad } from "./reporte-actions";
@@ -27,6 +36,47 @@ describe("getReporteRentabilidad", () => {
     mockRequireRole.mockReset().mockResolvedValue(SESSION);
     mockSedeFindFirst.mockReset();
     mockFacturaFindMany.mockReset().mockResolvedValue([]);
+    mockGastoGroupBy.mockReset().mockResolvedValue([]);
+    mockCategoriaFindMany.mockReset().mockResolvedValue([]);
+    mockContarPendientes.mockReset().mockResolvedValue(0);
+  });
+
+  it("incluye gastos del periodo, utilidad neta y gastos por categoría", async () => {
+    mockFacturaFindMany.mockResolvedValue([
+      { total: "1000000", subtotal: "1000000", descuento: "0", orden: { items: [], manoDeObra: [] } },
+    ]);
+    mockGastoGroupBy.mockResolvedValue([
+      { categoriaId: "c1", _sum: { monto: { toString: () => "300000" } } },
+      { categoriaId: "c2", _sum: { monto: { toString: () => "100000" } } },
+    ]);
+    mockCategoriaFindMany.mockResolvedValue([
+      { id: "c1", nombre: "Arriendo" },
+      { id: "c2", nombre: "Insumos" },
+    ]);
+    mockContarPendientes.mockResolvedValue(2);
+
+    const r = await getReporteRentabilidad({ desde: "2026-10-01", hasta: "2026-10-31" });
+
+    expect(mockGastoGroupBy).toHaveBeenCalledWith({
+      by: ["categoriaId"],
+      where: {
+        sedeId: "sede-activa",
+        fecha: { gte: new Date("2026-10-01T00:00:00.000Z"), lt: new Date("2026-11-01T00:00:00.000Z") },
+      },
+      _sum: { monto: true },
+    });
+    expect(r.neta.gastosTotal).toBe(400000);
+    expect(r.gastosPorCategoria).toEqual([
+      { categoria: "Arriendo", monto: 300000, porcentaje: 75 },
+      { categoria: "Insumos", monto: 100000, porcentaje: 25 },
+    ]);
+    expect(r.recurrentesSinConfirmar).toBe(2);
+    expect(mockContarPendientes).toHaveBeenCalledWith(
+      "taller_perez",
+      "sede-activa",
+      new Date("2026-10-01T00:00:00.000Z"),
+      new Date("2026-11-01T00:00:00.000Z"),
+    );
   });
 
   it("is gated to ADMIN only", async () => {
@@ -37,7 +87,9 @@ describe("getReporteRentabilidad", () => {
 
   it("rejects an invalid range before touching the database", async () => {
     const result = await getReporteRentabilidad({ desde: "2026-08-22", hasta: "2026-08-21" });
-
+    expect(result.neta.gastosTotal).toBe(0);
+    expect(result.gastosPorCategoria).toEqual([]);
+    expect(result.recurrentesSinConfirmar).toBe(0);
     expect(result.error).toBe("La fecha inicial no puede ser posterior a la final");
     expect(result.filtros.sedeId).toBe("sede-activa");
     expect(result.totales.totalFacturado).toBe(0);
