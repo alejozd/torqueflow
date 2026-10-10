@@ -99,6 +99,8 @@ model Usuario {
   seguimientosCotizacionCreados CotizacionSeguimiento[] @relation("CotizacionSeguimientoCreadoPor")
   sedes                         UsuarioSede[]
   avisosVencimientoEnviados     AvisoVencimiento[]
+  gastosRegistrados             Gasto[]                 @relation("GastosRegistrados")
+  gastosRecurrentesOmitidos     GastoRecurrenteOmitido[] @relation("GastosRecurrentesOmitidos")
   createdAt                     DateTime                @default(now()) @map("created_at")
   updatedAt                     DateTime                @updatedAt @map("updated_at")
 
@@ -229,6 +231,8 @@ model Sede {
   citas              Cita[]
   cotizaciones       Cotizacion[]
   usuariosPorDefecto Usuario[]      @relation("UsuarioSedeDefecto")
+  gastos             Gasto[]
+  gastosRecurrentes  GastoRecurrente[]
   createdAt          DateTime       @default(now()) @map("created_at")
   updatedAt          DateTime       @updatedAt @map("updated_at")
 
@@ -792,4 +796,78 @@ model ConfiguracionTaller {
   updatedAt            DateTime @updatedAt @map("updated_at")
 
   @@map("configuracion_taller")
+}
+
+/// Categoría de gasto editable por el taller. No se borra: se desactiva
+/// (deja de ofrecerse al registrar; los gastos viejos la conservan).
+model CategoriaGasto {
+  id                String            @id @default(cuid())
+  nombre            String            @unique
+  activo            Boolean           @default(true)
+  orden             Int
+  createdAt         DateTime          @default(now()) @map("created_at")
+  gastos            Gasto[]
+  gastosRecurrentes GastoRecurrente[]
+
+  @@map("categorias_gasto")
+}
+
+/// Gasto operativo de una sede. `periodo` ("YYYY-MM") y `gastoRecurrenteId`
+/// solo existen cuando nació de confirmar una plantilla recurrente.
+model Gasto {
+  id                String           @id @default(cuid())
+  sedeId            String           @map("sede_id")
+  sede              Sede             @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  categoriaId       String           @map("categoria_id")
+  categoria         CategoriaGasto   @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+  descripcion       String
+  monto             Decimal          @db.Decimal(12, 2)
+  fecha             DateTime         @db.Date
+  referencia        String?
+  gastoRecurrenteId String?          @map("gasto_recurrente_id")
+  gastoRecurrente   GastoRecurrente? @relation(fields: [gastoRecurrenteId], references: [id], onDelete: SetNull)
+  periodo           String?
+  registradoPorId   String           @map("registrado_por_id")
+  registradoPor     Usuario          @relation("GastosRegistrados", fields: [registradoPorId], references: [id], onDelete: Restrict)
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  @@unique([gastoRecurrenteId, periodo])
+  @@index([sedeId, fecha])
+  @@index([categoriaId])
+  @@map("gastos")
+}
+
+/// Plantilla de gasto mensual. No genera nada sola: cada mes aparece como
+/// pendiente en /gastos hasta que el ADMIN lo confirma u omite.
+model GastoRecurrente {
+  id            String                   @id @default(cuid())
+  sedeId        String                   @map("sede_id")
+  sede          Sede                     @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  categoriaId   String                   @map("categoria_id")
+  categoria     CategoriaGasto           @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+  descripcion   String
+  montoEstimado Decimal                  @map("monto_estimado") @db.Decimal(12, 2)
+  diaDelMes     Int                      @map("dia_del_mes")
+  desde         String
+  activo        Boolean                  @default(true)
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  updatedAt     DateTime                 @updatedAt @map("updated_at")
+  gastos        Gasto[]
+  omitidos      GastoRecurrenteOmitido[]
+
+  @@map("gastos_recurrentes")
+}
+
+model GastoRecurrenteOmitido {
+  id                String          @id @default(cuid())
+  gastoRecurrenteId String          @map("gasto_recurrente_id")
+  gastoRecurrente   GastoRecurrente @relation(fields: [gastoRecurrenteId], references: [id], onDelete: Cascade)
+  periodo           String
+  omitidoPorId      String          @map("omitido_por_id")
+  omitidoPor        Usuario         @relation("GastosRecurrentesOmitidos", fields: [omitidoPorId], references: [id], onDelete: Restrict)
+  createdAt         DateTime        @default(now()) @map("created_at")
+
+  @@unique([gastoRecurrenteId, periodo])
+  @@map("gastos_recurrentes_omitidos")
 }
