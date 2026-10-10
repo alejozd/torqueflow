@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { securityHeaders } from "./security-headers";
+import { construirCsp, securityHeaders } from "./security-headers";
 
-function comoMapa(esDesarrollo: boolean): Record<string, string> {
-  return Object.fromEntries(securityHeaders(esDesarrollo).map((h) => [h.key, h.value]));
+function comoMapa(): Record<string, string> {
+  return Object.fromEntries(securityHeaders().map((h) => [h.key, h.value]));
 }
 
 describe("securityHeaders", () => {
   it("define las cabeceras básicas de endurecimiento", () => {
-    const mapa = comoMapa(false);
+    const mapa = comoMapa();
 
     expect(mapa["X-Frame-Options"]).toBe("DENY");
     expect(mapa["X-Content-Type-Options"]).toBe("nosniff");
@@ -16,10 +16,16 @@ describe("securityHeaders", () => {
     expect(mapa["Permissions-Policy"]).toBe("camera=(self), microphone=(), geolocation=()");
   });
 
-  it("CSP de producción: solo mismo origen, sin unsafe-eval, sin framing", () => {
-    expect(comoMapa(false)["Content-Security-Policy"]).toBe(
+  it("no incluye la CSP: la pone src/proxy.ts con un nonce por petición", () => {
+    expect(comoMapa()["Content-Security-Policy"]).toBeUndefined();
+  });
+});
+
+describe("construirCsp", () => {
+  it("CSP de producción: scripts solo con nonce + strict-dynamic, sin unsafe-inline ni unsafe-eval", () => {
+    expect(construirCsp("abc123", false)).toBe(
       "default-src 'self'; " +
-        "script-src 'self' 'unsafe-inline'; " +
+        "script-src 'self' 'nonce-abc123' 'strict-dynamic'; " +
         "style-src 'self' 'unsafe-inline'; " +
         "img-src 'self' blob: data:; " +
         "font-src 'self'; " +
@@ -30,7 +36,7 @@ describe("securityHeaders", () => {
     );
   });
 
-  it("CSP de desarrollo añade unsafe-eval (lo necesita el HMR de Next)", () => {
-    expect(comoMapa(true)["Content-Security-Policy"]).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval';");
+  it("CSP de desarrollo añade unsafe-eval (lo usa React para depurar)", () => {
+    expect(construirCsp("abc123", true)).toContain("script-src 'self' 'nonce-abc123' 'strict-dynamic' 'unsafe-eval';");
   });
 });

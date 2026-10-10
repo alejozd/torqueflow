@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -17,7 +18,11 @@ export const metadata: Metadata = {
   description: "Plataforma SaaS multi-tenant para gestión de talleres/servitecas.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Opts every page into dynamic rendering: the CSP nonce (src/proxy.ts) only
+  // exists per request, so a page prerendered at build time would ship
+  // scripts without it and be blocked by the browser.
+  await connection();
   return (
     <html
       lang="en"

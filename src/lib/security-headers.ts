@@ -4,32 +4,16 @@ export interface CabeceraHttp {
 }
 
 /**
- * Response headers applied to every route from next.config.ts. Lives in src/
- * (not inline in next.config.ts) so vitest can cover it; next.config imports
- * it by relative path because the "@/" alias is not available there.
+ * Static response headers applied to every route from next.config.ts. Lives
+ * in src/ (not inline in next.config.ts) so vitest can cover it; next.config
+ * imports it by relative path because the "@/" alias is not available there.
  *
- * The CSP is the static, no-nonce variant from Next's own CSP guide: scripts
- * still need 'unsafe-inline' for Next's inline bootstrap, but nothing can be
- * loaded from, posted to, or framed by another origin. A nonce-based CSP
- * (which drops 'unsafe-inline') needs a proxy and dynamic rendering -- a
- * separate change. upgrade-insecure-requests is deliberately absent: it would
- * break anyone reaching the app over plain HTTP on the LAN.
+ * The CSP is NOT here: it carries a per-request nonce, so src/proxy.ts builds
+ * it with construirCsp() on every page request. Sending a second, static CSP
+ * from here would only add a redundant policy the browser also enforces.
  */
-export function securityHeaders(esDesarrollo: boolean): CabeceraHttp[] {
-  const csp = [
-    "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${esDesarrollo ? " 'unsafe-eval'" : ""}`,
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' blob: data:",
-    "font-src 'self'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "frame-ancestors 'none'",
-  ].join("; ");
-
+export function securityHeaders(): CabeceraHttp[] {
   return [
-    { key: "Content-Security-Policy", value: csp },
     { key: "X-Frame-Options", value: "DENY" },
     { key: "X-Content-Type-Options", value: "nosniff" },
     { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -38,4 +22,28 @@ export function securityHeaders(esDesarrollo: boolean): CabeceraHttp[] {
     // camera=(self) keeps the DVI photo capture working.
     { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
   ];
+}
+
+/**
+ * The nonce-based CSP from Next's own CSP guide: a script runs only if it
+ * carries this request's nonce (Next stamps it on its own scripts) or was
+ * loaded by one that does ('strict-dynamic') -- an injected <script> or
+ * inline handler is blocked. Styles keep 'unsafe-inline': React's
+ * style={{...}} attributes and the UI libraries' injected styles need it, and
+ * a style cannot execute code. upgrade-insecure-requests is deliberately
+ * absent: it would break plain-HTTP local runs on 127.0.0.1.
+ */
+export function construirCsp(nonce: string, esDesarrollo: boolean): string {
+  return [
+    "default-src 'self'",
+    // React uses eval in development only, to rebuild server error stacks.
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${esDesarrollo ? " 'unsafe-eval'" : ""}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' blob: data:",
+    "font-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join("; ");
 }
