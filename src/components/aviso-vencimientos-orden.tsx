@@ -1,6 +1,7 @@
 import { AlertTriangle } from "lucide-react";
 import {
   diasHastaVencimiento,
+  DOCUMENTO_CON_ARTICULO,
   estadoVencimiento,
   formatoFechaVencimiento,
   NOMBRE_DOCUMENTO,
@@ -26,7 +27,10 @@ export function AvisoVencimientosOrden({
   const lineas = documentos.flatMap(([tipo, fecha]) => {
     if (!fecha || !requiereAviso(estadoVencimiento(fecha, ahora, diasAviso))) return [];
     const vencido = diasHastaVencimiento(fecha, ahora) < 0;
-    return [`${NOMBRE_DOCUMENTO[tipo]} ${vencido ? "vencido el" : "vence el"} ${formatoFechaVencimiento.format(fecha)}`];
+    const nombre = NOMBRE_DOCUMENTO[tipo];
+    const verbo = vencido ? `${DOCUMENTO_CON_ARTICULO[tipo].vencido} el` : "vence el";
+    const linea = `${nombre} ${verbo} ${formatoFechaVencimiento.format(fecha)}`;
+    return [linea.charAt(0).toUpperCase() + linea.slice(1)];
   });
   if (lineas.length === 0) return null;
 

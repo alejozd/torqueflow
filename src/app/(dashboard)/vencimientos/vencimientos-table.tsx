@@ -19,12 +19,19 @@ function textoDias(dias: number): string {
   return `En ${dias} ${dias === 1 ? "día" : "días"}`;
 }
 
-export function VencimientosTable({ filas, puedeAvisar }: { filas: FilaVencimiento[]; puedeAvisar: boolean }) {
+export function VencimientosTable({
+  filas,
+  puedeAvisar,
+  ahora,
+}: {
+  filas: FilaVencimiento[];
+  puedeAvisar: boolean;
+  /** Creado una vez en el servidor: SSR e hidratación comparten el mismo instante. */
+  ahora: Date;
+}) {
   const [documento, setDocumento] = useState("TODOS");
   const [estado, setEstado] = useState("TODOS");
   const [soloSinAvisar, setSoloSinAvisar] = useState(false);
-  // Fixed once per mount so every "Último aviso" cell is relative to the same instant.
-  const [ahora] = useState(() => new Date());
 
   const visibles = filas.filter((fila) => {
     if (documento !== "TODOS" && fila.tipo !== documento) return false;

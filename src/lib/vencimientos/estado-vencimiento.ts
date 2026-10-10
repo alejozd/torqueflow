@@ -24,6 +24,12 @@ export const NOMBRE_DOCUMENTO: Record<TipoDocumento, string> = {
   TECNOMECANICA: "revisión técnico-mecánica",
 };
 
+/** Para frases: artículo y género del documento ("el SOAT" / "la revisión técnico-mecánica"). */
+export const DOCUMENTO_CON_ARTICULO: Record<TipoDocumento, { conArticulo: string; vencido: string }> = {
+  SOAT: { conArticulo: "el SOAT", vencido: "vencido" },
+  TECNOMECANICA: { conArticulo: "la revisión técnico-mecánica", vencido: "vencida" },
+};
+
 /** Para mostrar una columna @db.Date sin correrla de día. */
 export const formatoFechaVencimiento = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeZone: "UTC" });
 

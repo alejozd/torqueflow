@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireRole, requireSession } from "@/lib/auth/guards";
+import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import {
   CONFIGURACION_TALLER_ID,
@@ -42,11 +43,15 @@ export async function guardarDiasAvisoAction(
   if (!parsed || !parsed.success) return { error: MENSAJE_RANGO, success: false };
 
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  await tenantDb.configuracionTaller.upsert({
-    where: { id: CONFIGURACION_TALLER_ID },
-    create: { id: CONFIGURACION_TALLER_ID, diasAvisoVencimiento: parsed.data },
-    update: { diasAvisoVencimiento: parsed.data },
-  });
+  try {
+    await tenantDb.configuracionTaller.upsert({
+      where: { id: CONFIGURACION_TALLER_ID },
+      create: { id: CONFIGURACION_TALLER_ID, diasAvisoVencimiento: parsed.data },
+      update: { diasAvisoVencimiento: parsed.data },
+    });
+  } catch (err) {
+    return { error: friendlyPrismaErrorMessage(err, "No se pudo guardar la configuración"), success: false };
+  }
 
   revalidatePath("/configuracion-smtp");
   revalidatePath("/vencimientos");

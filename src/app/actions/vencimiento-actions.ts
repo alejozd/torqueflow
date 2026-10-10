@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { publicDb } from "@/lib/db/public-client";
@@ -121,6 +123,8 @@ export async function registrarAvisoWhatsappAction(
   tipo: TipoDocumento,
 ): Promise<{ error: string | null }> {
   const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const tipoValido = z.enum(["SOAT", "TECNOMECANICA"]).safeParse(tipo);
+  if (!tipoValido.success) return { error: "Documento inválido" };
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const vehiculo = await tenantDb.vehiculo.findUnique({
@@ -135,11 +139,15 @@ export async function registrarAvisoWhatsappAction(
   if (!telefono) return { error: "El cliente no tiene teléfono registrado" };
 
   const clave = { vehiculoId, tipo, fechaVencimiento, canal: "WHATSAPP" as const };
-  await tenantDb.avisoVencimiento.upsert({
-    where: { vehiculoId_tipo_fechaVencimiento_canal: clave },
-    create: { ...clave, destino: telefono, enviadoPorId: session.user.id },
-    update: { destino: telefono, enviadoPorId: session.user.id, enviadoAt: new Date() },
-  });
+  try {
+    await tenantDb.avisoVencimiento.upsert({
+      where: { vehiculoId_tipo_fechaVencimiento_canal: clave },
+      create: { ...clave, destino: telefono, enviadoPorId: session.user.id },
+      update: { destino: telefono, enviadoPorId: session.user.id, enviadoAt: new Date() },
+    });
+  } catch (err) {
+    return { error: friendlyPrismaErrorMessage(err, "No se pudo registrar el aviso") };
+  }
 
   revalidatePath("/vencimientos");
   return { error: null };

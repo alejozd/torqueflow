@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import { toast } from "sonner";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -26,5 +27,12 @@ describe("AvisarWhatsappButton", () => {
     await userEvent.click(screen.getByRole("button", { name: /Avisar por WhatsApp/ }));
     expect(window.open).toHaveBeenCalledWith("https://wa.me/573105550142?text=x", "_blank", "noopener");
     expect(mockRegistrar).toHaveBeenCalledWith("v1", "SOAT");
+  });
+
+  it("muestra un toast de error si la acción rechaza", async () => {
+    mockRegistrar.mockRejectedValue(new Error("boom"));
+    render(<AvisarWhatsappButton vehiculoId="v1" tipo="SOAT" urlWhatsapp="https://wa.me/573105550142?text=x" />);
+    await userEvent.click(screen.getByRole("button", { name: /Avisar por WhatsApp/ }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("No se pudo registrar el aviso"));
   });
 });

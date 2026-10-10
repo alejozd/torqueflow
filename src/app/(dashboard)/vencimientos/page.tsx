@@ -48,7 +48,7 @@ export default async function VencimientosPage() {
         />
       </div>
 
-      <VencimientosTable filas={filas} puedeAvisar={puedeAvisar} />
+      <VencimientosTable filas={filas} puedeAvisar={puedeAvisar} ahora={new Date()} />
     </main>
   );
 }

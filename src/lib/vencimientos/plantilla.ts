@@ -2,6 +2,7 @@ import type { MensajeEmail } from "@/lib/email/enviar-email";
 import { escaparHtml } from "@/lib/recordatorios/plantilla";
 import {
   diasHastaVencimiento,
+  DOCUMENTO_CON_ARTICULO,
   formatoFechaVencimiento,
   NOMBRE_DOCUMENTO,
   type TipoDocumento,
@@ -17,10 +18,10 @@ export interface DatosAvisoVencimiento {
 }
 
 function frase(datos: DatosAvisoVencimiento): string {
-  const documento = NOMBRE_DOCUMENTO[datos.tipo];
+  const documento = DOCUMENTO_CON_ARTICULO[datos.tipo].conArticulo;
   const fecha = formatoFechaVencimiento.format(datos.fechaVencimiento);
   const verbo = diasHastaVencimiento(datos.fechaVencimiento, datos.ahora) < 0 ? "venció" : "vence";
-  return `el ${documento} de tu vehículo ${datos.placa} ${verbo} el ${fecha}`;
+  return `${documento} de tu vehículo ${datos.placa} ${verbo} el ${fecha}`;
 }
 
 /** Texto plano: cuerpo del email y mensaje de WhatsApp. */

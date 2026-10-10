@@ -25,7 +25,16 @@ describe("AvisoVencimientosOrden", () => {
       />,
     );
     expect(screen.getByRole("status")).toHaveTextContent(/SOAT vencido el 12\/09\/2026/);
-    expect(screen.getByRole("status")).toHaveTextContent(/revisión técnico-mecánica vence el 20\/10\/2026/);
+    expect(screen.getByRole("status")).toHaveTextContent(/Revisión técnico-mecánica vence el 20\/10\/2026/);
     expect(screen.getByRole("status")).toHaveTextContent("recuérdaselo al cliente");
+  });
+
+  it("concuerda el género de la técnico-mecánica vencida y capitaliza la línea", () => {
+    render(
+      <AvisoVencimientosOrden soatVence={null} tecnomecanicaVence={new Date("2026-10-01T00:00:00Z")} diasAviso={30} />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Revisión técnico-mecánica vencida el 1/10/2026 — recuérdaselo al cliente.",
+    );
   });
 });

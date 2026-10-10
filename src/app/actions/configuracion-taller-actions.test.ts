@@ -40,6 +40,14 @@ describe("guardarDiasAvisoAction", () => {
     });
   });
 
+  it("devuelve un error amigable si el upsert falla", async () => {
+    mockUpsert.mockRejectedValue(new Error("db down"));
+    const fd = new FormData();
+    fd.set("diasAvisoVencimiento", "15");
+    const r = await guardarDiasAvisoAction(inicial, fd);
+    expect(r).toEqual({ error: "No se pudo guardar la configuración", success: false });
+  });
+
   it.each(["0", "91", "abc", ""])("rechaza %s", async (valor) => {
     const fd = new FormData();
     fd.set("diasAvisoVencimiento", valor);

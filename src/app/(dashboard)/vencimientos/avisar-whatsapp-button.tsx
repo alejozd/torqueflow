@@ -24,9 +24,13 @@ export function AvisarWhatsappButton({
     // window.open calls made after an await.
     window.open(urlWhatsapp, "_blank", "noopener");
     startTransition(async () => {
-      const resultado = await registrarAvisoWhatsappAction(vehiculoId, tipo);
-      if (resultado.error) toast.error(resultado.error);
-      else toast.success("Aviso registrado");
+      try {
+        const resultado = await registrarAvisoWhatsappAction(vehiculoId, tipo);
+        if (resultado.error) toast.error(resultado.error);
+        else toast.success("Aviso registrado");
+      } catch {
+        toast.error("No se pudo registrar el aviso");
+      }
     });
   }
 

@@ -16,14 +16,15 @@ describe("textoAvisoVencimiento", () => {
     const texto = textoAvisoVencimiento(base);
     expect(texto).toContain("SOAT");
     expect(texto).toContain("ABC123");
-    expect(texto).toMatch(/vence el 30\/10\/2026/);
+    expect(texto).toContain("Te recordamos que el SOAT de tu vehículo ABC123 vence el 30/10/2026.");
     expect(texto).toContain("Taller Pérez");
   });
 
   it("habla de 'venció el' cuando ya venció", () => {
     const texto = textoAvisoVencimiento({ ...base, tipo: "TECNOMECANICA", fechaVencimiento: new Date("2026-10-01T00:00:00Z") });
-    expect(texto).toContain("revisión técnico-mecánica");
-    expect(texto).toMatch(/venció el 1\/10\/2026/);
+    expect(texto).toContain(
+      "Te recordamos que la revisión técnico-mecánica de tu vehículo ABC123 venció el 1/10/2026.",
+    );
   });
 });
 
@@ -34,5 +35,17 @@ describe("construirMensajeAvisoVencimiento", () => {
     expect(mensaje.asunto).toBe("Vencimiento de SOAT — ABC123");
     expect(mensaje.html).toContain("Ana &lt;b&gt;Pérez&lt;/b&gt;");
     expect(mensaje.html).not.toContain("<b>Pérez</b>");
+  });
+
+  it("concuerda el artículo de la técnico-mecánica en el HTML y deja el asunto", () => {
+    const mensaje = construirMensajeAvisoVencimiento("ana@cliente.test", {
+      ...base,
+      tipo: "TECNOMECANICA",
+      fechaVencimiento: new Date("2026-10-01T00:00:00Z"),
+    });
+    expect(mensaje.asunto).toBe("Vencimiento de revisión técnico-mecánica — ABC123");
+    expect(mensaje.html).toContain(
+      "<p>Te recordamos que la revisión técnico-mecánica de tu vehículo ABC123 venció el 1/10/2026.</p>",
+    );
   });
 });
