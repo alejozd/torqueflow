@@ -92,6 +92,7 @@ describe("getReporteRentabilidad", () => {
     expect(result.totales).toEqual({
       facturasCount: 1,
       totalFacturado: 140.18,
+      baseFacturada: 117.8,
       costoRepuestos: 16,
       margen: 101.8,
       margenPorcentaje: 86.42,

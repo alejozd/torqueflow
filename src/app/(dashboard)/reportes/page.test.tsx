@@ -15,6 +15,7 @@ const FILTROS = { desde: "2026-10-01", hasta: "2026-10-31", sedeId: "" };
 const TOTALES = {
   facturasCount: 0,
   totalFacturado: 0,
+  baseFacturada: 0,
   costoRepuestos: 0,
   margen: 0,
   margenPorcentaje: 0,

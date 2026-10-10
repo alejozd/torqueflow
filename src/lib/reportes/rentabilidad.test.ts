@@ -6,6 +6,7 @@ describe("computeRentabilidad", () => {
     expect(computeRentabilidad([])).toEqual({
       facturasCount: 0,
       totalFacturado: 0,
+      baseFacturada: 0,
       costoRepuestos: 0,
       margen: 0,
       margenPorcentaje: 0,
@@ -30,6 +31,7 @@ describe("computeRentabilidad", () => {
     expect(totales).toEqual({
       facturasCount: 1,
       totalFacturado: 140.18,
+      baseFacturada: 117.8,
       costoRepuestos: 16,
       margen: 101.8,
       margenPorcentaje: 86.42,
@@ -51,6 +53,7 @@ describe("computeRentabilidad", () => {
     expect(totales).toEqual({
       facturasCount: 2,
       totalFacturado: 300,
+      baseFacturada: 240,
       costoRepuestos: 50,
       margen: 190,
       margenPorcentaje: 79.17,
