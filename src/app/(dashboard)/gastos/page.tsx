@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Settings, TrendingDown, Wallet } from "lucide-react";
 import { listCategoriasGasto } from "@/app/actions/categoria-gasto-actions";
 import { listGastos } from "@/app/actions/gasto-actions";
+import { listRecurrentesPendientes } from "@/app/actions/gasto-recurrente-actions";
 import { listSedes } from "@/app/actions/sede-actions";
 import { requireRole } from "@/lib/auth/guards";
 import { ETIQUETA_MES } from "@/lib/gastos/periodo";
@@ -12,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { FiltrosGastos } from "./filtros-gastos";
 import { GastoDialog } from "./gasto-dialog";
 import { GastosTable } from "./gastos-table";
+import { RecurrentesPendientes } from "./recurrentes-pendientes";
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
@@ -35,6 +37,7 @@ export default async function GastosPage({
   // redirect()s by throwing.
   const gastos = await listGastos({ periodo, sedeId: sedeId || undefined, categoriaId: categoriaId || undefined });
   const categorias = await listCategoriasGasto({ soloActivas: true });
+  const pendientes = await listRecurrentesPendientes({ sedeId: gastos.sedeId });
   const sedes = esAdmin ? await listSedes() : undefined;
   const sedesOpciones = sedes?.map((s) => ({ id: s.id, nombre: s.nombre }));
 
@@ -61,6 +64,8 @@ export default async function GastosPage({
           <GastoDialog modo="crear" categorias={categorias} sedeIdPorDefecto={gastos.sedeId} sedes={sedesOpciones} />
         </div>
       </div>
+
+      <RecurrentesPendientes pendientes={pendientes} esAdmin={esAdmin} />
 
       <Card>
         <CardHeader>

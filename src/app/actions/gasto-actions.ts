@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { periodoActualBogota, periodoAnterior, rangoDelPeriodo } from "@/lib/gastos/periodo";
+import { resolverSede, validarCategoria, validarSede } from "@/lib/gastos/validaciones-db";
 import { roundMoney } from "@/lib/money/round";
 import { gastoInputSchema, periodoSchema } from "@/lib/validation/gasto";
 
@@ -34,8 +35,6 @@ export interface GastoFormState {
   success: boolean;
 }
 
-type Session = Awaited<ReturnType<typeof requireRole>>;
-type TenantDb = ReturnType<typeof getTenantDb>;
 
 function revalidar() {
   revalidatePath("/gastos");
@@ -51,31 +50,6 @@ function leerCampos(formData: FormData) {
     referencia: formData.get("referencia") || undefined,
     sedeId: formData.get("sedeId") || undefined,
   });
-}
-
-/** RECEPCION siempre opera en su sede activa; ADMIN puede elegir otra. */
-function resolverSede(session: Session, pedida: string | undefined): string {
-  if (session.user.role === "RECEPCION") return session.user.sedeActivaId;
-  return pedida || session.user.sedeActivaId;
-}
-
-async function validarSede(tenantDb: TenantDb, session: Session, sedeId: string): Promise<string | null> {
-  if (sedeId === session.user.sedeActivaId) return null;
-  const sede = await tenantDb.sede.findUnique({ where: { id: sedeId } });
-  return sede ? null : "Sede no encontrada";
-}
-
-async function validarCategoria(
-  tenantDb: TenantDb,
-  categoriaId: string,
-  categoriaActualDelGasto?: () => Promise<string | null>,
-): Promise<string | null> {
-  const categoria = await tenantDb.categoriaGasto.findUnique({ where: { id: categoriaId } });
-  if (!categoria) return "La categoría no está disponible";
-  if (categoria.activo) return null;
-  // Editar un gasto permite conservar su categoría aunque se haya desactivado.
-  if (categoriaActualDelGasto && (await categoriaActualDelGasto()) === categoriaId) return null;
-  return "La categoría no está disponible";
 }
 
 export async function crearGastoAction(prevState: GastoFormState, formData: FormData): Promise<GastoFormState> {
