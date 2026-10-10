@@ -5,9 +5,11 @@ import { enviarEmail } from "@/lib/email/enviar-email";
 import { descifrarConfiguracionSmtp } from "@/lib/email/smtp-config";
 import { ejecutarRecordatorios } from "@/lib/recordatorios/ejecutar-recordatorios";
 import { prismaRecordatoriosGateway } from "@/lib/recordatorios/gateway-prisma";
+import { ejecutarAvisosVencimiento } from "@/lib/vencimientos/ejecutar-avisos";
+import { prismaAvisosGateway } from "@/lib/vencimientos/gateway-prisma";
 
 /**
- * The preventive-maintenance reminder sweep, triggered by an EXTERNAL scheduler
+ * The preventive-maintenance reminder sweep and the SOAT/RTM expiry sweep, triggered by an EXTERNAL scheduler
  * (Vercel Cron, a system crontab, any HTTP caller with the secret) rather than
  * by a signed-in user. That is why it does not call requireSession(): there is
  * no session, no tenant subdomain and no sede activa here. It is also why the
@@ -42,35 +44,54 @@ function autorizado(request: NextRequest): boolean {
   return timingSafeEqual(digestRecibido, digestEsperado);
 }
 
+const MENSAJE_FALLO = {
+  recordatorios: "Error al ejecutar los recordatorios",
+  vencimientos: "Error al ejecutar los avisos de vencimiento",
+} as const;
+
+/**
+ * Each sweep already absorbs per-tenant and per-item failures, so reaching
+ * here means it could not start at all (e.g. the public database is
+ * unreachable). The raw error can carry hosts and credentials, so only its
+ * constructor name is logged -- mirrors describirError's exact logic (kept
+ * inline rather than imported, since the sweeps are mocked wholesale in this
+ * route's tests).
+ */
+function fallo(barrido: keyof typeof MENSAJE_FALLO, err: unknown): { error: string } {
+  const nombreError = err instanceof Error ? err.constructor.name : "Error desconocido";
+  console.error(`[cron/recordatorios] El barrido de ${barrido} no pudo iniciar: ${nombreError}`);
+  return { error: MENSAJE_FALLO[barrido] };
+}
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!autorizado(request)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  try {
-    const resumen = await ejecutarRecordatorios({
-      // A SUSPENDIDO tenant is locked out of the app, so it must not keep
-      // emailing its clientes either: only ACTIVO tenants are swept.
-      listarTenants: () => publicDb.tenant.findMany({ where: { estado: "ACTIVO" }, select: { schemaName: true } }),
+  const listarTenants = () =>
+    // A SUSPENDIDO tenant is locked out of the app, so it must not keep
+    // emailing its clientes either: only ACTIVO tenants are swept.
+    publicDb.tenant.findMany({ where: { estado: "ACTIVO" }, select: { schemaName: true } });
+  const ahora = new Date();
+
+  // Each sweep in its own catch: if one cannot start, the other still runs.
+  const [mantenimiento, vencimientos] = await Promise.all([
+    ejecutarRecordatorios({
+      listarTenants,
       gateway: prismaRecordatoriosGateway,
       descifrarConfiguracion: descifrarConfiguracionSmtp,
       enviarEmail,
-      ahora: new Date(),
-    });
+      ahora,
+    }).catch((err: unknown) => fallo("recordatorios", err)),
+    ejecutarAvisosVencimiento({
+      listarTenants,
+      gateway: prismaAvisosGateway,
+      descifrarConfiguracion: descifrarConfiguracionSmtp,
+      enviarEmail,
+      ahora,
+    }).catch((err: unknown) => fallo("vencimientos", err)),
+  ]);
 
-    return NextResponse.json(resumen, { headers: { "Cache-Control": "no-store" } });
-  } catch (err) {
-    // ejecutarRecordatorios already absorbs per-tenant and per-vehicle failures,
-    // so reaching here means the sweep could not start at all (e.g. the public
-    // database is unreachable). The raw error can carry hosts and credentials,
-    // so only its constructor name is logged -- mirrors describirError's exact
-    // logic (kept inline here rather than imported, since ejecutar-recordatorios
-    // is mocked wholesale in this route's tests).
-    const nombreError = err instanceof Error ? err.constructor.name : "Error desconocido";
-    console.error(`[cron/recordatorios] La barrida no pudo iniciar: ${nombreError}`);
-    return NextResponse.json(
-      { error: "Error al ejecutar los recordatorios" },
-      { status: 500, headers: { "Cache-Control": "no-store" } },
-    );
-  }
+  const status = "error" in mantenimiento && "error" in vencimientos ? 500 : 200;
+  return NextResponse.json({ mantenimiento, vencimientos }, { status, headers: { "Cache-Control": "no-store" } });
 }
