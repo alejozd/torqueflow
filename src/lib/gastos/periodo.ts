@@ -33,9 +33,11 @@ function periodoSiguiente(periodo: string): string {
   return mes === 12 ? aPeriodo(anio + 1, 1) : aPeriodo(anio, mes + 1);
 }
 
+const MAX_PERIODOS = 600;
+
 export function periodosEntre(desde: string, hasta: string): string[] {
   const periodos: string[] = [];
-  for (let actual = desde; actual <= hasta; actual = periodoSiguiente(actual)) {
+  for (let actual = desde; actual <= hasta && periodos.length < MAX_PERIODOS; actual = periodoSiguiente(actual)) {
     periodos.push(actual);
   }
   return periodos;

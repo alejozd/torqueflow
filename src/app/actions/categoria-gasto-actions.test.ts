@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockRequireRole = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({ requireRole: (...a: unknown[]) => mockRequireRole(...a), requireSession: vi.fn() }));
 const db = {
-  categoriaGasto: { findMany: vi.fn(), create: vi.fn(), update: vi.fn(), findUnique: vi.fn(), aggregate: vi.fn() },
+  categoriaGasto: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), findUnique: vi.fn(), aggregate: vi.fn() },
 };
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -21,6 +21,8 @@ const ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "t" } };
 beforeEach(() => {
   vi.clearAllMocks();
   mockRequireRole.mockResolvedValue(ADMIN);
+
+  db.categoriaGasto.findFirst.mockResolvedValue(null);
 });
 
 function fd(nombre: string) {
@@ -63,6 +65,18 @@ describe("crearCategoriaGastoAction", () => {
     });
   });
 
+  it("rechaza un nombre que ya existe sin importar mayúsculas", async () => {
+    db.categoriaGasto.findFirst.mockResolvedValue({ id: "c9" });
+    expect(await crearCategoriaGastoAction(inicial, fd("arriendo"))).toEqual({
+      error: "Ya existe una categoría con ese nombre",
+      success: false,
+    });
+    expect(db.categoriaGasto.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ nombre: { equals: "arriendo", mode: "insensitive" } }) }),
+    );
+    expect(db.categoriaGasto.create).not.toHaveBeenCalled();
+  });
+
   it("exige ADMIN y nombre", async () => {
     expect((await crearCategoriaGastoAction(inicial, fd("  "))).error).toBe("El nombre es obligatorio");
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
@@ -75,6 +89,13 @@ describe("renombrar y activar/desactivar", () => {
     db.categoriaGasto.update.mockResolvedValue({});
     expect(await renombrarCategoriaGastoAction("c1", inicial, fd("Arriendo bodega"))).toEqual({ error: null, success: true });
     expect(db.categoriaGasto.update).toHaveBeenCalledWith({ where: { id: "c1" }, data: { nombre: "Arriendo bodega" } });
+  });
+
+  it("rechaza renombrar a un nombre existente (otra categoría)", async () => {
+    db.categoriaGasto.findFirst.mockResolvedValue({ id: "c2" });
+    expect((await renombrarCategoriaGastoAction("c1", inicial, fd("ARRIENDO"))).error).toBe("Ya existe una categoría con ese nombre");
+    expect(db.categoriaGasto.findFirst.mock.calls[0][0].where).toMatchObject({ NOT: { id: "c1" } });
+    expect(db.categoriaGasto.update).not.toHaveBeenCalled();
   });
 
   it("alterna activo", async () => {

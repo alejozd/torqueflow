@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
-import { periodoActualBogota, periodoAnterior, rangoDelPeriodo } from "@/lib/gastos/periodo";
+import { ETIQUETA_MES, periodoActualBogota, periodoAnterior, rangoDelPeriodo } from "@/lib/gastos/periodo";
 import { resolverSede, validarCategoria, validarSede } from "@/lib/gastos/validaciones-db";
 import { roundMoney } from "@/lib/money/round";
 import { gastoInputSchema, periodoSchema } from "@/lib/validation/gasto";
@@ -95,13 +95,24 @@ export async function actualizarGastoAction(
   const { categoriaId, descripcion, monto, fecha, referencia } = parsed.data;
 
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  const sedeId = resolverSede(session, parsed.data.sedeId);
+  const actual = await tenantDb.gasto.findUnique({
+    where: { id: gastoId },
+    select: { gastoRecurrenteId: true, periodo: true, sedeId: true, categoriaId: true },
+  });
+  if (!actual) return { error: "Gasto no encontrado", success: false };
+  // Sin sedeId en el formulario se conserva la sede actual del gasto.
+  const sedeId = parsed.data.sedeId || actual.sedeId;
+  if (actual.periodo) {
+    if (fecha.slice(0, 7) !== actual.periodo) {
+      return { error: `La fecha debe estar dentro de ${ETIQUETA_MES(actual.periodo)}`, success: false };
+    }
+    if (sedeId !== actual.sedeId) {
+      return { error: "Un gasto recurrente no puede cambiar de sede", success: false };
+    }
+  }
   const errorSede = await validarSede(tenantDb, session, sedeId);
   if (errorSede) return { error: errorSede, success: false };
-  const errorCategoria = await validarCategoria(tenantDb, categoriaId, async () => {
-    const actual = await tenantDb.gasto.findUnique({ where: { id: gastoId }, select: { categoriaId: true } });
-    return actual?.categoriaId ?? null;
-  });
+  const errorCategoria = await validarCategoria(tenantDb, categoriaId, actual.categoriaId);
   if (errorCategoria) return { error: errorCategoria, success: false };
 
   try {

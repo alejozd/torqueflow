@@ -71,6 +71,26 @@ describe("ReportesPage", () => {
     expect(screen.getByText("No alcanzable con el margen actual")).toBeInTheDocument();
   });
 
+  it("sin ventas y con gastos, el punto de equilibrio dice que no hay ventas", async () => {
+    mockRentabilidad.mockResolvedValue({
+      ...RENTABILIDAD,
+      neta: { ...NETA, gastosTotal: 500000, puntoEquilibrioVentas: null, puntoEquilibrioFacturas: null, diferenciaEquilibrio: null },
+    });
+
+    await renderPage();
+
+    expect(screen.getByText("Sin ventas en el periodo")).toBeInTheDocument();
+    expect(screen.queryByText("No alcanzable con el margen actual")).not.toBeInTheDocument();
+  });
+
+  it("el enlace Revisar gastos conserva la sede del reporte", async () => {
+    mockRentabilidad.mockResolvedValue({ ...RENTABILIDAD, recurrentesSinConfirmar: 1 });
+
+    render(await ReportesPage({ searchParams: Promise.resolve({ sedeId: "s2" }) }));
+
+    expect(screen.getByRole("link", { name: "Revisar gastos" })).toHaveAttribute("href", "/gastos?sedeId=s2");
+  });
+
   it("shows the productividad error instead of an empty-looking table", async () => {
     mockProductividad.mockResolvedValue({ filtros: FILTROS, error: "Filtros inválidos", filas: [] });
 

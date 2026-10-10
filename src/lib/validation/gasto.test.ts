@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   categoriaGastoInputSchema,
   confirmarRecurrenteInputSchema,
@@ -37,6 +37,26 @@ describe("gastoRecurrenteInputSchema", () => {
 
   it("acepta una plantilla válida", () => {
     expect(gastoRecurrenteInputSchema.parse(base)).toMatchObject({ montoEstimado: 1500000, diaDelMes: 5, desde: "2026-10" });
+  });
+
+  describe("desde", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-10-15T15:00:00Z"));
+    });
+    afterEach(() => vi.useRealTimers());
+
+    it("rechaza años anteriores a 2000", () => {
+      const r = gastoRecurrenteInputSchema.safeParse({ ...base, desde: "1999-12" });
+      expect(r.error?.issues[0]?.message).toBe("El mes de inicio no es válido");
+    });
+
+    it("rechaza más de un año en el futuro, acepta el límite", () => {
+      const r = gastoRecurrenteInputSchema.safeParse({ ...base, desde: "2027-11" });
+      expect(r.error?.issues[0]?.message).toBe("El mes de inicio no puede estar a más de un año");
+      expect(gastoRecurrenteInputSchema.safeParse({ ...base, desde: "2027-10" }).success).toBe(true);
+      expect(gastoRecurrenteInputSchema.safeParse({ ...base, desde: "2000-01" }).success).toBe(true);
+    });
   });
 
   it.each([["0"], ["29"], ["abc"]])("rechaza diaDelMes %s", (diaDelMes) => {

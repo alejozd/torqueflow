@@ -50,6 +50,21 @@ describe("GastoDialog", () => {
     expect(fd.get("fecha")).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
+  it("en modo crear la fecha por defecto es hoy en el periodo actual y el día 1 en otro", async () => {
+    const user = userEvent.setup();
+    const actual = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date());
+    const { unmount } = render(
+      <GastoDialog modo="crear" categorias={categorias} sedeIdPorDefecto="s1" periodo={actual.slice(0, 7)} />,
+    );
+    await user.click(screen.getByRole("button", { name: "Nuevo gasto" }));
+    expect(await screen.findByLabelText("Fecha")).toHaveValue(actual);
+    unmount();
+
+    render(<GastoDialog modo="crear" categorias={categorias} sedeIdPorDefecto="s1" periodo="2020-03" />);
+    await user.click(screen.getByRole("button", { name: "Nuevo gasto" }));
+    expect(await screen.findByLabelText("Fecha")).toHaveValue("2020-03-01");
+  });
+
   it("RECEPCION no ve el selector de sede; ADMIN sí", async () => {
     const user = userEvent.setup();
     const { unmount } = render(<GastoDialog modo="crear" categorias={categorias} sedeIdPorDefecto="s1" />);

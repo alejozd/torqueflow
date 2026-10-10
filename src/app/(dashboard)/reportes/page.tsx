@@ -78,9 +78,12 @@ export default async function ReportesPage({
   const neta = rentabilidad.neta;
   const utilidadPositiva = neta.utilidadNeta >= 0;
   const tonoUtilidad = utilidadPositiva ? KPI_TONE.success : KPI_TONE.danger;
+  const sinVentas = rentabilidad.totales.facturasCount === 0 && neta.gastosTotal > 0;
   const subtituloEquilibrio =
     neta.puntoEquilibrioVentas === null || neta.diferenciaEquilibrio === null
-      ? "No alcanzable con el margen actual"
+      ? sinVentas
+        ? "Sin ventas en el periodo"
+        : "No alcanzable con el margen actual"
       : `≈ ${neta.puntoEquilibrioFacturas ?? 0} facturas · ${
           neta.diferenciaEquilibrio >= 0 ? "Sobran" : "Faltan"
         } ${formatoMoneda.format(Math.abs(neta.diferenciaEquilibrio))}`;
@@ -205,7 +208,7 @@ export default async function ReportesPage({
                   {rentabilidad.recurrentesSinConfirmar === 1 ? "gasto recurrente sin confirmar" : "gastos recurrentes sin confirmar"}{" "}
                   en este periodo; la utilidad puede estar sobreestimada.
                 </span>
-                <Link href="/gastos" className="font-medium underline">
+                <Link href={filtros.sedeId ? `/gastos?sedeId=${encodeURIComponent(filtros.sedeId)}` : "/gastos"} className="font-medium underline">
                   Revisar gastos
                 </Link>
               </AlertDescription>
@@ -239,7 +242,13 @@ export default async function ReportesPage({
             />
             <KpiCard
               title="Punto de equilibrio"
-              value={neta.puntoEquilibrioVentas === null ? "No alcanzable" : formatoMoneda.format(neta.puntoEquilibrioVentas)}
+              value={
+                neta.puntoEquilibrioVentas === null
+                  ? sinVentas
+                    ? "Sin ventas"
+                    : "No alcanzable"
+                  : formatoMoneda.format(neta.puntoEquilibrioVentas)
+              }
               subtitle={subtituloEquilibrio}
               icon={<Target className={cn("size-5", KPI_TONE.info.icon)} />}
               iconBgColor={KPI_TONE.info.iconBg}

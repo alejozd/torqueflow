@@ -61,7 +61,7 @@ export default async function GastosPage({
               Configuración
             </Button>
           ) : null}
-          <GastoDialog modo="crear" categorias={categorias} sedeIdPorDefecto={gastos.sedeId} sedes={sedesOpciones} />
+          <GastoDialog modo="crear" categorias={categorias} sedeIdPorDefecto={gastos.sedeId} sedes={sedesOpciones} periodo={gastos.periodo} />
         </div>
       </div>
 

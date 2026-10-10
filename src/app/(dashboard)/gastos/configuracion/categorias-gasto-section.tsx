@@ -21,12 +21,16 @@ function FilaCategoria({ categoria }: { categoria: CategoriaGastoVista }) {
   const [isPending, startTransition] = useTransition();
   const [state, formAction, renombrando] = useActionState(
     async (prev: CategoriaGastoFormState, formData: FormData) => {
-      const result = await renombrarCategoriaGastoAction(categoria.id, prev, formData);
-      if (result.success) {
-        toast.success("Categoría renombrada");
-        setEditando(false);
+      try {
+        const result = await renombrarCategoriaGastoAction(categoria.id, prev, formData);
+        if (result.success) {
+          toast.success("Categoría renombrada");
+          setEditando(false);
+        }
+        return result;
+      } catch {
+        return { error: "No se pudo guardar la categoría", success: false };
       }
-      return result;
     },
     initialState,
   );
@@ -86,7 +90,13 @@ function FilaCategoria({ categoria }: { categoria: CategoriaGastoVista }) {
 export function CategoriasGastoSection({ categorias }: { categorias: CategoriaGastoVista[] }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [state, formAction, isPending] = useActionState(
-    async (prev: CategoriaGastoFormState, formData: FormData) => crearCategoriaGastoAction(prev, formData),
+    async (prev: CategoriaGastoFormState, formData: FormData) => {
+      try {
+        return await crearCategoriaGastoAction(prev, formData);
+      } catch {
+        return { error: "No se pudo guardar la categoría", success: false };
+      }
+    },
     initialState,
   );
 

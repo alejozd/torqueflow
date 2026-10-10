@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { periodoActualBogota } from "@/lib/gastos/periodo";
 import { fechaSchema } from "./reporte";
 
 export const MONTO_MAXIMO = 9_999_999_999.99;
@@ -32,6 +33,12 @@ export const gastoInputSchema = z.object({
   sedeId: z.string().trim().optional(),
 });
 
+/** Periodo actual de Bogotá + 12 meses. */
+function limiteDesde(): string {
+  const [anio, mes] = periodoActualBogota(new Date()).split("-").map(Number);
+  return `${anio + 1}-${String(mes).padStart(2, "0")}`;
+}
+
 export const gastoRecurrenteInputSchema = z.object({
   categoriaId: categoriaIdSchema,
   descripcion: descripcionSchema,
@@ -41,7 +48,9 @@ export const gastoRecurrenteInputSchema = z.object({
     .int("El día debe estar entre 1 y 28")
     .min(1, "El día debe estar entre 1 y 28")
     .max(28, "El día debe estar entre 1 y 28"),
-  desde: periodoSchema,
+  desde: periodoSchema
+    .refine((p) => Number(p.slice(0, 4)) >= 2000, "El mes de inicio no es válido")
+    .refine((p) => p <= limiteDesde(), "El mes de inicio no puede estar a más de un año"),
   sedeId: z.string().trim().optional(),
 });
 

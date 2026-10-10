@@ -24,6 +24,10 @@ describe("periodo", () => {
     expect(periodoAnterior("2026-10")).toBe("2026-09");
   });
 
+  it("periodosEntre se detiene tras 600 periodos", () => {
+    expect(periodosEntre("1000-01", "9999-12")).toHaveLength(600);
+  });
+
   it("periodosEntre es inclusivo y vacío si desde > hasta", () => {
     expect(periodosEntre("2025-11", "2026-02")).toEqual(["2025-11", "2025-12", "2026-01", "2026-02"]);
     expect(periodosEntre("2026-03", "2026-02")).toEqual([]);

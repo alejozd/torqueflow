@@ -44,6 +44,14 @@ interface GastoDialogProps {
   sedeIdPorDefecto: string;
   /** Solo ADMIN: habilita el selector de sede. */
   sedes?: { id: string; nombre: string }[];
+  /** Periodo "AAAA-MM" que se está viendo; define la fecha por defecto al crear. */
+  periodo?: string;
+}
+
+function fechaPorDefecto(periodo: string | undefined): string {
+  const hoy = formatoDiaBogota.format(new Date());
+  if (!periodo || hoy.slice(0, 7) === periodo) return hoy;
+  return `${periodo}-01`;
 }
 
 function fechaIso(fecha: Date): string {
@@ -56,6 +64,7 @@ function GastoForm({
   categorias,
   sedeIdPorDefecto,
   sedes,
+  periodo,
   onGuardado,
 }: GastoDialogProps & { onGuardado: () => void }) {
   const [state, setState] = useState<GastoFormState>(initialState);
@@ -71,7 +80,7 @@ function GastoForm({
       categoriaId: gasto?.categoriaId ?? "",
       descripcion: gasto?.descripcion ?? "",
       monto: gasto ? String(gasto.monto) : "",
-      fecha: gasto ? fechaIso(gasto.fecha) : formatoDiaBogota.format(new Date()),
+      fecha: gasto ? fechaIso(gasto.fecha) : fechaPorDefecto(periodo),
       referencia: gasto?.referencia ?? "",
       sedeId: sedeIdPorDefecto,
     },

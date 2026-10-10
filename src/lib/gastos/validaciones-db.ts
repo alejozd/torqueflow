@@ -19,12 +19,15 @@ export async function validarSede(tenantDb: TenantDb, session: Session, sedeId: 
 export async function validarCategoria(
   tenantDb: TenantDb,
   categoriaId: string,
-  categoriaActual?: () => Promise<string | null>,
+  categoriaActual?: string | null | (() => Promise<string | null>),
 ): Promise<string | null> {
   const categoria = await tenantDb.categoriaGasto.findUnique({ where: { id: categoriaId } });
   if (!categoria) return "La categoría no está disponible";
   if (categoria.activo) return null;
   // Editar permite conservar la categoría actual aunque se haya desactivado.
-  if (categoriaActual && (await categoriaActual()) === categoriaId) return null;
+  if (categoriaActual) {
+    const actual = typeof categoriaActual === "function" ? await categoriaActual() : categoriaActual;
+    if (actual === categoriaId) return null;
+  }
   return "La categoría no está disponible";
 }

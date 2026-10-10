@@ -27,6 +27,14 @@ function mensajeError(err: unknown, fallback: string): string {
   return friendlyPrismaErrorMessage(err, fallback);
 }
 
+async function existeNombre(tenantDb: ReturnType<typeof getTenantDb>, nombre: string, excluirId?: string) {
+  const otra = await tenantDb.categoriaGasto.findFirst({
+    where: { nombre: { equals: nombre, mode: "insensitive" }, ...(excluirId ? { NOT: { id: excluirId } } : {}) },
+    select: { id: true },
+  });
+  return otra !== null;
+}
+
 function revalidar() {
   revalidatePath("/gastos");
   revalidatePath("/gastos/configuracion");
@@ -52,6 +60,7 @@ export async function crearCategoriaGastoAction(
 
   const tenantDb = getTenantDb(session.user.tenantSchema);
   try {
+    if (await existeNombre(tenantDb, parsed.data.nombre)) return { error: MENSAJE_DUPLICADO, success: false };
     const { _max } = await tenantDb.categoriaGasto.aggregate({ _max: { orden: true } });
     await tenantDb.categoriaGasto.create({ data: { nombre: parsed.data.nombre, orden: (_max.orden ?? -1) + 1 } });
   } catch (err) {
@@ -72,6 +81,7 @@ export async function renombrarCategoriaGastoAction(
 
   const tenantDb = getTenantDb(session.user.tenantSchema);
   try {
+    if (await existeNombre(tenantDb, parsed.data.nombre, categoriaId)) return { error: MENSAJE_DUPLICADO, success: false };
     await tenantDb.categoriaGasto.update({ where: { id: categoriaId }, data: { nombre: parsed.data.nombre } });
   } catch (err) {
     return { error: mensajeError(err, "No se pudo renombrar la categoría"), success: false };

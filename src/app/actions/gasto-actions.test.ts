@@ -17,6 +17,9 @@ const RECEPCION = { user: { id: "u2", role: "RECEPCION", tenantSchema: "t", sede
 const ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "t", sedeActivaId: "s1" } };
 const valido = { categoriaId: "cat_arriendo", descripcion: "Arriendo", monto: "1500000", fecha: "2026-10-05" };
 
+const ACTUAL = { gastoRecurrenteId: null, periodo: null, sedeId: "s1", categoriaId: "cat_arriendo" };
+const RECURRENTE = { gastoRecurrenteId: "r1", periodo: "2026-10", sedeId: "s1", categoriaId: "cat_arriendo" };
+
 function form(obj: Record<string, string>) {
   const f = new FormData();
   for (const [k, v] of Object.entries(obj)) f.set(k, v);
@@ -68,6 +71,7 @@ describe("gastos", () => {
   it("actualizar y eliminar exigen ADMIN", async () => {
     mockRequireRole.mockResolvedValue(ADMIN);
     db.categoriaGasto.findUnique.mockResolvedValue({ id: "cat_arriendo", activo: true });
+    db.gasto.findUnique.mockResolvedValue(ACTUAL);
     await actualizarGastoAction("g1", inicial, form(valido));
     expect(mockRequireRole).toHaveBeenLastCalledWith(["ADMIN"]);
     db.gasto.delete.mockResolvedValue({});
@@ -78,7 +82,7 @@ describe("gastos", () => {
   it("actualizar permite conservar la categoría actual aunque esté inactiva", async () => {
     mockRequireRole.mockResolvedValue(ADMIN);
     db.categoriaGasto.findUnique.mockResolvedValue({ id: "cat_arriendo", activo: false });
-    db.gasto.findUnique.mockResolvedValue({ categoriaId: "cat_arriendo" });
+    db.gasto.findUnique.mockResolvedValue({ ...ACTUAL, categoriaId: "cat_arriendo" });
     expect(await actualizarGastoAction("g1", inicial, form(valido))).toEqual({ error: null, success: true });
     expect(db.gasto.update).toHaveBeenCalled();
   });
@@ -86,8 +90,70 @@ describe("gastos", () => {
   it("actualizar rechaza cambiar a una categoría inactiva", async () => {
     mockRequireRole.mockResolvedValue(ADMIN);
     db.categoriaGasto.findUnique.mockResolvedValue({ id: "cat_arriendo", activo: false });
-    db.gasto.findUnique.mockResolvedValue({ categoriaId: "otra" });
+    db.gasto.findUnique.mockResolvedValue({ ...ACTUAL, categoriaId: "otra" });
     expect((await actualizarGastoAction("g1", inicial, form(valido))).error).toBe("La categoría no está disponible");
+  });
+
+  it("actualizar un gasto inexistente devuelve error", async () => {
+    mockRequireRole.mockResolvedValue(ADMIN);
+    db.gasto.findUnique.mockResolvedValue(null);
+    expect(await actualizarGastoAction("g1", inicial, form(valido))).toEqual({ error: "Gasto no encontrado", success: false });
+    expect(db.gasto.update).not.toHaveBeenCalled();
+  });
+
+  it("actualizar un gasto recurrente rechaza moverlo a otro mes", async () => {
+    mockRequireRole.mockResolvedValue(ADMIN);
+    db.categoriaGasto.findUnique.mockResolvedValue({ id: "cat_arriendo", activo: true });
+    db.gasto.findUnique.mockResolvedValue(RECURRENTE);
+    const r = await actualizarGastoAction("g1", inicial, form({ ...valido, fecha: "2026-11-02" }));
+    expect(r.error).toMatch(/^La fecha debe estar dentro de /);
+    expect(db.gasto.update).not.toHaveBeenCalled();
+  });
+
+  it("actualizar un gasto recurrente rechaza cambiar de sede", async () => {
+    mockRequireRole.mockResolvedValue(ADMIN);
+    db.categoriaGasto.findUnique.mockResolvedValue({ id: "cat_arriendo", activo: true });
+    db.gasto.findUnique.mockResolvedValue(RECURRENTE);
+    const r = await actualizarGastoAction("g1", inicial, form({ ...valido, sedeId: "s2" }));
+    expect(r.error).toBe("Un gasto recurrente no puede cambiar de sede");
+    expect(db.gasto.update).not.toHaveBeenCalled();
+  });
+
+  it("actualizar un gasto recurrente dentro de su mes funciona", async () => {
+    mockRequireRole.mockResolvedValue(ADMIN);
+    db.categoriaGasto.findUnique.mockResolvedValue({ id: "cat_arriendo", activo: true });
+    db.gasto.findUnique.mockResolvedValue(RECURRENTE);
+    expect(await actualizarGastoAction("g1", inicial, form({ ...valido, fecha: "2026-10-20" }))).toEqual({ error: null, success: true });
+  });
+
+  it("actualizar sin sedeId conserva la sede actual del gasto (no la activa del admin)", async () => {
+    mockRequireRole.mockResolvedValue(ADMIN);
+    db.categoriaGasto.findUnique.mockResolvedValue({ id: "cat_arriendo", activo: true });
+    db.sede.findUnique.mockResolvedValue({ id: "s2" });
+    db.gasto.findUnique.mockResolvedValue({ ...ACTUAL, sedeId: "s2" });
+    await actualizarGastoAction("g1", inicial, form(valido));
+    expect(db.gasto.update.mock.calls[0][0].data.sedeId).toBe("s2");
+  });
+
+  it("crear y listar exigen ADMIN o RECEPCION", async () => {
+    db.categoriaGasto.findUnique.mockResolvedValue({ id: "cat_arriendo", activo: true });
+    await crearGastoAction(inicial, form(valido));
+    expect(mockRequireRole).toHaveBeenLastCalledWith(["ADMIN", "RECEPCION"]);
+    db.gasto.findMany.mockResolvedValue([]);
+    db.gasto.aggregate.mockResolvedValue({ _sum: { monto: null } });
+    await listGastos({});
+    expect(mockRequireRole).toHaveBeenLastCalledWith(["ADMIN", "RECEPCION"]);
+  });
+
+  it("si el guard rechaza no se toca la base de datos", async () => {
+    mockRequireRole.mockRejectedValue(new Error("NEXT_REDIRECT"));
+    await expect(crearGastoAction(inicial, form(valido))).rejects.toThrow("NEXT_REDIRECT");
+    await expect(listGastos({})).rejects.toThrow("NEXT_REDIRECT");
+    await expect(actualizarGastoAction("g1", inicial, form(valido))).rejects.toThrow("NEXT_REDIRECT");
+    expect(db.gasto.create).not.toHaveBeenCalled();
+    expect(db.gasto.findMany).not.toHaveBeenCalled();
+    expect(db.gasto.findUnique).not.toHaveBeenCalled();
+    expect(db.gasto.update).not.toHaveBeenCalled();
   });
 
   it("eliminar inexistente devuelve error amable", async () => {

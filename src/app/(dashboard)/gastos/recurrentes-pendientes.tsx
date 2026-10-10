@@ -56,7 +56,13 @@ function ConfirmarDialog({ pendiente }: { pendiente: PendienteVista }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(abierto) => {
+        setOpen(abierto);
+        if (!abierto) setError(null);
+      }}
+    >
       <DialogTrigger render={<Button size="sm" />}>Confirmar</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
