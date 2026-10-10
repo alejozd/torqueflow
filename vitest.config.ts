@@ -2,20 +2,47 @@ import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 
+// Tests that talk to the real Postgres (no mocked db client). Most provision
+// throwaway tenant schemas, i.e. run every tenant migration via
+// `prisma migrate deploy` against the remote server -- 10-20s each over
+// Tailscale, and some files provision two tenants in one beforeAll.
+const DB_INTEGRATION_TESTS = [
+  "src/lib/db/public-client.test.ts",
+  "src/lib/db/tenant-client.test.ts",
+  "src/lib/tenant/tenant-user-email.test.ts",
+  "scripts/**/*.test.ts",
+];
+
 export default defineConfig({
   plugins: [react()],
   test: {
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
-    include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.ts"],
     exclude: ["e2e/**", "node_modules/**", ".next/**"],
-    // Several test files provision real Postgres schemas concurrently (each running
-    // `prisma migrate deploy` via execSync against the same remote server); under
-    // that contention a single provisioning call can exceed Vitest's defaults.
-    // Provisioning happens in both test bodies (testTimeout) and beforeAll hooks
-    // (hookTimeout) — both must be raised, or the hook-based calls stay capped low.
-    testTimeout: 20000,
-    hookTimeout: 20000,
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          include: ["src/**/*.test.{ts,tsx}"],
+          exclude: ["e2e/**", "node_modules/**", ".next/**", ...DB_INTEGRATION_TESTS],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "db",
+          include: DB_INTEGRATION_TESTS,
+          // One file at a time: concurrent `prisma migrate deploy` runs against
+          // the same server time out (P1002 / advisory lock). And timeouts
+          // sized for provisioning, not for unit tests -- both test bodies
+          // (testTimeout) and beforeAll hooks (hookTimeout) provision.
+          fileParallelism: false,
+          testTimeout: 120_000,
+          hookTimeout: 120_000,
+        },
+      },
+    ],
   },
   resolve: {
     alias: {
