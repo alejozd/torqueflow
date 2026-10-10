@@ -1,13 +1,14 @@
 "use client";
 
 import { useActionState } from "react";
-import { addDviFotoAction, type DviFormState } from "@/app/actions/dvi-actions";
+import { addDviFotoAction, deleteDviFotoFormAction, type DviFormState } from "@/app/actions/dvi-actions";
 import type { OrdenWithDetalle } from "@/app/actions/orden-actions";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { QuitarConConfirmacion } from "@/components/quitar-con-confirmacion";
 import { SelectField } from "@/components/ui/select-field";
 
 const initialState: DviFormState = { error: null, success: false };
@@ -18,11 +19,14 @@ export function DviFotoForm({
   ordenId,
   fotos,
   soloLectura = false,
+  puedeEliminar = false,
 }: {
   ordenId: string;
   fotos: DviFoto[];
   /** Invoiced/closed orden: keep the gallery, drop the upload form (the action would refuse it). */
   soloLectura?: boolean;
+  /** ADMIN/RECEPCION on an editable orden -- the roles deleteDviFotoAction accepts. */
+  puedeEliminar?: boolean;
 }) {
   const addFoto = addDviFotoAction.bind(null, ordenId);
   const [state, formAction, isPending] = useActionState(addFoto, initialState);
@@ -89,8 +93,15 @@ export function DviFotoForm({
                 alt={`Foto ${foto.momento === "ANTES" ? "antes" : "después"} de la inspección`}
                 className="aspect-4/3 w-full object-cover"
               />
-              <figcaption className="px-2 py-1 text-[11px] text-muted-foreground">
+              <figcaption className="flex items-center justify-between gap-2 px-2 py-1 text-[11px] text-muted-foreground">
                 {foto.momento === "ANTES" ? "Antes" : "Después"}
+                {puedeEliminar ? (
+                  <QuitarConConfirmacion
+                    etiqueta={`Eliminar foto ${foto.momento === "ANTES" ? "antes" : "después"}`}
+                    pregunta="¿Eliminar esta foto?"
+                    accion={() => deleteDviFotoFormAction(foto.id, ordenId)}
+                  />
+                ) : null}
               </figcaption>
             </figure>
           ))}

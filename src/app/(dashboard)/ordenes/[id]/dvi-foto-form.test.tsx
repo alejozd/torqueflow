@@ -3,15 +3,23 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockAddDviFotoAction = vi.fn();
+const mockDeleteDviFotoFormAction = vi.fn();
 vi.mock("@/app/actions/dvi-actions", () => ({
   addDviFotoAction: (...args: unknown[]) => mockAddDviFotoAction(...args),
+  deleteDviFotoFormAction: (...args: unknown[]) => mockDeleteDviFotoFormAction(...args),
 }));
 
 import { DviFotoForm } from "./dvi-foto-form";
 
+const FOTOS = [
+  { id: "f1", url: "https://example.com/f1.jpg", momento: "ANTES" } as never,
+  { id: "f2", url: "https://example.com/f2.jpg", momento: "DESPUES" } as never,
+];
+
 describe("DviFotoForm", () => {
   beforeEach(() => {
     mockAddDviFotoAction.mockReset();
+    mockDeleteDviFotoFormAction.mockReset();
     mockAddDviFotoAction.mockResolvedValue({ error: null, success: true });
   });
 
@@ -72,10 +80,7 @@ describe("DviFotoForm", () => {
     render(
       <DviFotoForm
         ordenId="o1"
-        fotos={[
-          { id: "f1", url: "https://example.com/f1.jpg", momento: "ANTES" } as never,
-          { id: "f2", url: "https://example.com/f2.jpg", momento: "DESPUES" } as never,
-        ]}
+        fotos={FOTOS}
       />,
     );
 
@@ -85,5 +90,24 @@ describe("DviFotoForm", () => {
     expect(despuesFigure).toHaveClass("border");
     expect(within(antesFigure).getByText("Antes")).toBeInTheDocument();
     expect(within(despuesFigure).getByText("Después")).toBeInTheDocument();
+  });
+
+  it("offers a remove button per foto only when puedeEliminar", () => {
+    const { rerender } = render(<DviFotoForm ordenId="o1" fotos={FOTOS} />);
+    expect(screen.queryByRole("button", { name: /Eliminar foto/ })).not.toBeInTheDocument();
+
+    rerender(<DviFotoForm ordenId="o1" fotos={FOTOS} puedeEliminar />);
+    expect(screen.getAllByRole("button", { name: /Eliminar foto/ })).toHaveLength(FOTOS.length);
+  });
+
+  it("asks before deleting a foto", async () => {
+    mockDeleteDviFotoFormAction.mockResolvedValue({ error: null, success: true });
+    render(<DviFotoForm ordenId="o1" fotos={FOTOS} puedeEliminar />);
+
+    await userEvent.click(screen.getAllByRole("button", { name: /Eliminar foto/ })[0]);
+    expect(mockDeleteDviFotoFormAction).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Sí, quitar" }));
+
+    await vi.waitFor(() => expect(mockDeleteDviFotoFormAction).toHaveBeenCalledWith("f1", "o1"));
   });
 });

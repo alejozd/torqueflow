@@ -389,7 +389,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
                 esAdmin={esAdmin}
                 soloLectura={!esOrdenMutable(orden)}
               />
-              <DviFotoForm ordenId={orden.id} fotos={orden.dvi?.fotos ?? []} soloLectura={!esOrdenMutable(orden)} />
+              <DviFotoForm ordenId={orden.id} fotos={orden.dvi?.fotos ?? []} soloLectura={!esOrdenMutable(orden)} puedeEliminar={puedeQuitar} />
             </CardContent>
           </Card>
         </div>
