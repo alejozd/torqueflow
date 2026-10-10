@@ -57,7 +57,7 @@ Verified against current code/config, not just transcribed:
 - **Cron endpoint authenticated via `CRON_SECRET`** — `src/app/api/cron/recordatorios/route.ts`.
 - **IVA (VAT): fixed at a single rate** used throughout billing (`OrdenTrabajo`/facturación, Fase 4). Verify the exact literal against `src/lib/validation/` or the billing calculation module before changing it — treat 19% as the expected fixed value per prior direction, but confirm the constant in code before relying on it in a change.
 - **No feature-flag-style plan gating** — `Plan` enforcement (`maxUsuarios`, `maxSedes`) is purely numeric (`src/lib/planes/limites.ts`), no `hasDVI`/`hasWhatsapp`-style boolean flags were ultimately implemented despite being in the original design doc §9 table.
-- **Direct-to-`main` development, no branches/PRs** — standing convention across all 9 phases, re-confirmed every phase in `RULES.md` and the progress ledger.
+- **Direct-to-`main` development, no branches/PRs** — standing convention across all 9 phases, re-confirmed every phase in `RULES.md` and the progress ledger. **Changed 2026-10-10:** from Fase 15 on, each phase lives on its own branch `faseN-<slug>` and is merged `--no-ff` into `main` after its final review (no PRs). Roadmap: `docs/superpowers/plans/2026-10-10-roadmap-modulos-faltantes.md`.
 - **Session lifetime**: check `git log --oneline -10` for a `fase9-fix:` commit changing `session.maxAge` in `src/auth.ts` before assuming session behavior — a change from the previous default (30-day JWT, no `maxAge` set) to a short-lived (1h) JWT with silent renewal was in progress as of this document's writing. Do not assume it has landed; verify.
 
 ## 5. Code structure (2-3 levels, not exhaustive)

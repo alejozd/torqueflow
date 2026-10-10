@@ -11,7 +11,10 @@
 - NO uses timeouts largos ni loops de polling.
 
 ## 3. COMMITS ATÓMICOS POR TAREA
-- Al completar CADA tarea, haz commit y push inmediato a main.
+- Desde la Fase 15 cada fase vive en su propia rama `faseN-<slug>` creada desde `main`
+  (ver `docs/superpowers/plans/2026-10-10-roadmap-modulos-faltantes.md`).
+- Al completar CADA tarea, haz commit y push inmediato a la rama de la fase.
+- Al cerrar la fase (revisión final + fix round), merge `--no-ff` a `main` y push.
 - Formato del commit: "fase{N}-task X: descripción breve" (usa el número de la fase activa; Fase 3 → "fase3-task X: ...").
 - NO acumules cambios de varias tareas en un solo commit.
 - Esto permite retomar fácilmente si se agotan los tokens.
