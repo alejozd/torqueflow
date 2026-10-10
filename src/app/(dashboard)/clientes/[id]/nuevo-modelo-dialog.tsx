@@ -36,6 +36,11 @@ export function NuevoModeloDialog({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const nombre = String(new FormData(formRef.current!).get("nombre") ?? "").trim();
+    if (!nombre) {
+      setState({ ...initialState, error: "El nombre es obligatorio" });
+      return;
+    }
     startTransition(async () => {
       const formData = new FormData(formRef.current!);
       formData.set("marcaId", marcaId);
@@ -60,7 +65,7 @@ export function NuevoModeloDialog({
         <form noValidate ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="nuevo-modelo-nombre">Nombre</Label>
-            <Input id="nuevo-modelo-nombre" name="nombre" autoFocus />
+            <Input id="nuevo-modelo-nombre" name="nombre" autoFocus required aria-invalid={state.error ? true : undefined} />
           </div>
 
           {state.error ? (

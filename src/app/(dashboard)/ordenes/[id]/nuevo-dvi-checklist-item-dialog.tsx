@@ -33,6 +33,11 @@ export function NuevoDviChecklistItemDialog({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const nombre = String(new FormData(formRef.current!).get("label") ?? "").trim();
+    if (!nombre) {
+      setState({ ...initialState, error: "El nombre es obligatorio" });
+      return;
+    }
     startTransition(async () => {
       const formData = new FormData(formRef.current!);
       const result = await crearDviChecklistItemAction(initialState, formData);
@@ -56,7 +61,7 @@ export function NuevoDviChecklistItemDialog({
         <form noValidate ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="nuevo-dvi-item-label">Nombre</Label>
-            <Input id="nuevo-dvi-item-label" name="label" autoFocus />
+            <Input id="nuevo-dvi-item-label" name="label" autoFocus required aria-invalid={state.error ? true : undefined} />
           </div>
 
           {state.error ? (
