@@ -6,6 +6,7 @@ import { getCita, listCitas, listVehiculosParaCita } from "@/app/actions/cita-ac
 import type { EstadoCita } from "@/generated/prisma-tenant";
 import { CambiarEstadoCitaForm } from "./cambiar-estado-cita-form";
 import { EditarCitaForm } from "./editar-cita-form";
+import { EliminarCitaButton } from "./eliminar-cita-button";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -164,8 +165,14 @@ export default async function CitaDetallePage({ params }: { params: Promise<{ id
             <CardHeader>
               <CardTitle>{`Estado actual: ${ESTADO_LABELS[cita.estado]}`}</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-col gap-4">
               <CambiarEstadoCitaForm citaId={cita.id} estadoActual={cita.estado} />
+              {session.user.role === "ADMIN" ? (
+                <EliminarCitaButton
+                  citaId={cita.id}
+                  descripcion={`${cita.vehiculo.placa} · ${formatoFechaCorta.format(cita.fechaHora)} ${formatoHora.format(cita.fechaHora)}`}
+                />
+              ) : null}
             </CardContent>
           </Card>
 
