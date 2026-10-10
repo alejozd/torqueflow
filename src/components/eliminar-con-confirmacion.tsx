@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Trash2 } from "lucide-react";
+import { ConfirmacionEnLinea } from "@/components/confirmacion-en-linea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
@@ -41,15 +42,13 @@ export function EliminarConConfirmacion({
   return (
     <div className="flex flex-col gap-2 border-t border-border pt-4">
       {confirmando ? (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span>{confirmacion}</span>
-          <Button type="button" variant="destructive" size="sm" disabled={pendiente} onClick={eliminar}>
-            {pendiente ? "Eliminando..." : "Sí, eliminar"}
-          </Button>
-          <Button type="button" variant="ghost" size="sm" disabled={pendiente} onClick={() => setConfirmando(false)}>
-            No
-          </Button>
-        </div>
+        <ConfirmacionEnLinea
+          pregunta={confirmacion}
+          etiquetaConfirmar={pendiente ? "Eliminando..." : "Sí, eliminar"}
+          pendiente={pendiente}
+          onConfirmar={eliminar}
+          onCancelar={() => setConfirmando(false)}
+        />
       ) : (
         <Button
           type="button"
