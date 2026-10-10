@@ -15,6 +15,7 @@ const METODO_PAGO_LABELS: Record<MetodoPago, string> = {
   TARJETA: "Tarjeta",
   TRANSFERENCIA: "Transferencia",
   OTRO: "Otro",
+  ANTICIPO: "Anticipo",
 };
 
 // Same PENDIENTE/PAGADA badge convention as facturas/page.tsx and
