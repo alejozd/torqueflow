@@ -16,9 +16,9 @@ import {
   calcularFechaEsperada,
   construirMensajePedido,
   textoPedidoWhatsapp,
-  urlWhatsapp,
   type DatosMensajePedido,
 } from "@/lib/pedido-compra/pedido-compra";
+import { urlWhatsapp } from "@/lib/whatsapp/url";
 import type { CanalPedidoCompra, EstadoPedidoCompra, Prisma } from "@/generated/prisma-tenant";
 
 const NO_ENCONTRADO = "Pedido no encontrado en tu sede activa.";

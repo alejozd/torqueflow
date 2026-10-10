@@ -17,7 +17,7 @@ export interface DatosRecordatorio {
   tallerNombre: string;
 }
 
-function escaparHtml(valor: string): string {
+export function escaparHtml(valor: string): string {
   return valor
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
