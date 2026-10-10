@@ -136,6 +136,19 @@ export default async function InicioPage() {
   const mostrarVencimientos = session.user.role !== "TECNICO";
   const vencimientos = mostrarVencimientos ? await listVencimientos() : [];
   const vencimientosVencidos = vencimientos.filter((fila) => fila.estado === "VENCIDO").length;
+  const kpiCartera = (
+    <KpiCard
+      title="Cartera"
+      value={formatoMoneda.format(overview.cartera.saldoPendiente)}
+      valueColor="warning"
+      subtitle={overview.cartera.facturasPendientes > 0 ? `${overview.cartera.facturasPendientes} facturas pendientes` : undefined}
+      subtitleColor="warning"
+      highlight={overview.cartera.facturasPendientes > 0}
+      icon={<AlertCircle className={cn("size-5", KPI_TONE.warning.icon)} />}
+      iconBgColor={KPI_TONE.warning.iconBg}
+      className={KPI_TONE.warning.cardBg}
+    />
+  );
 
   const nombre = session.user.name ?? session.user.email;
   const flujoTotal =
@@ -235,17 +248,14 @@ export default async function InicioPage() {
           className={KPI_TONE.warning.cardBg}
         />
 
-        <KpiCard
-          title="Cartera"
-          value={formatoMoneda.format(overview.cartera.saldoPendiente)}
-          valueColor="warning"
-          subtitle={overview.cartera.facturasPendientes > 0 ? `${overview.cartera.facturasPendientes} facturas pendientes` : undefined}
-          subtitleColor="warning"
-          highlight={overview.cartera.facturasPendientes > 0}
-          icon={<AlertCircle className={cn("size-5", KPI_TONE.warning.icon)} />}
-          iconBgColor={KPI_TONE.warning.iconBg}
-          className={KPI_TONE.warning.cardBg}
-        />
+        {/* TECNICO cannot open /cartera, so only ADMIN/RECEPCION get the link. */}
+        {mostrarVencimientos ? (
+          <Link href="/cartera" className="rounded-xl focus-visible:outline-2">
+            {kpiCartera}
+          </Link>
+        ) : (
+          kpiCartera
+        )}
 
         <KpiCard
           title="Stock bajo"

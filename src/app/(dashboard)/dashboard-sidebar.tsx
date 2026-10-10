@@ -7,6 +7,7 @@ import {
   BarChart3,
   CalendarDays,
   FileText,
+  HandCoins,
   History,
   Home,
   Landmark,
@@ -70,6 +71,7 @@ const OPERACION: NavGroup = {
 
 const GASTOS: NavItem = { href: "/gastos", label: "Gastos", icon: Wallet };
 const CAJA: NavItem = { href: "/caja", label: "Caja", icon: Landmark };
+const CARTERA: NavItem = { href: "/cartera", label: "Cartera", icon: HandCoins };
 
 const INVENTARIO: NavGroup = {
   label: "Inventario",
@@ -186,7 +188,7 @@ export function DashboardSidebar({
   repuestosStockBajo?: number;
 }) {
   const pathname = usePathname();
-  const operacion = puedeVerFinanzas ? { ...OPERACION, items: [...OPERACION.items, CAJA, GASTOS] } : OPERACION;
+  const operacion = puedeVerFinanzas ? { ...OPERACION, items: [...OPERACION.items, CAJA, CARTERA, GASTOS] } : OPERACION;
 
   return (
     <div className="dark">
