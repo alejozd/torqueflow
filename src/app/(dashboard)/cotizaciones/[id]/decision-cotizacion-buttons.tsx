@@ -26,6 +26,12 @@ export function DecisionCotizacionButtons({ cotizacionId }: { cotizacionId: stri
     rechazarInitialState,
   );
 
+  const [rechazarStateVisto, setRechazarStateVisto] = useState(rechazarState);
+  if (rechazarState !== rechazarStateVisto) {
+    setRechazarStateVisto(rechazarState);
+    setConfirmando(null);
+  }
+
   function onAprobar() {
     startAprobar(async () => {
       const result = await aprobarCotizacionAction(cotizacionId, aprobarInitialState, new FormData());
@@ -44,7 +50,6 @@ export function DecisionCotizacionButtons({ cotizacionId }: { cotizacionId: stri
   }
 
   useEffect(() => {
-    setConfirmando(null);
     if (rechazarState.success) {
       toast.success("Cotización rechazada");
     } else if (rechazarState.error) {
