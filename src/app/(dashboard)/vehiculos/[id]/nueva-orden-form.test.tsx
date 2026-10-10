@@ -56,6 +56,18 @@ describe("NuevaOrdenForm", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
+  it("muestra el aviso de vencimientos cuando se pasan fechas vencidas", () => {
+    renderInDialog(
+      <NuevaOrdenForm
+        clienteId="c1"
+        vehiculoId="v1"
+        tecnicos={tecnicos}
+        vencimientos={{ soatVence: new Date("2020-01-01T00:00:00Z"), tecnomecanicaVence: null, diasAviso: 30 }}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(/SOAT vencido el/);
+  });
+
   it("does not call onCreated when the action returns an error", async () => {
     mockCreateOrdenAction.mockResolvedValue({ error: "El kilometraje no puede ser negativo", success: false });
     const onCreated = vi.fn();

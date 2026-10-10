@@ -214,6 +214,8 @@ export function ClientVehicleSelector({
                               marca: vehiculo.marca,
                               modelo: vehiculo.modelo,
                               kilometrajeActual: vehiculo.kilometraje,
+                              soatVence: vehiculo.soatVence,
+                              tecnomecanicaVence: vehiculo.tecnomecanicaVence,
                             },
                           ],
                         }

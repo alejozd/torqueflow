@@ -9,6 +9,7 @@ import { createOrdenDesdeVehiculoAction, type OrdenFormState, type TecnicoOption
 import { ordenTrabajoInputSchema } from "@/lib/validation/orden";
 import type { ClienteParaOrden } from "@/app/actions/cliente-actions";
 import type { MarcaVehiculo, ModeloVehiculo } from "@/generated/prisma-tenant";
+import { AvisoVencimientosOrden } from "@/components/aviso-vencimientos-orden";
 import { ClientVehicleSelector } from "./client-vehicle-selector";
 import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -40,6 +41,7 @@ export function NuevaOrdenDesdeCeroForm({
   marcas,
   modelos,
   esAdmin,
+  diasAviso,
   onCreated,
 }: {
   clientes: ClienteParaOrden[];
@@ -47,6 +49,7 @@ export function NuevaOrdenDesdeCeroForm({
   marcas: MarcaVehiculo[];
   modelos: ModeloVehiculo[];
   esAdmin: boolean;
+  diasAviso: number;
   /**
    * Fired synchronously right after a successful create -- not driven by
    * useActionState + a lingering "Orden creada" message: leaving the form
@@ -84,8 +87,8 @@ export function NuevaOrdenDesdeCeroForm({
     () => clientes.find((cliente) => cliente.id === clienteIdField.value)?.vehiculos ?? [],
     [clientes, clienteIdField.value],
   );
-  const kilometrajeActual = vehiculosDisponibles.find((vehiculo) => vehiculo.id === vehiculoIdField.value)
-    ?.kilometrajeActual;
+  const vehiculoSeleccionado = vehiculosDisponibles.find((vehiculo) => vehiculo.id === vehiculoIdField.value);
+  const kilometrajeActual = vehiculoSeleccionado?.kilometrajeActual;
 
   function onValid(data: { vehiculoId: string; mecanicoId?: string }) {
     startTransition(async () => {
@@ -128,6 +131,16 @@ export function NuevaOrdenDesdeCeroForm({
             modelos={modelos}
             esAdmin={esAdmin}
           />
+
+          {vehiculoSeleccionado ? (
+            <div className="sm:col-span-2">
+              <AvisoVencimientosOrden
+                soatVence={vehiculoSeleccionado.soatVence}
+                tecnomecanicaVence={vehiculoSeleccionado.tecnomecanicaVence}
+                diasAviso={diasAviso}
+              />
+            </div>
+          ) : null}
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="kilometrajeIngreso">Kilometraje de ingreso</Label>

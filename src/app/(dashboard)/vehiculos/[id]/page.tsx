@@ -181,6 +181,11 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
             vehiculoId={vehiculo.id}
             placa={vehiculo.placa}
             tecnicos={tecnicos}
+            vencimientos={{
+              soatVence: vehiculo.soatVence,
+              tecnomecanicaVence: vehiculo.tecnomecanicaVence,
+              diasAviso,
+            }}
           />
         </div>
       </div>

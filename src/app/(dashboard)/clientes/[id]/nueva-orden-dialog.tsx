@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { NuevaOrdenForm } from "../../vehiculos/[id]/nueva-orden-form";
@@ -24,11 +24,13 @@ export function NuevaOrdenDialog({
   vehiculoId,
   placa,
   tecnicos,
+  vencimientos,
 }: {
   clienteId: string;
   vehiculoId: string;
   placa: string;
   tecnicos: TecnicoOption[];
+  vencimientos?: ComponentProps<typeof NuevaOrdenForm>["vencimientos"];
 }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
@@ -50,6 +52,7 @@ export function NuevaOrdenDialog({
           clienteId={clienteId}
           vehiculoId={vehiculoId}
           tecnicos={tecnicos}
+          vencimientos={vencimientos}
           onCreated={(ordenId) => {
             // Straight to the órden the user just opened -- otherwise they'd
             // have to go find it in /ordenes' list before they could add
