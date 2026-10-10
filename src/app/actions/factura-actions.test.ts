@@ -21,7 +21,7 @@ const mockTransaction = vi.fn((cb: (tx: unknown) => unknown) =>
   cb({
     factura: { create: mockFacturaCreate, update: mockFacturaUpdate },
     repuesto: { updateMany: mockRepuestoUpdateMany },
-    anticipo: { findMany: mockAnticipoFindMany, update: mockAnticipoUpdate },
+    anticipo: { findMany: mockAnticipoFindMany, updateMany: mockAnticipoUpdate },
     pago: { create: mockPagoCreate },
   }),
 );
@@ -70,7 +70,7 @@ describe("crearFacturaAction", () => {
     mockRepuestoUpdateMany.mockReset().mockResolvedValue({ count: 1 });
     mockFacturaUpdate.mockReset().mockResolvedValue({});
     mockAnticipoFindMany.mockReset().mockResolvedValue([]);
-    mockAnticipoUpdate.mockReset().mockResolvedValue({});
+    mockAnticipoUpdate.mockReset().mockResolvedValue({ count: 1 });
     mockPagoCreate.mockReset().mockResolvedValue({ id: "p1" });
     mockTransaction.mockClear();
   });
@@ -99,8 +99,8 @@ describe("crearFacturaAction", () => {
     expect(mockPagoCreate).toHaveBeenNthCalledWith(2, {
       data: { facturaId: "f1", monto: 20.5, metodoPago: "ANTICIPO", referencia: "Anticipo", registradoPorId: "u8" },
     });
-    expect(mockAnticipoUpdate).toHaveBeenCalledWith({ where: { id: "a1" }, data: { estado: "APLICADO", pagoId: "p1" } });
-    expect(mockAnticipoUpdate).toHaveBeenCalledWith({ where: { id: "a2" }, data: { estado: "APLICADO", pagoId: "p2" } });
+    expect(mockAnticipoUpdate).toHaveBeenCalledWith({ where: { id: "a1", estado: "PENDIENTE" }, data: { estado: "APLICADO", pagoId: "p1" } });
+    expect(mockAnticipoUpdate).toHaveBeenCalledWith({ where: { id: "a2", estado: "PENDIENTE" }, data: { estado: "APLICADO", pagoId: "p2" } });
     expect(mockFacturaUpdate).toHaveBeenCalledWith({ where: { id: "f1" }, data: { saldoPendiente: 81.58 } });
   });
 
@@ -113,6 +113,21 @@ describe("crearFacturaAction", () => {
       where: { id: "f1" },
       data: { saldoPendiente: 0, estado: "PAGADA" },
     });
+  });
+
+  it("rolls back when an anticipo stopped being PENDIENTE mid-invoice (concurrent devolución)", async () => {
+    mockAnticipoFindMany.mockResolvedValue([{ id: "a1", monto: "50", registradoPorId: "u7" }]);
+    mockPagoCreate.mockResolvedValueOnce({ id: "p1" });
+    mockAnticipoUpdate.mockResolvedValueOnce({ count: 0 });
+
+    const result = await crearFacturaAction("o1", initialState, new FormData());
+
+    expect(result).toEqual({
+      error: "Un anticipo de esta orden cambió mientras se facturaba. Intenta de nuevo.",
+      success: false,
+      facturaId: null,
+    });
+    expect(mockFacturaUpdate).not.toHaveBeenCalled();
   });
 
   it("refuses to invoice when the anticipos exceed the total and creates nothing", async () => {

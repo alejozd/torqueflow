@@ -216,9 +216,12 @@ export async function cerrarCajaAction(
   const { resumenBase } = await cargarMovimientos(tenantDb, sesion.sedeId, sesion.abiertaAt, cerradaAt);
   const { efectivoEsperado } = calcularResumenCaja(Number(sesion.baseInicial), resumenBase);
 
+  let cerradas: number;
   try {
-    await tenantDb.cajaSesion.update({
-      where: { id: cajaId },
+    // Conditional on still being open: two people closing at once must not
+    // overwrite each other's count; the second one gets "ya está cerrada".
+    ({ count: cerradas } = await tenantDb.cajaSesion.updateMany({
+      where: { id: cajaId, cerradaAt: null },
       data: {
         cerradaAt,
         cerradaPorId: session.user.id,
@@ -226,10 +229,11 @@ export async function cerrarCajaAction(
         efectivoContado: parsed.data.efectivoContado,
         notas: parsed.data.notas ?? null,
       },
-    });
+    }));
   } catch (err) {
     return { error: friendlyPrismaErrorMessage(err, "No se pudo cerrar la caja"), success: false };
   }
+  if (cerradas === 0) return { error: "La caja ya está cerrada", success: false };
   revalidar();
   return { error: null, success: true };
 }

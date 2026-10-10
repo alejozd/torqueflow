@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockRequireRole = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({ requireRole: (...a: unknown[]) => mockRequireRole(...a), requireSession: vi.fn() }));
 const db = {
-  cajaSesion: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), findMany: vi.fn() },
+  cajaSesion: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), updateMany: vi.fn(), findMany: vi.fn() },
   pago: { findMany: vi.fn() },
   anticipo: { findMany: vi.fn() },
   gasto: { findMany: vi.fn() },
@@ -40,6 +40,7 @@ function movimientosVacios() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  db.cajaSesion.updateMany.mockResolvedValue({ count: 1 });
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-10-15T20:00:00Z"));
   mockRequireRole.mockResolvedValue(RECEPCION);
@@ -150,8 +151,8 @@ describe("cerrarCajaAction", () => {
     ]);
     const r = await cerrarCajaAction("c1", inicial, form({ efectivoContado: "150000", efectivoEsperado: "999", notas: "ok" }));
     expect(r).toEqual({ error: null, success: true });
-    expect(db.cajaSesion.update).toHaveBeenCalledWith({
-      where: { id: "c1" },
+    expect(db.cajaSesion.updateMany).toHaveBeenCalledWith({
+      where: { id: "c1", cerradaAt: null },
       data: {
         cerradaAt: new Date("2026-10-15T20:00:00Z"),
         cerradaPorId: "u2",
@@ -162,19 +163,26 @@ describe("cerrarCajaAction", () => {
     });
   });
 
+  it("un cierre concurrente que ya cerró la caja devuelve el mismo error", async () => {
+    db.cajaSesion.findUnique.mockResolvedValue(sesionAbierta());
+    db.cajaSesion.updateMany.mockResolvedValueOnce({ count: 0 });
+    const r = await cerrarCajaAction("c1", inicial, form({ efectivoContado: "100000" }));
+    expect(r).toEqual({ error: "La caja ya está cerrada", success: false });
+  });
+
   it("falla si la caja no existe o ya está cerrada", async () => {
     db.cajaSesion.findUnique.mockResolvedValue(null);
     expect((await cerrarCajaAction("c1", inicial, form({ efectivoContado: "1" }))).error).toBe("Caja no encontrada");
     db.cajaSesion.findUnique.mockResolvedValue(sesionAbierta({ cerradaAt: new Date() }));
     expect((await cerrarCajaAction("c1", inicial, form({ efectivoContado: "1" }))).error).toBe("La caja ya está cerrada");
-    expect(db.cajaSesion.update).not.toHaveBeenCalled();
+    expect(db.cajaSesion.updateMany).not.toHaveBeenCalled();
   });
 
   it("RECEPCION no puede cerrar la caja de otra sede", async () => {
     db.cajaSesion.findUnique.mockResolvedValue(sesionAbierta({ sedeId: "s2" }));
     const r = await cerrarCajaAction("c1", inicial, form({ efectivoContado: "1" }));
     expect(r.error).toBe("Caja no encontrada");
-    expect(db.cajaSesion.update).not.toHaveBeenCalled();
+    expect(db.cajaSesion.updateMany).not.toHaveBeenCalled();
   });
 
   it("ADMIN sí puede cerrar la caja de otra sede", async () => {
@@ -187,7 +195,7 @@ describe("cerrarCajaAction", () => {
   it("rechaza efectivo contado inválido", async () => {
     const r = await cerrarCajaAction("c1", inicial, form({ efectivoContado: "-1" }));
     expect(r.success).toBe(false);
-    expect(db.cajaSesion.update).not.toHaveBeenCalled();
+    expect(db.cajaSesion.updateMany).not.toHaveBeenCalled();
   });
 });
 

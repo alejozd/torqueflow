@@ -28,6 +28,7 @@ export interface OrdenFacturableOption {
 
 const STOCK_INSUFICIENTE = "STOCK_INSUFICIENTE";
 const ANTICIPOS_EXCEDEN = "ANTICIPOS_EXCEDEN";
+const ANTICIPO_CAMBIO = "ANTICIPO_CAMBIO";
 
 const FACTURA_DETAIL_INCLUDE = {
   cliente: true,
@@ -190,7 +191,15 @@ export async function crearFacturaAction(
               registradoPorId: anticipo.registradoPorId,
             },
           });
-          await tx.anticipo.update({ where: { id: anticipo.id }, data: { estado: "APLICADO", pagoId: pago.id } });
+          // Conditional on PENDIENTE: a concurrent devolución must not leave the
+          // same anticipo both DEVUELTO and applied. Throwing rolls back everything.
+          const { count } = await tx.anticipo.updateMany({
+            where: { id: anticipo.id, estado: "PENDIENTE" },
+            data: { estado: "APLICADO", pagoId: pago.id },
+          });
+          if (count === 0) {
+            throw new Error(ANTICIPO_CAMBIO);
+          }
         }
         const saldo = roundMoney(total - sumaAnticipos);
         await tx.factura.update({
@@ -205,6 +214,13 @@ export async function crearFacturaAction(
     if (err instanceof Error && err.message === ANTICIPOS_EXCEDEN) {
       return {
         error: "Los anticipos superan el total de la factura. Devuelve el excedente antes de facturar.",
+        success: false,
+        facturaId: null,
+      };
+    }
+    if (err instanceof Error && err.message === ANTICIPO_CAMBIO) {
+      return {
+        error: "Un anticipo de esta orden cambió mientras se facturaba. Intenta de nuevo.",
         success: false,
         facturaId: null,
       };
