@@ -1180,3 +1180,22 @@ Deuda de prioridad baja CERRADA (2026-10-09):
 - `fase-deuda-task 15`: `session.user.sedeActivaId/sedeActivaNombre` se asignan con un chequeo de tipo real (default `""`) en lugar de `as string`.
 
 Deuda abierta restante: solo la base de datos propia para los tests de aprovisionamiento (Docker, aplazado por el usuario).
+
+## Confirmaciones y botones faltantes (2026-10-09) — CERRADA 2026-10-10
+
+Plan `docs/superpowers/plans/2026-10-09-confirmaciones-y-botones-faltantes.md`. Revisión final hecha y arreglada; prueba manual en navegador confirmada por el usuario el 2026-10-10.
+- `fase-conf-task 1` (54b4a88): componente `ConfirmacionEnLinea` compartido.
+- `fase-conf-task 2` (bc991bd): envoltorios `FormAction` para las eliminaciones que lanzan (`resultadoDeAccion`).
+- `fase-conf-task 3` (c962471): confirmar al eliminar bodega, proveedor, repuesto y sede.
+- `fase-conf-task 4` (f4258f9): eliminar usuario con confirmación y motivo del rechazo.
+- `fase-conf-task 5` (2d64298): quitar ítems y mano de obra de la orden con confirmación.
+- `fase-conf-task 6` (50c085c): borrar fotos del DVI con confirmación.
+- `fase-conf-task 7` (951dcbc): eliminar cita con confirmación.
+- `fase-conf-task 8` (cd437fd): confirmar entregar/anular orden y generar factura.
+- `fase-conf-task 9` (191f67d, fbb125f): confirmar aprobar y rechazar cotización.
+- `fase-conf-task 10` (4e193a3): confirmar al cancelar una cita.
+- `fase-conf-task 11` (fb3ef7e): confirmar al suspender un taller.
+- `fase-conf-task 12` (398d413): nombre obligatorio (trim) en marca, modelo e ítem de checklist.
+- `fase-conf-fix` (c9dc36d): foco en "No" al abrir la confirmación (role="group"), mensajes amables ante fallos de Prisma en eliminar cita/foto, "Sí, entregar" no destructivo, pregunta de foto "¿Quitar esta foto?", catch en `QuitarConConfirmacion`.
+
+Hallazgos menores diferidos (no bloquean): tests de rutas de error en aprobar/rechazar cotización (el más valioso), tests de diálogos modelo/checklist, aserciones negativas en tests de activar taller / cancelar cita, y otros de pulido.
