@@ -49,10 +49,33 @@ describe("CambiarEstadoForm", () => {
     await userEvent.click(trigger);
     await userEvent.click(await screen.findByRole("option", { name: "Anulada" }));
     await userEvent.click(screen.getByRole("button", { name: "Cambiar estado" }));
+    expect(mockUpdateEstadoOrdenAction).not.toHaveBeenCalled();
+    expect(screen.getByText("¿Anular la orden? Ya no se podrá editar.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Sí, anular" }));
 
-    expect(mockUpdateEstadoOrdenAction).toHaveBeenCalled();
+    await vi.waitFor(() => expect(mockUpdateEstadoOrdenAction).toHaveBeenCalled());
     const formData = mockUpdateEstadoOrdenAction.mock.calls[0][2] as FormData;
     expect(formData.get("estado")).toBe("ANULADA");
+  });
+
+  it("does not ask for a non-closing estado (EN_PROCESO)", async () => {
+    render(<CambiarEstadoForm ordenId="o1" estadoActual="BORRADOR" />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Cambiar estado" }));
+
+    await vi.waitFor(() => expect(mockUpdateEstadoOrdenAction).toHaveBeenCalled());
+    expect(screen.queryByText(/¿Anular/)).not.toBeInTheDocument();
+  });
+
+  it("asks before ENTREGADA and lets the user back out", async () => {
+    render(<CambiarEstadoForm ordenId="o1" estadoActual="TERMINADA" />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Cambiar estado" }));
+    expect(screen.getByText("¿Marcar la orden como entregada? Ya no se podrá editar.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "No" }));
+
+    expect(mockUpdateEstadoOrdenAction).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Cambiar estado" })).toBeInTheDocument();
   });
 
   it("shows the advertencia message when the action succeeds but flags a notification issue", async () => {

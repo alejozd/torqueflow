@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { crearFacturaAction, type FacturaFormState } from "@/app/actions/factura-actions";
 import { facturarOrdenInputSchema } from "@/lib/validation/factura";
+import { ConfirmacionEnLinea } from "@/components/confirmacion-en-linea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ export function GenerarFacturaForm({ ordenId }: { ordenId: string }) {
   const [state, setState] = useState<FacturaFormState>(initialState);
   const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
+  const [confirmando, setConfirmando] = useState(false);
   const {
     register,
     handleSubmit,
@@ -37,6 +39,11 @@ export function GenerarFacturaForm({ ordenId }: { ordenId: string }) {
   });
 
   function onValid() {
+    if (!confirmando) {
+      setConfirmando(true);
+      return;
+    }
+    setConfirmando(false);
     startTransition(async () => {
       const formData = new FormData(formRef.current!);
       const result = await crearFacturaAction(ordenId, initialState, formData);
@@ -53,7 +60,7 @@ export function GenerarFacturaForm({ ordenId }: { ordenId: string }) {
   }
 
   return (
-    <form noValidate ref={formRef} onSubmit={(evento) => handleSubmit(onValid)(evento)} className="flex flex-col gap-6">
+    <form noValidate ref={formRef} onChange={() => setConfirmando(false)} onSubmit={(evento) => handleSubmit(onValid)(evento)} className="flex flex-col gap-6">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="descuento">Descuento</Label>
         <Input
@@ -68,9 +75,20 @@ export function GenerarFacturaForm({ ordenId }: { ordenId: string }) {
         {errors.descuento ? <p id="descuento-error" className="text-xs text-destructive">{errors.descuento.message}</p> : null}
       </div>
 
-      <Button type="submit" disabled={isPending} className="self-end">
-        {isPending ? "Generando..." : "Generar factura"}
-      </Button>
+      {confirmando ? (
+        <ConfirmacionEnLinea
+          pregunta="¿Generar la factura? Se descuenta el stock de los repuestos y la orden ya no se podrá editar."
+          etiquetaConfirmar="Sí, facturar"
+          destructiva={false}
+          enviaFormulario
+          pendiente={isPending}
+          onCancelar={() => setConfirmando(false)}
+        />
+      ) : (
+        <Button type="submit" disabled={isPending} className="self-end">
+          {isPending ? "Generando..." : "Generar factura"}
+        </Button>
+      )}
 
       {state.error ? (
         <Alert variant="destructive">
