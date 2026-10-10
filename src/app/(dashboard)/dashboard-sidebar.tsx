@@ -7,8 +7,10 @@ import {
   BarChart3,
   CalendarDays,
   FileText,
+  HandCoins,
   History,
   Home,
+  Landmark,
   Mail,
   MapPin,
   Package,
@@ -68,6 +70,8 @@ const OPERACION: NavGroup = {
 };
 
 const GASTOS: NavItem = { href: "/gastos", label: "Gastos", icon: Wallet };
+const CAJA: NavItem = { href: "/caja", label: "Caja", icon: Landmark };
+const CARTERA: NavItem = { href: "/cartera", label: "Cartera", icon: HandCoins };
 
 const INVENTARIO: NavGroup = {
   label: "Inventario",
@@ -164,7 +168,7 @@ export interface SidebarPlanInfo {
 
 export function DashboardSidebar({
   esAdmin,
-  puedeVerGastos,
+  puedeVerFinanzas,
   tenantSlug,
   plan,
   cotizacionesPendientesSeguimiento,
@@ -174,7 +178,7 @@ export function DashboardSidebar({
   repuestosStockBajo,
 }: {
   esAdmin: boolean;
-  puedeVerGastos: boolean;
+  puedeVerFinanzas: boolean;
   tenantSlug: string;
   plan: SidebarPlanInfo | null;
   cotizacionesPendientesSeguimiento?: number;
@@ -184,7 +188,7 @@ export function DashboardSidebar({
   repuestosStockBajo?: number;
 }) {
   const pathname = usePathname();
-  const operacion = puedeVerGastos ? { ...OPERACION, items: [...OPERACION.items, GASTOS] } : OPERACION;
+  const operacion = puedeVerFinanzas ? { ...OPERACION, items: [...OPERACION.items, CAJA, CARTERA, GASTOS] } : OPERACION;
 
   return (
     <div className="dark">

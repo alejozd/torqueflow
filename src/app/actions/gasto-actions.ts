@@ -19,6 +19,7 @@ export interface GastoFila {
   monto: number;
   registradoPorNombre: string;
   esRecurrente: boolean;
+  pagadoEnEfectivo: boolean;
 }
 
 export interface GastosDelMes {
@@ -52,6 +53,10 @@ function leerCampos(formData: FormData) {
   });
 }
 
+function leerPagadoEnEfectivo(formData: FormData): boolean {
+  return formData.get("pagadoEnEfectivo") === "true";
+}
+
 export async function crearGastoAction(prevState: GastoFormState, formData: FormData): Promise<GastoFormState> {
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const parsed = leerCampos(formData);
@@ -75,6 +80,7 @@ export async function crearGastoAction(prevState: GastoFormState, formData: Form
         fecha: new Date(`${fecha}T00:00:00.000Z`),
         referencia: referencia ?? null,
         registradoPorId: session.user.id,
+        pagadoEnEfectivo: leerPagadoEnEfectivo(formData),
       },
     });
   } catch (err) {
@@ -125,6 +131,7 @@ export async function actualizarGastoAction(
         monto,
         fecha: new Date(`${fecha}T00:00:00.000Z`),
         referencia: referencia ?? null,
+        pagadoEnEfectivo: leerPagadoEnEfectivo(formData),
       },
     });
   } catch (err) {
@@ -181,6 +188,7 @@ export async function listGastos(filtros: {
     monto: Number(g.monto),
     registradoPorNombre: g.registradoPor.nombre,
     esRecurrente: g.gastoRecurrenteId !== null,
+    pagadoEnEfectivo: g.pagadoEnEfectivo,
   }));
 
   const porCategoria = new Map<string, { nombre: string; monto: number }>();

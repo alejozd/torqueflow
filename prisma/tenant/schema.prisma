@@ -77,6 +77,10 @@ enum ResultadoNotificacionOrden {
 
 model Usuario {
   id                            String                  @id @default(cuid())
+  anticiposRegistrados Anticipo[] @relation("AnticiposRegistrados")
+  anticiposDevueltos Anticipo[] @relation("AnticiposDevueltos")
+  cajasAbiertas CajaSesion[] @relation("CajasAbiertas")
+  cajasCerradas CajaSesion[] @relation("CajasCerradas")
   email                         String                  @unique
   passwordHash                  String                  @map("password_hash")
   nombre                        String
@@ -223,6 +227,8 @@ model AuditLog {
 
 model Sede {
   id                 String         @id @default(cuid())
+  anticipos Anticipo[]
+  cajas CajaSesion[]
   nombre             String
   direccion          String?
   ordenes            OrdenTrabajo[]
@@ -257,6 +263,7 @@ model UsuarioSede {
 
 model OrdenTrabajo {
   id                 String                     @id @default(cuid())
+  anticipos Anticipo[]
   estado             EstadoOrden                @default(BORRADOR)
   clienteId          String                     @map("cliente_id")
   cliente            Cliente                    @relation(fields: [clienteId], references: [id], onDelete: Restrict)
@@ -472,6 +479,7 @@ enum MetodoPago {
   TARJETA
   TRANSFERENCIA
   OTRO
+  ANTICIPO
 }
 
 model Factura {
@@ -500,6 +508,7 @@ model Factura {
 
 model Pago {
   id              String     @id @default(cuid())
+  anticipo Anticipo?
   facturaId       String     @map("factura_id")
   factura         Factura    @relation(fields: [facturaId], references: [id], onDelete: Restrict)
   monto           Decimal    @db.Decimal(10, 2)
@@ -816,6 +825,7 @@ model CategoriaGasto {
 /// solo existen cuando nació de confirmar una plantilla recurrente.
 model Gasto {
   id                String           @id @default(cuid())
+  pagadoEnEfectivo Boolean @default(false) @map("pagado_en_efectivo")
   sedeId            String           @map("sede_id")
   sede              Sede             @relation(fields: [sedeId], references: [id], onDelete: Restrict)
   categoriaId       String           @map("categoria_id")
@@ -870,4 +880,56 @@ model GastoRecurrenteOmitido {
 
   @@unique([gastoRecurrenteId, periodo])
   @@map("gastos_recurrentes_omitidos")
+}
+
+enum EstadoAnticipo {
+  PENDIENTE
+  APLICADO
+  DEVUELTO
+}
+
+/// Dinero recibido sobre una orden antes de facturar.
+model Anticipo {
+  id               String         @id @default(cuid())
+  ordenId          String         @map("orden_id")
+  orden            OrdenTrabajo   @relation(fields: [ordenId], references: [id], onDelete: Restrict)
+  sedeId           String         @map("sede_id")
+  sede             Sede           @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  monto            Decimal        @db.Decimal(10, 2)
+  metodoPago       MetodoPago     @map("metodo_pago")
+  referencia       String?
+  estado           EstadoAnticipo @default(PENDIENTE)
+  registradoPorId  String         @map("registrado_por_id")
+  registradoPor    Usuario        @relation("AnticiposRegistrados", fields: [registradoPorId], references: [id], onDelete: Restrict)
+  pagoId           String?        @unique @map("pago_id")
+  pago             Pago?          @relation(fields: [pagoId], references: [id], onDelete: SetNull)
+  devueltoAt       DateTime?      @map("devuelto_at")
+  devueltoPorId    String?        @map("devuelto_por_id")
+  devueltoPor      Usuario?       @relation("AnticiposDevueltos", fields: [devueltoPorId], references: [id], onDelete: SetNull)
+  metodoDevolucion MetodoPago?    @map("metodo_devolucion")
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@index([ordenId])
+  @@index([sedeId, createdAt])
+  @@map("anticipos")
+}
+
+/// Sesión de caja de una sede: de la apertura al cierre.
+model CajaSesion {
+  id               String    @id @default(cuid())
+  sedeId           String    @map("sede_id")
+  sede             Sede      @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  baseInicial      Decimal   @map("base_inicial") @db.Decimal(12, 2)
+  abiertaAt        DateTime  @default(now()) @map("abierta_at")
+  abiertaPorId     String    @map("abierta_por_id")
+  abiertaPor       Usuario   @relation("CajasAbiertas", fields: [abiertaPorId], references: [id], onDelete: Restrict)
+  cerradaAt        DateTime? @map("cerrada_at")
+  cerradaPorId     String?   @map("cerrada_por_id")
+  cerradaPor       Usuario?  @relation("CajasCerradas", fields: [cerradaPorId], references: [id], onDelete: SetNull)
+  efectivoEsperado Decimal?  @map("efectivo_esperado") @db.Decimal(12, 2)
+  efectivoContado  Decimal?  @map("efectivo_contado") @db.Decimal(12, 2)
+  notas            String?
+
+  @@index([sedeId, abiertaAt])
+  @@map("cajas_sesion")
 }

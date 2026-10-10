@@ -7,6 +7,8 @@ import { listRepuestoOptions } from "@/app/actions/repuesto-actions";
 import { listBodegas } from "@/app/actions/bodega-actions";
 import { listProveedores } from "@/app/actions/proveedor-actions";
 import { listDviChecklistItems } from "@/app/actions/dvi-checklist-item-actions";
+import { listAnticiposDeOrden } from "@/app/actions/anticipo-actions";
+import { AnticiposSection } from "./anticipos-section";
 import { AsignarMecanicoForm } from "./asignar-mecanico-form";
 import { CambiarEstadoForm } from "./cambiar-estado-form";
 import { AgregarItemForm } from "./agregar-item-form";
@@ -36,6 +38,7 @@ const SECCIONES_ORDEN = [
   { id: "items", label: "Ítems", dot: "bg-amber-500" },
   { id: "mano-obra", label: "Mano de obra", dot: "bg-purple-500" },
   { id: "dvi", label: "DVI", dot: "bg-red-500" },
+  { id: "anticipos", label: "Anticipos", dot: "bg-green-500" },
 ] as const;
 
 type Orden = NonNullable<Awaited<ReturnType<typeof getOrden>>>;
@@ -183,7 +186,7 @@ function InfoField({ label, value }: { label: string; value: ReactNode }) {
 
 export default async function OrdenDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [session, orden, repuestos, tecnicos, bodegas, proveedores, dviItems] = await Promise.all([
+  const [session, orden, repuestos, tecnicos, bodegas, proveedores, dviItems, anticipos] = await Promise.all([
     requireSession(),
     getOrden(id),
     listRepuestoOptions(),
@@ -191,6 +194,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
     listBodegas(),
     listProveedores(),
     listDviChecklistItems(),
+    listAnticiposDeOrden(id),
   ]);
 
   if (!orden) {
@@ -216,6 +220,11 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
   const checklistValores = checklist ? Object.values(checklist) : [];
   const atencionCount = checklistValores.filter((v) => v === "ATENCION").length;
   const criticoCount = checklistValores.filter((v) => v === "CRITICO").length;
+  const anticiposVigentes = anticipos
+    .filter((a) => a.estado !== "DEVUELTO")
+    .reduce((suma, a) => suma + a.monto, 0);
+  const mostrarAnticipos = !orden.factura || anticipos.length > 0;
+  const puedeGestionarAnticipos = session.user.role !== "TECNICO";
   const total = totalOrden({
     items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
     manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor) })),
@@ -394,6 +403,28 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
               <DviFotoForm ordenId={orden.id} fotos={orden.dvi?.fotos ?? []} soloLectura={!esOrdenMutable(orden)} puedeEliminar={puedeQuitar} />
             </CardContent>
           </Card>
+
+          {mostrarAnticipos ? (
+            <Card id="anticipos" className="scroll-mt-16">
+              <CardHeader>
+                <CardTitle>
+                  Anticipos{" "}
+                  <span className="font-normal text-muted-foreground">
+                    · {anticipos.length} {anticipos.length === 1 ? "registro" : "registros"}
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AnticiposSection
+                  ordenId={orden.id}
+                  anticipos={anticipos}
+                  puedeRegistrar={puedeGestionarAnticipos && !orden.factura && orden.estado !== "ANULADA"}
+                  puedeDevolver={esAdmin}
+                  ordenAnulada={orden.estado === "ANULADA"}
+                />
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
 
         <div className="sticky top-4 flex flex-col gap-4">
@@ -414,6 +445,12 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
                 <span className="text-sm font-semibold">Total estimado</span>
                 <span className="font-mono text-lg font-semibold">{formatoMoneda.format(total)}</span>
               </div>
+              {anticiposVigentes > 0 ? (
+                <div className="flex items-center justify-between py-1.5 text-sm">
+                  <span className="text-muted-foreground">Anticipos</span>
+                  <span className="font-mono">{formatoMoneda.format(anticiposVigentes)}</span>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 

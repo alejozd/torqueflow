@@ -9,6 +9,7 @@ import { assertOrdenFacturable } from "@/lib/factura/facturable-guard";
 import { computeFacturaTotales } from "@/lib/factura/totales";
 import { totalOrden } from "@/lib/dashboard/calculos";
 import { scopeFactura, scopeOrden } from "@/lib/sede/scope";
+import { roundMoney } from "@/lib/money/round";
 import type { EstadoFactura, Prisma } from "@/generated/prisma-tenant";
 
 export interface FacturaFormState {
@@ -26,6 +27,8 @@ export interface OrdenFacturableOption {
 }
 
 const STOCK_INSUFICIENTE = "STOCK_INSUFICIENTE";
+const ANTICIPOS_EXCEDEN = "ANTICIPOS_EXCEDEN";
+const ANTICIPO_CAMBIO = "ANTICIPO_CAMBIO";
 
 const FACTURA_DETAIL_INCLUDE = {
   cliente: true,
@@ -169,10 +172,59 @@ export async function crearFacturaAction(
           throw new Error(STOCK_INSUFICIENTE);
         }
       }
+
+      // Anticipos PENDIENTES de la orden se aplican como pagos ANTICIPO. Si exceden el
+      // total se lanza y la transacción completa (factura, stock) se revierte.
+      const anticipos = await tx.anticipo.findMany({ where: { ordenId, estado: "PENDIENTE" } });
+      if (anticipos.length > 0) {
+        const sumaAnticipos = roundMoney(anticipos.reduce((suma, a) => suma + Number(a.monto), 0));
+        if (sumaAnticipos > total) {
+          throw new Error(ANTICIPOS_EXCEDEN);
+        }
+        for (const anticipo of anticipos) {
+          const pago = await tx.pago.create({
+            data: {
+              facturaId: creada.id,
+              monto: Number(anticipo.monto),
+              metodoPago: "ANTICIPO",
+              referencia: "Anticipo",
+              registradoPorId: anticipo.registradoPorId,
+            },
+          });
+          // Conditional on PENDIENTE: a concurrent devolución must not leave the
+          // same anticipo both DEVUELTO and applied. Throwing rolls back everything.
+          const { count } = await tx.anticipo.updateMany({
+            where: { id: anticipo.id, estado: "PENDIENTE" },
+            data: { estado: "APLICADO", pagoId: pago.id },
+          });
+          if (count === 0) {
+            throw new Error(ANTICIPO_CAMBIO);
+          }
+        }
+        const saldo = roundMoney(total - sumaAnticipos);
+        await tx.factura.update({
+          where: { id: creada.id },
+          data: saldo <= 0 ? { saldoPendiente: 0, estado: "PAGADA" } : { saldoPendiente: saldo },
+        });
+      }
       return creada;
     });
     facturaId = factura.id;
   } catch (err) {
+    if (err instanceof Error && err.message === ANTICIPOS_EXCEDEN) {
+      return {
+        error: "Los anticipos superan el total de la factura. Devuelve el excedente antes de facturar.",
+        success: false,
+        facturaId: null,
+      };
+    }
+    if (err instanceof Error && err.message === ANTICIPO_CAMBIO) {
+      return {
+        error: "Un anticipo de esta orden cambió mientras se facturaba. Intenta de nuevo.",
+        success: false,
+        facturaId: null,
+      };
+    }
     if (err instanceof Error && err.message === STOCK_INSUFICIENTE) {
       return { error: "Stock insuficiente para uno de los repuestos de esta orden", success: false, facturaId: null };
     }

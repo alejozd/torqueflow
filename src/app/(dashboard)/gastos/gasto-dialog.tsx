@@ -69,6 +69,7 @@ function GastoForm({
 }: GastoDialogProps & { onGuardado: () => void }) {
   const [state, setState] = useState<GastoFormState>(initialState);
   const [isPending, startTransition] = useTransition();
+  const [pagadoEnEfectivo, setPagadoEnEfectivo] = useState(gasto?.pagadoEnEfectivo ?? false);
   const {
     register,
     control,
@@ -100,6 +101,7 @@ function GastoForm({
         formData.set("monto", String(values.monto));
         formData.set("fecha", values.fecha);
         formData.set("referencia", values.referencia ?? "");
+        formData.set("pagadoEnEfectivo", String(pagadoEnEfectivo));
         if (sedes) formData.set("sedeId", values.sedeId ?? sedeIdPorDefecto);
 
         const result =
@@ -177,6 +179,17 @@ function GastoForm({
           {...register("referencia")}
         />
         {errors.referencia ? <p className="text-xs text-destructive">{errors.referencia.message}</p> : null}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input
+          id="gasto-efectivo"
+          type="checkbox"
+          className="size-4 accent-primary"
+          checked={pagadoEnEfectivo}
+          onChange={(evento) => setPagadoEnEfectivo(evento.target.checked)}
+        />
+        <Label htmlFor="gasto-efectivo">Pagado en efectivo de la caja</Label>
       </div>
 
       {sedes ? (
