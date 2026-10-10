@@ -15,6 +15,10 @@ import { DviChecklistForm } from "./dvi-checklist-form";
 import { DviFotoForm } from "./dvi-foto-form";
 import { esOrdenMutable } from "@/lib/orden/mutable-guard";
 import { GenerarFacturaForm } from "./generar-factura-form";
+import { QuitarConConfirmacion } from "@/components/quitar-con-confirmacion";
+import { deleteItemOrdenFormAction } from "@/app/actions/item-orden-actions";
+import { deleteManoDeObraFormAction } from "@/app/actions/mano-de-obra-actions";
+import type { ResultadoAccion } from "@/lib/resultado-accion";
 import type { DviChecklist } from "@/lib/dvi/checklist-items";
 import type { EstadoOrden } from "@/generated/prisma-tenant";
 import { totalOrden } from "@/lib/dashboard/calculos";
@@ -148,6 +152,24 @@ const MANO_OBRA_COLUMNS: DataTableColumn<ManoObraRow>[] = [
   },
 ];
 
+// Remove column only while the orden is still editable and for the roles the
+// delete actions accept (ADMIN/RECEPCION) -- same rule as the add forms.
+function conColumnaQuitar<T extends { id: string }>(
+  columns: DataTableColumn<T>[],
+  puedeQuitar: boolean,
+  quitar: (fila: T) => { etiqueta: string; pregunta: string; accion: () => Promise<ResultadoAccion> },
+): DataTableColumn<T>[] {
+  if (!puedeQuitar) return columns;
+  return [
+    ...columns,
+    {
+      header: "",
+      className: "text-right",
+      cell: (fila) => <QuitarConConfirmacion {...quitar(fila)} />,
+    },
+  ];
+}
+
 function InfoField({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
@@ -174,6 +196,17 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
   }
 
   const esAdmin = session.user.role === "ADMIN";
+  const puedeQuitar = esOrdenMutable(orden) && session.user.role !== "TECNICO";
+  const itemsColumns = conColumnaQuitar(ITEMS_COLUMNS, puedeQuitar, (item) => ({
+    etiqueta: `Quitar ${item.descripcion}`,
+    pregunta: `¿Quitar ${item.descripcion} de la orden?`,
+    accion: deleteItemOrdenFormAction.bind(null, item.id, orden.id),
+  }));
+  const manoObraColumns = conColumnaQuitar(MANO_OBRA_COLUMNS, puedeQuitar, (linea) => ({
+    etiqueta: `Quitar ${linea.descripcion}`,
+    pregunta: `¿Quitar "${linea.descripcion}" de la orden?`,
+    accion: deleteManoDeObraFormAction.bind(null, linea.id, orden.id),
+  }));
 
   const repuestosTotal = orden.items.reduce((suma, item) => suma + item.cantidad * Number(item.precioUnitario), 0);
   const manoObraTotal = orden.manoDeObra.reduce((suma, linea) => suma + Number(linea.valor), 0);
@@ -300,7 +333,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
                 />
               )}
               <DataTable
-                columns={ITEMS_COLUMNS}
+                columns={itemsColumns}
                 rows={orden.items}
                 getRowKey={(item) => item.id}
                 emptyMessage="Esta orden no tiene ítems agregados."
@@ -325,7 +358,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
                 <AgregarManoObraForm ordenId={orden.id} tecnicos={tecnicos} mecanicoIdHeader={orden.mecanicoId} />
               )}
               <DataTable
-                columns={MANO_OBRA_COLUMNS}
+                columns={manoObraColumns}
                 rows={orden.manoDeObra}
                 getRowKey={(linea) => linea.id}
                 emptyMessage="Esta orden no tiene mano de obra registrada."
