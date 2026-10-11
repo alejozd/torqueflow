@@ -29,6 +29,11 @@
 8. Español en toda la UI y mensajes.
 9. Windows: si `npx prisma generate` falla con `EPERM` (DLL del motor bloqueado), hay un `next dev`
    corriendo; detenerlo (los procesos `node.exe` de `next dev` del proyecto) y regenerar.
+10. Si se ejecuta dentro de un sandbox confinado (p. ej. el agente DSH en modo `workspace-write`):
+    `npx tsc --noEmit` falla con `TS5033` al escribir `tsconfig.tsbuildinfo` → usar
+    `npx tsc --noEmit --incremental false` (mismo resultado, no ensucia el árbol). `npm test` no
+    arranca en modo confinado (Vite llama a `child_process` con pipes: `spawn EPERM`), así que
+    requiere acceso completo o ejecutarlo el usuario; **no es un fallo del proyecto**.
 
 ### Patrones del proyecto a reutilizar (leerlos)
 - Server actions guard → Zod → BD → `revalidatePath`: `src/app/actions/gasto-actions.ts`,
@@ -69,6 +74,9 @@ repuestos, que luego se pueden editar como cualquier línea.
 | D7 | Si un repuesto del kit fue eliminado, la relación se borra en cascada (el kit pierde ese repuesto). |
 | D8 | Administrar el catálogo: **solo ADMIN**, página `/servicios` en el grupo **Inventario** del menú (visible solo ADMIN). Aplicar servicios: los roles de D3/D4. |
 | D9 | Fuera de alcance: tiempo estándar por servicio, precios por tipo de vehículo, servicios en citas, importar catálogo (Fase 20). |
+| D10 | **El kit no cruza sedes.** `Servicio` es del tenant, pero sus repuestos se limitan a los de la sede activa: `agregarRepuestoAServicioAction` solo acepta repuestos alcanzables con `scopeRepuesto(sedeActivaId)`, y la vista de aplicación (`listServicios({ soloActivos: true })`) devuelve únicamente los repuestos de la sede activa del usuario (la vista de catálogo del ADMIN los muestra todos). Al aplicar (Tasks 3 y 4) cada repuesto se revalida con `scopeRepuesto(sedeActivaId)` antes de crear su línea. La mano de obra del servicio sí es del tenant completo. |
+| D11 | Aplicar un servicio que no aporta nada en la sede activa (precio de mano de obra 0 **y** sin repuestos) no crea nada y devuelve un error explícito ("El servicio no tiene nada que agregar"), no un `success` vacío con `agregados` en cero. |
+| D12 | Un mismo servicio puede aplicarse varias veces al mismo documento: no hay deduplicación. Las líneas resultantes se editan o quitan como cualquier otra (es el mismo criterio que el texto libre de D5). |
 
 ---
 
@@ -98,6 +106,9 @@ model ServicioRepuesto {
   cantidad   Int
 
   @@unique([servicioId, repuestoId])
+  // Postgres no indexa la FK por sí solo: el onDelete: Cascade desde Repuesto
+  // necesita este índice o cada borrado de repuesto recorre el kit entero.
+  @@index([repuestoId])
   @@map("servicio_repuestos")
 }
 ```
@@ -115,7 +126,9 @@ Relación inversa en `Repuesto`: `servicios ServicioRepuesto[]`.
 
 1. Agregar §2 al schema. Generar la migración con `git show main:prisma/tenant/schema.prisma > "$TEMP/antes.prisma"`
    y `npx prisma migrate diff --from-schema-datamodel "$TEMP/antes.prisma" --to-schema-datamodel prisma/tenant/schema.prisma --script > prisma/tenant/migrations/20261013120000_catalogo_servicios/migration.sql`
-   (crear la carpeta). `npx prisma validate` y `npx prisma generate`.
+   (crear la carpeta). `npx prisma validate` y `npx prisma generate`. Revisar el SQL generado: debe
+   contener las dos FK con `ON DELETE CASCADE` y el índice de `repuesto_id` (`@@index([repuestoId])`);
+   si `prisma migrate diff` no lo emitiera, añadirlo a mano antes de dar la tarea por cerrada.
 2. `src/lib/validation/servicio.ts` (tests primero):
    - `servicioInputSchema = z.object({ nombre: z.string().trim().min(1, "El nombre es obligatorio").max(80, "El nombre admite máximo 80 caracteres"), descripcion: z.string().trim().max(300).optional().transform(v => v || undefined), precioManoObra: z.coerce.number({ error: "El precio debe ser un número" }).min(0, "El precio no puede ser negativo").max(99_999_999.99, "El precio es demasiado alto") })`
    - `servicioRepuestoInputSchema = z.object({ repuestoId: z.string().trim().min(1, "Selecciona un repuesto"), cantidad: z.coerce.number().int("La cantidad debe ser un número entero").min(1, "La cantidad mínima es 1").max(1000, "La cantidad es demasiado alta") })`
@@ -129,12 +142,14 @@ Relación inversa en `Repuesto`: `servicios ServicioRepuesto[]`.
 
 Actions (todas con guard primero; montos a `number`):
 - `listServicios(opciones?: { soloActivos?: boolean })` → `ServicioVista[]` `{ id, nombre, descripcion, precioManoObra, activo, repuestos: { repuestoId, codigo, nombre, cantidad, precioVenta }[], totalEstimado }`
-  (`totalEstimado` = precioManoObra + Σ cantidad × precioVenta, con `roundMoney`). `soloActivos: true` → ADMIN/RECEPCION/TECNICO; todos → ADMIN. Orden por nombre.
+  (`totalEstimado` = precioManoObra + Σ cantidad × precioVenta, con `roundMoney`). `soloActivos: true` → ADMIN/RECEPCION/TECNICO; todos → ADMIN. Orden por nombre. Con `soloActivos: true` (vista de aplicación) los `repuestos` y el `totalEstimado` se calculan **solo con los repuestos de `scopeRepuesto(sedeActivaId)`** (D10); la vista del ADMIN devuelve el kit completo del tenant.
 - `crearServicioAction(prev, formData)` / `actualizarServicioAction(id, prev, formData)` — ADMIN; nombre
   duplicado sin distinguir mayúsculas → "Ya existe un servicio con ese nombre" (también P2002).
 - `toggleServicioActivoAction(id)` — ADMIN → `{ error: string | null }`.
-- `agregarRepuestoAServicioAction(servicioId, prev, formData)` — ADMIN; valida que el repuesto exista;
-  si ya está en el kit, **suma** la cantidad (upsert por `servicioId_repuestoId`).
+- `agregarRepuestoAServicioAction(servicioId, prev, formData)` — ADMIN; valida que el repuesto exista
+  **y que pertenezca a la sede activa** (`scopeRepuesto`, D10; si no → "Repuesto no encontrado"); si ya
+  está en el kit, **suma** la cantidad (upsert por `servicioId_repuestoId`) y la UI informa la cantidad
+  resultante en el toast (no un genérico "agregado").
 - `actualizarCantidadRepuestoServicioAction(servicioId, repuestoId, cantidad)` y
   `quitarRepuestoDeServicioAction(servicioId, repuestoId)` — ADMIN.
 
@@ -146,8 +161,9 @@ precio de venta actual, subtotal, quitar con `ConfirmacionEnLinea`) y un `Combob
 agregar un repuesto con cantidad. Menú: "Servicios" en el grupo **Inventario**, solo ADMIN (el grupo
 Inventario hoy lo ve todo el mundo: agregar el ítem solo cuando `esAdmin`).
 
-Tests: roles por action, nombre duplicado (mayúsculas), upsert de cantidad, `totalEstimado`, UI
-(lista, insignias, toggle, agregar repuesto llama la action).
+Tests: roles por action, nombre duplicado (mayúsculas), upsert de cantidad, `totalEstimado`,
+repuesto de otra sede rechazado por `agregarRepuestoAServicioAction`, vista de aplicación limitada a
+la sede activa (D10), UI (lista, insignias, toggle, agregar repuesto llama la action).
 
 Verificar, commit `fase18-task 2: catálogo de servicios y kits`, **pedir aprobación**.
 
@@ -163,14 +179,22 @@ Verificar, commit `fase18-task 2: catálogo de servicios y kits`, **pedir aproba
   `precioManoObra > 0` crear `ManoDeObra { ordenId, descripcion: servicio.nombre, valor, mecanicoId: orden.mecanicoId }`;
   por cada repuesto del kit crear `ItemOrden { ordenId, repuestoId, descripcion: repuesto.nombre, cantidad, precioUnitario: repuesto.precioVenta }`.
   Revalidar `/ordenes/<id>`. Respuesta `{ error: null, success: true, agregados: { manoDeObra: boolean, repuestos: number } }`.
-- UI `aplicar-servicio-form.tsx` en el detalle de la orden, junto a los formularios de agregar ítem /
-  mano de obra y con la misma condición de visibilidad que ellos: `Combobox` de servicios activos
-  (muestra nombre, "Kit · N repuestos" y total estimado) + botón "Aplicar servicio";
-  `toast.success("Servicio agregado: N repuestos y mano de obra")`.
+  El kit se resuelve contra la sede activa (D10): solo se crean líneas de repuestos alcanzables con
+  `scopeRepuesto(session.user.sedeActivaId)`. Si el servicio no aporta nada (precio 0 y ningún repuesto
+  en la sede) → `{ error: "El servicio no tiene nada que agregar", success: false }` **sin escribir** (D11).
+- UI `aplicar-servicio-form.tsx` en el detalle de la orden, con la misma condición de visibilidad que
+  los formularios de agregar ítem / mano de obra (`!orden.factura` en `ordenes/[id]/page.tsx`):
+  `Combobox` de servicios activos (muestra nombre, "Kit · N repuestos" y total estimado) + botón
+  "Aplicar servicio"; `toast.success(...)` con lo que realmente se agregó.
+  **Una sola instancia, en la tarjeta de Ítems**: el servicio crea líneas en Ítems *y* en Mano de obra,
+  así que dos formularios idénticos invitarían a aplicar el mismo servicio dos veces.
 
 Tests: orden ajena/inexistente, orden no mutable (ENTREGADA/facturada), servicio inactivo, servicio
 sin repuestos (solo mano de obra), kit con precio de mano de obra 0 (solo repuestos), precios tomados
-de `precioVenta` actual, mecánico de la orden heredado, fallo a mitad → nada creado (transacción).
+de `precioVenta` actual, mecánico de la orden heredado, kit con repuestos de otra sede → solo los de la
+sede activa (D10), servicio sin nada que agregar → error sin escritura (D11), y error a mitad de la
+transacción → se propaga y la action no devuelve `success` (con la BD mockeada no hay rollback real:
+el test verifica la propagación del error, no el rollback — no lo nombres "nada creado").
 
 Verificar, commit `fase18-task 3: aplicar servicios y kits a una orden`, **pedir aprobación**.
 
@@ -182,12 +206,19 @@ Verificar, commit `fase18-task 3: aplicar servicios y kits a una orden`, **pedir
 - Mismas reglas de roles, alcance y estado editable que `agregarItemCotizacionAction` (leerla y
   reutilizar su verificación; devolver los mismos mensajes). En una transacción: `ItemCotizacion`
   `MANO_OBRA` (si precio > 0; cantidad 1, precioUnitario = precioManoObra, descripción = nombre) +
-  un `REPUESTO` por repuesto del kit (cantidad, precioUnitario = precioVenta, repuestoId).
+  un `REPUESTO` por repuesto del kit (cantidad, precioUnitario = precioVenta, repuestoId), con el kit
+  resuelto contra la sede activa (D10) y D11 si no hay nada que agregar.
+  Esa transacción **debe terminar llamando a `recomputeCotizacionTotales(tx, cotizacionId)`**, la misma
+  función privada que usa `agregarItemCotizacionAction` (`src/app/actions/cotizacion-actions.ts`):
+  sin ella `subtotal`/`descuento`/`iva`/`total` de la fila padre no reflejan las líneas nuevas y la
+  cotización queda con un total falso (la spec original omitía este paso).
   Revalidar `/cotizaciones/<id>`.
 - UI igual a la de la orden, junto al formulario de agregar ítem de la cotización y con su misma
-  condición de visibilidad.
+  condición de visibilidad (`puedeEditar = esCotizacionMutable(cotizacion.estado)`).
 
-Tests análogos a la Task 3 (cotización no editable, servicio inactivo, transacción).
+Tests: análogos a la Task 3 (cotización no editable, servicio inactivo, propagación del error a mitad
+de transacción, D10, D11) **más** el específico de esta tarea: aplicar un kit actualiza
+`subtotal`/`iva`/`total` de la cotización, i.e. `recomputeCotizacionTotales` se llama con el `tx`.
 
 Verificar, commit `fase18-task 4: aplicar servicios y kits a una cotización`, **pedir aprobación**.
 
@@ -197,7 +228,10 @@ Verificar, commit `fase18-task 4: aplicar servicios y kits a una cotización`, *
 
 Todo por `getTenantDb` con el tenant de la sesión; guard antes de cualquier lectura/escritura;
 órdenes y cotizaciones con el mismo alcance de sede que sus acciones existentes; precios tomados del
-servidor (nunca del cliente) al aplicar.
+servidor (nunca del cliente) al aplicar. Los repuestos del kit se resuelven siempre por la sede activa
+(D10): el catálogo es del tenant, pero un kit no puede introducir repuestos de otra sede en una orden
+o cotización ajena, ni saltarse el `scopeRepuesto` que aplican `addItemOrdenAction` y
+`agregarItemCotizacionAction`.
 
 ## 5. Verificación final de la fase
 
