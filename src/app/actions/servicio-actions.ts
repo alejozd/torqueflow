@@ -5,13 +5,16 @@ import { requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { roundMoney } from "@/lib/money/round";
+import { assertCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
+import { recomputeCotizacionTotales } from "@/lib/cotizacion/recompute-totales";
 import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
-import { scopeOrden, scopeRepuesto } from "@/lib/sede/scope";
+import { scopeCotizacion, scopeOrden, scopeRepuesto } from "@/lib/sede/scope";
 import {
   aplicarServicioInputSchema,
   servicioInputSchema,
   servicioRepuestoInputSchema,
 } from "@/lib/validation/servicio";
+import type { Prisma } from "@/generated/prisma-tenant";
 
 export interface ServicioRepuestoVista {
   repuestoId: string;
@@ -75,6 +78,47 @@ async function existeNombre(tenantDb: ReturnType<typeof getTenantDb>, nombre: st
 
 function revalidar() {
   revalidatePath("/servicios");
+}
+
+/**
+ * Resuelve el servicio que se va a aplicar: activo, con su kit limitado a los
+ * repuestos de la sede activa (D10) y con algo que aportar en esa sede (D11).
+ * Compartido por las dos acciones de "aplicar", que solo se diferencian en el
+ * documento destino (orden o cotización).
+ */
+type ServicioAplicable = {
+  nombre: string;
+  repuestos: { cantidad: number; repuesto: { id: string; nombre: string; precioVenta: Prisma.Decimal } }[];
+};
+
+type ResultadoServicioAplicable =
+  | { disponible: false; error: string }
+  | { disponible: true; servicio: ServicioAplicable; valor: number; conManoDeObra: boolean };
+
+async function cargarServicioAplicable(
+  tenantDb: ReturnType<typeof getTenantDb>,
+  servicioId: string,
+  sedeActivaId: string,
+): Promise<ResultadoServicioAplicable> {
+  const servicio = await tenantDb.servicio.findFirst({
+    where: { id: servicioId },
+    select: {
+      activo: true,
+      nombre: true,
+      precioManoObra: true,
+      repuestos: {
+        where: { repuesto: scopeRepuesto(sedeActivaId) },
+        select: { cantidad: true, repuesto: { select: { id: true, nombre: true, precioVenta: true } } },
+      },
+    },
+  });
+  if (!servicio || !servicio.activo) return { disponible: false, error: SERVICIO_NO_DISPONIBLE };
+
+  const valor = Number(servicio.precioManoObra);
+  const conManoDeObra = valor > 0;
+  if (!conManoDeObra && servicio.repuestos.length === 0) return { disponible: false, error: SIN_NADA_QUE_AGREGAR };
+
+  return { disponible: true, servicio, valor, conManoDeObra };
 }
 
 /**
@@ -325,27 +369,11 @@ export async function aplicarServicioAOrdenAction(
     return { error: err instanceof Error ? err.message : "Orden no modificable", success: false, agregados: null };
   }
 
-  const servicio = await tenantDb.servicio.findFirst({
-    where: { id: parsed.data.servicioId },
-    select: {
-      activo: true,
-      nombre: true,
-      precioManoObra: true,
-      repuestos: {
-        where: { repuesto: scopeRepuesto(session.user.sedeActivaId) },
-        select: { cantidad: true, repuesto: { select: { id: true, nombre: true, precioVenta: true } } },
-      },
-    },
-  });
-  if (!servicio || !servicio.activo) {
-    return { error: SERVICIO_NO_DISPONIBLE, success: false, agregados: null };
+  const cargado = await cargarServicioAplicable(tenantDb, parsed.data.servicioId, session.user.sedeActivaId);
+  if (!cargado.disponible) {
+    return { error: cargado.error, success: false, agregados: null };
   }
-
-  const valor = Number(servicio.precioManoObra);
-  const conManoDeObra = valor > 0;
-  if (!conManoDeObra && servicio.repuestos.length === 0) {
-    return { error: SIN_NADA_QUE_AGREGAR, success: false, agregados: null };
-  }
+  const { servicio, valor, conManoDeObra } = cargado;
 
   try {
     await tenantDb.$transaction(async (tx) => {
@@ -371,6 +399,90 @@ export async function aplicarServicioAOrdenAction(
   }
 
   revalidatePath(`/ordenes/${ordenId}`);
+  return {
+    error: null,
+    success: true,
+    agregados: { manoDeObra: conManoDeObra, repuestos: servicio.repuestos.length },
+  };
+}
+
+/**
+ * Misma idea que aplicarServicioAOrdenAction, sobre una cotización: una línea
+ * MANO_OBRA (cantidad 1, precio base) y una REPUESTO por repuesto del kit, con
+ * las mismas reglas de roles/alcance/estado que agregarItemCotizacionAction.
+ *
+ * A diferencia de la orden, la cotización guarda sus propios totales, así que la
+ * transacción termina recomputándolos: sin eso la fila padre seguiría mostrando
+ * el total anterior a las líneas nuevas.
+ */
+export async function aplicarServicioACotizacionAction(
+  cotizacionId: string,
+  prevState: AplicarServicioFormState,
+  formData: FormData,
+): Promise<AplicarServicioFormState> {
+  const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
+  const parsed = aplicarServicioInputSchema.safeParse({ servicioId: formData.get("servicioId") ?? "" });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false, agregados: null };
+  }
+
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const cotizacion = await tenantDb.cotizacion.findFirst({
+    where: { id: cotizacionId, ...scopeCotizacion(session.user.sedeActivaId) },
+    select: { estado: true },
+  });
+  if (!cotizacion) return { error: "Cotización no encontrada", success: false, agregados: null };
+  try {
+    assertCotizacionMutable(cotizacion);
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : "Cotización no modificable",
+      success: false,
+      agregados: null,
+    };
+  }
+
+  const cargado = await cargarServicioAplicable(tenantDb, parsed.data.servicioId, session.user.sedeActivaId);
+  if (!cargado.disponible) {
+    return { error: cargado.error, success: false, agregados: null };
+  }
+  const { servicio, valor, conManoDeObra } = cargado;
+
+  try {
+    await tenantDb.$transaction(async (tx) => {
+      if (conManoDeObra) {
+        await tx.itemCotizacion.create({
+          data: {
+            cotizacionId,
+            tipo: "MANO_OBRA",
+            repuestoId: null,
+            descripcion: servicio.nombre,
+            cantidad: 1,
+            precioUnitario: valor,
+          },
+        });
+      }
+      for (const linea of servicio.repuestos) {
+        await tx.itemCotizacion.create({
+          data: {
+            cotizacionId,
+            tipo: "REPUESTO",
+            repuestoId: linea.repuesto.id,
+            descripcion: linea.repuesto.nombre,
+            cantidad: linea.cantidad,
+            precioUnitario: linea.repuesto.precioVenta,
+          },
+        });
+      }
+      await recomputeCotizacionTotales(tx, cotizacionId);
+    });
+  } catch (err) {
+    return { error: friendlyPrismaErrorMessage(err, "No se pudo aplicar el servicio"), success: false, agregados: null };
+  }
+
+  revalidatePath("/cotizaciones");
+  revalidatePath(`/cotizaciones/${cotizacionId}`);
   return {
     error: null,
     success: true,

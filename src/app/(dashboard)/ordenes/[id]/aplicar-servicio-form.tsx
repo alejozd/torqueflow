@@ -11,18 +11,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Label } from "@/components/ui/label";
+import { mensajeServicioAplicado } from "@/lib/servicio/mensaje-aplicado";
 
 const initialState: AplicarServicioFormState = { error: null, success: false, agregados: null };
 const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" });
-
-/** Mensaje del toast: lo que la action dice haber creado, no lo que se esperaba. */
-export function mensajeServicioAplicado(agregados: { manoDeObra: boolean; repuestos: number }): string {
-  const partes: string[] = [];
-  if (agregados.manoDeObra) partes.push("mano de obra");
-  if (agregados.repuestos === 1) partes.push("1 repuesto");
-  else if (agregados.repuestos > 1) partes.push(`${agregados.repuestos} repuestos`);
-  return partes.length > 0 ? `Servicio agregado: ${partes.join(" y ")}` : "Servicio agregado";
-}
 
 /**
  * Aplica un servicio (o kit) del catálogo a la orden: prellena la mano de obra y

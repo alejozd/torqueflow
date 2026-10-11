@@ -11,9 +11,9 @@ import {
   descuentoCotizacionInputSchema,
   enviarCotizacionInputSchema,
 } from "@/lib/validation/cotizacion";
-import { computeCotizacionTotales } from "@/lib/cotizacion/totales";
 import { isValidEstadoTransition } from "@/lib/cotizacion/estado-transitions";
 import { assertCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
+import { recomputeCotizacionTotales } from "@/lib/cotizacion/recompute-totales";
 import { construirMensajeCotizacion } from "@/lib/cotizacion/plantilla-envio";
 import { scopeCotizacion, scopeRepuesto } from "@/lib/sede/scope";
 import {
@@ -105,29 +105,6 @@ function revalidarCotizaciones(id?: string): void {
   if (id) {
     revalidatePath(`/cotizaciones/${id}`);
   }
-}
-
-/**
- * Recomputes and persists subtotal/descuento/iva/total from the cotización's
- * current items + descuentoPct. Called after every item mutation and every
- * descuentoPct change so the parent row never drifts from its ítems -- same
- * reason crearFacturaAction computes totals from source rows instead of
- * trusting a client-submitted total (src/app/actions/factura-actions.ts).
- */
-async function recomputeCotizacionTotales(tx: Prisma.TransactionClient, cotizacionId: string): Promise<void> {
-  const cotizacion = await tx.cotizacion.findUniqueOrThrow({
-    where: { id: cotizacionId },
-    select: { descuentoPct: true, items: { select: { tipo: true, cantidad: true, precioUnitario: true } } },
-  });
-  const { subtotal, descuento, iva, total } = computeCotizacionTotales({
-    items: cotizacion.items.map((item) => ({
-      tipo: item.tipo,
-      cantidad: Number(item.cantidad),
-      precioUnitario: Number(item.precioUnitario),
-    })),
-    descuentoPct: Number(cotizacion.descuentoPct),
-  });
-  await tx.cotizacion.update({ where: { id: cotizacionId }, data: { subtotal, descuento, iva, total } });
 }
 
 export async function listCotizaciones(estado?: EstadoCotizacion): Promise<CotizacionListItem[]> {

@@ -9,6 +9,8 @@ vi.mock("@/lib/auth/guards", () => ({
 const tx = {
   manoDeObra: { create: vi.fn() },
   itemOrden: { create: vi.fn() },
+  itemCotizacion: { create: vi.fn() },
+  cotizacion: { findUniqueOrThrow: vi.fn(), update: vi.fn() },
 };
 
 const db = {
@@ -16,6 +18,7 @@ const db = {
   servicioRepuesto: { upsert: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
   repuesto: { findFirst: vi.fn() },
   ordenTrabajo: { findFirst: vi.fn() },
+  cotizacion: { findFirst: vi.fn() },
   $transaction: (fn: (cliente: typeof tx) => unknown) => fn(tx),
 };
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
@@ -25,6 +28,7 @@ import {
   actualizarCantidadRepuestoServicioAction,
   actualizarServicioAction,
   agregarRepuestoAServicioAction,
+  aplicarServicioACotizacionAction,
   aplicarServicioAOrdenAction,
   crearServicioAction,
   listServicios,
@@ -442,5 +446,138 @@ describe("aplicarServicioAOrdenAction", () => {
     expect(r.success).toBe(false);
     expect(r.error).toBe("No se pudo aplicar el servicio");
     expect(r.agregados).toBeNull();
+  });
+});
+
+describe("aplicarServicioACotizacionAction", () => {
+  beforeEach(() => {
+    db.cotizacion.findFirst.mockResolvedValue({ estado: "BORRADOR" });
+    tx.itemCotizacion.create.mockResolvedValue({});
+    tx.cotizacion.update.mockResolvedValue({});
+    // Lo que recomputeCotizacionTotales vuelve a leer tras crear las líneas.
+    tx.cotizacion.findUniqueOrThrow.mockResolvedValue({
+      descuentoPct: 0,
+      items: [
+        { tipo: "MANO_OBRA", cantidad: 1, precioUnitario: 45000 },
+        { tipo: "REPUESTO", cantidad: 2, precioUnitario: 40000 },
+      ],
+    });
+    db.servicio.findFirst.mockResolvedValue({
+      activo: true,
+      nombre: "Cambio de aceite",
+      precioManoObra: 45000,
+      repuestos: [{ cantidad: 2, repuesto: { id: "r2", nombre: "Aceite 5W30", precioVenta: 40000 } }],
+    });
+  });
+
+  it("crea las líneas de la cotización y recomputa sus totales en la misma transacción", async () => {
+    const r = await aplicarServicioACotizacionAction("c1", inicialAplicar, fd({ servicioId: " s1 " }));
+
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION", "TECNICO"]);
+    expect(db.cotizacion.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "c1", sedeId: "sede-1" } }),
+    );
+    expect(tx.itemCotizacion.create).toHaveBeenNthCalledWith(1, {
+      data: {
+        cotizacionId: "c1",
+        tipo: "MANO_OBRA",
+        repuestoId: null,
+        descripcion: "Cambio de aceite",
+        cantidad: 1,
+        precioUnitario: 45000,
+      },
+    });
+    expect(tx.itemCotizacion.create).toHaveBeenNthCalledWith(2, {
+      data: {
+        cotizacionId: "c1",
+        tipo: "REPUESTO",
+        repuestoId: "r2",
+        descripcion: "Aceite 5W30",
+        cantidad: 2,
+        precioUnitario: 40000,
+      },
+    });
+    // 45000 + 2 x 40000 = 125000; IVA 19% = 23750; total 148750.
+    expect(tx.cotizacion.update).toHaveBeenCalledWith({
+      where: { id: "c1" },
+      data: { subtotal: 125000, descuento: 0, iva: 23750, total: 148750 },
+    });
+    expect(r).toEqual({ error: null, success: true, agregados: { manoDeObra: true, repuestos: 1 } });
+  });
+
+  it("un kit sin mano de obra propia solo agrega la línea de repuesto", async () => {
+    db.servicio.findFirst.mockResolvedValue({
+      activo: true,
+      nombre: "Kit pastillas",
+      precioManoObra: 0,
+      repuestos: [{ cantidad: 1, repuesto: { id: "r1", nombre: "Pastillas", precioVenta: 90000 } }],
+    });
+
+    const r = await aplicarServicioACotizacionAction("c1", inicialAplicar, fd({ servicioId: "s1" }));
+
+    expect(tx.itemCotizacion.create).toHaveBeenCalledTimes(1);
+    expect(tx.itemCotizacion.create).toHaveBeenCalledWith({
+      data: {
+        cotizacionId: "c1",
+        tipo: "REPUESTO",
+        repuestoId: "r1",
+        descripcion: "Pastillas",
+        cantidad: 1,
+        precioUnitario: 90000,
+      },
+    });
+    expect(r.agregados).toEqual({ manoDeObra: false, repuestos: 1 });
+  });
+
+  it("rechaza un servicio inactivo", async () => {
+    db.servicio.findFirst.mockResolvedValue({ activo: false, nombre: "Cambio de aceite", precioManoObra: 45000, repuestos: [] });
+
+    const r = await aplicarServicioACotizacionAction("c1", inicialAplicar, fd({ servicioId: "s1" }));
+
+    expect(r.error).toBe("El servicio no está disponible");
+    expect(tx.itemCotizacion.create).not.toHaveBeenCalled();
+  });
+
+  it("rechaza una cotización no editable, con el mensaje del guard", async () => {
+    db.cotizacion.findFirst.mockResolvedValue({ estado: "APROBADA" });
+
+    const r = await aplicarServicioACotizacionAction("c1", inicialAplicar, fd({ servicioId: "s1" }));
+
+    expect(r.error).toBe("No se puede modificar una cotización en estado APROBADA.");
+    expect(db.servicio.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("rechaza una cotización de otra sede o inexistente", async () => {
+    db.cotizacion.findFirst.mockResolvedValue(null);
+
+    const r = await aplicarServicioACotizacionAction("c-ajena", inicialAplicar, fd({ servicioId: "s1" }));
+
+    expect(r).toEqual({ error: "Cotización no encontrada", success: false, agregados: null });
+  });
+
+  it("sin nada que agregar devuelve error y no escribe nada (D11)", async () => {
+    db.servicio.findFirst.mockResolvedValue({ activo: true, nombre: "Kit vacío", precioManoObra: 0, repuestos: [] });
+
+    const r = await aplicarServicioACotizacionAction("c1", inicialAplicar, fd({ servicioId: "s1" }));
+
+    expect(r.error).toBe("El servicio no tiene nada que agregar");
+    expect(tx.itemCotizacion.create).not.toHaveBeenCalled();
+    expect(tx.cotizacion.update).not.toHaveBeenCalled();
+  });
+
+  it("el error a mitad de la transacción se propaga como error de la action", async () => {
+    tx.itemCotizacion.create.mockRejectedValueOnce(new Error("boom"));
+
+    const r = await aplicarServicioACotizacionAction("c1", inicialAplicar, fd({ servicioId: "s1" }));
+
+    expect(r).toEqual({ error: "No se pudo aplicar el servicio", success: false, agregados: null });
+    expect(tx.cotizacion.update).not.toHaveBeenCalled();
+  });
+
+  it("exige un servicio seleccionado antes de tocar la base", async () => {
+    const r = await aplicarServicioACotizacionAction("c1", inicialAplicar, fd({ servicioId: "" }));
+
+    expect(r.error).toBe("Selecciona un servicio");
+    expect(db.cotizacion.findFirst).not.toHaveBeenCalled();
   });
 });
