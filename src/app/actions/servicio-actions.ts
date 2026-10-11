@@ -10,7 +10,9 @@ import { recomputeCotizacionTotales } from "@/lib/cotizacion/recompute-totales";
 import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
 import { scopeCotizacion, scopeOrden, scopeRepuesto } from "@/lib/sede/scope";
 import {
+  CANTIDAD_MAXIMA_KIT,
   aplicarServicioInputSchema,
+  listarServiciosInputSchema,
   servicioInputSchema,
   servicioRepuestoInputSchema,
 } from "@/lib/validation/servicio";
@@ -122,17 +124,41 @@ async function cargarServicioAplicable(
 }
 
 /**
+ * El mecánico de la orden se hereda en la línea de mano de obra, pero solo si
+ * sigue perteneciendo a la sede activa: addManoDeObraAction hace esta misma
+ * comprobación sobre el id que llega del formulario, y aquí el id viene de la
+ * orden, que pudo asignarse antes de que el técnico saliera de la sede.
+ * Si ya no pertenece, la línea se crea sin mecánico en vez de arrastrar uno
+ * ajeno a la sede.
+ */
+async function mecanicoDeLaSede(
+  tenantDb: ReturnType<typeof getTenantDb>,
+  mecanicoId: string | null,
+  sedeActivaId: string,
+): Promise<string | null> {
+  if (!mecanicoId) return null;
+  const tecnico = await tenantDb.usuario.findFirst({
+    where: { id: mecanicoId, role: "TECNICO", sedes: { some: { sedeId: sedeActivaId } } },
+    select: { id: true },
+  });
+  return tecnico?.id ?? null;
+}
+
+/**
  * `soloActivos: true` es la vista de aplicación (la que usan las órdenes y las
  * cotizaciones): devuelve solo activos y solo los repuestos de la sede activa
  * del usuario, para que el total estimado sea el que realmente se va a aplicar
  * (D10). Sin opciones es la vista de catálogo del ADMIN, con el kit completo.
  */
 export async function listServicios(opciones: { soloActivos?: boolean } = {}): Promise<ServicioVista[]> {
-  const session = await requireRole(opciones.soloActivos ? ["ADMIN", "RECEPCION", "TECNICO"] : ["ADMIN"]);
+  // De `soloActivos` depende qué rol se exige, así que se valida en vez de
+  // confiar en cualquier valor "truthy" que llegue por la server action.
+  const { soloActivos } = listarServiciosInputSchema.parse(opciones);
+  const session = await requireRole(soloActivos ? ["ADMIN", "RECEPCION", "TECNICO"] : ["ADMIN"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const filas = await tenantDb.servicio.findMany({
-    where: opciones.soloActivos ? { activo: true } : {},
+    where: soloActivos ? { activo: true } : {},
     orderBy: { nombre: "asc" },
     select: {
       id: true,
@@ -141,7 +167,7 @@ export async function listServicios(opciones: { soloActivos?: boolean } = {}): P
       precioManoObra: true,
       activo: true,
       repuestos: {
-        where: opciones.soloActivos ? { repuesto: scopeRepuesto(session.user.sedeActivaId) } : {},
+        where: soloActivos ? { repuesto: scopeRepuesto(session.user.sedeActivaId) } : {},
         orderBy: { repuesto: { nombre: "asc" } },
         select: {
           repuestoId: true,
@@ -281,6 +307,20 @@ export async function agregarRepuestoAServicioAction(
   });
   if (!repuesto) return { error: REPUESTO_NO_ENCONTRADO, success: false, cantidad: null };
 
+  // El tope del schema es por operación, así que hay que mirar el acumulado:
+  // esta acción suma cuando el repuesto ya está en el kit.
+  const existente = await tenantDb.servicioRepuesto.findUnique({
+    where: { servicioId_repuestoId: { servicioId, repuestoId: repuesto.id } },
+    select: { cantidad: true },
+  });
+  if ((existente?.cantidad ?? 0) + parsed.data.cantidad > CANTIDAD_MAXIMA_KIT) {
+    return {
+      error: `El kit no admite más de ${CANTIDAD_MAXIMA_KIT} unidades de un repuesto`,
+      success: false,
+      cantidad: null,
+    };
+  }
+
   try {
     const linea = await tenantDb.servicioRepuesto.upsert({
       where: { servicioId_repuestoId: { servicioId, repuestoId: repuesto.id } },
@@ -374,12 +414,13 @@ export async function aplicarServicioAOrdenAction(
     return { error: cargado.error, success: false, agregados: null };
   }
   const { servicio, valor, conManoDeObra } = cargado;
+  const mecanicoId = conManoDeObra ? await mecanicoDeLaSede(tenantDb, orden.mecanicoId, session.user.sedeActivaId) : null;
 
   try {
     await tenantDb.$transaction(async (tx) => {
       if (conManoDeObra) {
         await tx.manoDeObra.create({
-          data: { ordenId, descripcion: servicio.nombre, valor, mecanicoId: orden.mecanicoId },
+          data: { ordenId, descripcion: servicio.nombre, valor, mecanicoId },
         });
       }
       for (const linea of servicio.repuestos) {

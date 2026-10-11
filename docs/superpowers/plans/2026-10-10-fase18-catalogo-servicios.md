@@ -31,9 +31,11 @@
    corriendo; detenerlo (los procesos `node.exe` de `next dev` del proyecto) y regenerar.
 10. Si se ejecuta dentro de un sandbox confinado (p. ej. el agente DSH en modo `workspace-write`):
     `npx tsc --noEmit` falla con `TS5033` al escribir `tsconfig.tsbuildinfo` → usar
-    `npx tsc --noEmit --incremental false` (mismo resultado, no ensucia el árbol). `npm test` no
-    arranca en modo confinado (Vite llama a `child_process` con pipes: `spawn EPERM`), así que
-    requiere acceso completo o ejecutarlo el usuario; **no es un fallo del proyecto**.
+    `npx tsc --noEmit --incremental false` (mismo resultado, no ensucia el árbol). `npm test` y
+    `npm run build` no arrancan en modo confinado (Vite y Next lanzan subprocesos con pipes:
+    `spawn EPERM`), así que requieren acceso completo o ejecutarlos el usuario; **no son fallos del
+    proyecto**. `npx prisma migrate diff` y `npx prisma generate` tienen la misma limitación (motor
+    en subproceso).
 
 ### Patrones del proyecto a reutilizar (leerlos)
 - Server actions guard → Zod → BD → `revalidatePath`: `src/app/actions/gasto-actions.ts`,
@@ -74,9 +76,10 @@ repuestos, que luego se pueden editar como cualquier línea.
 | D7 | Si un repuesto del kit fue eliminado, la relación se borra en cascada (el kit pierde ese repuesto). |
 | D8 | Administrar el catálogo: **solo ADMIN**, página `/servicios` en el grupo **Inventario** del menú (visible solo ADMIN). Aplicar servicios: los roles de D3/D4. |
 | D9 | Fuera de alcance: tiempo estándar por servicio, precios por tipo de vehículo, servicios en citas, importar catálogo (Fase 20). |
-| D10 | **El kit no cruza sedes.** `Servicio` es del tenant, pero sus repuestos se limitan a los de la sede activa: `agregarRepuestoAServicioAction` solo acepta repuestos alcanzables con `scopeRepuesto(sedeActivaId)`, y la vista de aplicación (`listServicios({ soloActivos: true })`) devuelve únicamente los repuestos de la sede activa del usuario (la vista de catálogo del ADMIN los muestra todos). Al aplicar (Tasks 3 y 4) cada repuesto se revalida con `scopeRepuesto(sedeActivaId)` antes de crear su línea. La mano de obra del servicio sí es del tenant completo. |
+| D10 | **El kit no cruza sedes.** `Servicio` es del tenant, pero sus repuestos se limitan a los de la sede activa: `agregarRepuestoAServicioAction` solo acepta repuestos alcanzables con `scopeRepuesto(sedeActivaId)`, y la vista de aplicación (`listServicios({ soloActivos: true })`) devuelve únicamente los repuestos de la sede activa del usuario. La página `/servicios` del ADMIN **lista** el kit completo del tenant, pero el **alta** de repuestos al kit usa la misma lista acotada a la sede activa (`listRepuestoOptions`): para armar el kit de otra sede hay que cambiar de sede activa. Al aplicar (Tasks 3 y 4) cada repuesto se revalida con `scopeRepuesto(sedeActivaId)` antes de crear su línea. La mano de obra del servicio sí es del tenant completo. |
 | D11 | Aplicar un servicio que no aporta nada en la sede activa (precio de mano de obra 0 **y** sin repuestos) no crea nada y devuelve un error explícito ("El servicio no tiene nada que agregar"), no un `success` vacío con `agregados` en cero. |
 | D12 | Un mismo servicio puede aplicarse varias veces al mismo documento: no hay deduplicación. Las líneas resultantes se editan o quitan como cualquier otra (es el mismo criterio que el texto libre de D5). |
+| D13 | Decisiones del fix round (revisión final de la rama): (a) el tope `CANTIDAD_MAXIMA_KIT = 1000` se comprueba sobre el **acumulado** del kit, no solo sobre la línea que se envía, porque el alta suma cantidades vía `increment`; (b) el `mecanicoId` que hereda la línea de mano de obra se revalida contra `sedes: { some: { sedeId } }` —si el técnico ya no pertenece a la sede, la línea se crea sin mecánico en vez de arrastrar uno ajeno—; (c) las opciones de `listServicios` pasan por Zod (`listarServiciosInputSchema`), ya que de `soloActivos` depende el rol exigido. |
 
 ---
 

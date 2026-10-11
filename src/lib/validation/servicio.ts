@@ -7,6 +7,14 @@ import { z } from "zod";
  */
 const PRECIO_MAXIMO = 99_999_999.99;
 
+/**
+ * Tope de unidades de un repuesto dentro de un kit. No es solo el máximo de una
+ * línea: el alta suma cantidades cuando el repuesto ya está en el kit, así que
+ * el tope se comprueba también sobre el acumulado (ver
+ * agregarRepuestoAServicioAction).
+ */
+export const CANTIDAD_MAXIMA_KIT = 1000;
+
 export const servicioInputSchema = z.object({
   nombre: z
     .string()
@@ -31,10 +39,19 @@ export const servicioRepuestoInputSchema = z.object({
     .number()
     .int("La cantidad debe ser un número entero")
     .min(1, "La cantidad mínima es 1")
-    .max(1000, "La cantidad es demasiado alta"),
+    .max(CANTIDAD_MAXIMA_KIT, "La cantidad es demasiado alta"),
 });
 
 /** Servicio elegido en el selector de "aplicar a la orden / cotización". */
 export const aplicarServicioInputSchema = z.object({
   servicioId: z.string().trim().min(1, "Selecciona un servicio"),
+});
+
+/**
+ * `listServicios` es una server action exportada: sus opciones las elige quien
+ * llama, así que se validan en vez de confiar en cualquier valor "truthy" (de
+ * ellas depende qué rol se exige).
+ */
+export const listarServiciosInputSchema = z.object({
+  soloActivos: z.boolean().optional(),
 });

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { aplicarServicioInputSchema, servicioInputSchema, servicioRepuestoInputSchema } from "./servicio";
+import {
+  CANTIDAD_MAXIMA_KIT,
+  aplicarServicioInputSchema,
+  listarServiciosInputSchema,
+  servicioInputSchema,
+  servicioRepuestoInputSchema,
+} from "./servicio";
 
 const servicioBase = { nombre: "Cambio de aceite", precioManoObra: "45000" };
 
@@ -66,5 +72,24 @@ describe("aplicarServicioInputSchema", () => {
     expect(aplicarServicioInputSchema.safeParse({ servicioId: "   " }).error?.issues[0]?.message).toBe(
       "Selecciona un servicio",
     );
+  });
+});
+
+describe("listarServiciosInputSchema", () => {
+  it("acepta las opciones de la vista de aplicación y la ausencia de opciones", () => {
+    expect(listarServiciosInputSchema.parse({ soloActivos: true })).toEqual({ soloActivos: true });
+    expect(listarServiciosInputSchema.parse({})).toEqual({ soloActivos: undefined });
+  });
+
+  it("rechaza un soloActivos que no sea booleano (de él depende el rol exigido)", () => {
+    expect(listarServiciosInputSchema.safeParse({ soloActivos: "true" }).success).toBe(false);
+    expect(listarServiciosInputSchema.safeParse({ soloActivos: 1 }).success).toBe(false);
+  });
+});
+
+describe("tope del kit", () => {
+  it("acepta el máximo exacto y rechaza uno más", () => {
+    expect(servicioRepuestoInputSchema.safeParse({ repuestoId: "r1", cantidad: String(CANTIDAD_MAXIMA_KIT) }).success).toBe(true);
+    expect(servicioRepuestoInputSchema.safeParse({ repuestoId: "r1", cantidad: String(CANTIDAD_MAXIMA_KIT + 1) }).success).toBe(false);
   });
 });

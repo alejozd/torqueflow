@@ -15,10 +15,11 @@ const tx = {
 
 const db = {
   servicio: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
-  servicioRepuesto: { upsert: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
+  servicioRepuesto: { findUnique: vi.fn(), upsert: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
   repuesto: { findFirst: vi.fn() },
   ordenTrabajo: { findFirst: vi.fn() },
   cotizacion: { findFirst: vi.fn() },
+  usuario: { findFirst: vi.fn() },
   $transaction: (fn: (cliente: typeof tx) => unknown) => fn(tx),
 };
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
@@ -43,7 +44,6 @@ const inicial: ServicioFormState = { error: null, success: false };
 const inicialRepuesto: ServicioRepuestoFormState = { error: null, success: false, cantidad: null };
 const inicialAplicar: AplicarServicioFormState = { error: null, success: false, agregados: null };
 const ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
-const TECNICO = { user: { id: "u2", role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 function fd(campos: Record<string, string>): FormData {
   const f = new FormData();
@@ -57,7 +57,10 @@ beforeEach(() => {
   db.servicio.findFirst.mockResolvedValue(null);
   db.servicio.findUnique.mockResolvedValue({ id: "s1", nombre: "Cambio de aceite", activo: true });
   db.repuesto.findFirst.mockResolvedValue({ id: "r1", nombre: "Filtro de aceite" });
+  db.servicioRepuesto.findUnique.mockResolvedValue(null);
   db.ordenTrabajo.findFirst.mockResolvedValue({ estado: "EN_PROCESO", factura: null, mecanicoId: "m1" });
+  // El mecánico de la orden sigue perteneciendo a la sede activa.
+  db.usuario.findFirst.mockResolvedValue({ id: "m1" });
   tx.manoDeObra.create.mockResolvedValue({});
   tx.itemOrden.create.mockResolvedValue({});
 });
@@ -259,12 +262,29 @@ describe("agregarRepuestoAServicioAction", () => {
     expect(db.servicioRepuesto.upsert).not.toHaveBeenCalled();
   });
 
-  it("exige ADMIN", async () => {
-    mockRequireRole.mockResolvedValue(TECNICO);
+  it("rechaza la suma cuando el acumulado del kit pasaría del tope", async () => {
+    db.servicioRepuesto.findUnique.mockResolvedValue({ cantidad: 999 });
 
-    await agregarRepuestoAServicioAction("s1", inicialRepuesto, fd({ repuestoId: "r1", cantidad: "1" }));
+    const r = await agregarRepuestoAServicioAction("s1", inicialRepuesto, fd({ repuestoId: "r1", cantidad: "2" }));
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(r).toEqual({
+      error: "El kit no admite más de 1000 unidades de un repuesto",
+      success: false,
+      cantidad: null,
+    });
+    expect(db.servicioRepuesto.upsert).not.toHaveBeenCalled();
+  });
+
+  it("acepta la suma que llega justo al tope", async () => {
+    db.servicioRepuesto.findUnique.mockResolvedValue({ cantidad: 999 });
+    db.servicioRepuesto.upsert.mockResolvedValue({ cantidad: 1000 });
+
+    const r = await agregarRepuestoAServicioAction("s1", inicialRepuesto, fd({ repuestoId: "r1", cantidad: "1" }));
+
+    expect(r).toEqual({ error: null, success: true, cantidad: 1000 });
+    expect(db.servicioRepuesto.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { cantidad: { increment: 1 } } }),
+    );
   });
 });
 
@@ -342,6 +362,10 @@ describe("aplicarServicioAOrdenAction", () => {
     expect(tx.manoDeObra.create).toHaveBeenCalledWith({
       data: { ordenId: "o1", descripcion: "Cambio de aceite", valor: 45000, mecanicoId: "m1" },
     });
+    // El mecánico heredado se revalida contra la sede activa, como en addManoDeObraAction.
+    expect(db.usuario.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "m1", role: "TECNICO", sedes: { some: { sedeId: "sede-1" } } } }),
+    );
     // El precio sale del precioVenta actual de cada repuesto, no del kit.
     expect(tx.itemOrden.create).toHaveBeenNthCalledWith(1, {
       data: { ordenId: "o1", repuestoId: "r1", descripcion: "Filtro de aceite", cantidad: 1, precioUnitario: 25000 },
@@ -375,6 +399,27 @@ describe("aplicarServicioAOrdenAction", () => {
     expect(tx.itemOrden.create).not.toHaveBeenCalled();
     expect(tx.manoDeObra.create).toHaveBeenCalledTimes(1);
     expect(r.agregados).toEqual({ manoDeObra: true, repuestos: 0 });
+  });
+
+  it("no hereda el mecánico de la orden si ya no pertenece a la sede activa", async () => {
+    kit([{ cantidad: 1, repuesto: { id: "r1", nombre: "Filtro de aceite", precioVenta: 25000 } }]);
+    db.usuario.findFirst.mockResolvedValue(null);
+
+    await aplicarServicioAOrdenAction("o1", inicialAplicar, fd({ servicioId: "s1" }));
+
+    expect(tx.manoDeObra.create).toHaveBeenCalledWith({
+      data: { ordenId: "o1", descripcion: "Cambio de aceite", valor: 45000, mecanicoId: null },
+    });
+  });
+
+  it("no consulta el mecánico cuando la orden no tiene ninguno asignado", async () => {
+    kit([]);
+    db.ordenTrabajo.findFirst.mockResolvedValue({ estado: "EN_PROCESO", factura: null, mecanicoId: null });
+
+    await aplicarServicioAOrdenAction("o1", inicialAplicar, fd({ servicioId: "s1" }));
+
+    expect(db.usuario.findFirst).not.toHaveBeenCalled();
+    expect(tx.manoDeObra.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ mecanicoId: null }) }));
   });
 
   it("sin nada que agregar devuelve error y no escribe nada (D11)", async () => {
@@ -446,6 +491,9 @@ describe("aplicarServicioAOrdenAction", () => {
     expect(r.success).toBe(false);
     expect(r.error).toBe("No se pudo aplicar el servicio");
     expect(r.agregados).toBeNull();
+    // Con la BD mockeada no hay rollback que comprobar: lo verificable es que el
+    // error corta el bucle (el segundo repuesto nunca se intenta crear).
+    expect(tx.itemOrden.create).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -571,6 +619,9 @@ describe("aplicarServicioACotizacionAction", () => {
     const r = await aplicarServicioACotizacionAction("c1", inicialAplicar, fd({ servicioId: "s1" }));
 
     expect(r).toEqual({ error: "No se pudo aplicar el servicio", success: false, agregados: null });
+    // La línea de mano de obra se alcanzó a crear (mockeado, sin rollback real):
+    // lo verificable es que el recálculo de totales nunca llegó a correr.
+    expect(tx.itemCotizacion.create).toHaveBeenCalledTimes(1);
     expect(tx.cotizacion.update).not.toHaveBeenCalled();
   });
 
@@ -579,5 +630,50 @@ describe("aplicarServicioACotizacionAction", () => {
 
     expect(r.error).toBe("Selecciona un servicio");
     expect(db.cotizacion.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+describe("guardas de rol", () => {
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+  });
+
+  // Una lista de roles pasada a requireRole no prueba nada por sí sola: lo que
+  // hay que comprobar es que el rechazo (redirect) corta la action antes de
+  // escribir. Mismo patrón que bodega-actions.test.ts / cliente-actions.test.ts.
+  const acciones: [string, () => Promise<unknown>][] = [
+    ["crearServicioAction", () => crearServicioAction(inicial, fd({ nombre: "Cambio de aceite", precioManoObra: "1" }))],
+    [
+      "actualizarServicioAction",
+      () => actualizarServicioAction("s1", inicial, fd({ nombre: "Cambio de aceite", precioManoObra: "1" })),
+    ],
+    ["toggleServicioActivoAction", () => toggleServicioActivoAction("s1")],
+    [
+      "agregarRepuestoAServicioAction",
+      () => agregarRepuestoAServicioAction("s1", inicialRepuesto, fd({ repuestoId: "r1", cantidad: "1" })),
+    ],
+    ["actualizarCantidadRepuestoServicioAction", () => actualizarCantidadRepuestoServicioAction("s1", "r1", 2)],
+    ["quitarRepuestoDeServicioAction", () => quitarRepuestoDeServicioAction("s1", "r1")],
+    ["aplicarServicioAOrdenAction", () => aplicarServicioAOrdenAction("o1", inicialAplicar, fd({ servicioId: "s1" }))],
+    [
+      "aplicarServicioACotizacionAction",
+      () => aplicarServicioACotizacionAction("c1", inicialAplicar, fd({ servicioId: "s1" })),
+    ],
+  ];
+
+  it.each(acciones)("%s propaga el redirect de requireRole y no escribe nada", async (_nombre, accion) => {
+    await expect(accion()).rejects.toThrow("REDIRECT:/login?error=forbidden");
+
+    expect(db.servicio.create).not.toHaveBeenCalled();
+    expect(db.servicio.update).not.toHaveBeenCalled();
+    expect(db.servicioRepuesto.findUnique).not.toHaveBeenCalled();
+    expect(db.servicioRepuesto.upsert).not.toHaveBeenCalled();
+    expect(db.servicioRepuesto.updateMany).not.toHaveBeenCalled();
+    expect(db.servicioRepuesto.deleteMany).not.toHaveBeenCalled();
+    expect(db.ordenTrabajo.findFirst).not.toHaveBeenCalled();
+    expect(db.cotizacion.findFirst).not.toHaveBeenCalled();
+    expect(tx.manoDeObra.create).not.toHaveBeenCalled();
+    expect(tx.itemOrden.create).not.toHaveBeenCalled();
+    expect(tx.itemCotizacion.create).not.toHaveBeenCalled();
   });
 });
