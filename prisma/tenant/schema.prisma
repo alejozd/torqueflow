@@ -428,6 +428,7 @@ model Repuesto {
   pedidoCompraItems    PedidoCompraItem[]
   itemsOrden           ItemOrden[]
   itemsCotizacion      ItemCotizacion[]
+  servicios            ServicioRepuesto[]
   createdAt            DateTime               @default(now()) @map("created_at")
   updatedAt            DateTime               @updatedAt @map("updated_at")
 
@@ -932,4 +933,37 @@ model CajaSesion {
 
   @@index([sedeId, abiertaAt])
   @@map("cajas_sesion")
+}
+
+/// Servicio del catálogo del taller con su precio base de mano de obra; con
+/// repuestos asociados funciona como kit. No se borra: se desactiva (D1).
+model Servicio {
+  id             String              @id @default(cuid())
+  nombre         String              @unique
+  descripcion    String?
+  precioManoObra Decimal             @map("precio_mano_obra") @db.Decimal(10, 2)
+  activo         Boolean             @default(true)
+  repuestos      ServicioRepuesto[]
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  @@map("servicios")
+}
+
+/// Repuesto que compone un kit. Guarda la cantidad, nunca el precio: el precio
+/// se lee de Repuesto.precioVenta al aplicar el servicio (D2). Los repuestos de
+/// un kit son de una sola sede, la activa al armarlo (D10).
+model ServicioRepuesto {
+  id         String   @id @default(cuid())
+  servicioId String   @map("servicio_id")
+  servicio   Servicio @relation(fields: [servicioId], references: [id], onDelete: Cascade)
+  repuestoId String   @map("repuesto_id")
+  repuesto   Repuesto @relation(fields: [repuestoId], references: [id], onDelete: Cascade)
+  cantidad   Int
+
+  @@unique([servicioId, repuestoId])
+  /// Postgres no indexa la FK por sí solo: el onDelete: Cascade desde Repuesto
+  /// necesita este índice o cada borrado de repuesto recorre el kit entero.
+  @@index([repuestoId])
+  @@map("servicio_repuestos")
 }
