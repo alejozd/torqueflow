@@ -5,8 +5,13 @@ import { requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { roundMoney } from "@/lib/money/round";
-import { scopeRepuesto } from "@/lib/sede/scope";
-import { servicioInputSchema, servicioRepuestoInputSchema } from "@/lib/validation/servicio";
+import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
+import { scopeOrden, scopeRepuesto } from "@/lib/sede/scope";
+import {
+  aplicarServicioInputSchema,
+  servicioInputSchema,
+  servicioRepuestoInputSchema,
+} from "@/lib/validation/servicio";
 
 export interface ServicioRepuestoVista {
   repuestoId: string;
@@ -39,8 +44,17 @@ export interface ServicioRepuestoFormState {
   cantidad: number | null;
 }
 
+export interface AplicarServicioFormState {
+  error: string | null;
+  success: boolean;
+  /** Qué se creó realmente; null si hubo error. */
+  agregados: { manoDeObra: boolean; repuestos: number } | null;
+}
+
 const MENSAJE_DUPLICADO = "Ya existe un servicio con ese nombre";
 const SERVICIO_NO_ENCONTRADO = "Servicio no encontrado";
+const SERVICIO_NO_DISPONIBLE = "El servicio no está disponible";
+const SIN_NADA_QUE_AGREGAR = "El servicio no tiene nada que agregar";
 const REPUESTO_NO_ENCONTRADO = "Repuesto no encontrado en tu sede activa";
 const REPUESTO_FUERA_DEL_KIT = "El repuesto no está en el kit de este servicio";
 
@@ -275,4 +289,91 @@ export async function quitarRepuestoDeServicioAction(
   }
   revalidar();
   return { error: null };
+}
+
+/**
+ * Aplica un servicio del catálogo a una orden: una línea de mano de obra con el
+ * precio base (solo si es mayor que 0) y una línea de repuesto por cada repuesto
+ * del kit, al precio de venta *actual* del repuesto. Todo en una transacción, con
+ * las mismas validaciones que addItemOrdenAction (roles, sede, orden mutable).
+ *
+ * El kit se resuelve contra la sede activa (D10): un servicio armado en otra sede
+ * no puede meter repuestos ajenos en esta orden. Si no aporta nada en esta sede
+ * -- precio 0 y ningún repuesto -- se rechaza en vez de fingir un éxito vacío (D11).
+ */
+export async function aplicarServicioAOrdenAction(
+  ordenId: string,
+  prevState: AplicarServicioFormState,
+  formData: FormData,
+): Promise<AplicarServicioFormState> {
+  const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
+  const parsed = aplicarServicioInputSchema.safeParse({ servicioId: formData.get("servicioId") ?? "" });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false, agregados: null };
+  }
+
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const orden = await tenantDb.ordenTrabajo.findFirst({
+    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
+    select: { estado: true, factura: { select: { id: true } }, mecanicoId: true },
+  });
+  if (!orden) return { error: "Orden no encontrada", success: false, agregados: null };
+  try {
+    assertOrdenMutable(orden);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Orden no modificable", success: false, agregados: null };
+  }
+
+  const servicio = await tenantDb.servicio.findFirst({
+    where: { id: parsed.data.servicioId },
+    select: {
+      activo: true,
+      nombre: true,
+      precioManoObra: true,
+      repuestos: {
+        where: { repuesto: scopeRepuesto(session.user.sedeActivaId) },
+        select: { cantidad: true, repuesto: { select: { id: true, nombre: true, precioVenta: true } } },
+      },
+    },
+  });
+  if (!servicio || !servicio.activo) {
+    return { error: SERVICIO_NO_DISPONIBLE, success: false, agregados: null };
+  }
+
+  const valor = Number(servicio.precioManoObra);
+  const conManoDeObra = valor > 0;
+  if (!conManoDeObra && servicio.repuestos.length === 0) {
+    return { error: SIN_NADA_QUE_AGREGAR, success: false, agregados: null };
+  }
+
+  try {
+    await tenantDb.$transaction(async (tx) => {
+      if (conManoDeObra) {
+        await tx.manoDeObra.create({
+          data: { ordenId, descripcion: servicio.nombre, valor, mecanicoId: orden.mecanicoId },
+        });
+      }
+      for (const linea of servicio.repuestos) {
+        await tx.itemOrden.create({
+          data: {
+            ordenId,
+            repuestoId: linea.repuesto.id,
+            descripcion: linea.repuesto.nombre,
+            cantidad: linea.cantidad,
+            precioUnitario: linea.repuesto.precioVenta,
+          },
+        });
+      }
+    });
+  } catch (err) {
+    return { error: friendlyPrismaErrorMessage(err, "No se pudo aplicar el servicio"), success: false, agregados: null };
+  }
+
+  revalidatePath(`/ordenes/${ordenId}`);
+  return {
+    error: null,
+    success: true,
+    agregados: { manoDeObra: conManoDeObra, repuestos: servicio.repuestos.length },
+  };
 }

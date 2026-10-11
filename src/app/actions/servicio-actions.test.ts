@@ -6,10 +6,17 @@ vi.mock("@/lib/auth/guards", () => ({
   requireSession: vi.fn(),
 }));
 
+const tx = {
+  manoDeObra: { create: vi.fn() },
+  itemOrden: { create: vi.fn() },
+};
+
 const db = {
   servicio: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   servicioRepuesto: { upsert: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
   repuesto: { findFirst: vi.fn() },
+  ordenTrabajo: { findFirst: vi.fn() },
+  $transaction: (fn: (cliente: typeof tx) => unknown) => fn(tx),
 };
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -18,16 +25,19 @@ import {
   actualizarCantidadRepuestoServicioAction,
   actualizarServicioAction,
   agregarRepuestoAServicioAction,
+  aplicarServicioAOrdenAction,
   crearServicioAction,
   listServicios,
   quitarRepuestoDeServicioAction,
   toggleServicioActivoAction,
+  type AplicarServicioFormState,
   type ServicioFormState,
   type ServicioRepuestoFormState,
 } from "./servicio-actions";
 
 const inicial: ServicioFormState = { error: null, success: false };
 const inicialRepuesto: ServicioRepuestoFormState = { error: null, success: false, cantidad: null };
+const inicialAplicar: AplicarServicioFormState = { error: null, success: false, agregados: null };
 const ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 const TECNICO = { user: { id: "u2", role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
@@ -43,6 +53,9 @@ beforeEach(() => {
   db.servicio.findFirst.mockResolvedValue(null);
   db.servicio.findUnique.mockResolvedValue({ id: "s1", nombre: "Cambio de aceite", activo: true });
   db.repuesto.findFirst.mockResolvedValue({ id: "r1", nombre: "Filtro de aceite" });
+  db.ordenTrabajo.findFirst.mockResolvedValue({ estado: "EN_PROCESO", factura: null, mecanicoId: "m1" });
+  tx.manoDeObra.create.mockResolvedValue({});
+  tx.itemOrden.create.mockResolvedValue({});
 });
 
 describe("listServicios", () => {
@@ -288,5 +301,146 @@ describe("cantidad y quitar repuesto del kit", () => {
     db.servicioRepuesto.deleteMany.mockResolvedValue({ count: 0 });
 
     expect((await quitarRepuestoDeServicioAction("s1", "r9")).error).toBe("El repuesto no está en el kit de este servicio");
+  });
+});
+
+describe("aplicarServicioAOrdenAction", () => {
+  function kit(repuestos: { cantidad: number; repuesto: { id: string; nombre: string; precioVenta: number } }[]) {
+    db.servicio.findFirst.mockResolvedValue({
+      activo: true,
+      nombre: "Cambio de aceite",
+      precioManoObra: 45000,
+      repuestos,
+    });
+  }
+
+  it("crea la mano de obra y los repuestos del kit en una transacción, heredando el mecánico de la orden", async () => {
+    kit([
+      { cantidad: 1, repuesto: { id: "r1", nombre: "Filtro de aceite", precioVenta: 25000 } },
+      { cantidad: 2, repuesto: { id: "r2", nombre: "Aceite 5W30", precioVenta: 40000 } },
+    ]);
+
+    const r = await aplicarServicioAOrdenAction("o1", inicialAplicar, fd({ servicioId: " s1 " }));
+
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION", "TECNICO"]);
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "o1", sedeId: "sede-1" } }),
+    );
+    // D10: el kit se resuelve solo con los repuestos de la sede activa.
+    expect(db.servicio.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "s1" },
+        select: expect.objectContaining({
+          repuestos: expect.objectContaining({ where: { repuesto: { bodega: { sedeId: "sede-1" } } } }),
+        }),
+      }),
+    );
+    expect(tx.manoDeObra.create).toHaveBeenCalledWith({
+      data: { ordenId: "o1", descripcion: "Cambio de aceite", valor: 45000, mecanicoId: "m1" },
+    });
+    // El precio sale del precioVenta actual de cada repuesto, no del kit.
+    expect(tx.itemOrden.create).toHaveBeenNthCalledWith(1, {
+      data: { ordenId: "o1", repuestoId: "r1", descripcion: "Filtro de aceite", cantidad: 1, precioUnitario: 25000 },
+    });
+    expect(tx.itemOrden.create).toHaveBeenNthCalledWith(2, {
+      data: { ordenId: "o1", repuestoId: "r2", descripcion: "Aceite 5W30", cantidad: 2, precioUnitario: 40000 },
+    });
+    expect(r).toEqual({ error: null, success: true, agregados: { manoDeObra: true, repuestos: 2 } });
+  });
+
+  it("un kit con precio de mano de obra 0 solo agrega repuestos", async () => {
+    db.servicio.findFirst.mockResolvedValue({
+      activo: true,
+      nombre: "Kit pastillas",
+      precioManoObra: 0,
+      repuestos: [{ cantidad: 1, repuesto: { id: "r1", nombre: "Pastillas", precioVenta: 90000 } }],
+    });
+
+    const r = await aplicarServicioAOrdenAction("o1", inicialAplicar, fd({ servicioId: "s1" }));
+
+    expect(tx.manoDeObra.create).not.toHaveBeenCalled();
+    expect(tx.itemOrden.create).toHaveBeenCalledTimes(1);
+    expect(r.agregados).toEqual({ manoDeObra: false, repuestos: 1 });
+  });
+
+  it("un servicio sin repuestos en la sede activa solo agrega mano de obra", async () => {
+    kit([]);
+
+    const r = await aplicarServicioAOrdenAction("o1", inicialAplicar, fd({ servicioId: "s1" }));
+
+    expect(tx.itemOrden.create).not.toHaveBeenCalled();
+    expect(tx.manoDeObra.create).toHaveBeenCalledTimes(1);
+    expect(r.agregados).toEqual({ manoDeObra: true, repuestos: 0 });
+  });
+
+  it("sin nada que agregar devuelve error y no escribe nada (D11)", async () => {
+    db.servicio.findFirst.mockResolvedValue({ activo: true, nombre: "Kit vacío", precioManoObra: 0, repuestos: [] });
+
+    const r = await aplicarServicioAOrdenAction("o1", inicialAplicar, fd({ servicioId: "s1" }));
+
+    expect(r).toEqual({ error: "El servicio no tiene nada que agregar", success: false, agregados: null });
+    expect(tx.manoDeObra.create).not.toHaveBeenCalled();
+    expect(tx.itemOrden.create).not.toHaveBeenCalled();
+  });
+
+  it("rechaza un servicio inactivo", async () => {
+    db.servicio.findFirst.mockResolvedValue({
+      activo: false,
+      nombre: "Cambio de aceite",
+      precioManoObra: 45000,
+      repuestos: [],
+    });
+
+    const r = await aplicarServicioAOrdenAction("o1", inicialAplicar, fd({ servicioId: "s1" }));
+
+    expect(r.error).toBe("El servicio no está disponible");
+    expect(tx.manoDeObra.create).not.toHaveBeenCalled();
+  });
+
+  it("rechaza una orden de otra sede o inexistente", async () => {
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await aplicarServicioAOrdenAction("o-ajena", inicialAplicar, fd({ servicioId: "s1" }));
+
+    expect(r).toEqual({ error: "Orden no encontrada", success: false, agregados: null });
+    expect(db.servicio.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("rechaza una orden no mutable, con el mensaje del guard", async () => {
+    db.ordenTrabajo.findFirst.mockResolvedValue({ estado: "ENTREGADA", factura: null, mecanicoId: null });
+
+    const r = await aplicarServicioAOrdenAction("o1", inicialAplicar, fd({ servicioId: "s1" }));
+
+    expect(r.error).toBe("No se puede modificar una orden en estado ENTREGADA.");
+    expect(db.servicio.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("rechaza una orden ya facturada", async () => {
+    db.ordenTrabajo.findFirst.mockResolvedValue({ estado: "TERMINADA", factura: { id: "f1" }, mecanicoId: null });
+
+    const r = await aplicarServicioAOrdenAction("o1", inicialAplicar, fd({ servicioId: "s1" }));
+
+    expect(r.error).toBe("No se puede modificar una orden que ya tiene una factura generada.");
+  });
+
+  it("exige un servicio seleccionado antes de tocar la base", async () => {
+    const r = await aplicarServicioAOrdenAction("o1", inicialAplicar, fd({ servicioId: "   " }));
+
+    expect(r.error).toBe("Selecciona un servicio");
+    expect(db.ordenTrabajo.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("el error a mitad de la transacción se propaga como error de la action", async () => {
+    kit([
+      { cantidad: 1, repuesto: { id: "r1", nombre: "Filtro de aceite", precioVenta: 25000 } },
+      { cantidad: 1, repuesto: { id: "r2", nombre: "Aceite 5W30", precioVenta: 40000 } },
+    ]);
+    tx.itemOrden.create.mockRejectedValueOnce(new Error("boom"));
+
+    const r = await aplicarServicioAOrdenAction("o1", inicialAplicar, fd({ servicioId: "s1" }));
+
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("No se pudo aplicar el servicio");
+    expect(r.agregados).toBeNull();
   });
 });

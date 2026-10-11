@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { servicioInputSchema, servicioRepuestoInputSchema } from "./servicio";
+import { aplicarServicioInputSchema, servicioInputSchema, servicioRepuestoInputSchema } from "./servicio";
 
 const servicioBase = { nombre: "Cambio de aceite", precioManoObra: "45000" };
 
@@ -57,5 +57,14 @@ describe("servicioRepuestoInputSchema", () => {
     const r = servicioRepuestoInputSchema.safeParse({ repuestoId: "rep-1", cantidad: "1", ...cambio });
     expect(r.success).toBe(false);
     expect(r.error?.issues[0]?.message).toBe(mensaje);
+  });
+});
+
+describe("aplicarServicioInputSchema", () => {
+  it("exige un servicio seleccionado y recorta el id", () => {
+    expect(aplicarServicioInputSchema.parse({ servicioId: " s1 " }).servicioId).toBe("s1");
+    expect(aplicarServicioInputSchema.safeParse({ servicioId: "   " }).error?.issues[0]?.message).toBe(
+      "Selecciona un servicio",
+    );
   });
 });

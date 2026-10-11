@@ -33,3 +33,8 @@ export const servicioRepuestoInputSchema = z.object({
     .min(1, "La cantidad mínima es 1")
     .max(1000, "La cantidad es demasiado alta"),
 });
+
+/** Servicio elegido en el selector de "aplicar a la orden / cotización". */
+export const aplicarServicioInputSchema = z.object({
+  servicioId: z.string().trim().min(1, "Selecciona un servicio"),
+});

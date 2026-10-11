@@ -8,10 +8,12 @@ import { listBodegas } from "@/app/actions/bodega-actions";
 import { listProveedores } from "@/app/actions/proveedor-actions";
 import { listDviChecklistItems } from "@/app/actions/dvi-checklist-item-actions";
 import { listAnticiposDeOrden } from "@/app/actions/anticipo-actions";
+import { listServicios } from "@/app/actions/servicio-actions";
 import { AnticiposSection } from "./anticipos-section";
 import { AsignarMecanicoForm } from "./asignar-mecanico-form";
 import { CambiarEstadoForm } from "./cambiar-estado-form";
 import { AgregarItemForm } from "./agregar-item-form";
+import { AplicarServicioForm } from "./aplicar-servicio-form";
 import { AgregarManoObraForm } from "./agregar-mano-obra-form";
 import { DviChecklistForm } from "./dvi-checklist-form";
 import { DviFotoForm } from "./dvi-foto-form";
@@ -186,7 +188,7 @@ function InfoField({ label, value }: { label: string; value: ReactNode }) {
 
 export default async function OrdenDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [session, orden, repuestos, tecnicos, bodegas, proveedores, dviItems, anticipos] = await Promise.all([
+  const [session, orden, repuestos, tecnicos, bodegas, proveedores, dviItems, anticipos, servicios] = await Promise.all([
     requireSession(),
     getOrden(id),
     listRepuestoOptions(),
@@ -195,6 +197,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
     listProveedores(),
     listDviChecklistItems(),
     listAnticiposDeOrden(id),
+    listServicios({ soloActivos: true }),
   ]);
 
   if (!orden) {
@@ -335,13 +338,17 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               {!orden.factura && (
-                <AgregarItemForm
-                  ordenId={orden.id}
-                  repuestos={repuestos}
-                  bodegas={bodegas}
-                  proveedores={proveedores}
-                  puedeCrearRepuesto={session.user.role !== "TECNICO"}
-                />
+                <>
+                  <AgregarItemForm
+                    ordenId={orden.id}
+                    repuestos={repuestos}
+                    bodegas={bodegas}
+                    proveedores={proveedores}
+                    puedeCrearRepuesto={session.user.role !== "TECNICO"}
+                  />
+                  {/* Una sola instancia: el servicio escribe en Ítems y en Mano de obra. */}
+                  <AplicarServicioForm ordenId={orden.id} servicios={servicios} />
+                </>
               )}
               <DataTable
                 columns={itemsColumns}
