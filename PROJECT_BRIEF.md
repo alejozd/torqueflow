@@ -6,9 +6,9 @@
 
 TorqueFlow is a multi-tenant SaaS platform for automotive repair shops ("talleres"/"servitecas"), rebuilt from scratch after a legacy Delphi system (`Imperio`) failed on user adoption, not on technical merit. It replaces that legacy logic entirely — the design was opened to what the 2026 market actually expects (Tekmetric, AutoLeap, Orderry-class competitors), not constrained by the old system's data model.
 
-**Current state: all 9 planned phases are complete, reviewed, and merged to `main`.** There is no active phase; the project is in technical-debt/hardening territory (Fase 10+) unless a new phase is explicitly started. Development happens directly on `main`, no feature branches or PRs — an explicit, standing project convention, not an oversight.
+**Current state: the 9 v1 phases (Fase 1–9) are complete, and so are the first four of the "módulos faltantes" roadmap (Fases 15–25): 15, 16, 17 and 18 are merged to `main`.** No phase is active right now; the next one in the roadmap's suggested order is **Fase 19** (`fase19-equipo-tecnico`). **Since Fase 15 the branch convention is one branch per phase**, not direct-to-`main`: `faseN-<slug>` is created from `main`, tasks are committed on it (`faseN-task X: …`, pushed after each one) and it is merged back with `git merge --no-ff` once its final review and fix round are done — no PRs, no CI gate. Nothing lands on `main` directly except `docs:`-only commits. Phases 19–25 have no branch yet; one gets created when the phase starts.
 
-Each phase went through: a written plan (`writing-plans` skill) → task-by-task implementation (subagent-driven or inline, per `RULES.md`) → task-scoped review → a final whole-branch review with a fix round before being marked "Ready to merge". This is recorded in full in `.superpowers/sdd/progress.md`.
+Each phase went through: a written plan (`writing-plans` skill) → task-by-task implementation (subagent-driven or inline, per `RULES.md`) → task-scoped review → a final whole-branch review with a fix round before the `--no-ff` merge. Fases 1–9 are recorded in full in `.superpowers/sdd/progress.md`; **from Fase 15 on the per-phase record is the spec/plan document itself** (`docs/superpowers/plans/2026-10-10-faseN-*.md`), which is kept updated with the review findings and what the fix round changed.
 
 ## 2. Tech stack (verified against `package.json`)
 
@@ -114,9 +114,9 @@ docs/design/                # architecture design doc + notes
 - **Never leak a full `Usuario`/DB row to a client component** — always `select` the needed fields (`{id, nombre}`, etc.), never `include: { relation: true }` when the relation carries a password hash or similar. This was a Critical finding twice (Fase 2's `listTecnicos`, and flagged again for `historial-actions.ts`'s `autor` relation).
 - **Debt from a previous phase is out of scope during an active phase** (`RULES.md` §7) — noted in passing, revisited only when explicitly prioritized.
 
-## 7. Roadmap — all phases complete
+## 7. Roadmap
 
-Per the design doc §11 and `.superpowers/sdd/progress.md`:
+**Fases 1–9 (v1)** — per the design doc §11 and `.superpowers/sdd/progress.md`:
 
 1. **Fase 1** — Núcleo: auth, multi-tenant foundation, Clientes/Vehículos/Historial. ✅
 2. **Fase 2** — Órdenes de trabajo + Inspección Vehicular Digital (DVI). ✅
@@ -128,6 +128,14 @@ Per the design doc §11 and `.superpowers/sdd/progress.md`:
 8. **Fase 8** — Notificaciones automáticas al cliente (email/SMTP, not WhatsApp/SMS — see §4). ✅
 9. **Fase 9** — Panel de super-admin + planes y niveles de suscripción, usuarios/roles CRUD. ✅ — 579/582 unit tests passing (3 skipped: 1 known shared-schema migration-contention flake, clean in isolation), 2/2 e2e in isolation, `tsc --noEmit` clean.
 
+**Fases 15–25 ("módulos faltantes")** — roadmap and per-phase scope in `docs/superpowers/plans/2026-10-10-roadmap-modulos-faltantes.md`; each phase on its own branch, merged `--no-ff` when closed:
+
+- **Fase 15** (`fase15-vehiculo-vencimientos`) — complete vehicle data (SOAT, tecnomecánica, VIN, carro/moto) + expiry reminders. ✅ merged `ea21123`
+- **Fase 16** (`fase16-gastos-rentabilidad`) — operating expenses with editable categories and recurring templates, plus real profitability (billed − expenses, break-even). ✅ merged `b565eb6`
+- **Fase 17** (`fase17-caja-cartera-anticipos`) — daily cash drawer (opening/arqueo/closing), receivables ageing, and customer deposits applied when invoicing. ✅ merged `3553d30`
+- **Fase 18** (`fase18-catalogo-servicios`) — service catalog (base labour price) and kits (service + parts), applicable to an order or a quote; a kit never crosses sedes. ✅ merged `8d6383f` — 204 files / 1531 tests passing, `tsc --noEmit` clean, `next build` OK, migration applied to `taller_dev` and `taller_dev_reference`
+- **Fases 19–25** — planned, no branch yet (each gets one when it starts): 19 technical team (payroll split, performance, hours), 20 Excel import, 21 intake/warranties, 22 shop-floor flow, 23 customer portal, 24 counter sales & payables, 25 fleets/RUNT/AI assistant/accounting export.
+
 Explicitly out of scope for v1 (design doc §6, YAGNI): automated subscription billing (Stripe), native mobile app, external accounting integrations (QuickBooks), multi-language support.
 
 Known accepted technical debt (see `.superpowers/sdd/progress.md` Fase 9 summary for the full list): role demotion/deletion doesn't invalidate an already-issued JWT until it expires naturally (being addressed — check `git log` per §4); an intermittent Playwright e2e flake under 2-worker concurrency (infra timing, not application logic); a handful of Minor findings from final reviews, documented per-phase.
@@ -135,7 +143,7 @@ Known accepted technical debt (see `.superpowers/sdd/progress.md` Fase 9 summary
 ## 8. Key reference files
 
 - **Design doc**: `docs/design/2026-08-02-taller-saas-multitenant-design.md` — architecture rationale, multi-tenancy decision, plan/pricing table, full roadmap reasoning.
-- **Progress ledger**: `.superpowers/sdd/progress.md` — authoritative, chronological, phase-by-phase task-by-task record. **Read this, not this brief, for anything requiring exact commit hashes or the precise history of a decision.**
+- **Progress ledger**: `.superpowers/sdd/progress.md` — chronological, phase-by-phase record, but it **stops at 2026-10-10 (Fases 1–9 plus the pre-roadmap work)**; it has no entries for Fases 15–18. For those, the per-phase spec in `docs/superpowers/plans/` is the record, and `git log --oneline main` is the source of truth for hashes.
 - **Phase plans**: `docs/superpowers/plans/YYYY-MM-DD-torqueflow-phaseN-*.md`.
 - **Task briefs/reports**: `.superpowers/sdd/task-N-brief.md` / `task-N-report.md` (per active-phase task, numbering resets each phase).
 - **Operating rules**: `RULES.md` (commit/retry/reporting discipline), `AGENTS.md` (Next.js version-drift warning — this Next.js version has breaking changes vs. training data, read `node_modules/next/dist/docs/` before assuming API behavior).
