@@ -14,7 +14,7 @@ Each phase went through: a written plan (`writing-plans` skill) → task-by-task
 
 | Layer | Choice | Version |
 |---|---|---|
-| Framework | Next.js (App Router, full-stack) | **16.3.0** |
+| Framework | Next.js (App Router, full-stack) | **16.4.0** |
 | UI | React | 19.2.8 |
 | ORM | Prisma | **6.19.3 — pinned exact, not `^`** (both `prisma` and `@prisma/client`) |
 | Database | PostgreSQL | schema-per-tenant (see §3) |
@@ -35,7 +35,7 @@ No separate backend repo — Next.js unifies API and UI in one deployable. Hosti
 
 **Tenant resolution: subdomain, one level under a base domain** (`<slug>.zdevs.uk`, e.g. `taller-perez.zdevs.uk`) — deliberately not nested (`*.torqueflow.zdevs.uk`) because Cloudflare's free Universal SSL only covers first-level wildcards. Resolution is split across two layers:
 - **Edge (`src/middleware.ts`)**: `extractTenantSlug(host, BASE_DOMAIN)` — pure, no DB access, Edge-safe — tags the request with the `TENANT_SLUG_HEADER` header. `BASE_DOMAIN` defaults to `zdevs.uk`, and the app throws at module load if it's unset in production (fails loud instead of silently misrouting).
-  - Known debt: Next.js 16.3.0 deprecated `middleware.ts` in favor of `proxy.ts`. Still fully functional (confirmed), not renamed yet because too many other files reference it by name.
+  - Note: Next.js 16.4.0 deprecated `middleware.ts` in favor of `proxy.ts`; the rename **already landed** (`src/proxy.ts`, which today only sets the per-request CSP nonce).
 - **Node (`src/lib/tenant/resolve-tenant.ts`)**: `resolveTenant()` does the actual DB lookup against `publicDb` (schema-cached, see `src/lib/db/tenant-client.ts`'s `LruCache`, capped at `MAX_CACHED_TENANT_CLIENTS = 20`).
 
 **Two fully independent NextAuth v5 instances, deliberately not sharing code or types:**
