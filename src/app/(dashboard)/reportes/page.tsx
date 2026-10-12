@@ -31,12 +31,12 @@ const COLUMNS: DataTableColumn<FilaProductividad>[] = [
   {
     header: "Órdenes entregadas",
     className: "text-right",
-    cell: (fila) => <span className="font-mono">{fila.ordenesCompletadas}</span>,
+    cell: (fila) => <span className="font-mono">{fila.ordenes}</span>,
   },
   {
     header: "Mano de obra",
     className: "text-right",
-    cell: (fila) => <span className="font-mono font-medium">{formatoMoneda.format(fila.montoManoDeObra)}</span>,
+    cell: (fila) => <span className="font-mono font-medium">{formatoMoneda.format(fila.montoManoObra)}</span>,
   },
 ];
 

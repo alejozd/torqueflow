@@ -206,7 +206,13 @@ describe("getReporteProductividad", () => {
       select: {
         mecanicoId: true,
         mecanico: { select: { nombre: true } },
-        manoDeObra: { select: { valor: true } },
+        manoDeObra: {
+          select: {
+            valor: true,
+            mecanicoId: true,
+            mecanico: { select: { nombre: true } },
+          },
+        },
       },
     });
   });
@@ -256,15 +262,37 @@ describe("getReporteProductividad", () => {
       {
         mecanicoId: "t1",
         mecanicoNombre: "Ana",
-        ordenesCompletadas: 2,
-        montoManoDeObra: 70,
+        ordenes: 2,
+        trabajos: 2,
+        montoManoObra: 70,
       },
       {
         mecanicoId: null,
         mecanicoNombre: "Sin asignar",
-        ordenesCompletadas: 1,
-        montoManoDeObra: 0,
+        ordenes: 1,
+        trabajos: 0,
+        montoManoObra: 0,
       },
+    ]);
+  });
+
+  it("atribuye cada línea a su mecánico aunque no sea el de la orden (D3)", async () => {
+    mockOrdenFindMany.mockResolvedValue([
+      {
+        mecanicoId: "t1",
+        mecanico: { nombre: "Ana" },
+        manoDeObra: [
+          { valor: "30", mecanicoId: "t1", mecanico: { nombre: "Ana" } },
+          { valor: "40", mecanicoId: "t2", mecanico: { nombre: "Beto" } },
+        ],
+      },
+    ]);
+
+    const result = await getReporteProductividad(FILTROS_VALIDOS);
+
+    expect(result.filas).toEqual([
+      { mecanicoId: "t2", mecanicoNombre: "Beto", ordenes: 0, trabajos: 1, montoManoObra: 40 },
+      { mecanicoId: "t1", mecanicoNombre: "Ana", ordenes: 1, trabajos: 1, montoManoObra: 30 },
     ]);
   });
 });
