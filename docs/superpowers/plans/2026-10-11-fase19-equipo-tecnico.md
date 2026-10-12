@@ -1,7 +1,7 @@
-# Fase 19 — Equipo técnico: liquidación de mecánicos, horas y rendimiento (spec + plan de tareas)
+# Fase 19 — Equipo técnico: liquidación de mecánicos por actividades (spec + plan de tareas)
 
-> Rama: `fase19-equipo-tecnico` · Roadmap ítems 8, 18 y 21
-> (`docs/superpowers/plans/2026-10-10-roadmap-modulos-faltantes.md`).
+> Rama: `fase19-equipo-tecnico` · Roadmap ítems **8 y 18** (el ítem 21, horas por técnico, queda
+> **pospuesto**: en este taller se liquida por actividades, no por horas — ver D7).
 > Documento **autocontenido**: puede ejecutarlo cualquier agente (Claude, DeepSeek, etc.)
 > sin el historial de la conversación. Leer completo antes de empezar.
 > **Estado: plan escrito, NO ejecutado.** Empezar por la Task 1.
@@ -38,24 +38,31 @@
 ### Patrones del proyecto a reutilizar (leerlos)
 - Server actions guard → Zod → BD → `revalidatePath` con errores de datos (no excepciones):
   `src/app/actions/gasto-actions.ts` y `src/app/actions/categoria-gasto-actions.ts`.
-- **Periodos mensuales `YYYY-MM`**: `src/lib/gastos/periodo.ts` (`periodoActualBogota`,
-  `rangoDelPeriodo`, `periodoAnterior`, `ETIQUETA_MES`) y `src/app/(dashboard)/gastos/page.tsx`
-  (selector de periodo por `searchParams`).
-- **Pendientes del mes generados bajo demanda** (el patrón que copia esta fase):
-  `src/lib/gastos/recurrentes-pendientes.ts` + `src/app/(dashboard)/gastos/recurrentes-pendientes.tsx`.
+- **Periodos y calendario de Bogotá**: `src/lib/gastos/periodo.ts` (`periodoActualBogota`,
+  `rangoDelPeriodo`, `ETIQUETA_MES`) y `src/lib/fecha-bogota.ts` (`formatoDiaBogota`). La Task 2
+  generaliza esa idea a tres frecuencias; **no** basta con reutilizar el módulo de gastos.
+- **Configuración singleton del taller**: `model ConfiguracionTaller` (id `"singleton"`), actions en
+  `src/app/actions/configuracion-taller-actions.ts` (`getDiasAvisoVencimiento` / `guardarDiasAvisoAction`,
+  con `requireRole(["ADMIN"])` y `configuracionTaller.upsert`) y su formulario
+  `src/app/(dashboard)/configuracion-smtp/recordatorios-form.tsx` — el precedente exacto de "un ajuste
+  del taller editable por ADMIN".
+- **Pendientes del periodo generados bajo demanda**: `src/lib/gastos/recurrentes-pendientes.ts` +
+  `src/app/(dashboard)/gastos/recurrentes-pendientes.tsx`, y el selector de periodo por `searchParams`
+  de `src/app/(dashboard)/gastos/page.tsx`.
 - **Reporte de productividad existente**: `src/lib/reportes/productividad.ts` (puro) y
   `getReporteProductividad` en `src/app/actions/reporte-actions.ts` (órdenes `ENTREGADA` con
   `entregadaAt` en el rango, scoped por sede; el reporte es ADMIN).
 - **Gastos como única vía de dinero que sale**: `crearGastoAction` (categoría, `pagadoEnEfectivo`,
   `fecha`), `src/lib/gastos/validaciones-db.ts` (`resolverSede`/`validarSede`/`validarCategoria`) y
   `src/lib/caja/resumen.ts` (los gastos `pagadoEnEfectivo` son egresos del arqueo).
-- **Siembra por migración** de categorías del sistema: `prisma/tenant/migrations/20261011120000_gastos/migration.sql`
-  (`INSERT INTO "categorias_gasto" ...`, ids legibles `cat_*`).
-- **Auditoría**: `registrarEventoAuditoria(tx, evento)` en `src/lib/auditoria/registrarEvento.ts`
-  (siempre dentro del `tx` de la action) + catálogo de etiquetas en `src/lib/auditoria/catalogo.ts`
-  (el `Record<TipoEventoAuditoria, string>` obliga a completarlo: tsc lo verifica).
-- **Edición en línea de una fila** (cantidad editable + confirmación): el editor del kit de
-  `src/app/(dashboard)/servicios/kit-repuestos-editor.tsx` (Fase 18).
+- **Siembra por migración** de categorías del sistema:
+  `prisma/tenant/migrations/20261011120000_gastos/migration.sql` (`INSERT INTO "categorias_gasto" ...`,
+  ids legibles `cat_*`, la última sembrada usa `orden = 10`).
+- **Auditoría**: `registrarEventoAuditoria(tx, evento)` (`src/lib/auditoria/registrarEvento.ts`,
+  siempre dentro del `tx` de la action) + catálogo en `src/lib/auditoria/catalogo.ts` (el
+  `Record<TipoEventoAuditoria, string>` obliga a completarlo: tsc lo verifica).
+- **Fila con edición en línea y confirmación**: el editor del kit de la Fase 18
+  (`src/app/(dashboard)/servicios/kit-repuestos-editor.tsx`) y `ConfirmacionEnLinea`.
 - Guards `requireRole`; BD `getTenantDb(session.user.tenantSchema)`; sede `src/lib/sede/scope.ts`;
   dinero `roundMoney`; `Decimal` → `number` antes de componentes cliente; toasts `sonner`.
 
@@ -63,33 +70,39 @@
 
 ## 1. Objetivo y decisiones (revisar/aprobar antes de ejecutar)
 
-Que el taller pueda **liquidar lo que le paga a cada mecánico** en un periodo, con las horas como
-tercer dato del rendimiento: hoy se sabe cuántas órdenes entregó y cuánta mano de obra produjo cada
-técnico (`/reportes`), pero no cuántas horas le costó ni existe forma de registrar el pago.
+Que el taller pueda **liquidar lo que le paga a cada mecánico** por lo que hizo en el periodo: hoy
+`/reportes` ya dice cuántas órdenes entregó y cuánta mano de obra produjo cada técnico, pero no existe
+forma de registrar el pago, ni de elegir cada cuánto se liquida.
 
 | # | Decisión |
 |---|---|
-| D1 | Una **liquidación** es un documento por **(periodo, técnico, sede)**: al generarla congela los números del cálculo. No se borra: se **anula** (como `Anticipo`). |
-| D2 | **Base de cálculo**: líneas de `ManoDeObra` de las órdenes en estado **ENTREGADA** cuya `entregadaAt` cae en el periodo y en la sede. Es exactamente la regla del reporte de productividad existente, para que el reporte y la liquidación nunca digan cosas distintas. |
+| D1 | Una **liquidación** es un documento por **(periodo, técnico, sede)**: al generarla congela los números del cálculo. No se borra: se **anula** (mismo criterio que `Anticipo`). |
+| D2 | **Base de cálculo**: líneas de `ManoDeObra` de las órdenes en estado **ENTREGADA** cuya `entregadaAt` cae en la ventana del periodo y en la sede — exactamente la regla del reporte de productividad, para que reporte y liquidación nunca digan cosas distintas. |
 | D3 | **Atribución del trabajo**: cada línea de mano de obra se atribuye a **su propio `mecanicoId`**; si es `null`, al mecánico de la orden. *(Cambia los números del reporte actual en el caso de una línea con mecánico distinto al de la orden: es una decisión explícita, no un efecto colateral.)* |
-| D4 | **Esquema por técnico**: `PORCENTAJE` (% de la mano de obra producida), `FIJO` (monto por periodo) o `MIXTO` (base fija + %). Un técnico **sin esquema** no se liquida: la fila lo avisa y la generación lo omite. |
-| D5 | **Periodo mensual `YYYY-MM`**, reutilizando `src/lib/gastos/periodo.ts`. Quincenas quedan fuera de alcance: la clave única es `(periodo, técnico, sede)`, así que añadirlas más adelante sería un cambio de esquema (una columna de quincena en la clave), no solo de UI. |
-| D6 | **Horas**: campo opcional `ManoDeObra.horas` (`Decimal(5,2)`), registrado por quien puede agregar mano de obra (ADMIN/RECEPCION/TECNICO) y editable en línea en el detalle de la orden. `null` = sin registrar, distinto de `0`. |
-| D7 | **Rendimiento por técnico** (`/reportes`): a las columnas actuales (órdenes entregadas, mano de obra) se añaden **horas** y **$/hora** (eficiencia; "—" si no hay horas registradas). |
-| D8 | **El pago de una liquidación se registra como un `Gasto`** de la sede, con una categoría del sistema sembrada por la migración (`cat_liquidacion_mecanicos`), y `pagadoEnEfectivo` cuando el método es `EFECTIVO`. Así el pago aparece en el arqueo de caja y en la rentabilidad neta **sin plomería nueva**. Métodos: `MetodoPago` salvo `ANTICIPO`. |
-| D9 | **Estados**: `PENDIENTE` → `PAGADA` (crea el gasto) o `ANULADA`. Anular una `PAGADA` **borra su gasto en la misma transacción** (es un pago equivocado; el `AuditLog` guarda el rastro). Regenerar el periodo **reutiliza la fila** existente en vez de crear otra. Caso límite: si alguien borra el gasto desde `/gastos`, la liquidación queda `PAGADA` con `gastoId` en `null` (la FK es `onDelete: SetNull`) — la página la muestra igual, sin enlace al gasto. |
+| D4 | **Esquema por técnico**: `PORCENTAJE` (% de la mano de obra que produjo), `FIJO` (monto por periodo) o `MIXTO` (base fija + %). Un técnico **sin esquema** no se liquida: la fila lo avisa y la generación lo omite. |
+| D5 | **La frecuencia la define el ADMIN del taller**: `ConfiguracionTaller.frecuenciaLiquidacion` ∈ `SEMANAL` / `QUINCENAL` / `MENSUAL` (por defecto `MENSUAL`), editable en `/liquidaciones`. La clave del periodo es un string canónico por frecuencia (`2026-10`, `2026-10-Q2`, `2026-W42`) y **cada liquidación guarda su `frecuencia` como snapshot**, así que cambiarla no reinterpreta lo ya liquidado. Si algún día hace falta frecuencia *por técnico*, se mueve al esquema (D4). |
+| D6 | **Guarda de solapamiento**: al generar, si ya existe una liquidación del mismo técnico y sede cuya ventana **se solape** con la del periodo (caso típico: se cambió la frecuencia a mitad de mes), se **omite** y la página lo avisa. Es lo que impide pagar dos veces el mismo trabajo. |
+| D7 | **Se liquida por actividades, no por horas** (así funciona este taller): el snapshot guarda `ordenes` y `trabajos` (líneas de mano de obra atribuidas) además de `montoManoObra`, y el rendimiento por técnico muestra esas cifras. El **ítem 21 del roadmap (horas por técnico) queda pospuesto**; no se añade `horas` a `ManoDeObra` en esta fase. |
+| D8 | **El pago de una liquidación se registra como un `Gasto`** de la sede, con una categoría del sistema sembrada por la migración (`cat_liquidacion_mecanicos`), y `pagadoEnEfectivo` cuando el método es `EFECTIVO`. Así el pago entra al arqueo de caja y a la rentabilidad neta **sin plomería nueva**. Métodos: `MetodoPago` salvo `ANTICIPO`. |
+| D9 | **Estados**: `PENDIENTE` → `PAGADA` (crea el gasto) o `ANULADA`. Anular una `PAGADA` **borra su gasto en la misma transacción** (es un pago equivocado; el `AuditLog` guarda el rastro). Regenerar el periodo **reutiliza la fila** existente en vez de crear otra. Caso límite: si alguien borra el gasto desde `/gastos`, la liquidación queda `PAGADA` con `gastoId` en `null` (la FK es `onDelete: SetNull`) y la página la muestra igual, sin enlace al gasto. |
 | D10 | Mientras esté `PENDIENTE`, si el cálculo vivo difiere del congelado la página lo avisa y ofrece **Recalcular**; una `PAGADA` nunca se recalcula (el documento es el respaldo del pago). |
 | D11 | `ajuste` (a favor o en contra) con **motivo obligatorio** cuando no es 0; `total = montoCalculado + ajuste`. |
-| D12 | **Roles**: esquema de pago, generar, ajustar, pagar y anular = **ADMIN**; registrar/editar horas = ADMIN/RECEPCION/TECNICO; rendimiento = ADMIN (como el reporte actual). |
+| D12 | **Roles**: frecuencia, esquema de pago, generar, ajustar, pagar y anular = **ADMIN**; rendimiento por técnico = ADMIN (como el reporte actual). |
 | D13 | **Menú**: "Liquidaciones" en el grupo **Administración** (que ya solo ve ADMIN), como "Servicios" en Inventario (Fase 18). |
-| D14 | **Auditoría**: eventos nuevos `LIQUIDACION_GENERAR`, `LIQUIDACION_PAGAR`, `LIQUIDACION_ANULAR` y `LIQUIDACION_ESQUEMA_ACTUALIZAR`. |
-| D15 | Fuera de alcance: quincenas, adelantos/préstamos a técnicos, timesheet por día, horas por reloj de tiempo, PDF de la liquidación, liquidación de RECEPCION/ADMIN. |
+| D14 | **Auditoría**: eventos nuevos `LIQUIDACION_GENERAR`, `LIQUIDACION_PAGAR`, `LIQUIDACION_ANULAR`, `LIQUIDACION_ESQUEMA_ACTUALIZAR` y `LIQUIDACION_FRECUENCIA_ACTUALIZAR`. |
+| D15 | Fuera de alcance: horas/timesheet (pospuesto, D7), adelantos o préstamos a técnicos, PDF/impresión de la liquidación, liquidar a RECEPCION o ADMIN, y liquidación por técnico con frecuencia propia. |
 
 ---
 
 ## 2. Modelo de datos (Task 1)
 
 ```prisma
+enum FrecuenciaLiquidacion {
+  SEMANAL
+  QUINCENAL
+  MENSUAL
+}
+
 enum TipoEsquemaLiquidacion {
   PORCENTAJE
   FIJO
@@ -102,8 +115,8 @@ enum EstadoLiquidacion {
   ANULADA
 }
 
-/// Forma de pago de un técnico. Uno por usuario; el `porcentaje` aplica sobre la
-/// mano de obra producida y `montoFijo` es la base por periodo (D4).
+/// Forma de pago de un técnico. Uno por usuario; `porcentaje` aplica sobre la
+/// mano de obra que produjo y `montoFijo` es la base por periodo (D4).
 model EsquemaLiquidacion {
   id         String                 @id @default(cuid())
   usuarioId  String                 @unique @map("usuario_id")
@@ -117,23 +130,26 @@ model EsquemaLiquidacion {
   @@map("esquemas_liquidacion")
 }
 
-/// Documento de pago de un técnico en un periodo y una sede. Congela el esquema
-/// y los montos con los que se calculó (el esquema puede cambiar después) y el
-/// gasto que materializó el pago, si ya se pagó.
+/// Documento de pago de un técnico en un periodo y una sede. Congela la
+/// frecuencia con la que se leyó el periodo, el esquema y los montos con los que
+/// se calculó (cualquiera de los tres puede cambiar después) y el gasto que
+/// materializó el pago, si ya se pagó.
 model LiquidacionMecanico {
   id              String                 @id @default(cuid())
   periodo         String
+  frecuencia      FrecuenciaLiquidacion
   sedeId          String                 @map("sede_id")
   sede            Sede                   @relation(fields: [sedeId], references: [id], onDelete: Restrict)
   usuarioId       String                 @map("usuario_id")
   usuario         Usuario                @relation("LiquidacionesMecanico", fields: [usuarioId], references: [id], onDelete: Restrict)
   estado          EstadoLiquidacion      @default(PENDIENTE)
-  /// Snapshot del esquema y del cálculo al generar.
+  /// Snapshot de lo producido y del esquema al generar.
+  ordenes         Int
+  trabajos        Int
+  montoManoObra   Decimal                @map("monto_mano_obra") @db.Decimal(10, 2)
   tipo            TipoEsquemaLiquidacion
   porcentaje      Decimal?               @db.Decimal(5, 2)
   montoFijo       Decimal?               @map("monto_fijo") @db.Decimal(10, 2)
-  montoManoObra   Decimal                @map("monto_mano_obra") @db.Decimal(10, 2)
-  horas           Decimal                @db.Decimal(7, 2)
   montoCalculado  Decimal                @map("monto_calculado") @db.Decimal(10, 2)
   ajuste          Decimal                @default(0) @db.Decimal(10, 2)
   motivoAjuste    String?                @map("motivo_ajuste")
@@ -161,9 +177,11 @@ model LiquidacionMecanico {
 ```
 
 Además:
-- `ManoDeObra`: `horas Decimal(5,2)?` (`@map("horas")`).
-- Relaciones inversas en `Usuario` (`esquemaLiquidacion EsquemaLiquidacion?`, `liquidaciones LiquidacionMecanico[]` con sus tres nombres de relación), `Sede.liquidaciones` y `Gasto.liquidacion LiquidacionMecanico?`.
-- `TipoEventoAuditoria`: cuatro valores nuevos (D14).
+- `ConfiguracionTaller`: `frecuenciaLiquidacion FrecuenciaLiquidacion @default(MENSUAL) @map("frecuencia_liquidacion")` (la fila singleton que ya existe).
+- Relaciones inversas: `Usuario.esquemaLiquidacion`, `Usuario.liquidaciones` (tres relaciones con nombre),
+  `Sede.liquidaciones` y `Gasto.liquidacion LiquidacionMecanico?`.
+- `TipoEventoAuditoria`: los cinco valores nuevos (D14).
+- `ManoDeObra` **no** cambia en esta fase (D7).
 
 ---
 
@@ -172,152 +190,164 @@ Además:
 ### Task 1: Esquema, migración con siembra y validación
 
 **Archivos:** `prisma/tenant/schema.prisma`; `prisma/tenant/migrations/20261014120000_equipo_tecnico/migration.sql`;
-`src/lib/validation/liquidacion.ts` (+ test); `src/lib/validation/orden.ts`; `src/lib/auditoria/catalogo.ts`.
+`src/lib/validation/liquidacion.ts` (+ test); `src/lib/auditoria/catalogo.ts`.
 
 1. Agregar §2 al schema y generar la migración con
    `git show main:prisma/tenant/schema.prisma > "$TEMP/antes.prisma"` +
    `npx prisma migrate diff --from-schema-datamodel "$TEMP/antes.prisma" --to-schema-datamodel prisma/tenant/schema.prisma --script --output <carpeta>/migration.sql`.
-   `npx prisma validate` y `npx prisma generate`. Revisar el SQL: `ALTER TABLE "mano_de_obra" ADD COLUMN "horas"`,
-   las dos tablas nuevas, el único `(periodo, usuario_id, sede_id)` y las FK con `ON DELETE` correcto.
-   **Añadir a mano la siembra** al final del SQL, siguiendo el precedente de la Fase 16:
+   `npx prisma validate` y `npx prisma generate`. Revisar el SQL: `ALTER TABLE "configuracion_taller" ADD COLUMN
+   "frecuencia_liquidacion"`, las dos tablas nuevas, el único `(periodo, usuario_id, sede_id)` y las FK con su `ON DELETE`.
+   **Añadir a mano la siembra** al final, siguiendo el precedente de la Fase 16:
    ```sql
    INSERT INTO "categorias_gasto" ("id", "nombre", "orden") VALUES ('cat_liquidacion_mecanicos', 'Liquidación de mecánicos', 11);
    ```
 2. `src/lib/validation/liquidacion.ts` (tests primero):
-   - `esquemaLiquidacionInputSchema`: `tipo` enum; reglas cruzadas con `superRefine` (PORCENTAJE exige
+   - `frecuenciaLiquidacionSchema` (`z.enum(["SEMANAL", "QUINCENAL", "MENSUAL"])`).
+   - `periodoLiquidacionSchema`: string no vacío + `refine` de formato por frecuencia
+     (`MENSUAL → /^\d{4}-(0[1-9]|1[0-2])$/`, `QUINCENAL → /^\d{4}-(0[1-9]|1[0-2])-Q[12]$/`,
+     `SEMANAL → /^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$/`); el `refine` recibe la frecuencia por una factory
+     `periodoDeFrecuenciaSchema(frecuencia)`.
+   - `esquemaLiquidacionInputSchema`: `tipo` + reglas cruzadas con `superRefine` (PORCENTAJE exige
      `porcentaje` 0–100 y sin `montoFijo`; FIJO exige `montoFijo` > 0 sin `porcentaje`; MIXTO exige ambos).
    - `pagarLiquidacionInputSchema`: `metodoPago` (`EFECTIVO|TARJETA|TRANSFERENCIA|OTRO`), `referencia`
-     opcional (≤60), `fecha` (`fechaSchema` de `validation/reporte.ts`).
+     opcional (≤60), `fecha` (reutilizar `fechaSchema` de `src/lib/validation/reporte.ts`).
    - `ajusteLiquidacionInputSchema`: `ajuste` (coerce, −99 999 999,99 … 99 999 999,99) y `motivo`
      obligatorio (1–200) cuando `ajuste !== 0`.
-   - `periodoSchema` reutilizado de `validation/gasto.ts` (no duplicar el regex).
-3. `src/lib/validation/orden.ts`: `manoDeObraInputSchema.horas` opcional (`z.coerce.number().min(0.25,
-   "La cantidad mínima es 0,25 h").max(999.99, "Demasiadas horas")`) y `horasManoDeObraInputSchema`
-   (`{ horas }`) para la edición en línea.
-4. Tests: válidos por tipo, cada regla cruzada, horas en los límites (0,25 / 999,99 / 0 / 1000 / "abc"),
-   ajuste sin motivo, método `ANTICIPO` rechazado.
+3. `src/lib/auditoria/catalogo.ts`: los cinco tipos nuevos con sus etiquetas en español.
+4. Tests: válidos por tipo de esquema, cada regla cruzada, los tres formatos de periodo (válidos e
+   inválidos, incluido un periodo con la frecuencia equivocada), ajuste sin motivo, método `ANTICIPO`
+   rechazado, `frecuenciaLiquidacionSchema` rechazando un valor inventado.
 5. Verificar (§0.3), commit `fase19-task 1: esquema, migración y validación del equipo técnico`, **pedir aprobación**.
 
-### Task 2: Lógica pura (atribución, horas y cálculo de la liquidación)
+### Task 2: Lógica pura (periodos por frecuencia, atribución y cálculo)
 
-**Archivos:** `src/lib/liquidaciones/atribucion.ts` (+ test); `src/lib/liquidaciones/calculo.ts` (+ test);
-`src/lib/reportes/productividad.ts` (+ test).
+**Archivos:** `src/lib/liquidaciones/periodo.ts` (+ test); `src/lib/liquidaciones/atribucion.ts` (+ test);
+`src/lib/liquidaciones/calculo.ts` (+ test); `src/lib/reportes/productividad.ts` (+ test).
 
-- `atribuirManoDeObra(orden)` → `{ mecanicoId, valor, horas }[]`: una entrada por línea, con el
-  `mecanicoId` de la línea o, si es `null`, el de la orden (D3); `horas` cuenta `null` como 0 pero
-  distingue "sin horas" de "0 horas" en el resumen.
-- `agruparProduccion(ordenes)` → filas por mecánico (`valor`, `horas`, `ordenes`) con la clave
-  `__sin_asignar__` para el trabajo sin mecánico (misma convención que `productividad.ts`).
+- `src/lib/liquidaciones/periodo.ts` (calendario de Bogotá, como `src/lib/gastos/periodo.ts`):
+  `periodoActual(frecuencia, ahora)`, `rangoDelPeriodo(frecuencia, periodo): { gte, lt }`,
+  `periodoAnterior`, `periodoSiguiente`, `etiquetaPeriodo` ("octubre de 2026", "2ª quincena de octubre
+  de 2026", "semana del 5 al 11 de octubre de 2026") y `ventanasSolapan(a, b)`.
+  Convenciones: **quincena** = días 1–15 y 16–fin de mes; **semana** = lunes a domingo (ISO), con el
+  periodo `YYYY-Www`. Quincena y semana se calculan sobre la fecha calendario de Bogotá, no sobre UTC.
+- `atribuirManoDeObra(orden)` → `{ mecanicoId, valor }[]` con el `mecanicoId` de la línea o, si es
+  `null`, el de la orden (D3).
+- `agruparProduccion(ordenes)` → filas por mecánico con `{ ordenes, trabajos, montoManoObra }` y la
+  clave `__sin_asignar__` para el trabajo sin mecánico (misma convención que `productividad.ts`).
 - `calcularMontoLiquidacion(esquema, montoManoObra)`: PORCENTAJE → `roundMoney(monto * pct / 100)`;
   FIJO → `montoFijo`; MIXTO → `montoFijo + roundMoney(monto * pct / 100)`.
 - `totalLiquidacion(montoCalculado, ajuste)` = `roundMoney(montoCalculado + ajuste)`.
-- `hayCambiosSinReflejar(congelado, vivo)`: compara `montoManoObra`, `horas` y `montoCalculado` (D10).
-- `montoPorHora(monto, horas)` → `number | null` (null si `horas <= 0`), para el reporte y la tabla.
-- Alinear `computeProductividad` para que use `atribuirManoDeObra` y devuelva además `horas` y
-  `montoPorHora` (D3 + D7). **Sus tests actuales se actualizan, no se borran.**
-- Tests: línea con mecánico propio vs heredado, orden sin mecánico, kit de la Fase 18 (varias líneas),
-  redondeo de porcentajes (p. ej. 33,33 % de 45 000), 0 horas, `horas` null, ajuste negativo.
+- `hayCambiosSinReflejar(congelado, vivo)`: compara `ordenes`, `trabajos` y `montoManoObra` (D10).
+- `computeProductividad` pasa a devolver además `trabajos` (líneas atribuidas) y a usar
+  `atribuirManoDeObra` (D3 + D7). **Sus tests actuales se actualizan, no se borran.**
+- Tests: periodos de las tres frecuencias en los bordes (día 1, 15, 16, fin de mes, lunes, domingo,
+  cambio de mes y de año, semana 53), solapamiento sí/no, línea con mecánico propio vs heredado, orden
+  sin mecánico, kit de la Fase 18 (varias líneas → varios trabajos), redondeo de porcentajes
+  (33,33 % de 45 000), ajuste negativo, y que la fecha de Bogotá (no UTC) decida el periodo.
 
-Verificar, commit `fase19-task 2: lógica de atribución, horas y cálculo de liquidación`, **pedir aprobación**.
+Verificar, commit `fase19-task 2: lógica de periodos, atribución y cálculo de liquidación`, **pedir aprobación**.
 
-### Task 3: Registro de horas en la orden
+### Task 3: Esquema de pago por técnico y frecuencia del taller
 
-**Archivos:** `src/app/actions/mano-de-obra-actions.ts` (+ test); `ordenes/[id]/agregar-mano-obra-form.tsx` (+ test);
-`ordenes/[id]/horas-mano-de-obra-form.tsx` (+ test); `ordenes/[id]/page.tsx`.
+**Archivos:** `src/app/actions/liquidacion-actions.ts` (esquema y frecuencia; + test);
+`src/app/(dashboard)/liquidaciones/esquema-liquidacion-section.tsx` (+ test);
+`src/app/(dashboard)/liquidaciones/frecuencia-liquidacion-form.tsx` (+ test).
 
-- `addManoDeObraAction`: aceptar y persistir `horas` (ya validado en Task 1); sin horas sigue siendo válido.
-- `actualizarHorasManoDeObraAction(id, ordenId, horas)`: roles ADMIN/RECEPCION/TECNICO, orden con
-  `scopeOrden(sedeActivaId)` (si no → "Orden no encontrada"), `assertOrdenMutable(orden)` (devolver su
-  mensaje), validar con `horasManoDeObraInputSchema`, `updateMany({ where: { id, ordenId } })` y avisar si
-  no tocó ninguna fila. `horas: null` es válido y significa "borrar lo registrado".
-  Revalidar `/ordenes/<id>`. Devuelve `{ error: string | null }`.
-- UI: campo "Horas" opcional en el formulario de mano de obra; columna "Horas" en `MANO_OBRA_COLUMNS`
-  (con "—" cuando es null) y edición en línea por fila con un formulario pequeño
-  (`horas-mano-de-obra-form.tsx`, patrón del editor del kit de la Fase 18: estado local + `useTransition`
-  + toast). Total de horas de la orden en el encabezado de la tarjeta de mano de obra.
-- Tests: roles, orden ajena/inexistente, orden no mutable (ENTREGADA/facturada), 0 / 0,25 / 999,99 / 1000 /
-  "abc", `null` borra las horas, la fila de otra orden no se toca, mensaje cuando no hay filas.
+- `listTecnicosConEsquema()` — ADMIN: técnicos de la sede activa (`role: "TECNICO"` +
+  `sedes: { some: { sedeId } }`), con su esquema si lo tienen (nunca la fila completa de `Usuario`:
+  `select` de `{id, nombre}`).
+- `guardarEsquemaLiquidacionAction(usuarioId, prev, formData)` — ADMIN; valida con
+  `esquemaLiquidacionInputSchema`, comprueba que el usuario sea TECNICO de la sede activa, hace upsert
+  por `usuarioId` y registra `LIQUIDACION_ESQUEMA_ACTUALIZAR`.
+- `listFrecuenciaLiquidacion()` / `guardarFrecuenciaLiquidacionAction(prev, formData)` — ADMIN; hace
+  **upsert** sobre la fila singleton (`id: "singleton"`, como `guardarDiasAvisoAction`) y registra
+  `LIQUIDACION_FRECUENCIA_ACTUALIZAR`.
+  **Si ya hay liquidaciones en el periodo en curso, la respuesta incluye una advertencia** ("las
+  liquidaciones ya generadas no se recalculan; revisa que no dobles el pago del periodo en curso") para
+  mostrarla en la UI.
+- `esquema-liquidacion-section.tsx`: tarjeta con una fila por técnico (nombre, tipo, porcentaje, base)
+  y edición en línea (patrón de la Fase 18: estado local + `useTransition` + toast).
+- `frecuencia-liquidacion-form.tsx`: selector SEMANAL/QUINCENAL/MENSUAL + guardar + la advertencia.
+- Tests: roles, upsert, técnico de otra sede rechazado, reglas cruzadas del esquema, frecuencia
+  inválida, advertencia cuando hay liquidaciones en el periodo, auditoría registrada.
 
-Verificar, commit `fase19-task 3: registro de horas por línea de mano de obra`, **pedir aprobación**.
+Verificar, commit `fase19-task 3: esquema de pago por técnico y frecuencia del taller`, **pedir aprobación**.
 
-### Task 4: Rendimiento por técnico con horas y eficiencia
+### Task 4: Rendimiento por técnico por actividades en `/reportes`
 
 **Archivos:** `src/app/actions/reporte-actions.ts`; `src/app/(dashboard)/reportes/page.tsx`; `reportes/page.test.tsx`.
 
-- `getReporteProductividad`: seleccionar también `mecanicoId` de cada línea de mano de obra y `horas`,
-  y alimentar `atribuirManoDeObra`/`computeProductividad` (Task 2). Se mantiene la regla de órdenes
+- `getReporteProductividad`: seleccionar también el `mecanicoId` de cada línea de mano de obra y
+  alimentar `atribuirManoDeObra`/`computeProductividad` (Task 2). Se mantiene la regla de órdenes
   `ENTREGADA` con `entregadaAt` en el rango y el scope por sede; el reporte sigue siendo ADMIN.
-- Página: columnas **Horas** y **$/hora** (ordenables como las actuales), "—" cuando no hay horas, y el
-  total de horas del periodo junto al de mano de obra.
-- Tests: filas con y sin horas, `montoPorHora` nulo, atribución por línea (una orden con dos mecánicos
+- Página: columnas **Trabajos** (líneas de mano de obra atribuidas) y **Promedio por trabajo**
+  (`mano de obra / trabajos`, "—" si no hay trabajos), ordenables como las actuales; el encabezado suma
+  también los trabajos del periodo.
+- Tests: filas con y sin trabajos, promedio nulo, atribución por línea (una orden con dos mecánicos
   aparece en dos filas), y que los filtros de fecha/sede sigan aplicándose.
 
-Verificar, commit `fase19-task 4: rendimiento por técnico con horas y eficiencia`, **pedir aprobación**.
+Verificar, commit `fase19-task 4: rendimiento por técnico por actividades`, **pedir aprobación**.
 
-### Task 5: Esquema de pago y página `/liquidaciones`
+### Task 5: Página `/liquidaciones` (generar, recalcular, ajustar, pagar, anular)
 
-**Archivos:** `src/app/actions/liquidacion-actions.ts` (+ test); `src/app/(dashboard)/liquidaciones/page.tsx`,
-`loading.tsx`, `esquema-liquidacion-section.tsx` (+ test), `liquidacion-fila.tsx` (+ test),
-`pagar-liquidacion-dialog.tsx` (+ test); `src/app/(dashboard)/dashboard-sidebar.tsx`.
+**Archivos:** `src/app/actions/liquidacion-actions.ts` (liquidaciones; + test);
+`src/app/(dashboard)/liquidaciones/page.tsx`, `loading.tsx`, `liquidacion-fila.tsx` (+ test),
+`pagar-liquidacion-dialog.tsx` (+ test); `src/app/(dashboard)/dashboard-sidebar.tsx`;
+`src/lib/liquidaciones/categorias.ts`.
 
-Actions (todas con guard primero; montos siempre calculados en el servidor):
-- `listLiquidacionesDelPeriodo(periodo)` — ADMIN, sede activa. Devuelve, por técnico de la sede
-  (`usuario.role === "TECNICO"` + `sedes.some({ sedeId })`), el **vivo** (producción del periodo:
-  órdenes, mano de obra, horas, `montoPorHora`), su **esquema** y la **liquidación** existente de ese
-  `(periodo, técnico, sede)` con `hayCambios` (D10). Los técnicos sin esquema se marcan como tales.
-- `generarLiquidacionesAction(periodo)` — ADMIN. Por cada técnico con esquema: si no hay fila, la crea
-  (`PENDIENTE`); si hay y está `PENDIENTE` con números distintos, la recalcula; si está `PAGADA`, la
-  omite; si está `ANULADA`, la reactiva con el cálculo nuevo (D9). Todo en una transacción con un
-  `registrarEventoAuditoria` (`LIQUIDACION_GENERAR`) por fila tocada. Devuelve
-  `{ generadas, actualizadas, omitidas, sinEsquema }`.
-- `actualizarAjusteLiquidacionAction(id, prev, formData)` — ADMIN, solo `PENDIENTE`; recalcula `total`
-  y guarda `motivoAjuste`.
-- `pagarLiquidacionAction(id, prev, formData)` — ADMIN, solo `PENDIENTE`. En una transacción: crea el
-  `Gasto` de la sede con `categoriaId: CATEGORIA_LIQUIDACION_ID`, `descripcion: "Liquidación <técnico> <periodo>"`,
-  `monto: total` (del documento, no del cliente), `fecha`, `pagadoEnEfectivo: metodo === "EFECTIVO"`,
-  `referencia`; marca la liquidación `PAGADA` con `pagadaAt`/`pagadaPorId`/`gastoId`; y registra
-  `LIQUIDACION_PAGAR`. Si la categoría del sistema no existe (migración sin aplicar), devolver un error
-  claro en vez de fallar con la FK. Revalidar `/liquidaciones`, `/gastos`, `/caja`, `/reportes`.
-- `anularLiquidacionAction(id, motivo)` — ADMIN; `PENDIENTE` → `ANULADA`; `PAGADA` → borra su `Gasto`
-  en la misma transacción (D9) y registra `LIQUIDACION_ANULAR`.
-- `listEsquemasLiquidacion()` / `guardarEsquemaLiquidacionAction(usuarioId, prev, formData)` — ADMIN;
-  valida que el usuario sea TECNICO de la sede activa y aplica `esquemaLiquidacionInputSchema`
-  (upsert por `usuarioId`); registra `LIQUIDACION_ESQUEMA_ACTUALIZAR`.
 - `CATEGORIA_LIQUIDACION_ID = "cat_liquidacion_mecanicos"` en `src/lib/liquidaciones/categorias.ts`
   (misma idea que `CONFIGURACION_SMTP_ID`).
-
-Página `/liquidaciones` (`requireRole(["ADMIN"])`): selector de periodo (`searchParams`, default
-`periodoActualBogota`) + botón "Generar liquidaciones del periodo"; tarjeta "Producción y liquidación
-del periodo" con una fila por técnico (nombre, órdenes, mano de obra, horas, $/hora, esquema vigente,
-monto calculado, ajuste, total, estado, aviso "Hay cambios sin reflejar → Recalcular", y acciones
-Pagar / Anular según estado); tarjeta "Esquema de pago por técnico" para editar tipo/porcentaje/base.
-Menú: "Liquidaciones" en **Administración** (solo ADMIN ya).
+- `listLiquidacionesDelPeriodo(periodo)` — ADMIN, sede activa. Devuelve, por técnico de la sede: el
+  **vivo** del periodo (órdenes, trabajos, mano de obra), su **esquema**, la **liquidación** existente de
+  ese `(periodo, técnico, sede)` con `hayCambios` (D10) y `solapada` (D6), y los técnicos sin esquema
+  marcados como tales.
+- `generarLiquidacionesAction(periodo)` — ADMIN. Por cada técnico con esquema: si no hay fila, la crea
+  (`PENDIENTE`); si hay y está `PENDIENTE` con números distintos, la recalcula; si está `PAGADA`, la
+  omite; si está `ANULADA`, la reactiva con el cálculo nuevo; si su ventana **se solapa** con otra
+  liquidación del mismo técnico y sede, la omite (D6). Todo en una transacción con un
+  `registrarEventoAuditoria` (`LIQUIDACION_GENERAR`) por fila tocada. Devuelve
+  `{ generadas, actualizadas, omitidas, sinEsquema, solapadas }`.
+- `actualizarAjusteLiquidacionAction(id, prev, formData)` — ADMIN, solo `PENDIENTE`; recalcula `total` y
+  guarda `motivoAjuste`.
+- `pagarLiquidacionAction(id, prev, formData)` — ADMIN, solo `PENDIENTE`. En una transacción: crea el
+  `Gasto` de la sede con `categoriaId: CATEGORIA_LIQUIDACION_ID`, `descripcion: "Liquidación <técnico> <etiqueta del periodo>"`,
+  `monto: total` (del documento, nunca del cliente), `fecha`, `pagadoEnEfectivo: metodo === "EFECTIVO"`,
+  `referencia`; marca la liquidación `PAGADA` con `pagadaAt`/`pagadaPorId`/`gastoId`; registra
+  `LIQUIDACION_PAGAR`. Si la categoría del sistema no existe (migración sin aplicar) devuelve un error
+  claro en vez de fallar con la FK. Revalidar `/liquidaciones`, `/gastos`, `/caja`, `/reportes`.
+- `anularLiquidacionAction(id, motivo)` — ADMIN; `PENDIENTE` → `ANULADA`; `PAGADA` → borra su `Gasto` en
+  la misma transacción (D9); registra `LIQUIDACION_ANULAR`.
+- Página `/liquidaciones` (`requireRole(["ADMIN"])`): encabezado con la frecuencia vigente (Task 3),
+  selector/navegación de periodo (anterior / siguiente / actual, según la frecuencia), botón "Generar
+  liquidaciones del periodo" y resumen del periodo; tarjeta "Producción y liquidación del periodo" con
+  una fila por técnico (órdenes, trabajos, mano de obra, esquema vigente, monto calculado, ajuste,
+  total, estado, avisos "Hay cambios sin reflejar → Recalcular" y "Ya liquidado en un periodo que se
+  solapa", y acciones Pagar / Anular según estado). Menú: "Liquidaciones" en **Administración**.
 
 Tests: roles por action, generación idempotente (segunda corrida no duplica), recálculo solo en
-`PENDIENTE`, `PAGADA` intocable, pagar crea el gasto con `pagadoEnEfectivo` según método y con el
-monto del documento, anular `PENDIENTE` y anular `PAGADA` (borra el gasto), ajuste con motivo
-obligatorio, técnico sin esquema omitido, sede ajena/ajena al técnico, auditoría registrada, y UI
-(tabla, aviso de cambios, diálogo de pago, esquema).
+`PENDIENTE`, `PAGADA` intocable, solapamiento omitido, pagar crea el gasto con `pagadoEnEfectivo` según
+método y con el monto del documento, categoría ausente → error claro, anular `PENDIENTE` y anular
+`PAGADA` (borra el gasto), ajuste con motivo obligatorio, técnico sin esquema omitido, sede ajena,
+auditoría registrada, y UI (tabla, avisos, diálogo de pago).
 
-Verificar, commit `fase19-task 5: esquema de pago, página de liquidaciones y pago como gasto`, **pedir aprobación**.
+Verificar, commit `fase19-task 5: página de liquidaciones con pago como gasto`, **pedir aprobación**.
 
 ---
 
 ## 4. Seguridad
 
 Todo por `getTenantDb` con el tenant de la sesión; guard antes de cualquier lectura/escritura.
-Esquema, generación, ajuste, pago y anulación: **solo ADMIN** (es dinero y es dato laboral). Las horas
-las registra quien ya puede agregar mano de obra, siempre con `scopeOrden(sedeActivaId)` y orden mutable.
+Frecuencia, esquema, generación, ajuste, pago y anulación: **solo ADMIN** (es dinero y es dato laboral).
 Los montos se calculan **siempre en el servidor** a partir de las líneas de mano de obra (nunca del
 cliente): el `Gasto` del pago usa el `total` congelado del documento. Ninguna consulta devuelve filas
-completas de `Usuario` (siempre `select` de `{id, nombre}`). No se exponen costos de otros técnicos a
-quien no sea ADMIN.
+completas de `Usuario` (siempre `select` de `{id, nombre}`). El trabajo y los importes de un técnico no
+se exponen a quien no sea ADMIN.
 
 ## 5. Verificación final de la fase
 
 `npx tsc --noEmit` (`--incremental false` si hay sandbox), `npm test` completo, `npx eslint` en lo
-tocado y `npm run build`. Revisar el diff completo de la rama contra este documento (revisión final
-con otro modelo) y hacer el fix round de los hallazgos. Reporte.
+tocado y `npm run build`. Revisar el diff completo de la rama contra este documento (revisión final con
+otro modelo) y hacer el fix round de los hallazgos. Reporte.
 
 ## 6. Cierre (solo con aprobación del usuario)
 
