@@ -9,29 +9,42 @@ vi.mock("@/lib/auth/guards", () => ({
 const tx = {
   esquemaLiquidacion: { upsert: vi.fn() },
   configuracionTaller: { upsert: vi.fn() },
+  liquidacionMecanico: { create: vi.fn(), update: vi.fn() },
+  gasto: { create: vi.fn(), delete: vi.fn() },
   auditLog: { create: vi.fn() },
 };
 
 const db = {
   usuario: { findMany: vi.fn(), findFirst: vi.fn() },
   configuracionTaller: { findUnique: vi.fn() },
-  liquidacionMecanico: { findMany: vi.fn() },
+  liquidacionMecanico: { findMany: vi.fn(), findFirst: vi.fn() },
+  ordenTrabajo: { findMany: vi.fn() },
+  categoriaGasto: { findUnique: vi.fn() },
   $transaction: (fn: (cliente: typeof tx) => unknown) => fn(tx),
 };
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import {
+  actualizarAjusteLiquidacionAction,
+  anularLiquidacionAction,
+  generarLiquidacionesAction,
   getFrecuenciaLiquidacion,
   guardarEsquemaLiquidacionAction,
   guardarFrecuenciaLiquidacionAction,
+  listLiquidacionesDelPeriodo,
   listTecnicosConEsquema,
+  pagarLiquidacionAction,
+  type AjusteLiquidacionFormState,
   type EsquemaLiquidacionFormState,
   type FrecuenciaLiquidacionFormState,
+  type PagoLiquidacionFormState,
 } from "./liquidacion-actions";
 
 const inicial: EsquemaLiquidacionFormState = { error: null, success: false };
 const inicialFrecuencia: FrecuenciaLiquidacionFormState = { error: null, success: false, advertencia: null };
+const inicialAjuste: AjusteLiquidacionFormState = { error: null, success: false };
+const inicialPago: PagoLiquidacionFormState = { error: null, success: false };
 const ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 function fd(campos: Record<string, string>): FormData {
@@ -44,10 +57,17 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockRequireRole.mockResolvedValue(ADMIN);
   db.usuario.findFirst.mockResolvedValue({ id: "t1" });
+  db.usuario.findMany.mockResolvedValue([]);
   db.configuracionTaller.findUnique.mockResolvedValue({ frecuenciaLiquidacion: "MENSUAL" });
   db.liquidacionMecanico.findMany.mockResolvedValue([]);
+  db.ordenTrabajo.findMany.mockResolvedValue([]);
+  db.categoriaGasto.findUnique.mockResolvedValue({ id: "cat_liquidacion_mecanicos" });
   tx.esquemaLiquidacion.upsert.mockResolvedValue({});
   tx.configuracionTaller.upsert.mockResolvedValue({});
+  tx.liquidacionMecanico.create.mockResolvedValue({ id: "l1" });
+  tx.liquidacionMecanico.update.mockResolvedValue({});
+  tx.gasto.create.mockResolvedValue({ id: "g1" });
+  tx.gasto.delete.mockResolvedValue({});
   tx.auditLog.create.mockResolvedValue({});
 });
 
@@ -224,5 +244,413 @@ describe("guardarFrecuenciaLiquidacionAction", () => {
 
     expect(r.error).toBe("Frecuencia inválida");
     expect(tx.configuracionTaller.upsert).not.toHaveBeenCalled();
+  });
+});
+
+const ANA = {
+  id: "t1",
+  nombre: "Ana",
+  esquemaLiquidacion: { tipo: "PORCENTAJE", porcentaje: 40, montoFijo: null },
+};
+const ORDEN_DE_ANA = {
+  mecanicoId: "t1",
+  mecanico: { nombre: "Ana" },
+  manoDeObra: [
+    { valor: "30000", mecanicoId: "t1", mecanico: { nombre: "Ana" } },
+    { valor: "15000", mecanicoId: null, mecanico: null },
+  ],
+};
+const DOCUMENTO_PENDIENTE = {
+  id: "l1",
+  usuarioId: "t1",
+  estado: "PENDIENTE",
+  periodo: "2026-10",
+  frecuencia: "MENSUAL",
+  ordenes: 1,
+  trabajos: 1,
+  montoManoObra: 30000,
+  montoCalculado: 12000,
+  ajuste: 0,
+  motivoAjuste: null,
+  total: 12000,
+  pagadaAt: null,
+  gastoId: null,
+  motivoAnulacion: null,
+};
+
+describe("listLiquidacionesDelPeriodo", () => {
+  beforeEach(() => {
+    db.usuario.findMany.mockResolvedValue([ANA]);
+    db.ordenTrabajo.findMany.mockResolvedValue([ORDEN_DE_ANA]);
+  });
+
+  it("cruza la producción del periodo, el esquema vigente y el documento", async () => {
+    const r = await listLiquidacionesDelPeriodo("2026-10");
+
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    // La ventana es la del periodo, con la misma convención que el reporte.
+    expect(db.ordenTrabajo.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          sedeId: "sede-1",
+          estado: "ENTREGADA",
+          entregadaAt: { gte: new Date("2026-10-01T00:00:00.000Z"), lt: new Date("2026-11-01T00:00:00.000Z") },
+        },
+      }),
+    );
+    expect(r.frecuencia).toBe("MENSUAL");
+    expect(r.periodo).toBe("2026-10");
+    expect(r.etiqueta).toBe("octubre de 2026");
+    expect(r.error).toBeNull();
+    expect(r.filas).toEqual([
+      {
+        usuarioId: "t1",
+        nombre: "Ana",
+        ordenes: 1,
+        trabajos: 2,
+        montoManoObra: 45000,
+        montoPorTrabajo: 22500,
+        tipo: "PORCENTAJE",
+        porcentaje: 40,
+        montoFijo: null,
+        montoSugerido: 18000,
+        solapada: false,
+        documento: null,
+      },
+    ]);
+  });
+
+  it("marca al técnico sin esquema y no le calcula monto", async () => {
+    db.usuario.findMany.mockResolvedValue([{ id: "t1", nombre: "Ana", esquemaLiquidacion: null }]);
+
+    const [fila] = (await listLiquidacionesDelPeriodo("2026-10")).filas;
+
+    expect(fila!.tipo).toBeNull();
+    expect(fila!.montoSugerido).toBeNull();
+  });
+
+  it("avisa cuando el documento congelado ya no coincide con lo producido", async () => {
+    db.liquidacionMecanico.findMany.mockResolvedValue([DOCUMENTO_PENDIENTE]);
+
+    const [fila] = (await listLiquidacionesDelPeriodo("2026-10")).filas;
+
+    expect(fila!.documento?.id).toBe("l1");
+    expect(fila!.documento?.hayCambios).toBe(true);
+  });
+
+  it("marca solapada la liquidación de otro periodo que se pisa con este", async () => {
+    db.configuracionTaller.findUnique.mockResolvedValue({ frecuenciaLiquidacion: "QUINCENAL" });
+    db.liquidacionMecanico.findMany.mockResolvedValue([
+      { ...DOCUMENTO_PENDIENTE, periodo: "2026-10", frecuencia: "MENSUAL" },
+    ]);
+
+    const [fila] = (await listLiquidacionesDelPeriodo("2026-10-Q1")).filas;
+
+    expect(fila!.documento).toBeNull();
+    expect(fila!.solapada).toBe(true);
+  });
+
+  it("rechaza un periodo con el formato de otra frecuencia", async () => {
+    const r = await listLiquidacionesDelPeriodo("2026-10-Q1");
+
+    expect(r.error).toBe("El periodo debe tener el formato AAAA-MM");
+    expect(r.filas).toEqual([]);
+    expect(db.ordenTrabajo.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("generarLiquidacionesAction", () => {
+  beforeEach(() => {
+    db.usuario.findMany.mockResolvedValue([ANA]);
+    db.ordenTrabajo.findMany.mockResolvedValue([ORDEN_DE_ANA]);
+  });
+
+  it("crea la liquidación que falta con el esquema vigente y la audita", async () => {
+    const r = await generarLiquidacionesAction("2026-10");
+
+    expect(r).toEqual({ error: null, generadas: 1, actualizadas: 0, omitidas: 0, sinEsquema: 0, solapadas: 0 });
+    expect(tx.liquidacionMecanico.create).toHaveBeenCalledWith({
+      data: {
+        periodo: "2026-10",
+        frecuencia: "MENSUAL",
+        sedeId: "sede-1",
+        usuarioId: "t1",
+        estado: "PENDIENTE",
+        ordenes: 1,
+        trabajos: 2,
+        montoManoObra: 45000,
+        tipo: "PORCENTAJE",
+        porcentaje: 40,
+        montoFijo: null,
+        montoCalculado: 18000,
+        ajuste: 0,
+        motivoAjuste: null,
+        total: 18000,
+        generadaPorId: "u1",
+      },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ tipo: "LIQUIDACION_GENERAR", entidadId: "l1", actorId: "u1" }),
+    });
+  });
+
+  it("recalcula solo la pendiente cuyos números cambiaron", async () => {
+    db.liquidacionMecanico.findMany.mockResolvedValue([DOCUMENTO_PENDIENTE]);
+
+    const r = await generarLiquidacionesAction("2026-10");
+
+    expect(r.actualizadas).toBe(1);
+    expect(tx.liquidacionMecanico.create).not.toHaveBeenCalled();
+    expect(tx.liquidacionMecanico.update).toHaveBeenCalledWith({
+      where: { id: "l1" },
+      data: expect.objectContaining({
+        estado: "PENDIENTE",
+        trabajos: 2,
+        montoManoObra: 45000,
+        montoCalculado: 18000,
+        total: 18000,
+      }),
+    });
+  });
+
+  it("omite la que ya está igual", async () => {
+    db.liquidacionMecanico.findMany.mockResolvedValue([
+      { ...DOCUMENTO_PENDIENTE, ordenes: 1, trabajos: 2, montoManoObra: 45000, montoCalculado: 18000, total: 18000 },
+    ]);
+
+    const r = await generarLiquidacionesAction("2026-10");
+
+    expect(r).toEqual({ error: null, generadas: 0, actualizadas: 0, omitidas: 1, sinEsquema: 0, solapadas: 0 });
+    expect(tx.liquidacionMecanico.update).not.toHaveBeenCalled();
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it("no toca una liquidación pagada", async () => {
+    db.liquidacionMecanico.findMany.mockResolvedValue([{ ...DOCUMENTO_PENDIENTE, estado: "PAGADA" }]);
+
+    const r = await generarLiquidacionesAction("2026-10");
+
+    expect(r.omitidas).toBe(1);
+    expect(tx.liquidacionMecanico.update).not.toHaveBeenCalled();
+  });
+
+  it("reactiva una anulada limpiando la anulación", async () => {
+    db.liquidacionMecanico.findMany.mockResolvedValue([
+      { ...DOCUMENTO_PENDIENTE, estado: "ANULADA", motivoAnulacion: "se pagó por fuera" },
+    ]);
+
+    const r = await generarLiquidacionesAction("2026-10");
+
+    expect(r.actualizadas).toBe(1);
+    expect(tx.liquidacionMecanico.update).toHaveBeenCalledWith({
+      where: { id: "l1" },
+      data: expect.objectContaining({ estado: "PENDIENTE", anuladaAt: null, anuladaPorId: null, motivoAnulacion: null }),
+    });
+  });
+
+  it("omite al técnico sin esquema", async () => {
+    db.usuario.findMany.mockResolvedValue([{ id: "t1", nombre: "Ana", esquemaLiquidacion: null }]);
+
+    const r = await generarLiquidacionesAction("2026-10");
+
+    expect(r).toEqual({ error: null, generadas: 0, actualizadas: 0, omitidas: 0, sinEsquema: 1, solapadas: 0 });
+    expect(tx.liquidacionMecanico.create).not.toHaveBeenCalled();
+  });
+
+  it("no crea una liquidación que se solapa con otro periodo (D6)", async () => {
+    db.configuracionTaller.findUnique.mockResolvedValue({ frecuenciaLiquidacion: "QUINCENAL" });
+    db.liquidacionMecanico.findMany.mockResolvedValue([{ ...DOCUMENTO_PENDIENTE, periodo: "2026-10" }]);
+
+    const r = await generarLiquidacionesAction("2026-10-Q1");
+
+    expect(r).toEqual({ error: null, generadas: 0, actualizadas: 0, omitidas: 0, sinEsquema: 0, solapadas: 1 });
+    expect(tx.liquidacionMecanico.create).not.toHaveBeenCalled();
+  });
+
+  it("rechaza un periodo inválido sin escribir", async () => {
+    const r = await generarLiquidacionesAction("2026-13");
+
+    expect(r.error).toBe("El periodo debe tener el formato AAAA-MM");
+    expect(tx.liquidacionMecanico.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("actualizarAjusteLiquidacionAction", () => {
+  beforeEach(() => {
+    db.liquidacionMecanico.findFirst.mockResolvedValue({ id: "l1", estado: "PENDIENTE", montoCalculado: 18000 });
+  });
+
+  it("ajusta y recalcula el total, auditando el cambio", async () => {
+    const r = await actualizarAjusteLiquidacionAction("l1", inicialAjuste, fd({ ajuste: "-3000", motivo: "Herramienta rota" }));
+
+    expect(r).toEqual({ error: null, success: true });
+    expect(db.liquidacionMecanico.findFirst).toHaveBeenCalledWith({
+      where: { id: "l1", sedeId: "sede-1" },
+      select: { id: true, estado: true, montoCalculado: true },
+    });
+    expect(tx.liquidacionMecanico.update).toHaveBeenCalledWith({
+      where: { id: "l1" },
+      data: { ajuste: -3000, motivoAjuste: "Herramienta rota", total: 15000 },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ tipo: "LIQUIDACION_AJUSTAR", entidadId: "l1" }),
+    });
+  });
+
+  it("exige motivo cuando hay ajuste", async () => {
+    const r = await actualizarAjusteLiquidacionAction("l1", inicialAjuste, fd({ ajuste: "3000", motivo: "  " }));
+
+    expect(r.error).toBe("Explica el motivo del ajuste");
+    expect(tx.liquidacionMecanico.update).not.toHaveBeenCalled();
+  });
+
+  it("no deja el total en negativo", async () => {
+    const r = await actualizarAjusteLiquidacionAction("l1", inicialAjuste, fd({ ajuste: "-20000", motivo: "Descuento" }));
+
+    expect(r.error).toBe("El ajuste no puede dejar el total en negativo");
+    expect(tx.liquidacionMecanico.update).not.toHaveBeenCalled();
+  });
+
+  it("no ajusta una liquidación que no está pendiente", async () => {
+    db.liquidacionMecanico.findFirst.mockResolvedValue({ id: "l1", estado: "PAGADA", montoCalculado: 18000 });
+
+    const r = await actualizarAjusteLiquidacionAction("l1", inicialAjuste, fd({ ajuste: "3000", motivo: "Bono" }));
+
+    expect(r.error).toBe("Solo se puede ajustar una liquidación pendiente");
+  });
+
+  it("rechaza una liquidación de otra sede", async () => {
+    db.liquidacionMecanico.findFirst.mockResolvedValue(null);
+
+    const r = await actualizarAjusteLiquidacionAction("l-ajena", inicialAjuste, fd({ ajuste: "0", motivo: "" }));
+
+    expect(r.error).toBe("Liquidación no encontrada");
+  });
+});
+
+describe("pagarLiquidacionAction", () => {
+  const DOCUMENTO_A_PAGAR = {
+    id: "l1",
+    estado: "PENDIENTE",
+    total: 18000,
+    periodo: "2026-10",
+    frecuencia: "MENSUAL",
+    usuario: { nombre: "Ana" },
+    gastoId: null,
+  };
+
+  beforeEach(() => {
+    db.liquidacionMecanico.findFirst.mockResolvedValue(DOCUMENTO_A_PAGAR);
+  });
+
+  it("crea el gasto de la sede con la categoría del sistema y marca la liquidación como pagada", async () => {
+    const r = await pagarLiquidacionAction("l1", inicialPago, fd({ metodoPago: "EFECTIVO", referencia: "recibo 12", fecha: "2026-10-31" }));
+
+    expect(r).toEqual({ error: null, success: true });
+    expect(tx.gasto.create).toHaveBeenCalledWith({
+      data: {
+        sedeId: "sede-1",
+        categoriaId: "cat_liquidacion_mecanicos",
+        descripcion: "Liquidación Ana · octubre de 2026",
+        monto: 18000,
+        fecha: new Date("2026-10-31T00:00:00.000Z"),
+        referencia: "recibo 12",
+        registradoPorId: "u1",
+        pagadoEnEfectivo: true,
+      },
+    });
+    expect(tx.liquidacionMecanico.update).toHaveBeenCalledWith({
+      where: { id: "l1" },
+      data: expect.objectContaining({ estado: "PAGADA", gastoId: "g1", pagadaPorId: "u1" }),
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ tipo: "LIQUIDACION_PAGAR", entidadId: "l1" }),
+    });
+  });
+
+  it("una transferencia no cuenta como efectivo de la caja", async () => {
+    await pagarLiquidacionAction("l1", inicialPago, fd({ metodoPago: "TRANSFERENCIA", referencia: "", fecha: "2026-10-31" }));
+
+    expect(tx.gasto.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ pagadoEnEfectivo: false, referencia: null }) }),
+    );
+  });
+
+  it("no paga dos veces la misma liquidación", async () => {
+    db.liquidacionMecanico.findFirst.mockResolvedValue({ ...DOCUMENTO_A_PAGAR, estado: "PAGADA" });
+
+    const r = await pagarLiquidacionAction("l1", inicialPago, fd({ metodoPago: "EFECTIVO", referencia: "", fecha: "2026-10-31" }));
+
+    expect(r.error).toBe("Solo se puede pagar una liquidación pendiente");
+    expect(tx.gasto.create).not.toHaveBeenCalled();
+  });
+
+  it("avisa si la categoría del sistema no existe (migración sin aplicar)", async () => {
+    db.categoriaGasto.findUnique.mockResolvedValue(null);
+
+    const r = await pagarLiquidacionAction("l1", inicialPago, fd({ metodoPago: "EFECTIVO", referencia: "", fecha: "2026-10-31" }));
+
+    expect(r.error).toBe("Falta la categoría de gasto del sistema: aplica la migración de la fase 19");
+    expect(tx.gasto.create).not.toHaveBeenCalled();
+  });
+
+  it("rechaza un método de pago inválido", async () => {
+    const r = await pagarLiquidacionAction("l1", inicialPago, fd({ metodoPago: "ANTICIPO", referencia: "", fecha: "2026-10-31" }));
+
+    expect(r.error).toBe("Método de pago inválido");
+    expect(db.liquidacionMecanico.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+describe("anularLiquidacionAction", () => {
+  it("anula una pendiente con su motivo", async () => {
+    db.liquidacionMecanico.findFirst.mockResolvedValue({ id: "l1", estado: "PENDIENTE", gastoId: null });
+
+    const r = await anularLiquidacionAction("l1", "Se pagó por fuera");
+
+    expect(r).toEqual({ error: null });
+    expect(tx.gasto.delete).not.toHaveBeenCalled();
+    expect(tx.liquidacionMecanico.update).toHaveBeenCalledWith({
+      where: { id: "l1" },
+      data: expect.objectContaining({ estado: "ANULADA", motivoAnulacion: "Se pagó por fuera", anuladaPorId: "u1" }),
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ tipo: "LIQUIDACION_ANULAR", entidadId: "l1" }),
+    });
+  });
+
+  it("anular una pagada borra su gasto en la misma transacción", async () => {
+    db.liquidacionMecanico.findFirst.mockResolvedValue({ id: "l1", estado: "PAGADA", gastoId: "g1" });
+
+    const r = await anularLiquidacionAction("l1", "Se pagó dos veces");
+
+    expect(r).toEqual({ error: null });
+    expect(tx.gasto.delete).toHaveBeenCalledWith({ where: { id: "g1" } });
+    expect(tx.liquidacionMecanico.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ estado: "ANULADA", gastoId: null }) }),
+    );
+  });
+
+  it("exige el motivo", async () => {
+    const r = await anularLiquidacionAction("l1", "   ");
+
+    expect(r.error).toBe("Explica por qué se anula la liquidación");
+    expect(db.liquidacionMecanico.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("no anula dos veces", async () => {
+    db.liquidacionMecanico.findFirst.mockResolvedValue({ id: "l1", estado: "ANULADA", gastoId: null });
+
+    const r = await anularLiquidacionAction("l1", "Otra vez");
+
+    expect(r.error).toBe("La liquidación ya está anulada");
+  });
+
+  it("rechaza una liquidación de otra sede", async () => {
+    db.liquidacionMecanico.findFirst.mockResolvedValue(null);
+
+    const r = await anularLiquidacionAction("l-ajena", "Motivo");
+
+    expect(r.error).toBe("Liquidación no encontrada");
   });
 });

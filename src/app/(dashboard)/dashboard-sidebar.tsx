@@ -6,6 +6,7 @@ import {
   ClipboardList,
   BarChart3,
   CalendarDays,
+  Coins,
   FileText,
   HandCoins,
   History,
@@ -92,6 +93,7 @@ const ADMINISTRACION: NavGroup = {
   label: "Administración",
   items: [
     { href: "/reportes", label: "Reportes", icon: BarChart3 },
+    { href: "/liquidaciones", label: "Liquidaciones", icon: Coins },
     { href: "/sedes", label: "Sedes", icon: MapPin },
     { href: "/usuarios", label: "Usuarios", icon: UserCog },
     { href: "/auditoria", label: "Auditoría", icon: History },

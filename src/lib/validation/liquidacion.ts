@@ -114,8 +114,7 @@ export const pagarLiquidacionInputSchema = z.object({
     .transform((valor) => (valor ? valor : undefined)),
 });
 
-export const ajusteLiquidacionInputSchema = z
-  .object({
+export const ajusteLiquidacionInputSchema = z  .object({
     ajuste: z.preprocess(
       vacioComoUndefined,
       z.coerce
@@ -135,3 +134,10 @@ export const ajusteLiquidacionInputSchema = z
       ctx.addIssue({ code: "custom", path: ["motivo"], message: "Explica el motivo del ajuste" });
     }
   });
+
+/** Anular una liquidación siempre deja rastro: el motivo es obligatorio. */
+export const motivoAnulacionSchema = z
+  .string()
+  .trim()
+  .min(1, "Explica por qué se anula la liquidación")
+  .max(200, "El motivo admite máximo 200 caracteres");
