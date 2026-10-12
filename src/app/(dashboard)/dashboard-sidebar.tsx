@@ -11,6 +11,7 @@ import {
   History,
   Home,
   Landmark,
+  ListChecks,
   Mail,
   MapPin,
   Package,
@@ -72,6 +73,9 @@ const OPERACION: NavGroup = {
 const GASTOS: NavItem = { href: "/gastos", label: "Gastos", icon: Wallet };
 const CAJA: NavItem = { href: "/caja", label: "Caja", icon: Landmark };
 const CARTERA: NavItem = { href: "/cartera", label: "Cartera", icon: HandCoins };
+// El catálogo de servicios se administra solo como ADMIN, pero el grupo
+// Inventario lo ve todo el mundo: el ítem se agrega condicionalmente abajo.
+const SERVICIOS: NavItem = { href: "/servicios", label: "Servicios", icon: ListChecks };
 
 const INVENTARIO: NavGroup = {
   label: "Inventario",
@@ -189,6 +193,7 @@ export function DashboardSidebar({
 }) {
   const pathname = usePathname();
   const operacion = puedeVerFinanzas ? { ...OPERACION, items: [...OPERACION.items, CAJA, CARTERA, GASTOS] } : OPERACION;
+  const inventario = esAdmin ? { ...INVENTARIO, items: [...INVENTARIO.items, SERVICIOS] } : INVENTARIO;
 
   return (
     <div className="dark">
@@ -227,7 +232,7 @@ export function DashboardSidebar({
             }}
           />
           <NavGroupSection
-            group={INVENTARIO}
+            group={inventario}
             pathname={pathname}
             badgeCountByHref={{ "/repuestos": repuestosStockBajo }}
           />

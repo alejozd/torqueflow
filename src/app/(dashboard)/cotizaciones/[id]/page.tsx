@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { Car, MapPin, Phone, Tag, User, UserCheck } from "lucide-react";
 import { getCotizacion } from "@/app/actions/cotizacion-actions";
 import { listRepuestoOptions } from "@/app/actions/repuesto-actions";
+import { listServicios } from "@/app/actions/servicio-actions";
 import { AgregarItemCotizacionForm } from "./agregar-item-cotizacion-form";
+import { AplicarServicioCotizacionForm } from "./aplicar-servicio-cotizacion-form";
 import { EliminarItemCotizacionButton } from "./eliminar-item-cotizacion-button";
 import { DescuentoCotizacionForm } from "./descuento-cotizacion-form";
 import { EnviarCotizacionForm } from "./enviar-cotizacion-form";
@@ -147,7 +149,11 @@ function buildItemColumns(cotizacionId: string, puedeEditar: boolean): DataTable
 
 export default async function CotizacionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [cotizacion, repuestos] = await Promise.all([getCotizacion(id), listRepuestoOptions()]);
+  const [cotizacion, repuestos, servicios] = await Promise.all([
+    getCotizacion(id),
+    listRepuestoOptions(),
+    listServicios({ soloActivos: true }),
+  ]);
 
   if (!cotizacion) {
     notFound();
@@ -274,7 +280,12 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
                 getRowKey={(item) => item.id}
                 emptyMessage="Esta cotización no tiene conceptos agregados."
               />
-              {puedeEditar ? <AgregarItemCotizacionForm cotizacionId={cotizacion.id} repuestos={repuestos} /> : null}
+              {puedeEditar ? (
+                <>
+                  <AgregarItemCotizacionForm cotizacionId={cotizacion.id} repuestos={repuestos} />
+                  <AplicarServicioCotizacionForm cotizacionId={cotizacion.id} servicios={servicios} />
+                </>
+              ) : null}
             </CardContent>
           </Card>
 
