@@ -3,8 +3,10 @@ import { AlertCircle, CalendarCheck, Car, ChevronRight, FileText, Package, Shiel
 import { requireSession } from "@/lib/auth/guards";
 import { getDashboardOverview } from "@/app/actions/dashboard-actions";
 import { getAlertasInventario } from "@/app/actions/alertas-inventario-actions";
+import { getAlertasTaller } from "@/app/actions/alertas-taller-actions";
 import { listVencimientos } from "@/app/actions/vencimiento-actions";
 import { AlertasInventarioCard } from "./alertas-inventario-card";
+import { AlertasTallerCard } from "./alertas-taller-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -127,10 +129,11 @@ const SECCIONES_DASHBOARD = [
 ] as const;
 
 export default async function InicioPage() {
-  const [session, overview, alertasInventario] = await Promise.all([
+  const [session, overview, alertasInventario, alertasTaller] = await Promise.all([
     requireSession(),
     getDashboardOverview(),
     getAlertasInventario(),
+    getAlertasTaller(),
   ]);
   // El KPI de vencimientos es solo para ADMIN y RECEPCION (spec §4).
   const mostrarVencimientos = session.user.role !== "TECNICO";
@@ -470,6 +473,7 @@ export default async function InicioPage() {
         </CardContent>
       </Card>
 
+      <AlertasTallerCard diasUmbral={alertasTaller.diasUmbral} alertas={alertasTaller.alertas} />
       <AlertasInventarioCard data={alertasInventario} />
     </main>
   );
