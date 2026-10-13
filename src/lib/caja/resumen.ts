@@ -4,8 +4,12 @@ export type Metodo = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "OTRO";
 
 export interface MovimientosCaja {
   pagos: { monto: number; metodo: Metodo }[]; // pagos de facturas (sin ANTICIPO)
+  /// Fase 24: ventas de mostrador cobradas en la ventana (ingreso, igual que un pago).
+  ventasMostrador: { monto: number; metodo: Metodo }[];
   anticipos: { monto: number; metodo: Metodo }[]; // anticipos recibidos en la ventana
-  devoluciones: { monto: number; metodo: Metodo }[]; // anticipos devueltos en la ventana
+  /// Anticipos devueltos **y** devoluciones de ventas de mostrador en la ventana
+  /// (ambas son dinero que sale del cajón, con el mismo trato).
+  devoluciones: { monto: number; metodo: Metodo }[];
   gastosEfectivo: number[]; // montos de gastos pagadoEnEfectivo
 }
 
@@ -20,7 +24,7 @@ export interface ResumenCaja {
 export function calcularResumenCaja(baseInicial: number, movimientos: MovimientosCaja): ResumenCaja {
   const ingresosPorMetodo: Record<Metodo, number> = { EFECTIVO: 0, TARJETA: 0, TRANSFERENCIA: 0, OTRO: 0 };
   let totalIngresos = 0;
-  for (const m of [...movimientos.pagos, ...movimientos.anticipos]) {
+  for (const m of [...movimientos.pagos, ...movimientos.ventasMostrador, ...movimientos.anticipos]) {
     ingresosPorMetodo[m.metodo] = roundMoney(ingresosPorMetodo[m.metodo] + m.monto);
     totalIngresos = roundMoney(totalIngresos + m.monto);
   }

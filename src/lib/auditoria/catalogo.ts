@@ -20,6 +20,7 @@ export const TIPOS_EVENTO_AUDITORIA: TipoEventoAuditoria[] = [
   "GARANTIA_REGISTRAR",
   "GARANTIA_ELIMINAR",
   "PRIORIDAD_CAMBIAR",
+  "VENTA_DEVOLVER",
 ];
 
 export const TIPO_EVENTO_AUDITORIA_LABELS: Record<TipoEventoAuditoria, string> = {
@@ -37,4 +38,5 @@ export const TIPO_EVENTO_AUDITORIA_LABELS: Record<TipoEventoAuditoria, string> =
   GARANTIA_REGISTRAR: "Garantía registrada",
   GARANTIA_ELIMINAR: "Garantía eliminada",
   PRIORIDAD_CAMBIAR: "Prioridad cambiada",
+  VENTA_DEVOLVER: "Venta de mostrador devuelta",
 };

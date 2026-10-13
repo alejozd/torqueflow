@@ -14,6 +14,7 @@ const formatoFechaHora = new Intl.DateTimeFormat("es-CO", {
 
 const ETIQUETA_TIPO = {
   PAGO: "Pago",
+  VENTA: "Venta de mostrador",
   ANTICIPO: "Anticipo",
   DEVOLUCION: "Devolución",
   GASTO: "Gasto",
