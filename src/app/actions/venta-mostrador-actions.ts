@@ -1,11 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { requireRole, requireSession } from "@/lib/auth/guards";
 import { sesionDeCajaAbierta } from "@/lib/caja/sesion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb } from "@/lib/db/tenant-client";
+import { inicioDiaBogota } from "@/lib/fecha-bogota";
+import { comprometidoPorRepuesto } from "@/lib/inventario/comprometido";
 import { calcularTotalesVenta } from "@/lib/mostrador/ventas";
+import { scopeRepuesto } from "@/lib/sede/scope";
 import { cobroVentaSchema, ventaMostradorInputSchema, type VentaMostradorInput } from "@/lib/validation/mostrador";
 import type { Role } from "@/generated/prisma-tenant";
 
@@ -149,6 +152,111 @@ export async function crearVentaMostradorAction(
   revalidatePath("/mostrador");
   revalidatePath("/caja");
   return { error: null, success: true, numero };
+}
+
+export interface RepuestoMostrador {
+  id: string;
+  codigo: string;
+  nombre: string;
+  precioVenta: number;
+  stockActual: number;
+  /** Lo que queda libre: stock menos las unidades comprometidas en órdenes abiertas. */
+  disponible: number;
+}
+
+export interface VentaMostradorDia {
+  id: string;
+  numero: number;
+  total: number;
+  saldoPendiente: number;
+  estado: "PENDIENTE" | "PAGADA";
+  clienteNombre: string | null;
+  createdAt: Date;
+  items: {
+    id: string;
+    descripcion: string;
+    cantidad: number;
+    devueltoCantidad: number;
+    precioUnitario: number;
+  }[];
+}
+
+export interface MostradorDatos {
+  cajaAbierta: boolean;
+  repuestos: RepuestoMostrador[];
+  clientes: { id: string; nombre: string }[];
+  ventas: VentaMostradorDia[];
+}
+
+/**
+ * Todo lo que necesita la pantalla del mostrador en una sola lectura: si hay caja
+ * abierta (sin ella no se puede cobrar), los repuestos con su **stock libre** —
+ * `stockActual` sobreestima lo vendible porque las órdenes abiertas ya
+ * comprometieron unidades (misma regla que las alertas de inventario) —, los
+ * clientes para la venta a crédito y las ventas del día con lo ya devuelto.
+ */
+export async function getMostradorDatos(): Promise<MostradorDatos> {
+  const session = await requireSession();
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  const sedeId = session.user.sedeActivaId;
+
+  const [sesion, repuestos, clientes, ventas] = await Promise.all([
+    sesionDeCajaAbierta(tenantDb, sedeId),
+    tenantDb.repuesto.findMany({
+      where: { ...scopeRepuesto(sedeId) },
+      select: { id: true, codigo: true, nombre: true, precioVenta: true, stockActual: true },
+      orderBy: { nombre: "asc" },
+    }),
+    tenantDb.cliente.findMany({ select: { id: true, nombre: true }, orderBy: { nombre: "asc" }, take: 500 }),
+    tenantDb.ventaMostrador.findMany({
+      where: { sedeId, createdAt: { gte: inicioDiaBogota(new Date()) } },
+      select: {
+        id: true,
+        numero: true,
+        total: true,
+        saldoPendiente: true,
+        estado: true,
+        createdAt: true,
+        cliente: { select: { nombre: true } },
+        items: { select: { id: true, descripcion: true, cantidad: true, devueltoCantidad: true, precioUnitario: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  const comprometido = await comprometidoPorRepuesto(tenantDb, sedeId);
+
+  return {
+    cajaAbierta: sesion !== null,
+    repuestos: repuestos.map((repuesto) => {
+      const tomado = comprometido.get(repuesto.id) ?? 0;
+      return {
+        id: repuesto.id,
+        codigo: repuesto.codigo,
+        nombre: repuesto.nombre,
+        precioVenta: Number(repuesto.precioVenta),
+        stockActual: repuesto.stockActual,
+        disponible: Math.max(0, repuesto.stockActual - tomado),
+      };
+    }),
+    clientes,
+    ventas: ventas.map((venta) => ({
+      id: venta.id,
+      numero: venta.numero,
+      total: Number(venta.total),
+      saldoPendiente: Number(venta.saldoPendiente),
+      estado: venta.estado,
+      clienteNombre: venta.cliente?.nombre ?? null,
+      createdAt: venta.createdAt,
+      items: venta.items.map((item) => ({
+        id: item.id,
+        descripcion: item.descripcion,
+        cantidad: item.cantidad,
+        devueltoCantidad: item.devueltoCantidad,
+        precioUnitario: Number(item.precioUnitario),
+      })),
+    })),
+  };
 }
 
 export async function cobrarVentaMostradorAction(
