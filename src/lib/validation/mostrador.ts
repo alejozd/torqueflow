@@ -40,8 +40,16 @@ export const ventaMostradorInputSchema = z.object({
   cobrarTodo: z.preprocess((v) => v === "true" || v === true, z.boolean()),
 });
 
-export const devolucionMostradorInputSchema = z.object({
-  ventaId: z.string().trim().min(1, "Falta la venta"),
+/** Cobro de una venta que quedó a crédito. */
+export const cobroVentaSchema = z.object({
+  monto: requiredMoney("El monto es obligatorio")
+    .refine((valor) => valor > 0, "El monto debe ser mayor que cero")
+    .refine((valor) => valor <= MONTO_MAXIMO_VENTA, "El monto es demasiado alto"),
+  metodoPago: metodoPagoVentaSchema,
+  referencia: z.preprocess(vacioComoUndefined, z.string().trim().max(120).optional()),
+});
+
+export const devolucionMostradorInputSchema = z.object({  ventaId: z.string().trim().min(1, "Falta la venta"),
   lineas: z
     .array(
       z.object({

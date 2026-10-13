@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
+import { sesionDeCajaAbierta } from "@/lib/caja/sesion";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { pagoInputSchema } from "@/lib/validation/factura";
@@ -38,6 +39,13 @@ export async function registrarPagoAction(
   });
   if (!factura) {
     return { error: "Factura no encontrada", success: false };
+  }
+
+  // Fase 24 (D2): cobrar exige caja abierta. El arqueo calcula su ventana por sede
+  // y `createdAt`, así que un cobro con la caja cerrada se registraba y no aparecía
+  // en ningún arqueo: dinero que no cuadra.
+  if (!(await sesionDeCajaAbierta(tenantDb, session.user.sedeActivaId))) {
+    return { error: "Abre la caja antes de registrar el cobro", success: false };
   }
 
   try {

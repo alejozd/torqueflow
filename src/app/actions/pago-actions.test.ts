@@ -6,6 +6,7 @@ vi.mock("@/lib/auth/guards", () => ({
 }));
 
 const mockFacturaFindFirst = vi.fn();
+const mockCajaFindFirst = vi.fn();
 const mockFacturaUpdateMany = vi.fn();
 const mockPagoCreate = vi.fn();
 const mockFacturaFindUniqueOrThrow = vi.fn();
@@ -23,6 +24,7 @@ const mockTransaction = vi.fn((cb: (tx: unknown) => unknown) =>
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     factura: { findFirst: mockFacturaFindFirst },
+    cajaSesion: { findFirst: mockCajaFindFirst },
     $transaction: mockTransaction,
   }),
 }));
@@ -42,7 +44,24 @@ describe("registrarPagoAction", () => {
     mockPagoCreate.mockReset();
     mockFacturaFindUniqueOrThrow.mockReset().mockResolvedValue({ id: "f1", saldoPendiente: "40.18" });
     mockFacturaUpdate.mockReset();
+    mockCajaFindFirst.mockReset().mockResolvedValue({ id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
     mockTransaction.mockClear();
+  });
+
+  it("no cobra con la caja cerrada (Fase 24: el arqueo no lo vería)", async () => {
+    mockCajaFindFirst.mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("monto", "10000");
+    formData.set("metodoPago", "EFECTIVO");
+
+    const result = await registrarPagoAction("f1", initialState, formData);
+
+    expect(result).toEqual({ error: "Abre la caja antes de registrar el cobro", success: false });
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockCajaFindFirst).toHaveBeenCalledWith({
+      where: { sedeId: "sede-1", cerradaAt: null },
+      select: { id: true, abiertaAt: true },
+    });
   });
 
   it("returns a validation error when monto is left blank, instead of silently defaulting to 0", async () => {
