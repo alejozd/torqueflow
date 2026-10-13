@@ -6,10 +6,11 @@ import { registrarEventoAuditoria } from "@/lib/auditoria/registrarEvento";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb, type TenantPrismaClient } from "@/lib/db/tenant-client";
 import { estadoGarantia, type EstadoGarantia } from "@/lib/garantias/vigencia";
+import type { ResultadoAccion } from "@/lib/resultado-accion";
 import { isValidEstadoTransition } from "@/lib/orden/estado-transitions";
 import { esOrdenMutable } from "@/lib/orden/mutable-guard";
 import { scopeOrden } from "@/lib/sede/scope";
-import { borrarUpload, saveOrdenArchivo } from "@/lib/storage/local-file-storage";
+import { borrarUpload, saveOrdenArchivo, MAX_UPLOAD_SIZE_BYTES } from "@/lib/storage/local-file-storage";
 import {
   actaDatosSchema,
   actaEntregaInputSchema,
@@ -72,6 +73,27 @@ interface FirmasGuardadas {
   firmaFotoUrl?: string;
 }
 
+const DATA_URL_IMAGEN = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=\s]+)$/;
+
+/**
+ * Convierte el PNG que dibuja el canvas en un archivo. No se confía en el
+ * cliente: el tamaño se comprueba **antes** de decodificar (para no cargar en
+ * memoria una cadena enorme) y el archivo pasa después por las mismas
+ * validaciones de MIME y magic bytes que cualquier subida.
+ */
+function archivoDeDataUrl(dataUrl: string): { file: File } | { error: string } {
+  const coincidencia = DATA_URL_IMAGEN.exec(dataUrl.trim());
+  if (!coincidencia) return { error: "La firma no tiene un formato válido" };
+
+  const formato = coincidencia[1]!;
+  const base64 = coincidencia[2]!.replace(/\s/g, "");
+  if (base64.length > MAX_UPLOAD_SIZE_BYTES * 1.4) return { error: "La firma es demasiado grande" };
+
+  const bytes = Buffer.from(base64, "base64");
+  const extension = formato === "jpeg" ? "jpg" : formato;
+  return { file: new File([bytes], `firma.${extension}`, { type: `image/${formato}` }) };
+}
+
 /**
  * Los archivos no se pueden revertir con la transacción: se guardan antes y, si
  * la escritura en la base falla, quien llama los borra con `limpiarFirmas`.
@@ -82,16 +104,25 @@ async function guardarFirmaDeFormulario(
   formData: FormData,
 ): Promise<{ firmas: FirmasGuardadas; error?: string }> {
   const firma = formData.get("firma");
+  const firmaDataUrl = formData.get("firmaDataUrl");
   const fotoActa = formData.get("fotoActa");
-  const hayFirma = firma instanceof File && firma.size > 0;
+
+  const hayFirmaArchivo = firma instanceof File && firma.size > 0;
+  const hayFirmaDibujo = typeof firmaDataUrl === "string" && firmaDataUrl.trim().length > 0;
   const hayFoto = fotoActa instanceof File && fotoActa.size > 0;
 
-  if (hayFirma && hayFoto) {
+  if ([hayFirmaArchivo, hayFirmaDibujo, hayFoto].filter(Boolean).length > 1) {
     return { firmas: {}, error: "Deja solo una firma: la de pantalla o la foto" };
   }
 
   try {
-    if (hayFirma) {
+    if (hayFirmaDibujo) {
+      const archivo = archivoDeDataUrl(firmaDataUrl as string);
+      if ("error" in archivo) return { firmas: {}, error: archivo.error };
+      const guardada = await saveOrdenArchivo(tenantSchema, ordenId, "firma", archivo.file);
+      return { firmas: { firmaUrl: guardada.url } };
+    }
+    if (hayFirmaArchivo) {
       const guardada = await saveOrdenArchivo(tenantSchema, ordenId, "firma", firma as File);
       return { firmas: { firmaUrl: guardada.url } };
     }
@@ -194,7 +225,7 @@ export async function agregarDanioAction(
   return { error: null, success: true };
 }
 
-export async function quitarDanioAction(danioId: string): Promise<{ error: string | null }> {
+export async function quitarDanioAction(danioId: string): Promise<ResultadoAccion> {
   const session = await requireRole(ROLES_BORRAR);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
@@ -202,17 +233,17 @@ export async function quitarDanioAction(danioId: string): Promise<{ error: strin
     where: { id: danioId, orden: { sedeId: session.user.sedeActivaId } },
     select: { id: true, ordenId: true, orden: { select: { estado: true, factura: { select: { id: true } } } } },
   });
-  if (!danio) return { error: "Marca no encontrada" };
-  if (!esOrdenMutable(danio.orden)) return { error: ORDEN_INMUTABLE };
+  if (!danio) return { error: "Marca no encontrada", success: false };
+  if (!esOrdenMutable(danio.orden)) return { error: ORDEN_INMUTABLE, success: false };
 
   try {
     await tenantDb.danioOrden.delete({ where: { id: danioId } });
   } catch (err) {
-    return { error: friendlyPrismaErrorMessage(err, "No se pudo quitar la marca") };
+    return { error: friendlyPrismaErrorMessage(err, "No se pudo quitar la marca"), success: false };
   }
 
   revalidarActa(danio.ordenId);
-  return { error: null };
+  return { error: null, success: true };
 }
 
 // ---------------------------------------------------------------- acta
@@ -517,7 +548,7 @@ export async function agregarGarantiaAction(
   return { error: null, success: true };
 }
 
-export async function quitarGarantiaAction(garantiaId: string): Promise<{ error: string | null }> {
+export async function quitarGarantiaAction(garantiaId: string): Promise<ResultadoAccion> {
   const session = await requireRole(ROLES_BORRAR);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
@@ -525,8 +556,8 @@ export async function quitarGarantiaAction(garantiaId: string): Promise<{ error:
     where: { id: garantiaId, orden: { sedeId: session.user.sedeActivaId } },
     select: { id: true, ordenId: true, orden: { select: { estado: true, factura: { select: { id: true } } } } },
   });
-  if (!garantia) return { error: "Garantía no encontrada" };
-  if (!esOrdenMutable(garantia.orden)) return { error: ORDEN_INMUTABLE };
+  if (!garantia) return { error: "Garantía no encontrada", success: false };
+  if (!esOrdenMutable(garantia.orden)) return { error: ORDEN_INMUTABLE, success: false };
 
   try {
     await tenantDb.$transaction(async (tx) => {
@@ -540,11 +571,11 @@ export async function quitarGarantiaAction(garantiaId: string): Promise<{ error:
       });
     });
   } catch (err) {
-    return { error: friendlyPrismaErrorMessage(err, "No se pudo quitar la garantía") };
+    return { error: friendlyPrismaErrorMessage(err, "No se pudo quitar la garantía"), success: false };
   }
 
   revalidarActa(garantia.ordenId);
-  return { error: null };
+  return { error: null, success: true };
 }
 
 export interface GarantiaVista {

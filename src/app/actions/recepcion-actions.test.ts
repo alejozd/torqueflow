@@ -8,6 +8,8 @@ const mockBorrarUpload = vi.fn();
 vi.mock("@/lib/storage/local-file-storage", () => ({
   saveOrdenArchivo: (...args: unknown[]) => mockSaveOrdenArchivo(...args),
   borrarUpload: (...args: unknown[]) => mockBorrarUpload(...args),
+  // La acción lo usa para rechazar un data URL enorme antes de decodificarlo.
+  MAX_UPLOAD_SIZE_BYTES: 5 * 1024 * 1024,
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -150,7 +152,7 @@ describe("marcas del diagrama", () => {
 
     const r = await quitarDanioAction("d1");
 
-    expect(r).toEqual({ error: null });
+    expect(r).toEqual({ error: null, success: true });
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
     expect(db.danioOrden.findFirst).toHaveBeenCalledWith({
       where: { id: "d1", orden: { sedeId: "sede-1" } },
@@ -360,6 +362,45 @@ describe("entregarOrdenAction", () => {
     expect(mockBorrarUpload).toHaveBeenCalledWith("taller", "/api/uploads/taller/ordenes/o1/firma/f.png");
   });
 
+  it("acepta la firma dibujada en pantalla como data URL PNG", async () => {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString("base64");
+    mockSaveOrdenArchivo.mockResolvedValue({ relativePath: "x", url: "/api/uploads/taller/ordenes/o1/firma/canvas.png" });
+
+    const r = await entregarOrdenAction(
+      "o1",
+      { error: null, success: false },
+      fd({ recibidoPor: "M", firmaDataUrl: `data:image/png;base64,${png}` }),
+    );
+
+    expect(r).toEqual({ error: null, success: true });
+    const archivo = mockSaveOrdenArchivo.mock.calls[0]![3] as File;
+    expect(archivo.type).toBe("image/png");
+    expect(archivo.name).toBe("firma.png");
+    expect(tx.actaEntrega.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ firmaUrl: "/api/uploads/taller/ordenes/o1/firma/canvas.png" }),
+      }),
+    );
+  });
+
+  it("rechaza un data URL que no es una imagen, y dos firmas a la vez", async () => {
+    const invalido = await entregarOrdenAction(
+      "o1",
+      { error: null, success: false },
+      fd({ recibidoPor: "M", firmaDataUrl: "data:text/plain;base64,aG9sYQ==" }),
+    );
+    expect(invalido.error).toBe("La firma no tiene un formato válido");
+
+    const foto = new File([new Uint8Array([1])], "acta.jpg", { type: "image/jpeg" });
+    const dos = await entregarOrdenAction(
+      "o1",
+      { error: null, success: false },
+      fd({ recibidoPor: "M", firmaDataUrl: "data:image/png;base64,AAAA", fotoActa: foto }),
+    );
+    expect(dos.error).toBe("Deja solo una firma: la de pantalla o la foto");
+    expect(mockSaveOrdenArchivo).not.toHaveBeenCalled();
+  });
+
   it("acepta la foto del acta firmada en papel", async () => {
     const foto = new File([new Uint8Array([1])], "acta.jpg", { type: "image/jpeg" });
     mockSaveOrdenArchivo.mockResolvedValue({ relativePath: "x", url: "/api/uploads/taller/ordenes/o1/acta/a.jpg" });
@@ -440,7 +481,7 @@ describe("garantías", () => {
       orden: { estado: "EN_PROCESO", factura: null },
     });
 
-    expect(await quitarGarantiaAction("g1")).toEqual({ error: null });
+    expect(await quitarGarantiaAction("g1")).toEqual({ error: null, success: true });
     expect(tx.garantia.delete).toHaveBeenCalledWith({ where: { id: "g1" } });
     expect(tx.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ tipo: "GARANTIA_ELIMINAR", entidadId: "g1" }),

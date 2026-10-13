@@ -1089,23 +1089,22 @@ enum NivelCombustible {
   LLENO
 }
 
-/// Zonas marcables del diagrama de daños. Cubren carro y moto: la silueta que se
-/// pinta depende de `Vehiculo.tipo` y solo ofrece las zonas de esa figura (D2).
+/// Zonas marcables del diagrama de daños. Cada figura (carro o moto) ofrece su
+/// subconjunto: la silueta que se pinta depende de `Vehiculo.tipo` (D2). No hay
+/// valores sin figura: si una zona no se puede marcar, no está en el enum.
 enum ZonaVehiculo {
   FRENTE
   CAPO
   PARABRISAS
   TECHO
-  LATERAL_DERECHO
-  LATERAL_IZQUIERDO
-  PUERTA_DERECHA
-  PUERTA_IZQUIERDA
-  GUARDABARROS_DERECHO
-  GUARDABARROS_IZQUIERDO
   COMPUERTA
-  RINES
-  ESPEJO_DERECHO
+  PUERTA_IZQUIERDA
+  PUERTA_DERECHA
+  LATERAL_IZQUIERDO
+  LATERAL_DERECHO
   ESPEJO_IZQUIERDO
+  ESPEJO_DERECHO
+  RINES
   MANUBRIO
   TANQUE
   ASIENTO

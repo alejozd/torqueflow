@@ -12,6 +12,10 @@ import { listServicios } from "@/app/actions/servicio-actions";
 import { AnticiposSection } from "./anticipos-section";
 import { AsignarMecanicoForm } from "./asignar-mecanico-form";
 import { CambiarEstadoForm } from "./cambiar-estado-form";
+import { DiagramaDanios } from "./diagrama-danios";
+import { GarantiasSection } from "./garantias-section";
+import { RecepcionForm } from "./recepcion-form";
+import { ActaEntregaForm } from "./acta-entrega-form";
 import { AgregarItemForm } from "./agregar-item-form";
 import { AplicarServicioForm } from "./aplicar-servicio-form";
 import { AgregarManoObraForm } from "./agregar-mano-obra-form";
@@ -37,9 +41,11 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/componen
 // sidebar already, so it doesn't need an anchor.
 const SECCIONES_ORDEN = [
   { id: "informacion", label: "Información", dot: "bg-blue-500" },
+  { id: "recepcion", label: "Recepción", dot: "bg-orange-500" },
   { id: "items", label: "Ítems", dot: "bg-amber-500" },
   { id: "mano-obra", label: "Mano de obra", dot: "bg-purple-500" },
   { id: "dvi", label: "DVI", dot: "bg-red-500" },
+  { id: "entrega", label: "Acta y garantías", dot: "bg-teal-500" },
   { id: "anticipos", label: "Anticipos", dot: "bg-green-500" },
 ] as const;
 
@@ -324,6 +330,37 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
             </CardContent>
           </Card>
 
+          <Card id="recepcion" className="scroll-mt-16">
+            <CardHeader>
+              <CardTitle>
+                Recepción y daños{" "}
+                <span className="font-normal text-muted-foreground">
+                  · {orden.danios.length} {orden.danios.length === 1 ? "marca" : "marcas"}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5">
+              <RecepcionForm
+                ordenId={orden.id}
+                kilometrajeIngreso={orden.kilometrajeIngreso}
+                nivelCombustible={orden.nivelCombustible}
+                soloLectura={!esOrdenMutable(orden)}
+              />
+              <DiagramaDanios
+                ordenId={orden.id}
+                tipoVehiculo={orden.vehiculo.tipo}
+                danios={orden.danios.map((danio) => ({
+                  id: danio.id,
+                  zona: danio.zona,
+                  tipo: danio.tipo,
+                  nota: danio.nota,
+                }))}
+                soloLectura={!esOrdenMutable(orden)}
+                puedeQuitar={puedeQuitar}
+              />
+            </CardContent>
+          </Card>
+
           <Card id="items" className="scroll-mt-16">
             <CardHeader>
               <CardTitle>
@@ -411,6 +448,56 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
             </CardContent>
           </Card>
 
+          <Card id="entrega" className="scroll-mt-16">
+            <CardHeader>
+              <CardTitle>Acta de entrega y garantías</CardTitle>
+              <CardAction>
+                {orden.acta?.firmadaAt ? (
+                  <Link href={`/ordenes/${orden.id}/acta/imprimir`} className="text-sm underline underline-offset-4">
+                    Imprimir acta
+                  </Link>
+                ) : null}
+              </CardAction>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5">
+              <ActaEntregaForm
+                ordenId={orden.id}
+                estado={orden.estado}
+                acta={
+                  orden.acta
+                    ? {
+                        recibidoPor: orden.acta.recibidoPor,
+                        documentoRecibe: orden.acta.documentoRecibe,
+                        observaciones: orden.acta.observaciones,
+                        firmaUrl: orden.acta.firmaUrl,
+                        firmaFotoUrl: orden.acta.firmaFotoUrl,
+                        firmadaAt: orden.acta.firmadaAt,
+                      }
+                    : null
+                }
+              />
+              <GarantiasSection
+                ordenId={orden.id}
+                garantias={orden.garantias.map((garantia) => ({
+                  id: garantia.id,
+                  tipo: garantia.tipo,
+                  descripcion: garantia.descripcion,
+                  linea: garantia.manoDeObra?.descripcion ?? garantia.itemOrden?.descripcion ?? null,
+                  cubreHasta: garantia.cubreHasta,
+                  cubreHastaKm: garantia.cubreHastaKm,
+                  nota: garantia.nota,
+                }))}
+                lineasTrabajo={orden.manoDeObra.map((linea) => ({ id: linea.id, descripcion: linea.descripcion }))}
+                lineasRepuesto={orden.items.map((item) => ({
+                  id: item.id,
+                  descripcion: `${item.descripcion} ×${item.cantidad}`,
+                }))}
+                soloLectura={!esOrdenMutable(orden)}
+                puedeQuitar={puedeQuitar}
+              />
+            </CardContent>
+          </Card>
+
           {mostrarAnticipos ? (
             <Card id="anticipos" className="scroll-mt-16">
               <CardHeader>
@@ -466,7 +553,13 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
               <CardTitle>Estado: {ESTADO_LABELS[orden.estado]}</CardTitle>
             </CardHeader>
             <CardContent>
-              <CambiarEstadoForm ordenId={orden.id} estadoActual={orden.estado} />
+              {orden.estado === "TERMINADA" ? (
+                <p className="text-sm text-muted-foreground">
+                  La orden está terminada: entrégala firmando el acta en la sección «Acta de entrega y garantías».
+                </p>
+              ) : (
+                <CambiarEstadoForm ordenId={orden.id} estadoActual={orden.estado} />
+              )}
             </CardContent>
           </Card>
 
