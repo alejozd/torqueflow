@@ -25,6 +25,9 @@ enum TipoEventoAuditoria {
   LIQUIDACION_ANULAR
   LIQUIDACION_ESQUEMA_ACTUALIZAR
   LIQUIDACION_FRECUENCIA_ACTUALIZAR
+  ACTA_FIRMAR
+  GARANTIA_REGISTRAR
+  GARANTIA_ELIMINAR
 }
 
 /// Cada cuánto liquida el taller a sus mecánicos (D5 de la Fase 19). Es un
@@ -136,6 +139,9 @@ model Usuario {
   liquidacionesPagadas          LiquidacionMecanico[]   @relation("LiquidacionesPagadas")
   liquidacionesAnuladas         LiquidacionMecanico[]   @relation("LiquidacionesAnuladas")
   liquidaciones                 LiquidacionMecanico[]   @relation("LiquidacionesMecanico")
+  daniosCreados                 DanioOrden[]            @relation("DanioCreadoPor")
+  actasCreadas                  ActaEntrega[]           @relation("ActaCreadoPor")
+  garantiasCreadas              Garantia[]              @relation("GarantiaCreadoPor")
   createdAt                     DateTime                @default(now()) @map("created_at")
   updatedAt                     DateTime                @updatedAt @map("updated_at")
 
@@ -308,6 +314,8 @@ model OrdenTrabajo {
   creadoPorId        String                     @map("creado_por_id")
   creadoPor          Usuario                    @relation("OrdenCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
   kilometrajeIngreso Int?                       @map("kilometraje_ingreso")
+  /// Nivel con que entró el vehículo (Fase 21): se imprime en el acta de entrega.
+  nivelCombustible   NivelCombustible?          @map("nivel_combustible")
   sintomas           String?
   items              ItemOrden[]
   manoDeObra         ManoDeObra[]
@@ -315,6 +323,9 @@ model OrdenTrabajo {
   factura            Factura?
   cotizacion         Cotizacion?
   notificaciones     NotificacionOrdenEnviada[]
+  danios             DanioOrden[]
+  acta               ActaEntrega?
+  garantias          Garantia[]
   entregadaAt        DateTime?                  @map("entregada_at")
   anuladaAt          DateTime?                  @map("anulada_at")
   createdAt          DateTime                   @default(now()) @map("created_at")
@@ -336,6 +347,7 @@ model ItemOrden {
   descripcion    String
   cantidad       Int
   precioUnitario Decimal      @map("precio_unitario") @db.Decimal(10, 2)
+  garantias      Garantia[]
   createdAt      DateTime     @default(now()) @map("created_at")
 
   @@index([ordenId])
@@ -354,6 +366,7 @@ model ManoDeObra {
   // cabecera (p.ej. pastillas vs. correa de repartición).
   mecanicoId  String?      @map("mecanico_id")
   mecanico    Usuario?     @relation("ManoDeObraMecanico", fields: [mecanicoId], references: [id], onDelete: SetNull)
+  garantias   Garantia[]
   createdAt   DateTime     @default(now()) @map("created_at")
 
   @@index([ordenId])
@@ -1061,4 +1074,122 @@ model LiquidacionMecanico {
   @@index([sedeId, periodo])
   @@index([usuarioId])
   @@map("liquidaciones_mecanico")
+}
+
+// ---------------------------------------------------------------------------
+// Fase 21: recepción, acta de entrega y garantías
+// ---------------------------------------------------------------------------
+
+/// Nivel de combustible con que entró el vehículo; se imprime en el acta.
+enum NivelCombustible {
+  VACIO
+  CUARTO
+  MEDIO
+  TRES_CUARTOS
+  LLENO
+}
+
+/// Zonas marcables del diagrama de daños. Cubren carro y moto: la silueta que se
+/// pinta depende de `Vehiculo.tipo` y solo ofrece las zonas de esa figura (D2).
+enum ZonaVehiculo {
+  FRENTE
+  CAPO
+  PARABRISAS
+  TECHO
+  LATERAL_DERECHO
+  LATERAL_IZQUIERDO
+  PUERTA_DERECHA
+  PUERTA_IZQUIERDA
+  GUARDABARROS_DERECHO
+  GUARDABARROS_IZQUIERDO
+  COMPUERTA
+  RINES
+  ESPEJO_DERECHO
+  ESPEJO_IZQUIERDO
+  MANUBRIO
+  TANQUE
+  ASIENTO
+  OTRO
+}
+
+enum TipoDanio {
+  GOLPE
+  RAYON
+  ROTURA
+  FALTANTE
+  OXIDO
+}
+
+enum TipoGarantia {
+  TRABAJO
+  REPUESTO
+}
+
+/// Una marca del diagrama de daños: la zona, qué tiene y una nota opcional. Se
+/// guardan filas (y no un dibujo) para poder consultarlas y compararlas (D2).
+model DanioOrden {
+  id          String         @id @default(cuid())
+  ordenId     String         @map("orden_id")
+  orden       OrdenTrabajo   @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  zona        ZonaVehiculo
+  tipo        TipoDanio
+  nota        String?
+  creadoPorId String         @map("creado_por_id")
+  creadoPor   Usuario        @relation("DanioCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  /// La misma zona no se marca dos veces con el mismo daño.
+  @@unique([ordenId, zona, tipo])
+  @@index([ordenId])
+  @@index([creadoPorId])
+  @@map("danios_orden")
+}
+
+/// Acta de entrega: una por orden (D4). Guarda quién recibe y su firma, que
+/// llega dibujada en pantalla (`firmaUrl`) o como foto del papel firmado
+/// (`firmaFotoUrl`); `firmadaAt` marca el momento en que deja de ser editable.
+model ActaEntrega {
+  id              String       @id @default(cuid())
+  ordenId         String       @unique @map("orden_id")
+  orden           OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  recibidoPor     String       @map("recibido_por")
+  documentoRecibe String?      @map("documento_recibe")
+  firmaUrl        String?      @map("firma_url")
+  firmaFotoUrl    String?      @map("firma_foto_url")
+  observaciones   String?
+  firmadaAt       DateTime?    @map("firmada_at")
+  creadoPorId     String       @map("creado_por_id")
+  creadoPor       Usuario      @relation("ActaCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  @@index([creadoPorId])
+  @@map("actas_entrega")
+}
+
+/// Garantía registrada sobre una línea de la orden: un trabajo (`manoDeObraId`)
+/// o un repuesto (`itemOrdenId`). Cubre por fecha y/o por kilometraje; sin
+/// ninguna de las dos es informativa (D3).
+model Garantia {
+  id            String       @id @default(cuid())
+  ordenId       String       @map("orden_id")
+  orden         OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  tipo          TipoGarantia
+  manoDeObraId  String?      @map("mano_de_obra_id")
+  manoDeObra    ManoDeObra?  @relation(fields: [manoDeObraId], references: [id], onDelete: Cascade)
+  itemOrdenId   String?      @map("item_orden_id")
+  itemOrden     ItemOrden?   @relation(fields: [itemOrdenId], references: [id], onDelete: Cascade)
+  descripcion   String
+  cubreHasta    DateTime?    @map("cubre_hasta") @db.Date
+  cubreHastaKm  Int?         @map("cubre_hasta_km")
+  nota          String?
+  creadoPorId   String       @map("creado_por_id")
+  creadoPor     Usuario      @relation("GarantiaCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  @@index([ordenId])
+  @@index([manoDeObraId])
+  @@index([itemOrdenId])
+  @@index([creadoPorId])
+  @@map("garantias")
 }

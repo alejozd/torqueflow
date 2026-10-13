@@ -1,0 +1,1064 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../src/generated/prisma-tenant"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("TENANT_DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  TECNICO
+  RECEPCION
+}
+
+enum TipoEventoAuditoria {
+  ORDEN_ANULAR
+  USUARIO_ACTUALIZAR_PERMISOS
+  USUARIO_ELIMINAR
+  BODEGA_ELIMINAR
+  LIQUIDACION_GENERAR
+  LIQUIDACION_AJUSTAR
+  LIQUIDACION_PAGAR
+  LIQUIDACION_ANULAR
+  LIQUIDACION_ESQUEMA_ACTUALIZAR
+  LIQUIDACION_FRECUENCIA_ACTUALIZAR
+}
+
+/// Cada cuánto liquida el taller a sus mecánicos (D5 de la Fase 19). Es un
+/// ajuste del taller, no de cada técnico.
+enum FrecuenciaLiquidacion {
+  SEMANAL
+  QUINCENAL
+  MENSUAL
+}
+
+enum TipoEsquemaLiquidacion {
+  PORCENTAJE
+  FIJO
+  MIXTO
+}
+
+enum EstadoLiquidacion {
+  PENDIENTE
+  PAGADA
+  ANULADA
+}
+
+enum EstadoOrden {
+  BORRADOR
+  EN_PROCESO
+  TERMINADA
+  ENTREGADA
+  ANULADA
+}
+
+enum EstadoCita {
+  PROGRAMADA
+  CONFIRMADA
+  CANCELADA
+  COMPLETADA
+}
+
+enum TipoCombustible {
+  GASOLINA
+  DIESEL
+  HIBRIDO
+  ELECTRICO
+}
+
+enum TipoTransmision {
+  AUTOMATICA
+  MECANICA
+}
+
+enum TipoVehiculo {
+  CARRO
+  MOTO
+  CAMIONETA
+  CAMION
+}
+
+enum TipoDocumentoVehiculo {
+  SOAT
+  TECNOMECANICA
+}
+
+enum CanalAviso {
+  EMAIL
+  WHATSAPP
+}
+
+enum MotivoRecordatorio {
+  KILOMETRAJE
+  TIEMPO
+}
+
+enum ResultadoNotificacionOrden {
+  ENVIADA
+  FALLO_ENVIO
+}
+
+model Usuario {
+  id                            String                  @id @default(cuid())
+  anticiposRegistrados Anticipo[] @relation("AnticiposRegistrados")
+  anticiposDevueltos Anticipo[] @relation("AnticiposDevueltos")
+  cajasAbiertas CajaSesion[] @relation("CajasAbiertas")
+  cajasCerradas CajaSesion[] @relation("CajasCerradas")
+  email                         String                  @unique
+  passwordHash                  String                  @map("password_hash")
+  nombre                        String
+  role                          Role                    @default(RECEPCION)
+  activo                        Boolean                 @default(true) @map("activo")
+  sedeDefectoId                 String?                 @map("sede_defecto_id")
+  sedeDefecto                   Sede?                   @relation("UsuarioSedeDefecto", fields: [sedeDefectoId], references: [id], onDelete: SetNull)
+  historialEntries              HistorialVehiculo[]
+  auditLogEntries               AuditLog[]
+  ordenesCreadas                OrdenTrabajo[]          @relation("OrdenCreadoPor")
+  ordenesAsignadas              OrdenTrabajo[]          @relation("OrdenMecanico")
+  manoDeObraAsignada            ManoDeObra[]            @relation("ManoDeObraMecanico")
+  dviRealizados                 Dvi[]
+  entradasCreadas               EntradaMercancia[]
+  pedidosCompraCreados          PedidoCompra[]
+  facturasEmitidas              Factura[]
+  pagosRegistrados              Pago[]
+  citasCreadas                  Cita[]                  @relation("CitaCreadoPor")
+  cotizacionesCreadas           Cotizacion[]            @relation("CotizacionCreadoPor")
+  seguimientosCotizacionCreados CotizacionSeguimiento[] @relation("CotizacionSeguimientoCreadoPor")
+  sedes                         UsuarioSede[]
+  avisosVencimientoEnviados     AvisoVencimiento[]
+  gastosRegistrados             Gasto[]                 @relation("GastosRegistrados")
+  gastosRecurrentesOmitidos     GastoRecurrenteOmitido[] @relation("GastosRecurrentesOmitidos")
+  esquemaLiquidacion            EsquemaLiquidacion?     @relation("EsquemaLiquidacion")
+  liquidacionesGeneradas        LiquidacionMecanico[]   @relation("LiquidacionesGeneradas")
+  liquidacionesPagadas          LiquidacionMecanico[]   @relation("LiquidacionesPagadas")
+  liquidacionesAnuladas         LiquidacionMecanico[]   @relation("LiquidacionesAnuladas")
+  liquidaciones                 LiquidacionMecanico[]   @relation("LiquidacionesMecanico")
+  createdAt                     DateTime                @default(now()) @map("created_at")
+  updatedAt                     DateTime                @updatedAt @map("updated_at")
+
+  @@map("usuarios")
+}
+
+model Cliente {
+  id                  String                     @id @default(cuid())
+  nombre              String
+  telefono            String?
+  email               String?
+  documento           String?
+  vehiculos           Vehiculo[]
+  ordenes             OrdenTrabajo[]
+  facturas            Factura[]
+  citas               Cita[]
+  cotizaciones        Cotizacion[]
+  recordatorios       RecordatorioEnviado[]
+  notificacionesOrden NotificacionOrdenEnviada[]
+  createdAt           DateTime                   @default(now()) @map("created_at")
+  updatedAt           DateTime                   @updatedAt @map("updated_at")
+
+  @@map("clientes")
+}
+
+// Per-taller catalog (not shared across tenants -- see MarcaVehiculo). Vehiculo
+// keeps its original free-text marca/modelo columns required and untouched in
+// this phase; marcaId/modeloId are additive and nullable so existing rows and
+// every current caller keep working unchanged until the UI phase actually
+// writes them. Only once that path is proven does deprecating the free-text
+// columns become safe.
+model MarcaVehiculo {
+  id        String           @id @default(cuid())
+  nombre    String           @unique
+  modelos   ModeloVehiculo[]
+  vehiculos Vehiculo[]
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  @@map("marcas_vehiculo")
+}
+
+model ModeloVehiculo {
+  id        String        @id @default(cuid())
+  marcaId   String        @map("marca_id")
+  marca     MarcaVehiculo @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  nombre    String
+  vehiculos Vehiculo[]
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  @@unique([marcaId, nombre])
+  @@index([marcaId])
+  @@map("modelos_vehiculo")
+}
+
+model Vehiculo {
+  id                   String                @id @default(cuid())
+  placa                String                @unique
+  marca                String
+  modelo               String
+  marcaId              String?               @map("marca_id")
+  marcaRef             MarcaVehiculo?        @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  modeloId             String?               @map("modelo_id")
+  modeloRef            ModeloVehiculo?       @relation(fields: [modeloId], references: [id], onDelete: Restrict)
+  color                String?
+  anio                 Int?
+  combustible          TipoCombustible?
+  kilometraje          Int?
+  proximoMantenimiento DateTime?             @map("proximo_mantenimiento")
+  transmision          TipoTransmision?
+  observaciones        String?
+  tipo                 TipoVehiculo          @default(CARRO)
+  vin                  String?
+  soatVence            DateTime?             @map("soat_vence") @db.Date
+  tecnomecanicaVence   DateTime?             @map("tecnomecanica_vence") @db.Date
+  clienteId            String                @map("cliente_id")
+  cliente              Cliente               @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  historial            HistorialVehiculo[]
+  ordenes              OrdenTrabajo[]
+  citas                Cita[]
+  cotizaciones         Cotizacion[]
+  recordatorios        RecordatorioEnviado[]
+  avisosVencimiento    AvisoVencimiento[]
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+
+  @@index([clienteId])
+  @@index([marcaId])
+  @@index([modeloId])
+  @@map("vehiculos")
+}
+
+model HistorialVehiculo {
+  id          String   @id @default(cuid())
+  vehiculoId  String   @map("vehiculo_id")
+  vehiculo    Vehiculo @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  descripcion String
+  fecha       DateTime @default(now())
+  autorId     String?  @map("autor_id")
+  autor       Usuario? @relation(fields: [autorId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([vehiculoId])
+  @@map("historial_vehiculo")
+}
+
+model AuditLog {
+  id          String              @id @default(cuid())
+  tipo        TipoEventoAuditoria
+  actorId     String?             @map("actor_id")
+  actor       Usuario?            @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  entidadTipo String              @map("entidad_tipo")
+  entidadId   String              @map("entidad_id")
+  detalle     Json?
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  @@index([tipo, createdAt])
+  @@index([entidadTipo, entidadId])
+  @@map("audit_log")
+}
+
+model Sede {
+  id                 String         @id @default(cuid())
+  anticipos Anticipo[]
+  cajas CajaSesion[]
+  nombre             String
+  direccion          String?
+  ordenes            OrdenTrabajo[]
+  bodegas            Bodega[]
+  usuarios           UsuarioSede[]
+  citas              Cita[]
+  cotizaciones       Cotizacion[]
+  usuariosPorDefecto Usuario[]      @relation("UsuarioSedeDefecto")
+  gastos             Gasto[]
+  gastosRecurrentes  GastoRecurrente[]
+  liquidaciones      LiquidacionMecanico[]
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+
+  @@map("sedes")
+}
+
+/// Bridge table: which sedes a Usuario may work in. ADMIN bypasses this table
+/// entirely (see src/lib/auth/sede-access.ts) -- rows here only ever matter for
+/// TECNICO and RECEPCION. Composite PK, so the same grant can never be
+/// duplicated and no surrogate id is needed.
+model UsuarioSede {
+  usuarioId String   @map("usuario_id")
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  sedeId    String   @map("sede_id")
+  sede      Sede     @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([usuarioId, sedeId])
+  @@index([sedeId])
+  @@map("usuario_sedes")
+}
+
+model OrdenTrabajo {
+  id                 String                     @id @default(cuid())
+  anticipos Anticipo[]
+  estado             EstadoOrden                @default(BORRADOR)
+  clienteId          String                     @map("cliente_id")
+  cliente            Cliente                    @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  vehiculoId         String                     @map("vehiculo_id")
+  vehiculo           Vehiculo                   @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  sedeId             String                     @map("sede_id")
+  sede               Sede                       @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  mecanicoId         String?                    @map("mecanico_id")
+  mecanico           Usuario?                   @relation("OrdenMecanico", fields: [mecanicoId], references: [id], onDelete: SetNull)
+  creadoPorId        String                     @map("creado_por_id")
+  creadoPor          Usuario                    @relation("OrdenCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  kilometrajeIngreso Int?                       @map("kilometraje_ingreso")
+  sintomas           String?
+  items              ItemOrden[]
+  manoDeObra         ManoDeObra[]
+  dvi                Dvi?
+  factura            Factura?
+  cotizacion         Cotizacion?
+  notificaciones     NotificacionOrdenEnviada[]
+  entregadaAt        DateTime?                  @map("entregada_at")
+  anuladaAt          DateTime?                  @map("anulada_at")
+  createdAt          DateTime                   @default(now()) @map("created_at")
+  updatedAt          DateTime                   @updatedAt @map("updated_at")
+
+  @@index([clienteId])
+  @@index([vehiculoId])
+  @@index([sedeId])
+  @@index([estado])
+  @@map("ordenes_trabajo")
+}
+
+model ItemOrden {
+  id             String       @id @default(cuid())
+  ordenId        String       @map("orden_id")
+  orden          OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  repuestoId     String?      @map("repuesto_id")
+  repuesto       Repuesto?    @relation(fields: [repuestoId], references: [id], onDelete: SetNull)
+  descripcion    String
+  cantidad       Int
+  precioUnitario Decimal      @map("precio_unitario") @db.Decimal(10, 2)
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@index([ordenId])
+  @@index([repuestoId])
+  @@map("items_orden")
+}
+
+model ManoDeObra {
+  id          String       @id @default(cuid())
+  ordenId     String       @map("orden_id")
+  orden       OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  descripcion String
+  valor       Decimal      @db.Decimal(10, 2)
+  // Distinto del mecanicoId de la orden (OrdenTrabajo.mecanicoId): cada tarea
+  // puede quedar en manos de un técnico distinto al mecánico asignado en la
+  // cabecera (p.ej. pastillas vs. correa de repartición).
+  mecanicoId  String?      @map("mecanico_id")
+  mecanico    Usuario?     @relation("ManoDeObraMecanico", fields: [mecanicoId], references: [id], onDelete: SetNull)
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  @@index([ordenId])
+  @@index([mecanicoId])
+  @@map("mano_de_obra")
+}
+
+enum DviFotoMomento {
+  ANTES
+  DESPUES
+}
+
+model Dvi {
+  id          String       @id @default(cuid())
+  ordenId     String       @unique @map("orden_id")
+  orden       OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  checklist   Json         @default("{}")
+  fotos       DviFoto[]
+  creadoPorId String       @map("creado_por_id")
+  creadoPor   Usuario      @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  @@map("dvi")
+}
+
+model DviFoto {
+  id        String         @id @default(cuid())
+  dviId     String         @map("dvi_id")
+  dvi       Dvi            @relation(fields: [dviId], references: [id], onDelete: Cascade)
+  momento   DviFotoMomento
+  url       String
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  @@index([dviId])
+  @@map("dvi_fotos")
+}
+
+model DviChecklistItem {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  label     String
+  activo    Boolean  @default(true)
+  orden     Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("dvi_checklist_items")
+}
+
+model Bodega {
+  id            String             @id @default(cuid())
+  nombre        String
+  sedeId        String             @map("sede_id")
+  sede          Sede               @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  repuestos     Repuesto[]
+  entradas      EntradaMercancia[]
+  pedidosCompra PedidoCompra[]
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  @@index([sedeId])
+  @@map("bodegas")
+}
+
+model Proveedor {
+  id            String             @id @default(cuid())
+  nombre        String
+  documento     String?
+  direccion     String?
+  contacto      String?
+  telefono      String?
+  email         String?
+  /// Días que tarda el proveedor en entregar un pedido; alimenta la cantidad sugerida de las alertas de inventario.
+  diasEntrega   Int                @default(3) @map("dias_entrega")
+  repuestos     Repuesto[]
+  entradas      EntradaMercancia[]
+  pedidosCompra PedidoCompra[]
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  @@map("proveedores")
+}
+
+model Repuesto {
+  id                   String                 @id @default(cuid())
+  codigo               String                 @unique
+  nombre               String
+  descripcion          String?
+  precioCompra         Decimal                @map("precio_compra") @db.Decimal(10, 2)
+  precioVenta          Decimal                @map("precio_venta") @db.Decimal(10, 2)
+  stockActual          Int                    @default(0) @map("stock_actual")
+  stockMinimo          Int                    @default(0) @map("stock_minimo")
+  /// Hasta dónde reponer al pedir; sin valor, las alertas usan 2 × stockMinimo.
+  stockMaximo          Int?                   @map("stock_maximo")
+  /// Las cantidades sugeridas se redondean hacia arriba a este múltiplo (cajas, packs).
+  multiploCompra       Int                    @default(1) @map("multiplo_compra")
+  /// Mientras sea futura, la alerta del dashboard se muestra en "Pospuestas" en vez del listado principal.
+  alertaPospuestaHasta DateTime?              @map("alerta_pospuesta_hasta")
+  bodegaId             String                 @map("bodega_id")
+  bodega               Bodega                 @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
+  proveedorId          String?                @map("proveedor_id")
+  proveedor            Proveedor?             @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
+  entradaItems         EntradaMercanciaItem[]
+  pedidoCompraItems    PedidoCompraItem[]
+  itemsOrden           ItemOrden[]
+  itemsCotizacion      ItemCotizacion[]
+  servicios            ServicioRepuesto[]
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
+
+  @@index([bodegaId])
+  @@index([proveedorId])
+  @@map("repuestos")
+}
+
+model EntradaMercancia {
+  id           String                 @id @default(cuid())
+  proveedorId  String                 @map("proveedor_id")
+  proveedor    Proveedor              @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  bodegaId     String                 @map("bodega_id")
+  bodega       Bodega                 @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
+  creadoPorId  String                 @map("creado_por_id")
+  creadoPor    Usuario                @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  items        EntradaMercanciaItem[]
+  /// Set when the entrada was created by receiving a pedido de compra.
+  pedidoCompra PedidoCompra?
+  createdAt    DateTime               @default(now()) @map("created_at")
+
+  @@index([proveedorId])
+  @@index([bodegaId])
+  @@map("entradas_mercancia")
+}
+
+model EntradaMercanciaItem {
+  id                   String           @id @default(cuid())
+  entradaId            String           @map("entrada_id")
+  entrada              EntradaMercancia @relation(fields: [entradaId], references: [id], onDelete: Cascade)
+  repuestoId           String           @map("repuesto_id")
+  repuesto             Repuesto         @relation(fields: [repuestoId], references: [id], onDelete: Restrict)
+  cantidad             Int
+  precioCompraUnitario Decimal          @map("precio_compra_unitario") @db.Decimal(10, 2)
+  createdAt            DateTime         @default(now()) @map("created_at")
+
+  @@index([entradaId])
+  @@index([repuestoId])
+  @@map("entrada_mercancia_items")
+}
+
+enum EstadoFactura {
+  PENDIENTE
+  PAGADA
+}
+
+enum MetodoPago {
+  EFECTIVO
+  TARJETA
+  TRANSFERENCIA
+  OTRO
+  ANTICIPO
+}
+
+model Factura {
+  id             String        @id @default(cuid())
+  numero         Int           @unique @default(autoincrement())
+  estado         EstadoFactura @default(PENDIENTE)
+  ordenId        String        @unique @map("orden_id")
+  orden          OrdenTrabajo  @relation(fields: [ordenId], references: [id], onDelete: Restrict)
+  clienteId      String        @map("cliente_id")
+  cliente        Cliente       @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  subtotal       Decimal       @db.Decimal(10, 2)
+  descuento      Decimal       @default(0) @db.Decimal(10, 2)
+  iva            Decimal       @db.Decimal(10, 2)
+  total          Decimal       @db.Decimal(10, 2)
+  saldoPendiente Decimal       @map("saldo_pendiente") @db.Decimal(10, 2)
+  emitidaPorId   String        @map("emitida_por_id")
+  emitidaPor     Usuario       @relation(fields: [emitidaPorId], references: [id], onDelete: Restrict)
+  pagos          Pago[]
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@index([clienteId])
+  @@index([estado])
+  @@map("facturas")
+}
+
+model Pago {
+  id              String     @id @default(cuid())
+  anticipo Anticipo?
+  facturaId       String     @map("factura_id")
+  factura         Factura    @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  monto           Decimal    @db.Decimal(10, 2)
+  metodoPago      MetodoPago @map("metodo_pago")
+  referencia      String?
+  registradoPorId String     @map("registrado_por_id")
+  registradoPor   Usuario    @relation(fields: [registradoPorId], references: [id], onDelete: Restrict)
+  createdAt       DateTime   @default(now()) @map("created_at")
+
+  @@index([facturaId])
+  @@map("pagos")
+}
+
+/// A booked appointment. Staff-only in v1: RECEPCION/ADMIN book on behalf of a
+/// customer who called or walked in — there is no public booking surface.
+/// Carries its own sede_id (like OrdenTrabajo, unlike Repuesto) because an
+/// appointment is made *at* a location; scopeCita() in src/lib/sede/scope.ts is
+/// the single definition of that boundary.
+model Cita {
+  id          String     @id @default(cuid())
+  clienteId   String     @map("cliente_id")
+  cliente     Cliente    @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  vehiculoId  String     @map("vehiculo_id")
+  vehiculo    Vehiculo   @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  sedeId      String     @map("sede_id")
+  sede        Sede       @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  fechaHora   DateTime   @map("fecha_hora")
+  estado      EstadoCita @default(PROGRAMADA)
+  motivo      String
+  notas       String?
+  creadoPorId String     @map("creado_por_id")
+  creadoPor   Usuario    @relation("CitaCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  @@index([sedeId])
+  @@index([clienteId])
+  @@index([vehiculoId])
+  @@index([fechaHora])
+  @@map("citas")
+}
+
+/// The tenant's own SMTP server. Exactly one row per tenant schema: the schema
+/// IS the tenant boundary, so the id is a literal constant and the migration
+/// adds a CHECK constraint enforcing it, making "at most one row" a database
+/// invariant rather than an application convention.
+///
+/// password_cifrado is never plaintext: it is an AES-256-GCM envelope produced
+/// by src/lib/crypto/secret-box.ts under the SMTP_ENCRYPTION_KEY master key.
+model ConfiguracionSmtp {
+  id              String   @id @default("singleton")
+  host            String
+  puerto          Int
+  usuario         String
+  passwordCifrado String   @map("password_cifrado")
+  fromEmail       String   @map("from_email")
+  fromNombre      String   @map("from_nombre")
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  /// Last "Enviar correo de prueba" attempt, so the settings page can show
+  /// "Última prueba: ... correcta/fallida" after a reload -- these three are
+  /// deliberately independent of activo/host/etc: a test result should
+  /// survive editing the form fields, and NOT get wiped by guardarConfiguracionSmtpAction.
+  ultimaPruebaAt      DateTime? @map("ultima_prueba_at")
+  ultimaPruebaExitosa Boolean?  @map("ultima_prueba_exitosa")
+  ultimaPruebaDestino String?   @map("ultima_prueba_destino")
+
+  @@map("configuracion_smtp")
+}
+
+/// One row per reminder email actually delivered. Doubles as the de-duplication
+/// ledger: the reminder job skips any vehicle whose newest row here is younger
+/// than COOLDOWN_RECORDATORIO_DIAS. A field on Vehiculo would answer only
+/// "when"; this also records which address was mailed and which threshold
+/// fired, and Fase 8's order-status notifications can reuse the same shape.
+model RecordatorioEnviado {
+  id           String             @id @default(cuid())
+  vehiculoId   String             @map("vehiculo_id")
+  vehiculo     Vehiculo           @relation(fields: [vehiculoId], references: [id], onDelete: Cascade)
+  clienteId    String             @map("cliente_id")
+  cliente      Cliente            @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  emailDestino String             @map("email_destino")
+  motivo       MotivoRecordatorio
+  enviadoAt    DateTime           @default(now()) @map("enviado_at")
+
+  @@index([vehiculoId, enviadoAt])
+  @@index([clienteId])
+  @@map("recordatorios_enviados")
+}
+
+/// One row per order-status notification actually attempted and resolved
+/// (sent or failed). Unlike RecordatorioEnviado there is no next cron sweep
+/// to retry a failed send on -- the estado transition that triggers a
+/// notification is a one-time event -- so the outcome must be recorded here
+/// to be visible at all. Outcomes where nothing was attempted (no SMTP
+/// configured, no client email on file) are surfaced immediately to the
+/// staff member who changed the estado and are never written here -- see
+/// the Fase 8 plan, Design decision 3.
+model NotificacionOrdenEnviada {
+  id           String                     @id @default(cuid())
+  ordenId      String                     @map("orden_id")
+  orden        OrdenTrabajo               @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  clienteId    String                     @map("cliente_id")
+  cliente      Cliente                    @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  estado       EstadoOrden
+  emailDestino String                     @map("email_destino")
+  resultado    ResultadoNotificacionOrden
+  enviadoAt    DateTime                   @default(now()) @map("enviado_at")
+
+  @@index([ordenId, enviadoAt])
+  @@index([clienteId])
+  @@map("notificaciones_orden_enviadas")
+}
+
+enum EstadoCotizacion {
+  BORRADOR
+  ENVIADA
+  APROBADA
+  RECHAZADA
+  VENCIDA
+}
+
+enum TipoItemCotizacion {
+  REPUESTO
+  MANO_OBRA
+}
+
+/// A price quote given to a customer before work starts. Independent of
+/// OrdenTrabajo (unlike Factura, which always closes one out): a Cotizacion
+/// may never turn into an order, and ordenId is only set once staff approve it
+/// and create the resulting OrdenTrabajo -- see EstadoCotizacion.APROBADA.
+model Cotizacion {
+  id           String                  @id @default(cuid())
+  numero       Int                     @unique @default(autoincrement())
+  estado       EstadoCotizacion        @default(BORRADOR)
+  clienteId    String                  @map("cliente_id")
+  cliente      Cliente                 @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  vehiculoId   String                  @map("vehiculo_id")
+  vehiculo     Vehiculo                @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  sedeId       String                  @map("sede_id")
+  sede         Sede                    @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  motivo       String
+  validaHasta  DateTime?               @map("valida_hasta")
+  descuentoPct Decimal                 @default(0) @map("descuento_pct") @db.Decimal(5, 2)
+  subtotal     Decimal                 @default(0) @db.Decimal(10, 2)
+  descuento    Decimal                 @default(0) @db.Decimal(10, 2)
+  iva          Decimal                 @default(0) @db.Decimal(10, 2)
+  total        Decimal                 @default(0) @db.Decimal(10, 2)
+  notas        String?
+  creadoPorId  String                  @map("creado_por_id")
+  creadoPor    Usuario                 @relation("CotizacionCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  ordenId      String?                 @unique @map("orden_id")
+  orden        OrdenTrabajo?           @relation(fields: [ordenId], references: [id], onDelete: SetNull)
+  items        ItemCotizacion[]
+  seguimientos CotizacionSeguimiento[]
+  createdAt    DateTime                @default(now()) @map("created_at")
+  updatedAt    DateTime                @updatedAt @map("updated_at")
+
+  @@index([clienteId])
+  @@index([vehiculoId])
+  @@index([sedeId])
+  @@index([estado])
+  @@map("cotizaciones")
+}
+
+model ItemCotizacion {
+  id             String             @id @default(cuid())
+  cotizacionId   String             @map("cotizacion_id")
+  cotizacion     Cotizacion         @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  tipo           TipoItemCotizacion
+  repuestoId     String?            @map("repuesto_id")
+  repuesto       Repuesto?          @relation(fields: [repuestoId], references: [id], onDelete: SetNull)
+  descripcion    String
+  cantidad       Decimal            @db.Decimal(6, 2)
+  precioUnitario Decimal            @map("precio_unitario") @db.Decimal(10, 2)
+  createdAt      DateTime           @default(now()) @map("created_at")
+
+  @@index([cotizacionId])
+  @@index([repuestoId])
+  @@map("items_cotizacion")
+}
+
+enum TipoSeguimiento {
+  LLAMADA
+  WHATSAPP
+  EMAIL
+  VISITA
+  NOTA
+}
+
+/// A logged follow-up contact against a Cotizacion (call/WhatsApp/email/visit/
+/// note). `proximoSeguimiento`, when set, is the date the "pendiente de
+/// seguimiento" business rule (src/lib/cotizacion/seguimiento-pendiente.ts)
+/// compares against -- see that module for the exact definition, which the
+/// list page, its KPI, and the sidebar badge all share.
+model CotizacionSeguimiento {
+  id                 String          @id @default(cuid())
+  cotizacionId       String          @map("cotizacion_id")
+  cotizacion         Cotizacion      @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  tipo               TipoSeguimiento
+  fecha              DateTime
+  resultado          String
+  proximoSeguimiento DateTime?       @map("proximo_seguimiento")
+  creadoPorId        String          @map("creado_por_id")
+  creadoPor          Usuario         @relation("CotizacionSeguimientoCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  createdAt          DateTime        @default(now()) @map("created_at")
+
+  @@index([cotizacionId])
+  @@map("cotizacion_seguimientos")
+}
+
+enum EstadoPedidoCompra {
+  BORRADOR
+  ENVIADO
+  RECIBIDO
+  CANCELADO
+}
+
+enum CanalPedidoCompra {
+  EMAIL
+  WHATSAPP
+}
+
+/// Purchase order to a proveedor, born from the dashboard's inventory alerts.
+/// ENVIADO pedidos count as "en camino" for the alerts; receiving one creates
+/// the EntradaMercancia that actually moves stock.
+model PedidoCompra {
+  id            String             @id @default(cuid())
+  numero        Int                @unique @default(autoincrement())
+  estado        EstadoPedidoCompra @default(BORRADOR)
+  proveedorId   String             @map("proveedor_id")
+  proveedor     Proveedor          @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  bodegaId      String             @map("bodega_id")
+  bodega        Bodega             @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
+  creadoPorId   String             @map("creado_por_id")
+  creadoPor     Usuario            @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  canal         CanalPedidoCompra?
+  enviadoAt     DateTime?          @map("enviado_at")
+  /// enviadoAt + proveedor.diasEntrega, fixed when sent.
+  fechaEsperada DateTime?          @map("fecha_esperada")
+  recibidoAt    DateTime?          @map("recibido_at")
+  entradaId     String?            @unique @map("entrada_id")
+  entrada       EntradaMercancia?  @relation(fields: [entradaId], references: [id], onDelete: SetNull)
+  items         PedidoCompraItem[]
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  @@index([proveedorId])
+  @@index([bodegaId])
+  @@index([estado])
+  @@map("pedidos_compra")
+}
+
+model PedidoCompraItem {
+  id                   String       @id @default(cuid())
+  pedidoId             String       @map("pedido_id")
+  pedido               PedidoCompra @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  repuestoId           String       @map("repuesto_id")
+  repuesto             Repuesto     @relation(fields: [repuestoId], references: [id], onDelete: Restrict)
+  cantidad             Int
+  precioCompraUnitario Decimal      @map("precio_compra_unitario") @db.Decimal(10, 2)
+
+  @@unique([pedidoId, repuestoId])
+  @@index([repuestoId])
+  @@map("pedido_compra_items")
+}
+
+/// Aviso de vencimiento de SOAT/RTM enviado a un cliente. Único por fecha y
+/// canal: una misma fecha se avisa una vez por canal; al renovar (fecha nueva)
+/// se puede volver a avisar. enviadoPorId null = lo envió el cron.
+model AvisoVencimiento {
+  id               String                @id @default(cuid())
+  vehiculoId       String                @map("vehiculo_id")
+  vehiculo         Vehiculo              @relation(fields: [vehiculoId], references: [id], onDelete: Cascade)
+  tipo             TipoDocumentoVehiculo
+  fechaVencimiento DateTime              @map("fecha_vencimiento") @db.Date
+  canal            CanalAviso
+  destino          String
+  enviadoPorId     String?               @map("enviado_por_id")
+  enviadoPor       Usuario?              @relation(fields: [enviadoPorId], references: [id], onDelete: SetNull)
+  enviadoAt        DateTime              @default(now()) @map("enviado_at")
+
+  @@unique([vehiculoId, tipo, fechaVencimiento, canal])
+  @@index([enviadoPorId])
+  @@map("avisos_vencimiento")
+}
+
+/// Configuración general del taller (una fila por tenant, id "singleton").
+model ConfiguracionTaller {
+  id                    String                @id @default("singleton")
+  diasAvisoVencimiento  Int                   @default(30) @map("dias_aviso_vencimiento")
+  frecuenciaLiquidacion FrecuenciaLiquidacion @default(MENSUAL) @map("frecuencia_liquidacion")
+  updatedAt             DateTime              @updatedAt @map("updated_at")
+
+  @@map("configuracion_taller")
+}
+
+/// Categoría de gasto editable por el taller. No se borra: se desactiva
+/// (deja de ofrecerse al registrar; los gastos viejos la conservan).
+model CategoriaGasto {
+  id                String            @id @default(cuid())
+  nombre            String            @unique
+  activo            Boolean           @default(true)
+  orden             Int
+  createdAt         DateTime          @default(now()) @map("created_at")
+  gastos            Gasto[]
+  gastosRecurrentes GastoRecurrente[]
+
+  @@map("categorias_gasto")
+}
+
+/// Gasto operativo de una sede. `periodo` ("YYYY-MM") y `gastoRecurrenteId`
+/// solo existen cuando nació de confirmar una plantilla recurrente.
+model Gasto {
+  id                String           @id @default(cuid())
+  pagadoEnEfectivo Boolean @default(false) @map("pagado_en_efectivo")
+  sedeId            String           @map("sede_id")
+  sede              Sede             @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  categoriaId       String           @map("categoria_id")
+  categoria         CategoriaGasto   @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+  descripcion       String
+  monto             Decimal          @db.Decimal(12, 2)
+  fecha             DateTime         @db.Date
+  referencia        String?
+  gastoRecurrenteId String?          @map("gasto_recurrente_id")
+  gastoRecurrente   GastoRecurrente? @relation(fields: [gastoRecurrenteId], references: [id], onDelete: SetNull)
+  periodo           String?
+  registradoPorId   String           @map("registrado_por_id")
+  registradoPor     Usuario          @relation("GastosRegistrados", fields: [registradoPorId], references: [id], onDelete: Restrict)
+  /// Liquidación de mecánico que este gasto materializó, si nació de una.
+  liquidacion       LiquidacionMecanico?
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  @@unique([gastoRecurrenteId, periodo])
+  @@index([sedeId, fecha])
+  @@index([categoriaId])
+  @@map("gastos")
+}
+
+/// Plantilla de gasto mensual. No genera nada sola: cada mes aparece como
+/// pendiente en /gastos hasta que el ADMIN lo confirma u omite.
+model GastoRecurrente {
+  id            String                   @id @default(cuid())
+  sedeId        String                   @map("sede_id")
+  sede          Sede                     @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  categoriaId   String                   @map("categoria_id")
+  categoria     CategoriaGasto           @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+  descripcion   String
+  montoEstimado Decimal                  @map("monto_estimado") @db.Decimal(12, 2)
+  diaDelMes     Int                      @map("dia_del_mes")
+  desde         String
+  activo        Boolean                  @default(true)
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  updatedAt     DateTime                 @updatedAt @map("updated_at")
+  gastos        Gasto[]
+  omitidos      GastoRecurrenteOmitido[]
+
+  @@map("gastos_recurrentes")
+}
+
+model GastoRecurrenteOmitido {
+  id                String          @id @default(cuid())
+  gastoRecurrenteId String          @map("gasto_recurrente_id")
+  gastoRecurrente   GastoRecurrente @relation(fields: [gastoRecurrenteId], references: [id], onDelete: Cascade)
+  periodo           String
+  omitidoPorId      String          @map("omitido_por_id")
+  omitidoPor        Usuario         @relation("GastosRecurrentesOmitidos", fields: [omitidoPorId], references: [id], onDelete: Restrict)
+  createdAt         DateTime        @default(now()) @map("created_at")
+
+  @@unique([gastoRecurrenteId, periodo])
+  @@map("gastos_recurrentes_omitidos")
+}
+
+enum EstadoAnticipo {
+  PENDIENTE
+  APLICADO
+  DEVUELTO
+}
+
+/// Dinero recibido sobre una orden antes de facturar.
+model Anticipo {
+  id               String         @id @default(cuid())
+  ordenId          String         @map("orden_id")
+  orden            OrdenTrabajo   @relation(fields: [ordenId], references: [id], onDelete: Restrict)
+  sedeId           String         @map("sede_id")
+  sede             Sede           @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  monto            Decimal        @db.Decimal(10, 2)
+  metodoPago       MetodoPago     @map("metodo_pago")
+  referencia       String?
+  estado           EstadoAnticipo @default(PENDIENTE)
+  registradoPorId  String         @map("registrado_por_id")
+  registradoPor    Usuario        @relation("AnticiposRegistrados", fields: [registradoPorId], references: [id], onDelete: Restrict)
+  pagoId           String?        @unique @map("pago_id")
+  pago             Pago?          @relation(fields: [pagoId], references: [id], onDelete: SetNull)
+  devueltoAt       DateTime?      @map("devuelto_at")
+  devueltoPorId    String?        @map("devuelto_por_id")
+  devueltoPor      Usuario?       @relation("AnticiposDevueltos", fields: [devueltoPorId], references: [id], onDelete: SetNull)
+  metodoDevolucion MetodoPago?    @map("metodo_devolucion")
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@index([ordenId])
+  @@index([sedeId, createdAt])
+  @@map("anticipos")
+}
+
+/// Sesión de caja de una sede: de la apertura al cierre.
+model CajaSesion {
+  id               String    @id @default(cuid())
+  sedeId           String    @map("sede_id")
+  sede             Sede      @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  baseInicial      Decimal   @map("base_inicial") @db.Decimal(12, 2)
+  abiertaAt        DateTime  @default(now()) @map("abierta_at")
+  abiertaPorId     String    @map("abierta_por_id")
+  abiertaPor       Usuario   @relation("CajasAbiertas", fields: [abiertaPorId], references: [id], onDelete: Restrict)
+  cerradaAt        DateTime? @map("cerrada_at")
+  cerradaPorId     String?   @map("cerrada_por_id")
+  cerradaPor       Usuario?  @relation("CajasCerradas", fields: [cerradaPorId], references: [id], onDelete: SetNull)
+  efectivoEsperado Decimal?  @map("efectivo_esperado") @db.Decimal(12, 2)
+  efectivoContado  Decimal?  @map("efectivo_contado") @db.Decimal(12, 2)
+  notas            String?
+
+  @@index([sedeId, abiertaAt])
+  @@map("cajas_sesion")
+}
+
+/// Servicio del catálogo del taller con su precio base de mano de obra; con
+/// repuestos asociados funciona como kit. No se borra: se desactiva (D1).
+model Servicio {
+  id             String              @id @default(cuid())
+  nombre         String              @unique
+  descripcion    String?
+  precioManoObra Decimal             @map("precio_mano_obra") @db.Decimal(10, 2)
+  activo         Boolean             @default(true)
+  repuestos      ServicioRepuesto[]
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  @@map("servicios")
+}
+
+/// Repuesto que compone un kit. Guarda la cantidad, nunca el precio: el precio
+/// se lee de Repuesto.precioVenta al aplicar el servicio (D2). Los repuestos de
+/// un kit son de una sola sede, la activa al armarlo (D10).
+model ServicioRepuesto {
+  id         String   @id @default(cuid())
+  servicioId String   @map("servicio_id")
+  servicio   Servicio @relation(fields: [servicioId], references: [id], onDelete: Cascade)
+  repuestoId String   @map("repuesto_id")
+  repuesto   Repuesto @relation(fields: [repuestoId], references: [id], onDelete: Cascade)
+  cantidad   Int
+
+  @@unique([servicioId, repuestoId])
+  /// Postgres no indexa la FK por sí solo: el onDelete: Cascade desde Repuesto
+  /// necesita este índice o cada borrado de repuesto recorre el kit entero.
+  @@index([repuestoId])
+  @@map("servicio_repuestos")
+}
+
+/// Forma de pago de un técnico (Fase 19). Uno por usuario: `porcentaje` se
+/// aplica sobre la mano de obra que produjo y `montoFijo` es su base por
+/// periodo; `MIXTO` usa los dos.
+model EsquemaLiquidacion {
+  id         String                 @id @default(cuid())
+  usuarioId  String                 @unique @map("usuario_id")
+  usuario    Usuario                @relation("EsquemaLiquidacion", fields: [usuarioId], references: [id], onDelete: Cascade)
+  tipo       TipoEsquemaLiquidacion
+  porcentaje Decimal?               @db.Decimal(5, 2)
+  montoFijo  Decimal?               @map("monto_fijo") @db.Decimal(10, 2)
+  createdAt  DateTime               @default(now()) @map("created_at")
+  updatedAt  DateTime               @updatedAt @map("updated_at")
+
+  @@map("esquemas_liquidacion")
+}
+
+/// Documento de pago de un técnico en un periodo y una sede. Congela la
+/// frecuencia con la que se leyó el periodo, lo que produjo (órdenes y trabajos)
+/// y el esquema con el que se calculó -- los tres pueden cambiar después -- más
+/// el gasto que materializó el pago, si ya se pagó.
+model LiquidacionMecanico {
+  id              String                @id @default(cuid())
+  periodo         String
+  frecuencia      FrecuenciaLiquidacion
+  sedeId          String                @map("sede_id")
+  sede            Sede                  @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  usuarioId       String                @map("usuario_id")
+  usuario         Usuario               @relation("LiquidacionesMecanico", fields: [usuarioId], references: [id], onDelete: Restrict)
+  estado          EstadoLiquidacion     @default(PENDIENTE)
+  ordenes         Int
+  trabajos        Int
+  montoManoObra   Decimal               @map("monto_mano_obra") @db.Decimal(10, 2)
+  tipo            TipoEsquemaLiquidacion
+  porcentaje      Decimal?              @db.Decimal(5, 2)
+  montoFijo       Decimal?              @map("monto_fijo") @db.Decimal(10, 2)
+  montoCalculado  Decimal               @map("monto_calculado") @db.Decimal(10, 2)
+  ajuste          Decimal               @default(0) @db.Decimal(10, 2)
+  motivoAjuste    String?               @map("motivo_ajuste")
+  total           Decimal               @db.Decimal(10, 2)
+  generadaPorId   String                @map("generada_por_id")
+  generadaPor     Usuario               @relation("LiquidacionesGeneradas", fields: [generadaPorId], references: [id], onDelete: Restrict)
+  generadaAt      DateTime              @default(now()) @map("generada_at")
+  pagadaAt        DateTime?             @map("pagada_at")
+  pagadaPorId     String?               @map("pagada_por_id")
+  pagadaPor       Usuario?              @relation("LiquidacionesPagadas", fields: [pagadaPorId], references: [id], onDelete: SetNull)
+  gastoId         String?               @unique @map("gasto_id")
+  gasto           Gasto?                @relation(fields: [gastoId], references: [id], onDelete: SetNull)
+  anuladaAt       DateTime?             @map("anulada_at")
+  anuladaPorId    String?               @map("anulada_por_id")
+  anuladaPor      Usuario?              @relation("LiquidacionesAnuladas", fields: [anuladaPorId], references: [id], onDelete: SetNull)
+  motivoAnulacion String?               @map("motivo_anulacion")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+
+  @@unique([periodo, usuarioId, sedeId])
+  @@index([sedeId, periodo])
+  @@index([usuarioId])
+  @@map("liquidaciones_mecanico")
+}
