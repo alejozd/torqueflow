@@ -1,5 +1,6 @@
 import { getMostradorDatos } from "@/app/actions/venta-mostrador-actions";
 import { Badge } from "@/components/ui/badge";
+import { BotonExportar } from "@/components/boton-exportar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { CarritoMostrador } from "./carrito-mostrador";
@@ -39,12 +40,15 @@ export default async function MostradorPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Mostrador</h1>
-        <p className="text-sm text-muted-foreground">
-          Vende lo que hay en inventario sin abrir una orden de trabajo. El stock se descuenta al vender y el cobro entra
-          en el arqueo de la caja abierta.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Mostrador</h1>
+          <p className="text-sm text-muted-foreground">
+            Vende lo que hay en inventario sin abrir una orden de trabajo. El stock se descuenta al vender y el cobro entra
+            en el arqueo de la caja abierta.
+          </p>
+        </div>
+        <BotonExportar reporte="ventas-hoy" etiqueta="Exportar ventas de hoy" />
       </div>
 
       <Card>

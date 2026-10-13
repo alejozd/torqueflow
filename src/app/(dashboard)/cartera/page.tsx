@@ -3,6 +3,7 @@ import { getCartera } from "@/app/actions/cartera-actions";
 import { listSedes } from "@/app/actions/sede-actions";
 import { requireRole } from "@/lib/auth/guards";
 import { Button } from "@/components/ui/button";
+import { BotonExportar } from "@/components/boton-exportar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { Label } from "@/components/ui/label";
@@ -47,6 +48,7 @@ export default async function CarteraPage({ searchParams }: { searchParams: Prom
             <Button type="submit">Aplicar</Button>
           </form>
         ) : null}
+        <BotonExportar reporte="cartera" etiqueta="Exportar a Excel" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">

@@ -1,4 +1,5 @@
 import { getCuentasPorPagar } from "@/app/actions/cuenta-por-pagar-actions";
+import { BotonExportar } from "@/components/boton-exportar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AbonoCuentaForm } from "./abono-cuenta-form";
 
@@ -17,11 +18,14 @@ export default async function CuentasPorPagarPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Cuentas por pagar</h1>
-        <p className="text-sm text-muted-foreground">
-          Lo que el taller debe a sus proveedores. La deuda nace cuando entra la mercancía y se salda con abonos.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Cuentas por pagar</h1>
+          <p className="text-sm text-muted-foreground">
+            Lo que el taller debe a sus proveedores. La deuda nace cuando entra la mercancía y se salda con abonos.
+          </p>
+        </div>
+        <BotonExportar reporte="cuentas-por-pagar" etiqueta="Exportar a Excel" />
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
