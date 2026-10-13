@@ -1129,7 +1129,7 @@ enum TipoGarantia {
 model DanioOrden {
   id          String         @id @default(cuid())
   ordenId     String         @map("orden_id")
-  orden       OrdenTrabajo   @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  orden       OrdenTrabajo   @relation(fields: [ordenId], references: [id], onDelete: Restrict)
   zona        ZonaVehiculo
   tipo        TipoDanio
   nota        String?
@@ -1150,7 +1150,7 @@ model DanioOrden {
 model ActaEntrega {
   id              String       @id @default(cuid())
   ordenId         String       @unique @map("orden_id")
-  orden           OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  orden           OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Restrict)
   recibidoPor     String       @map("recibido_por")
   documentoRecibe String?      @map("documento_recibe")
   firmaUrl        String?      @map("firma_url")
@@ -1172,7 +1172,7 @@ model ActaEntrega {
 model Garantia {
   id            String       @id @default(cuid())
   ordenId       String       @map("orden_id")
-  orden         OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  orden         OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Restrict)
   tipo          TipoGarantia
   manoDeObraId  String?      @map("mano_de_obra_id")
   manoDeObra    ManoDeObra?  @relation(fields: [manoDeObraId], references: [id], onDelete: Cascade)

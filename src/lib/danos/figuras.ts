@@ -38,6 +38,8 @@ const CARRO: ZonaFigura[] = [
   { zona: "CAPO", etiqueta: "Capó", d: rect(110, 22, 100, 36) },
   { zona: "PUERTA_IZQUIERDA", etiqueta: "Puerta izquierda", d: rect(74, 58, 34, 66) },
   { zona: "PUERTA_DERECHA", etiqueta: "Puerta derecha", d: rect(212, 58, 34, 66) },
+  { zona: "LATERAL_IZQUIERDO", etiqueta: "Lateral izquierdo", d: rect(22, 40, 16, 90) },
+  { zona: "LATERAL_DERECHO", etiqueta: "Lateral derecho", d: rect(282, 40, 16, 90) },
   { zona: "PARABRISAS", etiqueta: "Parabrisas", d: rect(110, 58, 100, 12) },
   { zona: "TECHO", etiqueta: "Techo", d: rect(110, 70, 100, 54) },
   { zona: "COMPUERTA", etiqueta: "Compuerta", d: rect(110, 124, 100, 30) },

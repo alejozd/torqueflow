@@ -5,18 +5,21 @@ import userEvent from "@testing-library/user-event";
 const mockEntregar = vi.fn();
 const mockGuardar = vi.fn();
 const mockFirmar = vi.fn();
+const mockBorrarActa = vi.fn();
 vi.mock("@/app/actions/recepcion-actions", () => ({
   entregarOrdenAction: (...args: unknown[]) => mockEntregar(...args),
   guardarActaAction: (...args: unknown[]) => mockGuardar(...args),
   firmarActaAction: (...args: unknown[]) => mockFirmar(...args),
+  borrarActaAction: (...args: unknown[]) => mockBorrarActa(...args),
 }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { ActaEntregaForm } from "./acta-entrega-form";
 
 const OK = { error: null, success: true };
 
 function renderForm(props: Partial<Parameters<typeof ActaEntregaForm>[0]> = {}) {
-  return render(<ActaEntregaForm ordenId="o1" estado="TERMINADA" acta={null} {...props} />);
+  return render(<ActaEntregaForm ordenId="o1" estado="TERMINADA" acta={null} editable {...props} />);
 }
 
 describe("ActaEntregaForm", () => {
@@ -24,6 +27,7 @@ describe("ActaEntregaForm", () => {
     mockEntregar.mockReset().mockResolvedValue(OK);
     mockGuardar.mockReset().mockResolvedValue(OK);
     mockFirmar.mockReset().mockResolvedValue(OK);
+    mockBorrarActa.mockReset().mockResolvedValue(OK);
   });
 
   it("ofrece firmar en pantalla o subir la foto del papel", () => {
@@ -113,5 +117,34 @@ describe("ActaEntregaForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Sí, entregar" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Falta la firma de quien recibe");
+  });
+
+  it("una orden anulada deja el acta en solo lectura", () => {
+    renderForm({ estado: "ANULADA", editable: false });
+
+    expect(screen.getByText(/La orden está anulada/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Entregar y firmar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Guardar sin firmar" })).not.toBeInTheDocument();
+  });
+
+  it("deja borrar el borrador del acta solo a quien puede", async () => {
+    const acta = {
+      recibidoPor: "Ana",
+      documentoRecibe: null,
+      observaciones: null,
+      firmaUrl: null,
+      firmaFotoUrl: null,
+      firmadaAt: null,
+    };
+    mockBorrarActa.mockResolvedValue({ error: null, success: true });
+    const { unmount } = renderForm({ acta, puedeBorrar: false });
+    expect(screen.queryByRole("button", { name: "Borrar acta" })).not.toBeInTheDocument();
+    unmount();
+
+    renderForm({ acta, puedeBorrar: true });
+    await userEvent.click(screen.getByRole("button", { name: "Borrar acta" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sí, quitar" }));
+
+    expect(mockBorrarActa).toHaveBeenCalledWith("o1");
   });
 });

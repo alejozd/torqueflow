@@ -110,6 +110,30 @@ orden sin cobro (se decide cuando existan los avisos); arreglar la fuga de archi
 | **D11** | **El acta se imprime con el navegador**: página `/ordenes/[id]/acta/imprimir` con `print:hidden` para los controles, siguiendo `cotizaciones/[id]/imprimir/page.tsx`. Sin librerías de PDF. |
 | **D12** | **La garantía se registra mientras la orden es editable** (sección en la orden) y se muestra también en el acta impresa; no se puede añadir a una orden inmutable (facturada o entregada) salvo por su acta, para no reescribir un documento ya firmado. |
 
+### D13–D24: lo que cambió tras la revisión independiente (fix round)
+
+La revisión del diff completo encontró un **Crítico real** y una familia de carreras. Lo corregido:
+
+| # | Hallazgo → decisión |
+|---|---|
+| **D13** | **Crítico: la invariante de D6 vivía solo en la UI.** `updateEstadoOrdenAction` seguía aceptando `TERMINADA → ENTREGADA` sin acta, así que un POST directo dejaba la orden ENTREGADA sin acta y **sin forma de crearla** (`guardarActaAction` la rechaza por inmutable). Ahora esa acción **rechaza ENTREGADA** ("se entrega firmando el acta") y `firmarActaAction` **crea** el acta si falta, para que el estado roto sea reparable. |
+| **D14** | **Carrera al firmar**: dos envíos simultáneos firmaban dos veces y el archivo del perdedor quedaba huérfano. La escritura pasa a `updateMany({ where: { ordenId, firmadaAt: null } })` y, si `count === 0`, aborta con "El acta ya está firmada" (o la crea si no existía) limpiando el archivo recién guardado. |
+| **D15** | **Carrera al entregar**: la transición pasa a `updateMany({ where: { id, estado: <estado leído> } })`; si `count === 0` la transacción aborta ("Otra persona ya cambió el estado") y no se pisa la entrega ya hecha. |
+| **D16** | **Carrera al borrar el acta**: `borrarActaAction` validaba fuera de transacción; ahora borra con `deleteMany({ where: { ordenId, firmadaAt: null } })` y exige `esOrdenMutable`, para no dejar una orden entregada sin su acta. |
+| **D17** | **Sin campo oculto para la acción**: el `accion` lo aporta el botón pulsado (`name="accion"`) —también sin JS— y el botón de la confirmación lleva el mismo `name`/`value` (`ConfirmacionEnLinea` gana `nombreBoton`/`valorBoton`). |
+| **D18** | **La auditoría de entrega apunta al acta** (`upsert` con `select: { id: true }`), no a la orden. |
+| **D19** | **El borrado de archivos no alcanza el DVI**: `borrarUpload` pasa a `borrarArchivoDeOrden`, que exige el segmento `ordenes/` además del tenant. |
+| **D20** | **El límite del base64 es exacto** (`MAX * 4/3 + 4`) en vez de un 1.4 estimado. |
+| **D21** | **`borrarActaAction` se cablea en la UI** (botón "Borrar acta", solo ADMIN/RECEPCION y sin firma) y devuelve `ResultadoAccion`. |
+| **D22** | **Una orden anulada no edita el acta** (solo lectura) y el mensaje de inmutabilidad dice el motivo real (anulada / entregada / con factura). |
+| **D23** | **El carro también marca sus laterales** (`LATERAL_IZQUIERDO/DERECHO` en la figura del carro): antes un golpe lateral solo cabía en "Otra zona". |
+| **D24** | **Claves foráneas `Restrict`** como decía §2: la migración inicial las dejó en `Cascade` y se corrige con una segunda migración (`20261015130000_recepcion_garantias_fk_restrict`) para que borrar una orden no destruya un acta firmada. |
+| **D25** | **El canvas no pierde puntos**: el trazo se actualiza con `setTrazos((previos) => …)` (los `pointermove` agrupados partían del mismo estado) y el data URL se deriva de ese mismo trazo; `pointerup` ya no reescribe. |
+
+También se ajustó el enum `ZonaVehiculo` a las zonas que la figura puede marcar (sin `GUARDABARROS_*` muertos),
+se quitó el alias tautológico `entregaInputSchema`, se renombraron tests engañosos y se añadieron tests de
+permisos/sede, de las dos carreras, del límite del data URL y del acta en solo lectura.
+
 ---
 
 ## 2. Modelo de datos y validación (Task 1)

@@ -115,18 +115,22 @@ export async function saveOrdenArchivo(
 }
 
 /**
- * Borra el archivo de una URL de `/api/uploads/...`, siempre dentro de la raíz
- * del tenant de la sesión: se resuelve la ruta y se comprueba con el **mismo**
- * criterio que la ruta de descarga (`src/app/api/uploads/[...path]/route.ts`),
- * comparando contra la raíz del tenant más el separador para que un directorio
- * hermano con el mismo prefijo no pase. Devuelve si borró algo; que el archivo ya
- * no esté no es un error (borrar dos veces no falla).
+ * Borra el archivo de una orden a partir de su URL de `/api/uploads/...`, siempre
+ * dentro de la raíz del tenant de la sesión y de `ordenes/`: se resuelve la ruta
+ * y se comprueba con el **mismo** criterio que la ruta de descarga
+ * (`src/app/api/uploads/[...path]/route.ts`), comparando contra la raíz del
+ * tenant más el separador para que un directorio hermano con el mismo prefijo no
+ * pase. Exigir el subdirectorio evita que un id manipulado borre, por ejemplo,
+ * una foto del DVI.
+ *
+ * Devuelve si borró algo; que el archivo ya no esté no es un error (borrar dos
+ * veces no falla).
  */
-export async function borrarUpload(tenantSchema: string, url: string): Promise<boolean> {
+export async function borrarArchivoDeOrden(tenantSchema: string, url: string): Promise<boolean> {
   if (!url.startsWith(PREFIJO_URL)) return false;
 
   const segments = url.slice(PREFIJO_URL.length).split("/").filter(Boolean);
-  if (segments[0] !== tenantSchema) return false;
+  if (segments[0] !== tenantSchema || segments[1] !== "ordenes") return false;
 
   const uploadsRoot = getUploadsRoot();
   const tenantRoot = path.join(uploadsRoot, tenantSchema);

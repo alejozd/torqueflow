@@ -212,7 +212,7 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
         </div>
 
         <div className="flex flex-col gap-6">
-          <GarantiasCard garantias={garantias} />
+          <GarantiasCard garantias={garantias} sedeActivaId={session.user.sedeActivaId} />
           <Card>
             <CardHeader>
               <CardTitle>Vehículo</CardTitle>

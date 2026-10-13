@@ -346,13 +346,20 @@ export async function updateEstadoOrdenAction(
     return { error: `No se puede cambiar de ${orden.estado} a ${parsedEstado.data}` };
   }
 
+  // Entregar no es un cambio de estado más: la orden pasa a ENTREGADA firmando el
+  // acta de entrega (Fase 21, `entregarOrdenAction`), y ENTREGADA es inmutable.
+  // Sin este rechazo, un POST directo a esta acción dejaría la orden entregada
+  // sin acta y sin forma de crearla (D6). La UI ya no ofrece la opción.
+  if (parsedEstado.data === "ENTREGADA") {
+    return { error: "La orden se entrega firmando el acta de entrega, no desde el cambio de estado" };
+  }
+
   try {
     await tenantDb.$transaction(async (tx) => {
       await tx.ordenTrabajo.update({
         where: { id },
         data: {
           estado: parsedEstado.data,
-          entregadaAt: parsedEstado.data === "ENTREGADA" ? new Date() : undefined,
           anuladaAt: parsedEstado.data === "ANULADA" ? new Date() : undefined,
         },
       });

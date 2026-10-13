@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { borrarUpload, saveDviFoto, saveOrdenArchivo } from "./local-file-storage";
+import { borrarArchivoDeOrden, saveDviFoto, saveOrdenArchivo } from "./local-file-storage";
 
 let uploadsDir: string;
 const originalUploadsDir = process.env.UPLOADS_DIR;
@@ -98,7 +98,7 @@ describe("saveOrdenArchivo", () => {
   });
 });
 
-describe("borrarUpload", () => {
+describe("borrarArchivoDeOrden", () => {
   async function existe(ruta: string): Promise<boolean> {
     try {
       await readFile(ruta);
@@ -117,9 +117,9 @@ describe("borrarUpload", () => {
     );
     const enDisco = path.join(uploadsDir, guardado.relativePath);
 
-    await expect(borrarUpload("taller_perez", guardado.url)).resolves.toBe(true);
+    await expect(borrarArchivoDeOrden("taller_perez", guardado.url)).resolves.toBe(true);
     await expect(existe(enDisco)).resolves.toBe(false);
-    await expect(borrarUpload("taller_perez", guardado.url)).resolves.toBe(false);
+    await expect(borrarArchivoDeOrden("taller_perez", guardado.url)).resolves.toBe(false);
   });
 
   it("no borra nada fuera de la raíz del tenant, ni con otra extensión, ni con URL ajena", async () => {
@@ -135,10 +135,18 @@ describe("borrarUpload", () => {
       "/tmp/archivo.png",
     ];
     for (const url of intentos) {
-      await expect(borrarUpload("taller_perez", url)).resolves.toBe(false);
+      await expect(borrarArchivoDeOrden("taller_perez", url)).resolves.toBe(false);
     }
 
     await expect(existe(victima)).resolves.toBe(true);
+  });
+
+  it("no borra archivos de la orden que no estén bajo ordenes/ (por ejemplo una foto del DVI)", async () => {
+    const fotoDvi = path.join(uploadsDir, "taller_perez", "dvi", "foto.png");
+    await guardarArchivoDePrueba(fotoDvi);
+
+    await expect(borrarArchivoDeOrden("taller_perez", "/api/uploads/taller_perez/dvi/foto.png")).resolves.toBe(false);
+    await expect(existe(fotoDvi)).resolves.toBe(true);
   });
 });
 

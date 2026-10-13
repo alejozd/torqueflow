@@ -2,12 +2,14 @@
 
 import { useActionState, useState, type FormEvent } from "react";
 import {
+  borrarActaAction,
   entregarOrdenAction,
   firmarActaAction,
   guardarActaAction,
   type ActaFormState,
 } from "@/app/actions/recepcion-actions";
 import { ConfirmacionEnLinea } from "@/components/confirmacion-en-linea";
+import { QuitarConConfirmacion } from "@/components/quitar-con-confirmacion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +20,17 @@ import { FirmaCanvas } from "./firma-canvas";
 
 const initialState: ActaFormState = { error: null, success: false };
 
+/** Borra el borrador del acta; se define fuera del render (react-hooks/static-components). */
+function BorrarActa({ ordenId }: { ordenId: string }) {
+  return (
+    <QuitarConConfirmacion
+      etiqueta="Borrar acta"
+      pregunta="¿Borrar el acta de entrega? Se pierden los datos cargados."
+      accion={borrarActaAction.bind(null, ordenId)}
+    />
+  );
+}
+
 export interface ActaVista {
   recibidoPor: string;
   documentoRecibe: string | null;
@@ -26,8 +39,6 @@ export interface ActaVista {
   firmaFotoUrl: string | null;
   firmadaAt: Date | null;
 }
-
-type Accion = "borrador" | "entregar" | "firmar";
 
 /**
  * Acta de entrega (D4/D5/D6): los datos de quien recibe, la firma (en pantalla o
@@ -45,17 +56,21 @@ export function ActaEntregaForm({
   ordenId,
   estado,
   acta,
+  editable,
+  puedeBorrar = false,
 }: {
   ordenId: string;
   estado: string;
   acta: ActaVista | null;
+  /** La orden sigue editable (`esOrdenMutable`): si no, el acta es solo lectura. */
+  editable: boolean;
+  /** ADMIN/RECEPCION: puede borrar el borrador del acta. */
+  puedeBorrar?: boolean;
 }) {
   const [recibidoPor, setRecibidoPor] = useState(acta?.recibidoPor ?? "");
   const [documentoRecibe, setDocumentoRecibe] = useState(acta?.documentoRecibe ?? "");
   const [observaciones, setObservaciones] = useState(acta?.observaciones ?? "");
   const [modoFirma, setModoFirma] = useState<"pantalla" | "foto">("pantalla");
-  // Solo hace falta para el submit de la confirmación (ese botón no lleva name).
-  const [accionConfirmada, setAccionConfirmada] = useState<Accion>("borrador");
   const [confirmando, setConfirmando] = useState(false);
 
   const [state, formAction, isPending] = useActionState(
@@ -73,13 +88,13 @@ export function ActaEntregaForm({
   const soloFirma = yaEntregada && !firmada;
 
   // Cuál de las tres acciones corre lo decide el botón que se pulsa (su
-  // `name="accion"` viaja en el FormData): leerlo del estado llegaría un render
-  // tarde. La confirmación, que no tiene name propio, usa el campo oculto.
+  // `name="accion"` viaja en el FormData y también funciona sin JS): leerlo del
+  // estado llegaría un render tarde. El botón de la confirmación lleva el mismo
+  // name/value, así que no hace falta ningún campo oculto.
   function alEnviar(evento: FormEvent<HTMLFormElement>) {
     const boton = (evento.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
     if (boton?.value === "entregar" && !confirmando) {
       evento.preventDefault();
-      setAccionConfirmada("entregar");
       setConfirmando(true);
     }
   }
@@ -113,9 +128,33 @@ export function ActaEntregaForm({
     );
   }
 
+  // Orden anulada (o ya no editable sin firma): el acta se consulta, no se toca.
+  if (!editable) {
+    return (
+      <div className="flex flex-col gap-3 text-sm">
+        {acta ? (
+          <dl className="grid grid-cols-2 gap-3">
+            <div>
+              <dt className="text-[10px] tracking-wide text-muted-foreground uppercase">Recibe</dt>
+              <dd className="mt-0.5 font-medium">{acta.recibidoPor}</dd>
+            </div>
+            <div>
+              <dt className="text-[10px] tracking-wide text-muted-foreground uppercase">Documento</dt>
+              <dd className="mt-0.5">{acta.documentoRecibe ?? "—"}</dd>
+            </div>
+          </dl>
+        ) : null}
+        <p className="text-xs text-muted-foreground">
+          {estado === "ENTREGADA"
+            ? "La orden ya está entregada y el acta quedó sin firma."
+            : "La orden está anulada: el acta de entrega no se puede modificar."}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <form action={formAction} onSubmit={alEnviar} className="flex flex-col gap-4">
-      <input type="hidden" name="accion" value={confirmando ? accionConfirmada : estado === "ENTREGADA" ? "firmar" : "borrador"} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="recibidoPor">Recibe (nombre)</Label>
@@ -182,10 +221,12 @@ export function ActaEntregaForm({
           destructiva={false}
           enviaFormulario
           pendiente={isPending}
+          nombreBoton="accion"
+          valorBoton="entregar"
           onCancelar={() => setConfirmando(false)}
         />
       ) : (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {soloFirma ? (
             <Button type="submit" name="accion" value="firmar" disabled={isPending}>
               {isPending ? "Firmando..." : "Firmar el acta"}
@@ -198,6 +239,7 @@ export function ActaEntregaForm({
               <Button type="submit" name="accion" value="entregar" disabled={isPending}>
                 {isPending ? "Entregando..." : "Entregar y firmar"}
               </Button>
+              {acta && puedeBorrar ? <BorrarActa ordenId={ordenId} /> : null}
             </>
           )}
         </div>
@@ -210,7 +252,7 @@ export function ActaEntregaForm({
       ) : null}
       {state.success ? (
         <p role="status" className="text-xs text-muted-foreground">
-          {confirmando ? "Orden entregada y acta firmada." : "Acta guardada."}
+          {soloFirma ? "Acta firmada." : "Acta guardada. Si firmaste, usa «Entregar y firmar»."}
         </p>
       ) : null}
     </form>

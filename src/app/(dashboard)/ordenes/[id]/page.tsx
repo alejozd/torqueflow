@@ -463,6 +463,8 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
               <ActaEntregaForm
                 ordenId={orden.id}
                 estado={orden.estado}
+                editable={esOrdenMutable(orden)}
+                puedeBorrar={puedeQuitar}
                 acta={
                   orden.acta
                     ? {

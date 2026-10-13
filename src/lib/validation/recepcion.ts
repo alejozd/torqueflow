@@ -112,9 +112,6 @@ export const actaEntregaInputSchema = actaDatosSchema
 export type ActaDatosInput = z.infer<typeof actaDatosSchema>;
 export type ActaEntregaInput = z.infer<typeof actaEntregaInputSchema>;
 
-/** El acta y la entrega comparten contrato: entregar es firmar y cerrar (D6). */
-export const entregaInputSchema = actaEntregaInputSchema;
-
 export const garantiaInputSchema = z
   .object({
     tipo: tipoGarantiaSchema,

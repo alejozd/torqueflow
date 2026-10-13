@@ -375,21 +375,18 @@ describe("updateEstadoOrdenAction", () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it("applies a valid transition and stamps entregadaAt when moving to ENTREGADA, without attempting a notification", async () => {
+  it("rechaza entregar por aquí: la orden se entrega firmando el acta (Fase 21)", async () => {
+    // Sin este rechazo, un POST directo dejaba la orden ENTREGADA sin acta y sin
+    // forma de crearla, porque ENTREGADA es inmutable (D6).
     mockOrdenFindFirst.mockResolvedValue({ ...ORDEN_BASE, estado: "TERMINADA" });
-    mockUpdate.mockResolvedValue({ id: "o1", estado: "ENTREGADA" });
     const formData = new FormData();
     formData.set("estado", "ENTREGADA");
 
     const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
 
-    expect(result).toEqual({ error: null, advertencia: null });
-    expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: "o1" },
-      data: { estado: "ENTREGADA", entregadaAt: expect.any(Date), anuladaAt: undefined },
-    });
-    expect(mockConfiguracionSmtpFindUnique).not.toHaveBeenCalled();
-    expect(mockEnviarEmail).not.toHaveBeenCalled();
+    expect(result.error).toBe("La orden se entrega firmando el acta de entrega, no desde el cambio de estado");
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockAuditLogCreate).not.toHaveBeenCalled();
   });
 
   it("returns 'Orden no encontrada' when the order does not exist", async () => {

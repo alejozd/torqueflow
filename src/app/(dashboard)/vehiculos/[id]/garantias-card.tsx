@@ -15,6 +15,8 @@ export interface GarantiaDelVehiculo {
   registradaAt: Date;
   ordenId: string;
   sede: string;
+  /** Si la orden es de otra sede, la ficha de esa orden no es accesible aquí. */
+  sedeId: string;
   estado: EstadoGarantia;
 }
 
@@ -30,7 +32,14 @@ const VARIANTE: Record<EstadoGarantia, "default" | "secondary" | "outline"> = {
  * Garantías del vehículo (D3): se consultan todas, de cualquier sede, porque el
  * vehículo es del taller. La vigencia la calcula `listGarantiasDeVehiculo`.
  */
-export function GarantiasCard({ garantias }: { garantias: GarantiaDelVehiculo[] }) {
+export function GarantiasCard({
+  garantias,
+  sedeActivaId,
+}: {
+  garantias: GarantiaDelVehiculo[];
+  /** La ficha solo puede abrir órdenes de esta sede (`getOrden` filtra por sede). */
+  sedeActivaId: string;
+}) {
   return (
     <Card>
       <CardHeader>
@@ -60,10 +69,17 @@ export function GarantiasCard({ garantias }: { garantias: GarantiaDelVehiculo[] 
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {coberturaDe(garantia)} · registrada el {formatoFecha.format(garantia.registradaAt)} en{" "}
-                  {garantia.sede} ·{" "}
-                  <Link href={`/ordenes/${garantia.ordenId}`} className="underline underline-offset-4">
-                    ver la orden
-                  </Link>
+                  {garantia.sede}
+                  {garantia.sedeId === sedeActivaId ? (
+                    <>
+                      {" · "}
+                      <Link href={`/ordenes/${garantia.ordenId}`} className="underline underline-offset-4">
+                        ver la orden
+                      </Link>
+                    </>
+                  ) : (
+                    " · de otra sede"
+                  )}
                 </div>
                 {garantia.nota ? <p className="text-xs text-muted-foreground">{garantia.nota}</p> : null}
               </li>

@@ -13,19 +13,20 @@ const BASE: GarantiaDelVehiculo = {
   registradaAt: new Date("2026-10-12T15:00:00.000Z"),
   ordenId: "o1",
   sede: "Sede principal",
+  sedeId: "sede-1",
   estado: "VIGENTE",
 };
 
 describe("GarantiasCard", () => {
   it("sin garantías lo explica", () => {
-    render(<GarantiasCard garantias={[]} />);
+    render(<GarantiasCard garantias={[]} sedeActivaId="sede-1" />);
 
     expect(screen.getByText(/no tiene garantías registradas/)).toBeInTheDocument();
     expect(screen.getByText("· 0 registros")).toBeInTheDocument();
   });
 
   it("lista la garantía con su línea, su cobertura, su sede y su orden", () => {
-    render(<GarantiasCard garantias={[BASE]} />);
+    render(<GarantiasCard garantias={[BASE]} sedeActivaId="sede-1" />);
 
     expect(screen.getByText("Cambio de aceite")).toBeInTheDocument();
     expect(screen.getByText("Vigente")).toBeInTheDocument();
@@ -38,6 +39,7 @@ describe("GarantiasCard", () => {
   it("muestra la vigencia de cada una y las que no tienen cobertura", () => {
     render(
       <GarantiasCard
+        sedeActivaId="sede-1"
         garantias={[
           BASE,
           { ...BASE, id: "g2", descripcion: "Filtro", estado: "VENCIDA", cubreHasta: null, cubreHastaKm: null },
@@ -53,7 +55,7 @@ describe("GarantiasCard", () => {
   });
 
   it("muestra la nota cuando la hay", () => {
-    render(<GarantiasCard garantias={[{ ...BASE, nota: "Cubre solo la mano de obra" }]} />);
+    render(<GarantiasCard garantias={[{ ...BASE, nota: "Cubre solo la mano de obra" }]} sedeActivaId="sede-1" />);
 
     expect(screen.getByText("Cubre solo la mano de obra")).toBeInTheDocument();
   });

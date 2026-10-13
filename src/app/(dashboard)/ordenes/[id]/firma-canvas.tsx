@@ -38,31 +38,41 @@ export function FirmaCanvas({ name = "firmaDataUrl" }: { name?: string }) {
     pintarTrazos(contexto, siguientes, ANCHO, ALTO);
   }
 
-  function actualizar(siguientes: Trazo[]) {
-    setTrazos(siguientes);
-    pintar(siguientes);
-    // El data URL se calcula aquí (y no en un efecto) para no re-renderizar de más.
-    setDataUrl(hayTrazo(siguientes) ? (canvasRef.current?.toDataURL("image/png") ?? "") : "");
+  /**
+   * El trazo se actualiza a partir del anterior (`prev`), no del estado del
+   * render: con React agrupando eventos, varios `pointermove` del mismo lote
+   * partirían de la misma base y se perderían puntos. El data URL se recalcula
+   * aquí, con el trazo ya completo, para no re-renderizar de más.
+   */
+  function actualizar(calcular: (previos: Trazo[]) => Trazo[]) {
+    setTrazos((previos) => {
+      const siguientes = calcular(previos);
+      pintar(siguientes);
+      setDataUrl(hayTrazo(siguientes) ? (canvasRef.current?.toDataURL("image/png") ?? "") : "");
+      return siguientes;
+    });
   }
 
   function alBajar(evento: React.PointerEvent<HTMLCanvasElement>) {
     evento.currentTarget.setPointerCapture(evento.pointerId);
     dibujando.current = true;
-    actualizar([...trazos, [puntoDe(evento)]]);
+    const punto = puntoDe(evento);
+    actualizar((previos) => [...previos, [punto]]);
   }
 
   function alMover(evento: React.PointerEvent<HTMLCanvasElement>) {
     if (!dibujando.current) return;
-    const ultimo = trazos[trazos.length - 1] ?? [];
-    const siguiente = agregarPunto(ultimo, puntoDe(evento));
-    if (siguiente === ultimo) return;
-    actualizar([...trazos.slice(0, -1), siguiente]);
+    const punto = puntoDe(evento);
+    actualizar((previos) => {
+      const ultimo = previos[previos.length - 1] ?? [];
+      const siguiente = agregarPunto(ultimo, punto);
+      if (siguiente === ultimo) return previos;
+      return [...previos.slice(0, -1), siguiente];
+    });
   }
 
   function alSoltar() {
     dibujando.current = false;
-    // Al cerrar el trazo se recalcula el data URL ya con el trazo completo.
-    actualizar(trazos);
   }
 
   function limpiar() {

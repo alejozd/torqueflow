@@ -13,6 +13,13 @@ describe("figuraDe y zonasDe", () => {
     expect(zonasDe("MOTO").map((zona) => zona.zona)).toContain("MANUBRIO");
     expect(zonasDe("CARRO").map((zona) => zona.zona)).toContain("CAPO");
   });
+
+  it("el carro también puede marcar sus laterales", () => {
+    const carro = zonasDe("CARRO").map((zona) => zona.zona);
+
+    expect(carro).toContain("LATERAL_IZQUIERDO");
+    expect(carro).toContain("LATERAL_DERECHO");
+  });
 });
 
 describe("figuras del diagrama", () => {

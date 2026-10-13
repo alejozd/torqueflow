@@ -7,7 +7,7 @@ const mockSaveOrdenArchivo = vi.fn();
 const mockBorrarUpload = vi.fn();
 vi.mock("@/lib/storage/local-file-storage", () => ({
   saveOrdenArchivo: (...args: unknown[]) => mockSaveOrdenArchivo(...args),
-  borrarUpload: (...args: unknown[]) => mockBorrarUpload(...args),
+  borrarArchivoDeOrden: (...args: unknown[]) => mockBorrarUpload(...args),
   // La acción lo usa para rechazar un data URL enorme antes de decodificarlo.
   MAX_UPLOAD_SIZE_BYTES: 5 * 1024 * 1024,
 }));
@@ -15,8 +15,8 @@ vi.mock("@/lib/storage/local-file-storage", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 const tx = {
-  ordenTrabajo: { update: vi.fn() },
-  actaEntrega: { upsert: vi.fn(), update: vi.fn() },
+  ordenTrabajo: { update: vi.fn(), updateMany: vi.fn() },
+  actaEntrega: { upsert: vi.fn(), update: vi.fn(), updateMany: vi.fn(), create: vi.fn(), findFirst: vi.fn() },
   garantia: { create: vi.fn(), delete: vi.fn() },
   auditLog: { create: vi.fn() },
 };
@@ -24,7 +24,7 @@ const tx = {
 const db = {
   ordenTrabajo: { findFirst: vi.fn(), update: vi.fn() },
   danioOrden: { create: vi.fn(), findFirst: vi.fn(), delete: vi.fn() },
-  actaEntrega: { upsert: vi.fn(), delete: vi.fn() },
+  actaEntrega: { upsert: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
   manoDeObra: { findFirst: vi.fn() },
   itemOrden: { findFirst: vi.fn() },
   garantia: { findFirst: vi.fn(), findMany: vi.fn() },
@@ -174,12 +174,15 @@ describe("acta de entrega", () => {
     vi.clearAllMocks();
     mockRequireRole.mockResolvedValue(ADMIN);
     db.ordenTrabajo.findFirst.mockResolvedValue({ id: "o1", estado: "EN_PROCESO", factura: null });
-    db.actaEntrega.upsert.mockResolvedValue({});
-    db.actaEntrega.delete.mockResolvedValue({});
+    db.actaEntrega.upsert.mockResolvedValue({ id: "a1" });
+    db.actaEntrega.deleteMany.mockResolvedValue({ count: 1 });
     mockSaveOrdenArchivo.mockResolvedValue({ relativePath: "taller/ordenes/o1/firma/f.png", url: "/api/uploads/taller/ordenes/o1/firma/f.png" });
     mockBorrarUpload.mockResolvedValue(true);
-    tx.actaEntrega.upsert.mockResolvedValue({});
+    tx.actaEntrega.upsert.mockResolvedValue({ id: "a1" });
     tx.actaEntrega.update.mockResolvedValue({});
+    tx.actaEntrega.updateMany.mockResolvedValue({ count: 1 });
+    tx.actaEntrega.create.mockResolvedValue({ id: "a-nueva" });
+    tx.actaEntrega.findFirst.mockResolvedValue(null);
     tx.ordenTrabajo.update.mockResolvedValue({});
     tx.auditLog.create.mockResolvedValue({});
   });
@@ -212,8 +215,9 @@ describe("acta de entrega", () => {
 
     expect(r).toEqual({ error: null, success: true });
     expect(mockSaveOrdenArchivo).toHaveBeenCalledWith("taller", "o1", "firma", expect.any(File));
-    expect(tx.actaEntrega.update).toHaveBeenCalledWith({
-      where: { ordenId: "o1" },
+    // Condicional: solo entra si el acta seguía sin firmar.
+    expect(tx.actaEntrega.updateMany).toHaveBeenCalledWith({
+      where: { ordenId: "o1", firmadaAt: null },
       data: expect.objectContaining({
         recibidoPor: "María",
         firmaUrl: "/api/uploads/taller/ordenes/o1/firma/f.png",
@@ -226,13 +230,70 @@ describe("acta de entrega", () => {
     });
   });
 
+  it("si otra pestaña firmó primero, no pisa la firma y limpia su archivo", async () => {
+    db.ordenTrabajo.findFirst.mockResolvedValue({
+      id: "o1",
+      estado: "ENTREGADA",
+      acta: { id: "a1", firmadaAt: null, firmaUrl: null, firmaFotoUrl: null },
+    });
+    tx.actaEntrega.updateMany.mockResolvedValue({ count: 0 });
+    tx.actaEntrega.findFirst.mockResolvedValue({ id: "a1" });
+
+    const r = await firmarActaAction("o1", inicial, fd({ recibidoPor: "María", firma: firmaPng() }));
+
+    expect(r.error).toBe("El acta ya está firmada");
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+    expect(mockBorrarUpload).toHaveBeenCalledWith("taller", "/api/uploads/taller/ordenes/o1/firma/f.png");
+  });
+
+  it("si la orden se entregó sin acta, firmarla la crea (arregla el estado)", async () => {
+    db.ordenTrabajo.findFirst.mockResolvedValue({ id: "o1", estado: "ENTREGADA", acta: null });
+    tx.actaEntrega.updateMany.mockResolvedValue({ count: 0 });
+    tx.actaEntrega.findFirst.mockResolvedValue(null);
+
+    const r = await firmarActaAction("o1", inicial, fd({ recibidoPor: "María", firma: firmaPng() }));
+
+    expect(r).toEqual({ error: null, success: true });
+    expect(tx.actaEntrega.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ ordenId: "o1", recibidoPor: "María", creadoPorId: "u1", firmadaAt: expect.any(Date) }),
+      select: { id: true },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ tipo: "ACTA_FIRMAR", entidadId: "a-nueva" }),
+    });
+  });
+
+  it("no firma una orden de otra sede", async () => {
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await firmarActaAction("ajena", inicial, fd({ recibidoPor: "M", firma: firmaPng() }));
+
+    expect(r.error).toBe("Orden no encontrada");
+    expect(mockSaveOrdenArchivo).not.toHaveBeenCalled();
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "ajena", sedeId: "sede-1" } }),
+    );
+  });
+
+  it("quitar una garantía de otra sede no la encuentra, y pide rol de borrado", async () => {
+    db.garantia.findFirst.mockResolvedValue(null);
+
+    const r = await quitarGarantiaAction("g-ajena");
+
+    expect(r.error).toBe("Garantía no encontrada");
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(db.garantia.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "g-ajena", orden: { sedeId: "sede-1" } } }),
+    );
+  });
+
   it("borra la firma anterior y el archivo nuevo si la escritura falla", async () => {
     db.ordenTrabajo.findFirst.mockResolvedValue({
       id: "o1",
       estado: "ENTREGADA",
       acta: { id: "a1", firmadaAt: null, firmaUrl: "/api/uploads/taller/ordenes/o1/firma/vieja.png", firmaFotoUrl: null },
     });
-    tx.actaEntrega.update.mockRejectedValue(new Error("boom"));
+    tx.actaEntrega.updateMany.mockRejectedValue(new Error("boom"));
 
     const r = await firmarActaAction("o1", inicial, fd({ recibidoPor: "María", firma: firmaPng() }));
 
@@ -241,14 +302,11 @@ describe("acta de entrega", () => {
     expect(mockBorrarUpload).toHaveBeenCalledWith("taller", "/api/uploads/taller/ordenes/o1/firma/f.png");
   });
 
-  it("no firma fuera de ENTREGADA, sin acta o dos veces", async () => {
+  it("no firma fuera de ENTREGADA ni dos veces", async () => {
     db.ordenTrabajo.findFirst.mockResolvedValue({ id: "o1", estado: "EN_PROCESO", acta: null });
     expect((await firmarActaAction("o1", inicial, fd({ recibidoPor: "M", firma: firmaPng() }))).error).toContain(
       "se firma al entregar",
     );
-
-    db.ordenTrabajo.findFirst.mockResolvedValue({ id: "o1", estado: "ENTREGADA", acta: null });
-    expect((await firmarActaAction("o1", inicial, fd({ recibidoPor: "M", firma: firmaPng() }))).error).toContain("no tiene acta");
 
     db.ordenTrabajo.findFirst.mockResolvedValue({
       id: "o1",
@@ -274,18 +332,54 @@ describe("acta de entrega", () => {
     db.ordenTrabajo.findFirst.mockResolvedValue({
       id: "o1",
       estado: "ENTREGADA",
+      factura: null,
       acta: { id: "a1", firmadaAt: new Date(), firmaUrl: "x", firmaFotoUrl: null },
     });
     expect((await borrarActaAction("o1")).error).toBe("Un acta firmada no se borra");
 
+    // Una orden facturada tampoco deja tocar el acta.
+    db.ordenTrabajo.findFirst.mockResolvedValue({
+      id: "o1",
+      estado: "TERMINADA",
+      factura: { id: "f1" },
+      acta: { id: "a1", firmadaAt: null, firmaUrl: null, firmaFotoUrl: null },
+    });
+    expect((await borrarActaAction("o1")).error).toContain("ya tiene factura");
+
     db.ordenTrabajo.findFirst.mockResolvedValue({
       id: "o1",
       estado: "EN_PROCESO",
+      factura: null,
       acta: { id: "a1", firmadaAt: null, firmaUrl: "/api/uploads/taller/ordenes/o1/firma/f.png", firmaFotoUrl: null },
     });
-    expect(await borrarActaAction("o1")).toEqual({ error: null });
-    expect(db.actaEntrega.delete).toHaveBeenCalledWith({ where: { ordenId: "o1" } });
+    expect(await borrarActaAction("o1")).toEqual({ error: null, success: true });
+    // Condicional: no se borra un acta que ya se firmó entre la lectura y el borrado.
+    expect(db.actaEntrega.deleteMany).toHaveBeenCalledWith({ where: { ordenId: "o1", firmadaAt: null } });
     expect(mockBorrarUpload).toHaveBeenCalledWith("taller", "/api/uploads/taller/ordenes/o1/firma/f.png");
+  });
+
+  it("si el acta cambió entre la lectura y el borrado, no borra nada", async () => {
+    db.ordenTrabajo.findFirst.mockResolvedValue({
+      id: "o1",
+      estado: "EN_PROCESO",
+      factura: null,
+      acta: { id: "a1", firmadaAt: null, firmaUrl: null, firmaFotoUrl: null },
+    });
+    db.actaEntrega.deleteMany.mockResolvedValue({ count: 0 });
+
+    const r = await borrarActaAction("o1");
+
+    expect(r.error).toContain("El acta cambió");
+    expect(mockBorrarUpload).not.toHaveBeenCalled();
+  });
+
+  it("borrar el acta pide rol de borrado y respeta la sede", async () => {
+    await borrarActaAction("o1");
+
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "o1", sedeId: "sede-1" } }),
+    );
   });
 });
 
@@ -297,11 +391,13 @@ describe("entregarOrdenAction", () => {
     mockSaveOrdenArchivo.mockResolvedValue({ relativePath: "taller/ordenes/o1/firma/f.png", url: "/api/uploads/taller/ordenes/o1/firma/f.png" });
     mockBorrarUpload.mockResolvedValue(true);
     tx.ordenTrabajo.update.mockResolvedValue({});
-    tx.actaEntrega.upsert.mockResolvedValue({});
+    tx.ordenTrabajo.updateMany.mockResolvedValue({ count: 1 });
+    tx.actaEntrega.upsert.mockResolvedValue({ id: "a1" });
+    tx.actaEntrega.updateMany.mockResolvedValue({ count: 1 });
     tx.auditLog.create.mockResolvedValue({});
   });
 
-  it("cambia a ENTREGADA y firma el acta en la misma transacción, y avisa al cliente", async () => {
+  it("cambia a ENTREGADA y firma el acta en la misma transacción", async () => {
     const r = await entregarOrdenAction(
       "o1",
       { error: null, success: false },
@@ -309,8 +405,8 @@ describe("entregarOrdenAction", () => {
     );
 
     expect(r).toEqual({ error: null, success: true });
-    expect(tx.ordenTrabajo.update).toHaveBeenCalledWith({
-      where: { id: "o1" },
+    expect(tx.ordenTrabajo.updateMany).toHaveBeenCalledWith({
+      where: { id: "o1", estado: "TERMINADA" },
       data: { estado: "ENTREGADA", entregadaAt: expect.any(Date) },
     });
     expect(tx.actaEntrega.upsert).toHaveBeenCalledWith({
@@ -323,19 +419,31 @@ describe("entregarOrdenAction", () => {
         creadoPorId: "u1",
       }),
       update: expect.objectContaining({ firmadaAt: expect.any(Date) }),
+      select: { id: true },
     });
     expect(tx.auditLog.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ tipo: "ACTA_FIRMAR", detalle: expect.objectContaining({ estadoAnterior: "TERMINADA" }) }),
+      // El rastro apunta al acta de verdad, no a la orden.
+      data: expect.objectContaining({ tipo: "ACTA_FIRMAR", entidadId: "a1" }),
     });
     // ENTREGADA no es notificable a propósito (`notificaciones/plantilla.ts`):
     // entregar se hace con el cliente en el mostrador.
+  });
+
+  it("si otra pestaña cambió el estado, no entrega y limpia su archivo", async () => {
+    tx.ordenTrabajo.updateMany.mockResolvedValue({ count: 0 });
+
+    const r = await entregarOrdenAction("o1", { error: null, success: false }, fd({ recibidoPor: "M", firma: firmaPng() }));
+
+    expect(r.error).toContain("Otra persona ya cambió el estado");
+    expect(tx.actaEntrega.upsert).not.toHaveBeenCalled();
+    expect(mockBorrarUpload).toHaveBeenCalledWith("taller", "/api/uploads/taller/ordenes/o1/firma/f.png");
   });
 
   it("exige la firma y el estado correcto", async () => {
     expect((await entregarOrdenAction("o1", { error: null, success: false }, fd({ recibidoPor: "M" }))).error).toBe(
       "Falta la firma de quien recibe",
     );
-    expect(tx.ordenTrabajo.update).not.toHaveBeenCalled();
+    expect(tx.ordenTrabajo.updateMany).not.toHaveBeenCalled();
 
     db.ordenTrabajo.findFirst.mockResolvedValue({ ...ORDEN_MUTABLE, estado: "BORRADOR" });
     expect(
@@ -343,12 +451,16 @@ describe("entregarOrdenAction", () => {
     ).toBe("No se puede entregar una orden en estado BORRADOR");
   });
 
-  it("rechaza una orden ya entregada o facturada", async () => {
+  it("rechaza una orden ya entregada o con factura", async () => {
     db.ordenTrabajo.findFirst.mockResolvedValue({ ...ORDEN_MUTABLE, estado: "ENTREGADA" });
+    expect(
+      (await entregarOrdenAction("o1", { error: null, success: false }, fd({ recibidoPor: "M", firma: firmaPng() }))).error,
+    ).toContain("ya está entregada");
 
-    const r = await entregarOrdenAction("o1", { error: null, success: false }, fd({ recibidoPor: "M", firma: firmaPng() }));
-
-    expect(r.error).toContain("no se puede modificar");
+    db.ordenTrabajo.findFirst.mockResolvedValue({ ...ORDEN_MUTABLE, factura: { id: "f1" } });
+    expect(
+      (await entregarOrdenAction("o1", { error: null, success: false }, fd({ recibidoPor: "M", firma: firmaPng() }))).error,
+    ).toContain("ya tiene factura");
     expect(mockSaveOrdenArchivo).not.toHaveBeenCalled();
   });
 
@@ -498,11 +610,11 @@ describe("garantías", () => {
         id: "g1",
         tipo: "TRABAJO",
         descripcion: "Cambio de aceite",
-        cubreHasta: new Date("2026-01-01T00:00:00.000Z"),
+        cubreHasta: new Date("2020-01-01T00:00:00.000Z"),
         cubreHastaKm: null,
         nota: null,
-        createdAt: new Date("2026-01-01T00:00:00.000Z"),
-        orden: { id: "o1", sede: { nombre: "Sede principal" } },
+        createdAt: new Date("2020-01-01T00:00:00.000Z"),
+        orden: { id: "o1", sedeId: "sede-1", sede: { nombre: "Sede principal" } },
         manoDeObra: { descripcion: "Cambio de aceite" },
         itemOrden: null,
       },
@@ -514,7 +626,7 @@ describe("garantías", () => {
         cubreHastaKm: 95_000,
         nota: "Sin cobertura por fecha",
         createdAt: new Date("2026-02-01T00:00:00.000Z"),
-        orden: { id: "o2", sede: { nombre: "Sede norte" } },
+        orden: { id: "o2", sedeId: "sede-2", sede: { nombre: "Sede norte" } },
         manoDeObra: null,
         itemOrden: { descripcion: "Filtro de aceite" },
       },

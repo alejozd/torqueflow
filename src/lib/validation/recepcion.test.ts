@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   actaEntregaInputSchema,
   danioInputSchema,
-  entregaInputSchema,
   garantiaInputSchema,
   KM_MAXIMO,
   nivelCombustibleSchema,
@@ -106,8 +105,12 @@ describe("actaEntregaInputSchema", () => {
     });
   });
 
-  it("la entrega usa el mismo contrato que el acta", () => {
-    expect(entregaInputSchema).toBe(actaEntregaInputSchema);
+  it("no deja firmar sin firma ni con dos firmas", () => {
+    const datos = { recibidoPor: "María Pérez", documentoRecibe: "", observaciones: "" };
+    expect(actaEntregaInputSchema.safeParse(datos).success).toBe(false);
+    expect(actaEntregaInputSchema.safeParse({ ...datos, firmaUrl: "a", firmaFotoUrl: "b" }).success).toBe(false);
+    expect(actaEntregaInputSchema.safeParse({ ...datos, firmaUrl: "a" }).success).toBe(true);
+    expect(actaEntregaInputSchema.safeParse({ ...datos, firmaFotoUrl: "a" }).success).toBe(true);
   });
 });
 
