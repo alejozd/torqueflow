@@ -48,7 +48,7 @@ describe("leerHoja", () => {
     });
   });
 
-  it("respeta el tope de filas por hoja y reporta las que sobran", () => {
+  it("respeta el tope de filas por hoja con un solo aviso y cuenta las que sobran", () => {
     const filas: unknown[][] = [["Nombre", "Documento"]];
     for (let indice = 1; indice <= 2003; indice += 1) filas.push([`Cliente ${indice}`, String(indice)]);
 
@@ -57,14 +57,16 @@ describe("leerHoja", () => {
     expect(lectura.ok).toBe(true);
     if (!lectura.ok) return;
     expect(lectura.filas).toHaveLength(2000);
-    expect(lectura.rechazos).toHaveLength(3);
-    expect(lectura.rechazos[0]).toEqual({
-      hoja: "Clientes",
-      fila: 2002,
-      columna: null,
-      valor: null,
-      tipo: "rechazada",
-      motivo: "La hoja trae más de 2000 filas: esta no se importó",
-    });
+    expect(lectura.filasSobrantes).toBe(3);
+    expect(lectura.rechazos).toEqual([
+      {
+        hoja: "Clientes",
+        fila: 2002,
+        columna: null,
+        valor: null,
+        tipo: "rechazada",
+        motivo: "La hoja trae 3 fila(s) de más: solo se importan las primeras 2000",
+      },
+    ]);
   });
 });

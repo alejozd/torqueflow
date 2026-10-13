@@ -45,7 +45,7 @@ const CABECERAS_REPUESTOS = [
 const CABECERAS_SERVICIOS = ["Nombre", "Descripción", "Precio mano de obra", "Activo"];
 
 describe("validarClientes", () => {
-  it("normaliza una fila correcta y arma sus claves", () => {
+  it("normaliza una fila correcta y arma su clave", () => {
     const lectura = leer("Clientes", [CABECERAS_CLIENTES, ["  María   Pérez ", "1.020.456.789", "310 555 1234", "MARIA@Correo.com"]]);
 
     const { validas, rechazos } = validarClientes(lectura);
@@ -54,11 +54,13 @@ describe("validarClientes", () => {
     expect(validas).toHaveLength(1);
     expect(validas[0]).toEqual({
       numeroFila: 2,
-      claves: ["doc:1020456789", "nom:mariaperez"],
+      // Con documento, la clave es el documento: el nombre no participa (dos
+      // clientes distintos pueden llamarse igual).
+      claves: ["doc:1020456789"],
       nombre: "María Pérez",
       documento: "1.020.456.789",
       telefono: "310 555 1234",
-      email: "MARIA@Correo.com",
+      email: "maria@correo.com",
     });
   });
 
@@ -169,15 +171,39 @@ describe("buscarCliente", () => {
   const vehiculo = (documentoCliente: string | null, nombreCliente: string | null) =>
     ({ documentoCliente, nombreCliente }) as never;
 
-  it("resuelve por documento y por nombre", () => {
-    expect(buscarCliente(indice, vehiculo("1020", null))).toEqual({ id: "c1", nombre: "María Pérez" });
-    expect(buscarCliente(indice, vehiculo(null, "maría pérez"))).toEqual({ id: "c1", nombre: "María Pérez" });
-    expect(buscarCliente(indice, vehiculo(null, "Beto"))).toEqual({ id: "c2", nombre: "Beto" });
+  it("resuelve por documento y, si no hay documento, por nombre", () => {
+    expect(buscarCliente(indice, vehiculo("1020", null))).toEqual({
+      estado: "resuelto",
+      cliente: { id: "c1", nombre: "María Pérez" },
+    });
+    expect(buscarCliente(indice, vehiculo(null, "maría pérez"))).toEqual({
+      estado: "resuelto",
+      cliente: { id: "c1", nombre: "María Pérez" },
+    });
+    expect(buscarCliente(indice, vehiculo(null, "Beto"))).toEqual({
+      estado: "resuelto",
+      cliente: { id: "c2", nombre: "Beto" },
+    });
+  });
+
+  it("con documento no cae al nombre: un homónimo no es ese cliente", () => {
+    // Existe un "Beto" sin documento, pero el vehículo dice documento 999: no es
+    // el mismo cliente y asignárselo sería un error silencioso.
+    expect(buscarCliente(indice, vehiculo("999", "Beto"))).toEqual({ estado: "sin_cliente" });
+  });
+
+  it("avisa cuando el nombre lo comparten dos clientes", () => {
+    const homonimos = indexarClientes([
+      { id: "h1", nombre: "Juan Pérez", documento: null },
+      { id: "h2", nombre: "Juan Pérez", documento: null },
+    ]);
+
+    expect(buscarCliente(homonimos, vehiculo(null, "Juan Pérez"))).toEqual({ estado: "ambiguo" });
   });
 
   it("no encuentra a quien no está", () => {
-    expect(buscarCliente(indice, vehiculo("9999", null))).toBeNull();
-    expect(buscarCliente(indice, vehiculo(null, null))).toBeNull();
+    expect(buscarCliente(indice, vehiculo("9999", null))).toEqual({ estado: "sin_cliente" });
+    expect(buscarCliente(indice, vehiculo(null, "Nadie"))).toEqual({ estado: "sin_cliente" });
   });
 });
 
@@ -247,6 +273,19 @@ describe("validarRepuestos", () => {
     const motivos = validarRepuestos(lectura, opciones).rechazos.map((fila) => [fila.columna, fila.motivo]);
 
     expect(motivos).toEqual([["Stock máximo", "El stock máximo debe ser mayor que el stock mínimo"]]);
+  });
+
+  it("rechaza un precio por encima de lo que admite la columna Decimal(10,2)", () => {
+    const lectura = leer("Repuestos", [
+      CABECERAS_REPUESTOS,
+      ["FIL-001", "Filtro", "250.000.000", "2.000", "", "", "", ""],
+    ]);
+
+    const rechazos = validarRepuestos(lectura, opciones).rechazos;
+
+    expect(rechazos).toHaveLength(1);
+    expect(rechazos[0]!.columna).toBe("Precio compra");
+    expect(rechazos[0]!.motivo).toContain("supera el máximo permitido");
   });
 
   it("rechaza una cantidad inicial por encima del máximo de una línea de inventario", () => {

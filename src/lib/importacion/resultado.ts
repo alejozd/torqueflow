@@ -47,18 +47,20 @@ export function resumenVacio(hoja: string): ResumenHoja {
   return { hoja, leidas: 0, creadas: 0, existentes: 0, rechazadas: 0, estado: "ok", motivo: null };
 }
 
-/** Recorta la lista de novedades al tope que se envía al navegador (D7). */
+/**
+ * Recorta la lista de novedades al tope que se envía al navegador (D7). Los
+ * rechazos van primero: son los que el taller tiene que corregir, y si el archivo
+ * trae cientos de filas que ya existían no deben taparlos.
+ */
 export function limitarFilas(filas: FilaReporte[]): { visibles: FilaReporte[]; ocultas: number } {
-  if (filas.length <= MAX_RECHAZOS_VISIBLES) return { visibles: filas, ocultas: 0 };
-  return { visibles: filas.slice(0, MAX_RECHAZOS_VISIBLES), ocultas: filas.length - MAX_RECHAZOS_VISIBLES };
-}
+  const rechazadas = filas.filter((fila) => fila.tipo === "rechazada");
+  const omitidas = filas.filter((fila) => fila.tipo !== "rechazada");
+  const ordenadas = [...rechazadas, ...omitidas];
 
-/** Cuenta las novedades de una hoja para su resumen. */
-export function contarNovedades(filas: FilaReporte[], hoja: string): { rechazadas: number; existentes: number } {
-  const deLaHoja = filas.filter((fila) => fila.hoja === hoja);
+  if (ordenadas.length <= MAX_RECHAZOS_VISIBLES) return { visibles: ordenadas, ocultas: 0 };
   return {
-    rechazadas: deLaHoja.filter((fila) => fila.tipo === "rechazada").length,
-    existentes: deLaHoja.filter((fila) => fila.tipo === "ya_existia").length,
+    visibles: ordenadas.slice(0, MAX_RECHAZOS_VISIBLES),
+    ocultas: ordenadas.length - MAX_RECHAZOS_VISIBLES,
   };
 }
 

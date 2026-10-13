@@ -44,5 +44,7 @@ describe("construirPlantilla", () => {
     expect(texto).toContain(NOTA_OBLIGATORIAS);
     expect(texto).toContain("Nada se sobrescribe");
     expect(texto).toContain("cantidad inicial");
+    // La fila de ejemplo no es un dato real y hay que decirlo.
+    expect(texto).toContain("EJEMPLO");
   });
 });

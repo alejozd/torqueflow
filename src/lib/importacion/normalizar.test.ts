@@ -99,7 +99,7 @@ describe("normalizarNumero (formato colombiano)", () => {
     expect(normalizarNumero("1,2,3")).toBeNull();
   });
 
-  it("normalizarEntero redondea y rechaza los decimales con fracción", () => {
+  it("normalizarEntero acepta enteros y rechaza los que traen fracción", () => {
     expect(normalizarEntero("12")).toBe(12);
     expect(normalizarEntero("12,0")).toBe(12);
     expect(normalizarEntero(12)).toBe(12);

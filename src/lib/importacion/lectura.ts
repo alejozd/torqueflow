@@ -14,7 +14,16 @@ export interface FilaCruda {
 }
 
 export type LecturaHoja =
-  | { ok: true; encabezados: unknown[]; indices: Map<string, number>; filas: FilaCruda[]; rechazos: FilaReporte[] }
+  | {
+      ok: true;
+      encabezados: unknown[];
+      indices: Map<string, number>;
+      filas: FilaCruda[];
+      /** Cuántas filas se quedaron fuera por el tope (el resumen las cuenta). */
+      filasSobrantes: number;
+      /** Aviso para el reporte: una sola fila que representa a las sobrantes. */
+      rechazos: FilaReporte[];
+    }
   | { ok: false; motivo: string };
 
 /** Valor de una columna del contrato; `undefined` cuando la celda está hueca. */
@@ -72,14 +81,22 @@ export function leerHoja(contrato: HojaContrato, filas: unknown[][]): LecturaHoj
     .filter((fila) => fila.valores.some((celda) => !esVacio(celda)));
 
   const filasDentro = conContenido.slice(0, MAX_FILAS_POR_HOJA);
-  const rechazos: FilaReporte[] = conContenido.slice(MAX_FILAS_POR_HOJA).map((fila) => ({
-    hoja: contrato.nombre,
-    fila: fila.numeroFila,
-    columna: null,
-    valor: null,
-    tipo: "rechazada",
-    motivo: `La hoja trae más de ${MAX_FILAS_POR_HOJA} filas: esta no se importó`,
-  }));
+  const sobrantes = conContenido.length - filasDentro.length;
+  // Un solo aviso en vez de una novedad por fila: el tope puede dejar fuera
+  // miles y el reporte se recorta igual a 200.
+  const rechazos: FilaReporte[] =
+    sobrantes > 0
+      ? [
+          {
+            hoja: contrato.nombre,
+            fila: filasDentro[filasDentro.length - 1]!.numeroFila + 1,
+            columna: null,
+            valor: null,
+            tipo: "rechazada",
+            motivo: `La hoja trae ${sobrantes} fila(s) de más: solo se importan las primeras ${MAX_FILAS_POR_HOJA}`,
+          },
+        ]
+      : [];
 
-  return { ok: true, encabezados, indices, filas: filasDentro, rechazos };
+  return { ok: true, encabezados, indices, filas: filasDentro, filasSobrantes: sobrantes, rechazos };
 }

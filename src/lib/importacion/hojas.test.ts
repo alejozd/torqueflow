@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HOJAS, HOJA_INSTRUCCIONES, MAX_FILAS_POR_HOJA, buscarHoja, resolverColumnas } from "./hojas";
+import { HOJAS, HOJA_INSTRUCCIONES, MAX_BYTES_ARCHIVO, MAX_FILAS_POR_HOJA, MAX_RECHAZOS_VISIBLES, buscarHoja, resolverColumnas } from "./hojas";
 
 const porNombre = (nombre: string) => HOJAS.find((hoja) => hoja.nombre === nombre)!;
 
@@ -8,12 +8,7 @@ describe("contrato de hojas", () => {
     expect(HOJAS.map((hoja) => hoja.nombre)).toEqual(["Clientes", "Vehículos", "Repuestos", "Servicios"]);
   });
 
-  it("cada hoja declara sus columnas obligatorias y su clave de duplicado", () => {
-    expect(porNombre("Clientes").claveDuplicado).toBe("documento");
-    expect(porNombre("Vehículos").claveDuplicado).toBe("placa");
-    expect(porNombre("Repuestos").claveDuplicado).toBe("codigo");
-    expect(porNombre("Servicios").claveDuplicado).toBe("nombre");
-
+  it("cada hoja declara sus columnas obligatorias", () => {
     const obligatorias = (nombre: string) =>
       porNombre(nombre)
         .columnas.filter((columna) => columna.obligatoria)
@@ -100,6 +95,8 @@ describe("resolverColumnas", () => {
 describe("topes de la importación", () => {
   it("declara los límites acordados", () => {
     expect(MAX_FILAS_POR_HOJA).toBe(2000);
+    expect(MAX_RECHAZOS_VISIBLES).toBe(200);
+    expect(MAX_BYTES_ARCHIVO).toBe(5 * 1024 * 1024);
     expect(HOJA_INSTRUCCIONES).toBe("Instrucciones");
   });
 });

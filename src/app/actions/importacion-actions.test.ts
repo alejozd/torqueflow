@@ -14,6 +14,7 @@ const tx = {
   servicio: { create: vi.fn() },
 };
 
+const mockTxOpciones = vi.fn();
 const db = {
   cliente: { findMany: vi.fn() },
   vehiculo: { findMany: vi.fn() },
@@ -21,7 +22,10 @@ const db = {
   servicio: { findMany: vi.fn() },
   bodega: { findFirst: vi.fn() },
   proveedor: { findFirst: vi.fn() },
-  $transaction: (fn: (cliente: typeof tx) => unknown) => fn(tx),
+  $transaction: (fn: (cliente: typeof tx) => unknown, opciones?: unknown) => {
+    mockTxOpciones(opciones);
+    return fn(tx);
+  },
 };
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -33,6 +37,7 @@ const RECEPCION = { user: { id: "u2", role: "RECEPCION", tenantSchema: "taller",
 
 const CABECERAS_CLIENTES = ["Nombre", "Documento", "Teléfono", "Correo"];
 const CABECERAS_VEHICULOS = ["Placa", "Marca", "Modelo", "Documento cliente"];
+const CABECERAS_VEHICULOS_CON_NOMBRE = ["Placa", "Marca", "Modelo", "Documento cliente", "Nombre cliente"];
 const CABECERAS_REPUESTOS = ["Código", "Nombre", "Precio compra", "Precio venta", "Cantidad inicial"];
 const CABECERAS_SERVICIOS = ["Nombre", "Precio mano de obra"];
 
@@ -172,6 +177,70 @@ describe("importarAction", () => {
     });
   });
 
+  it("crea un cliente homónimo cuando el documento es distinto", async () => {
+    // Dos clientes distintos pueden llamarse igual: el documento manda.
+    db.cliente.findMany.mockResolvedValue([{ id: "c0", nombre: "Juan Pérez", documento: "111" }]);
+    const libro = await archivo([{ nombre: "Clientes", filas: [CABECERAS_CLIENTES, ["Juan Pérez", "999", "", ""]] }]);
+
+    const resultado = await importarAction(resultadoVacio(), enviar(libro));
+
+    expect(tx.cliente.create).toHaveBeenCalledTimes(1);
+    expect(resumenDe(resultado, "Clientes")).toMatchObject({ creadas: 1, existentes: 0 });
+  });
+
+  it("no le asigna el vehículo a un homónimo cuando el documento no existe", async () => {
+    db.cliente.findMany.mockResolvedValue([{ id: "c0", nombre: "Juan Pérez", documento: "111" }]);
+    const libro = await archivo([
+      {
+        nombre: "Vehículos",
+        filas: [CABECERAS_VEHICULOS_CON_NOMBRE, ["ABC123", "Renault", "Logan", "999", "Juan Pérez"]],
+      },
+    ]);
+
+    const resultado = await importarAction(resultadoVacio(), enviar(libro));
+
+    expect(tx.vehiculo.create).not.toHaveBeenCalled();
+    expect(resultado.filas[0]?.columna).toBe("Documento cliente");
+    expect(resultado.filas[0]?.motivo).toContain("No encontré ese cliente");
+  });
+
+  it("avisa cuando dos clientes comparten el nombre y el vehículo no trae documento", async () => {
+    db.cliente.findMany.mockResolvedValue([
+      { id: "h1", nombre: "Juan Pérez", documento: "111" },
+      { id: "h2", nombre: "Juan Pérez", documento: "222" },
+    ]);
+    const libro = await archivo([
+      { nombre: "Vehículos", filas: [CABECERAS_VEHICULOS_CON_NOMBRE, ["ABC123", "Renault", "Logan", "", "Juan Pérez"]] },
+    ]);
+
+    const resultado = await importarAction(resultadoVacio(), enviar(libro));
+
+    expect(tx.vehiculo.create).not.toHaveBeenCalled();
+    expect(resultado.filas[0]?.columna).toBe("Nombre cliente");
+    expect(resultado.filas[0]?.motivo).toContain("más de un cliente con ese nombre");
+  });
+
+  it("omite un vehículo cuya placa ya existe, escrita con otro formato", async () => {
+    db.vehiculo.findMany.mockResolvedValue([{ placa: "ABC-123" }]);
+    const libro = await archivo([
+      { nombre: "Vehículos", filas: [CABECERAS_VEHICULOS, ["ABC123", "Renault", "Logan", "1"]] },
+    ]);
+
+    const resultado = await importarAction(resultadoVacio(), enviar(libro));
+
+    expect(tx.vehiculo.create).not.toHaveBeenCalled();
+    expect(resumenDe(resultado, "Vehículos")).toMatchObject({ creadas: 0, existentes: 1 });
+    expect(resultado.filas[0]?.motivo).toBe("Ya existe en el sistema");
+  });
+
+  it("da margen a la transacción: Prisma la aborta a los 5 segundos por defecto", async () => {
+    const libro = await archivo([{ nombre: "Clientes", filas: [CABECERAS_CLIENTES, ["Ana", "1", "", ""]] }]);
+
+    await importarAction(resultadoVacio(), enviar(libro));
+
+    expect(mockTxOpciones).toHaveBeenCalledWith({ maxWait: 10_000, timeout: 120_000 });
+  });
+
   it("importa repuestos y deja el stock inicial como entrada de mercancía", async () => {
     const libro = await archivo([
       {
@@ -286,7 +355,9 @@ describe("importarAction", () => {
     });
   });
 
-  it("si una hoja falla al escribir, las anteriores quedan y esa se reporta como error", async () => {
+  it("si una hoja falla al escribir, las anteriores conservan sus creadas y esa se reporta como error", async () => {
+    // El mock de $transaction no revierte (no hay base real), así que este test
+    // comprueba el reporte por hoja de D11, no la reversión en sí.
     tx.servicio.create.mockRejectedValue({ code: "P2002" });
     const libro = await archivo([
       { nombre: "Clientes", filas: [CABECERAS_CLIENTES, ["Ana", "1", "", ""]] },
@@ -300,6 +371,20 @@ describe("importarAction", () => {
     expect(servicios?.estado).toBe("error");
     expect(servicios?.creadas).toBe(0);
     expect(servicios?.motivo).toBeTruthy();
+  });
+
+  it("una hoja de Repuestos que falla tampoco tumba las anteriores", async () => {
+    tx.repuesto.create.mockRejectedValue({ code: "P2002" });
+    const libro = await archivo([
+      { nombre: "Clientes", filas: [CABECERAS_CLIENTES, ["Ana", "1", "", ""]] },
+      { nombre: "Repuestos", filas: [CABECERAS_REPUESTOS, ["FIL-001", "Filtro", "1.000", "2.000", ""]] },
+    ]);
+
+    const resultado = await importarAction(resultadoVacio(), enviar(libro, { bodegaId: "b1" }));
+
+    expect(resumenDe(resultado, "Clientes")?.creadas).toBe(1);
+    expect(resumenDe(resultado, "Repuestos")?.estado).toBe("error");
+    expect(tx.entradaMercancia.create).not.toHaveBeenCalled();
   });
 
   it("cuenta las novedades que no caben en el reporte", async () => {

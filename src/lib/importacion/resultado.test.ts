@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contarNovedades, limitarFilas, resumenVacio, resultadoVacio, type FilaReporte } from "./resultado";
+import { limitarFilas, resumenVacio, resultadoVacio, type FilaReporte } from "./resultado";
 
 const novedad = (fila: number, tipo: FilaReporte["tipo"], hoja = "Clientes"): FilaReporte => ({
   hoja,
@@ -35,16 +35,13 @@ describe("reporte de importación", () => {
     expect(limitarFilas(filas.slice(0, 3))).toEqual({ visibles: filas.slice(0, 3), ocultas: 0 });
   });
 
-  it("cuenta por hoja y por tipo de novedad", () => {
-    const filas = [
-      novedad(2, "rechazada"),
-      novedad(3, "ya_existia"),
-      novedad(4, "ya_existia"),
-      novedad(2, "rechazada", "Repuestos"),
-    ];
+  it("deja los rechazos delante de las filas que ya existían", () => {
+    const existentes = Array.from({ length: 3 }, (_, indice) => novedad(indice + 2, "ya_existia"));
+    const rechazos = [novedad(10, "rechazada"), novedad(11, "rechazada")];
 
-    expect(contarNovedades(filas, "Clientes")).toEqual({ rechazadas: 1, existentes: 2 });
-    expect(contarNovedades(filas, "Repuestos")).toEqual({ rechazadas: 1, existentes: 0 });
-    expect(contarNovedades(filas, "Servicios")).toEqual({ rechazadas: 0, existentes: 0 });
+    const { visibles } = limitarFilas([...existentes, ...rechazos]);
+
+    // Los accionables no pueden quedar tapados por cientos de "ya existía".
+    expect(visibles.map((fila) => fila.tipo)).toEqual(["rechazada", "rechazada", "ya_existia", "ya_existia", "ya_existia"]);
   });
 });

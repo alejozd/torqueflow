@@ -13,7 +13,7 @@ import {
   separarDuplicados,
   setDeClaves,
 } from "@/lib/importacion/duplicados";
-import { HOJAS, MAX_BYTES_ARCHIVO, type HojaContrato } from "@/lib/importacion/hojas";
+import { HOJAS, MAX_BYTES_ARCHIVO, buscarHoja, type HojaContrato } from "@/lib/importacion/hojas";
 import { leerHoja } from "@/lib/importacion/lectura";
 import {
   limitarFilas,
@@ -39,6 +39,14 @@ import { scopeBodega } from "@/lib/sede/scope";
 
 const BODEGA_AJENA = "La bodega seleccionada no pertenece a tu sede activa.";
 const HOJA_SERVICIOS = "Servicios";
+
+/**
+ * Prisma aborta una transacción interactiva a los 5 segundos por defecto. Con el
+ * tope de 2.000 filas por hoja y hasta tres sentencias por fila (repuesto +
+ * ítem de entrada + incremento), una importación grande no cabría: se le da
+ * margen sin dejar de ser una transacción por hoja (D11).
+ */
+const OPCIONES_TRANSACCION = { maxWait: 10_000, timeout: 120_000 };
 
 type TenantDb = ReturnType<typeof getTenantDb>;
 
@@ -87,6 +95,7 @@ async function importarClientes(ctx: Contexto, lectura: LecturaOk): Promise<Resu
   const { nuevas, omitidas } = separarDuplicados(validas, claves, "Clientes", describirCliente);
 
   let creadas = 0;
+  const creados: { id: string; nombre: string; documento: string | null }[] = [];
   const novedades = [...lectura.rechazos, ...rechazos, ...omitidas];
 
   try {
@@ -101,16 +110,27 @@ async function importarClientes(ctx: Contexto, lectura: LecturaOk): Promise<Resu
           },
           select: { id: true, nombre: true, documento: true },
         });
-        ctx.clientesCreados.push(creado);
+        creados.push(creado);
         creadas += 1;
       }
-    });
+    }, OPCIONES_TRANSACCION);
+    // Solo se dan por creados si la transacción terminó: si revierte, esos ids no
+    // existen y los vehículos fallarían con una clave inexistente.
+    ctx.clientesCreados.push(...creados);
   } catch (err) {
     return { resumen: hojaConError("Clientes", friendlyPrismaErrorMessage(err, "No se pudieron crear los clientes"), lectura.filas.length), novedades };
   }
 
   return {
-    resumen: { hoja: "Clientes", leidas: lectura.filas.length, creadas, existentes: omitidas.length, rechazadas: lectura.rechazos.length + rechazos.length, estado: "ok", motivo: null },
+    resumen: {
+      hoja: "Clientes",
+      leidas: lectura.filas.length,
+      creadas,
+      existentes: omitidas.length,
+      rechazadas: lectura.filasSobrantes + rechazos.length,
+      estado: "ok",
+      motivo: null,
+    },
     novedades,
   };
 }
@@ -136,19 +156,30 @@ async function importarVehiculos(ctx: Contexto, lectura: LecturaOk): Promise<Res
   const sinCliente: FilaReporte[] = [];
   const aCrear: { fila: (typeof nuevas)[number]; cliente: ClienteResuelto }[] = [];
   for (const fila of nuevas) {
-    const cliente = buscarCliente(indice, fila);
-    if (!cliente) {
+    const resolucion = buscarCliente(indice, fila);
+    if (resolucion.estado === "ambiguo") {
       sinCliente.push({
         hoja: "Vehículos",
         fila: fila.numeroFila,
-        columna: "Documento cliente",
+        columna: "Nombre cliente",
+        valor: fila.nombreCliente,
+        motivo: "Hay más de un cliente con ese nombre: escribe su documento en la hoja de Vehículos",
+        tipo: "rechazada",
+      });
+      continue;
+    }
+    if (resolucion.estado === "sin_cliente") {
+      sinCliente.push({
+        hoja: "Vehículos",
+        fila: fila.numeroFila,
+        columna: fila.documentoCliente ? "Documento cliente" : "Nombre cliente",
         valor: fila.documentoCliente ?? fila.nombreCliente,
         motivo: "No encontré ese cliente en el sistema ni en la hoja de Clientes de este archivo",
         tipo: "rechazada",
       });
       continue;
     }
-    aCrear.push({ fila, cliente });
+    aCrear.push({ fila, cliente: resolucion.cliente });
   }
 
   let creadas = 0;
@@ -177,7 +208,7 @@ async function importarVehiculos(ctx: Contexto, lectura: LecturaOk): Promise<Res
         });
         creadas += 1;
       }
-    });
+    }, OPCIONES_TRANSACCION);
   } catch (err) {
     return {
       resumen: hojaConError("Vehículos", friendlyPrismaErrorMessage(err, "No se pudieron crear los vehículos"), lectura.filas.length),
@@ -191,7 +222,7 @@ async function importarVehiculos(ctx: Contexto, lectura: LecturaOk): Promise<Res
       leidas: lectura.filas.length,
       creadas,
       existentes: omitidas.length,
-      rechazadas: lectura.rechazos.length + rechazos.length + sinCliente.length,
+      rechazadas: lectura.filasSobrantes + rechazos.length + sinCliente.length,
       estado: "ok",
       motivo: null,
     },
@@ -264,7 +295,7 @@ async function importarRepuestos(ctx: Contexto, lectura: LecturaOk): Promise<Res
           });
         }
       }
-    });
+    }, OPCIONES_TRANSACCION);
   } catch (err) {
     return {
       resumen: hojaConError("Repuestos", friendlyPrismaErrorMessage(err, "No se pudieron crear los repuestos"), lectura.filas.length),
@@ -278,7 +309,7 @@ async function importarRepuestos(ctx: Contexto, lectura: LecturaOk): Promise<Res
       leidas: lectura.filas.length,
       creadas,
       existentes: omitidas.length,
-      rechazadas: lectura.rechazos.length + rechazos.length,
+      rechazadas: lectura.filasSobrantes + rechazos.length,
       estado: "ok",
       motivo: null,
     },
@@ -312,7 +343,7 @@ async function importarServicios(ctx: Contexto, lectura: LecturaOk): Promise<Res
         });
         creadas += 1;
       }
-    });
+    }, OPCIONES_TRANSACCION);
   } catch (err) {
     return {
       resumen: hojaConError(HOJA_SERVICIOS, friendlyPrismaErrorMessage(err, "No se pudieron crear los servicios"), lectura.filas.length),
@@ -326,7 +357,7 @@ async function importarServicios(ctx: Contexto, lectura: LecturaOk): Promise<Res
       leidas: lectura.filas.length,
       creadas,
       existentes: omitidas.length,
-      rechazadas: lectura.rechazos.length + rechazos.length,
+      rechazadas: lectura.filasSobrantes + rechazos.length,
       estado: "ok",
       motivo: null,
     },
@@ -376,7 +407,7 @@ export async function importarAction(
 
   const presentes = HOJAS.map((contrato) => ({
     contrato,
-    hoja: hojasLeidas.find((leida) => normalizar(leida.nombre) === normalizar(contrato.nombre)),
+    hoja: hojasLeidas.find((leida) => buscarHoja(leida.nombre) === contrato),
   })).filter((entrada): entrada is { contrato: HojaContrato; hoja: (typeof hojasLeidas)[number] } => entrada.hoja !== undefined);
 
   if (presentes.length === 0) {
@@ -456,12 +487,4 @@ export async function importarAction(
 
   const { visibles, ocultas } = limitarFilas(novedades);
   return { error: null, resumen, filas: visibles, filasOcultas: ocultas };
-}
-
-function normalizar(valor: string): string {
-  return valor
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
 }

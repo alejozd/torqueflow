@@ -16,7 +16,7 @@ import { vehiculoInputSchema } from "@/lib/validation/vehiculo";
 import { claveCodigo, claveDocumento, claveNombreCliente, claveNombreServicio, clavePlaca } from "./duplicados";
 import type { FilaCruda, LecturaHoja } from "./lectura";
 import { valorDeColumna } from "./lectura";
-import { normalizarEncabezado, normalizarEntero, normalizarFecha, normalizarNumero, normalizarTexto } from "./normalizar";
+import { normalizarBooleano, normalizarEncabezado, normalizarEntero, normalizarFecha, normalizarNumero, normalizarTexto } from "./normalizar";
 import type { FilaReporte } from "./resultado";
 
 export type LecturaOk = Extract<LecturaHoja, { ok: true }>;
@@ -84,6 +84,10 @@ const HOJA_CLIENTES = "Clientes";
 const HOJA_VEHICULOS = "Vehículos";
 const HOJA_REPUESTOS = "Repuestos";
 const HOJA_SERVICIOS = "Servicios";
+
+/** Techo de cualquier columna de dinero de la importación: son Decimal(10,2). */
+const MONTO_MAXIMO = 99_999_999.99;
+const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 2 });
 
 const COLUMNAS_CLIENTE: Record<string, string> = {
   nombre: "Nombre",
@@ -182,6 +186,11 @@ function campoDinero(lectura: LecturaOk, fila: FilaCruda, clave: string): Campo<
   if (valor === undefined) return { ok: true, valor: null };
   const numero = normalizarNumero(valor);
   if (numero === null) return { ok: false, motivo: `"${normalizarTexto(valor)}" no es un número` };
+  // Las columnas de dinero son Decimal(10,2): sin este tope, un dígito de más
+  // revienta la escritura y tumba la hoja entera con un error genérico.
+  if (numero > MONTO_MAXIMO) {
+    return { ok: false, motivo: `${formatoMoneda.format(numero)} supera el máximo permitido (${formatoMoneda.format(MONTO_MAXIMO)})` };
+  }
   return { ok: true, valor: numero };
 }
 
@@ -272,7 +281,8 @@ export function validarClientes(lectura: LecturaOk): ValidacionHoja<ClienteImpor
       nombre: campoTexto(lectura, fila, "nombre"),
       documento: campoTexto(lectura, fila, "documento") || undefined,
       telefono: campoTexto(lectura, fila, "telefono") || undefined,
-      email: campoTexto(lectura, fila, "email") || undefined,
+      // El correo se guarda en minúsculas (§2 del plan).
+      email: campoTexto(lectura, fila, "email").toLowerCase() || undefined,
     };
 
     const resultado = clienteInputSchema.safeParse(bruto);
@@ -284,9 +294,10 @@ export function validarClientes(lectura: LecturaOk): ValidacionHoja<ClienteImpor
     const { nombre, documento, telefono, email } = resultado.data;
     validas.push({
       numeroFila: fila.numeroFila,
-      // Se busca por documento y por nombre: cualquiera de los dos que coincida
-      // evita crear un cliente repetido (y la fila se reporta con su clave).
-      claves: clavesDe([claveDocumento(documento), claveNombreCliente(nombre)]),
+      // Con documento se identifica por documento; solo si no lo trae se busca
+      // por nombre (D6). Buscar por los dos hacía que un cliente nuevo con el
+      // nombre de otro (homónimo) se omitiera como si ya existiera.
+      claves: clavesDe([documento ? claveDocumento(documento) : claveNombreCliente(nombre)]),
       nombre: normalizarTexto(nombre),
       documento: documento ?? null,
       telefono: telefono ?? null,
@@ -508,11 +519,11 @@ export function validarServicios(lectura: LecturaOk): ValidacionHoja<ServicioImp
     const activoBruto = valorDeColumna(lectura.indices, fila, "activo");
     let activo = true;
     if (activoBruto !== undefined) {
-      const texto = normalizarTexto(activoBruto).toLowerCase();
-      if (["si", "sí", "s", "x", "1", "true", "verdadero"].includes(texto)) activo = true;
-      else if (["no", "n", "0", "false", "falso"].includes(texto)) activo = false;
-      else {
+      const leido = normalizarBooleano(activoBruto);
+      if (leido === null) {
         recolectado.agregar(rechazo(HOJA_SERVICIOS, fila.numeroFila, "Activo", "Escribe sí o no"), "activo");
+      } else {
+        activo = leido;
       }
     }
 
@@ -548,38 +559,58 @@ export interface ClienteResuelto {
   nombre: string;
 }
 
+export interface IndiceClientes {
+  porClave: Map<string, ClienteResuelto>;
+  /** Nombres que corresponden a más de un cliente: por nombre no se puede elegir. */
+  nombresAmbiguos: Set<string>;
+}
+
+export type ClienteDeVehiculo =
+  | { estado: "resuelto"; cliente: ClienteResuelto }
+  | { estado: "ambiguo" }
+  | { estado: "sin_cliente" };
+
 /** Índice de clientes por documento y por nombre, para resolver los vehículos. */
 export function indexarClientes(
   clientes: { id: string; nombre: string; documento: string | null }[],
-): Map<string, ClienteResuelto> {
-  const indice = new Map<string, ClienteResuelto>();
+): IndiceClientes {
+  const porClave = new Map<string, ClienteResuelto>();
+  const nombresAmbiguos = new Set<string>();
+
   for (const cliente of clientes) {
     const resuelto: ClienteResuelto = { id: cliente.id, nombre: cliente.nombre };
     const porDocumento = claveDocumento(cliente.documento);
+    if (porDocumento) porClave.set(porDocumento, resuelto);
+
     const porNombre = claveNombreCliente(cliente.nombre);
-    if (porDocumento) indice.set(porDocumento, resuelto);
-    if (porNombre) indice.set(porNombre, resuelto);
+    if (!porNombre) continue;
+    const previo = porClave.get(porNombre);
+    // El mismo cliente puede venir dos veces (base y creados en esta corrida):
+    // eso no es ambigüedad.
+    if (previo && previo.id !== cliente.id) nombresAmbiguos.add(porNombre);
+    else porClave.set(porNombre, resuelto);
   }
-  return indice;
+
+  return { porClave, nombresAmbiguos };
 }
 
 /**
- * Cliente de un vehículo: primero por documento, después por nombre, mirando
- * tanto la base como los clientes creados en esta misma importación (D4).
+ * Cliente de un vehículo: si la fila trae documento, manda el documento (caer al
+ * nombre podría asignar el vehículo a un homónimo); solo si no lo trae se busca
+ * por nombre, y si ese nombre lo comparten dos clientes se avisa en vez de
+ * elegir uno al azar.
  */
-export function buscarCliente(
-  indice: Map<string, ClienteResuelto>,
-  fila: VehiculoImportado,
-): ClienteResuelto | null {
+export function buscarCliente(indice: IndiceClientes, fila: VehiculoImportado): ClienteDeVehiculo {
   const porDocumento = claveDocumento(fila.documentoCliente);
   if (porDocumento) {
-    const encontrado = indice.get(porDocumento);
-    if (encontrado) return encontrado;
+    const cliente = indice.porClave.get(porDocumento);
+    return cliente ? { estado: "resuelto", cliente } : { estado: "sin_cliente" };
   }
+
   const porNombre = claveNombreCliente(fila.nombreCliente);
-  if (porNombre) {
-    const encontrado = indice.get(porNombre);
-    if (encontrado) return encontrado;
-  }
-  return null;
+  if (!porNombre) return { estado: "sin_cliente" };
+  if (indice.nombresAmbiguos.has(porNombre)) return { estado: "ambiguo" };
+
+  const cliente = indice.porClave.get(porNombre);
+  return cliente ? { estado: "resuelto", cliente } : { estado: "sin_cliente" };
 }

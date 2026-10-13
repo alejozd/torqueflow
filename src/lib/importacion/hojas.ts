@@ -28,8 +28,6 @@ export interface ColumnaHoja {
 
 export interface HojaContrato {
   nombre: string;
-  /** Columna cuya clave decide si la fila ya existe (D6). */
-  claveDuplicado: string;
   columnas: ColumnaHoja[];
   nota?: string;
 }
@@ -45,7 +43,6 @@ export const HOJA_INSTRUCCIONES = "Instrucciones";
 export const HOJAS: HojaContrato[] = [
   {
     nombre: "Clientes",
-    claveDuplicado: "documento",
     nota: "El documento y el correo son opcionales; el nombre es obligatorio.",
     columnas: [
       { clave: "nombre", encabezado: "Nombre", aliases: ["cliente"], obligatoria: true, tipo: "texto", ejemplo: "María Pérez" },
@@ -78,7 +75,6 @@ export const HOJAS: HojaContrato[] = [
   },
   {
     nombre: "Vehículos",
-    claveDuplicado: "placa",
     nota: "Cada vehículo necesita su cliente: por documento o por nombre, en esta hoja o en la de Clientes.",
     columnas: [
       {
@@ -152,7 +148,6 @@ export const HOJAS: HojaContrato[] = [
   },
   {
     nombre: "Repuestos",
-    claveDuplicado: "codigo",
     nota: "Los repuestos entran en la bodega que elijas al subir el archivo; la cantidad inicial deja una entrada de mercancía.",
     columnas: [
       {
@@ -191,7 +186,6 @@ export const HOJAS: HojaContrato[] = [
   },
   {
     nombre: "Servicios",
-    claveDuplicado: "nombre",
     nota: "Solo un administrador puede importar esta hoja; los kits se arman después en el catálogo.",
     columnas: [
       {
