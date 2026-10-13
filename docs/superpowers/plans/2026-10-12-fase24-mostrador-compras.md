@@ -22,7 +22,7 @@
      aprobación por tarea: en ese caso se reporta al final de todas.
 4. **No reintentos automáticos** (RULES §1): máximo 1 corrección por error; si vuelve a fallar, detenerse y reportar.
 5. **Nunca aplicar migraciones sin autorización explícita ni sin respaldo previo.** Esta fase **sí lleva
-   migración** (seis modelos nuevos + un evento de auditoría): se aplica al final, con respaldo `pg_dump` y
+   migración** (siete modelos nuevos + un evento de auditoría): se aplica al final, con respaldo `pg_dump` y
    aprobación (ver §6). La única base del `.env` (`100.87.12.1`) es **la misma de producción**.
 6. TDD: escribir primero los tests, verlos fallar, implementar, verlos pasar.
 7. Archivos con finales de línea CRLF: preferir edición por reemplazo exacto, no `sed`.
@@ -194,7 +194,7 @@ export function agruparCuentasPorPagar(...)   // antigüedad por fecha, espejo d
 `src/lib/auditoria/catalogo.ts`, `src/lib/mostrador/ventas.ts`, `src/lib/proveedores/cuentas-por-pagar.ts`,
 `src/lib/caja/resumen.ts` (+ tests de cada pieza pura).
 
-1. Los seis modelos de §2, el evento `VENTA_DEVOLVER` en el enum y en **los dos** sitios del catálogo.
+1. Los siete modelos de §2, el evento `VENTA_DEVOLVER` en el enum y en **los dos** sitios del catálogo.
 2. Migración con `prisma migrate diff`. **No aplicarla** todavía (§6). Regenerar el cliente (ambos schemas).
 3. Validación y lógica pura con tests: totales con descuento e IVA, devolvible nunca negativo, resumen de
    caja con las dos fuentes nuevas, y antigüedad de cuentas por pagar.
@@ -318,7 +318,7 @@ hallazgos. Reporte.
 2. Aplicar la migración a cada schema de tenant (`taller_dev`, `taller_dev_reference`):
    `TENANT_DATABASE_URL="${TENANT_DATABASE_BASE_URL}?schema=<schema>" npx prisma migrate deploy --schema=prisma/tenant/schema.prisma`
    y verificar `npx prisma migrate diff --from-url "<misma URL>" --to-schema-datamodel prisma/tenant/schema.prisma --script` → "empty migration".
-   Como los tests mockean el cliente, comprobar además con `psql` que las seis tablas nuevas existen en
+   Como los tests mockean el cliente, comprobar además con `psql` que las siete tablas nuevas existen en
    `taller_dev`.
 3. Dejar `npm run dev` corriendo para la prueba manual del usuario (en un clon aparte del checkout de
    producción, como en las fases 20–22) y probar el flujo completo: abrir caja → vender un repuesto (ver el
