@@ -108,6 +108,7 @@ estados (no hay tabla de historial y esta fase no la crea); badge de alertas en 
 | **D11** | **El movimiento reusa `updateEstadoOrdenAction`** (nada de caminos de escritura nuevos): el menú y el `drop` envían esa acción, que ya valida la transición, exige orden mutable, confirma la anulación y revalida. |
 | **D12** | **No se toca el markup de las filas de la tabla**: hay e2e (`e2e/tenant-flow.spec.ts:126`, `:195`, `:361`, `:385`) que resuelven la fila por la placa; la prioridad entra como **columna y badge** y las alertas como píldora y KPI. Playwright no corre en este entorno, así que la regla es no reestructurar lo que esos locators tocan. |
 | **D13** | **Sin badge en el sidebar**: el layout ya lanza seis consultas por request y una alerta de estancadas necesitaría otra más en todas las páginas; el Inicio y el listado bastan. |
+| **D14** | **La prioridad no se cambia desde la fila de la tabla**: cada fila ya está cubierta por un link estirado (`DataTable` lo hace "Ver detalle") y los e2e resuelven la fila por ahí, así que el formulario vive en la ficha de la orden y en el tablero (donde la tarjeta es el propio control). En la tabla la prioridad es columna ordenable con su marca, que es lo que se consulta de un vistazo. |
 
 ---
 

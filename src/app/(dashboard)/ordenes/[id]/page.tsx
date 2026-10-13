@@ -12,6 +12,9 @@ import { listServicios } from "@/app/actions/servicio-actions";
 import { AnticiposSection } from "./anticipos-section";
 import { AsignarMecanicoForm } from "./asignar-mecanico-form";
 import { CambiarEstadoForm } from "./cambiar-estado-form";
+import { CambiarPrioridadForm } from "../cambiar-prioridad-form";
+import { PRIORIDAD_BADGE_CLASSNAME } from "../prioridad-tono";
+import { ETIQUETA_PRIORIDAD } from "@/lib/orden/flujo";
 import { DiagramaDanios } from "./diagrama-danios";
 import { GarantiasSection } from "./garantias-section";
 import { RecepcionForm } from "./recepcion-form";
@@ -524,6 +527,26 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
         </div>
 
         <div className="sticky top-4 flex flex-col gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Prioridad</CardTitle>
+              <CardAction>
+                <Badge variant="outline" className={cn(PRIORIDAD_BADGE_CLASSNAME[orden.prioridad])}>
+                  {ETIQUETA_PRIORIDAD[orden.prioridad]}
+                </Badge>
+              </CardAction>
+            </CardHeader>
+            <CardContent>
+              {esOrdenMutable(orden) ? (
+                <CambiarPrioridadForm ordenId={orden.id} prioridad={orden.prioridad} />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  La orden ya no se puede modificar, así que la prioridad queda como está.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Totales</CardTitle>
