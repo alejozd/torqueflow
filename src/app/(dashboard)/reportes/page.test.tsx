@@ -135,5 +135,7 @@ describe("ReportesPage", () => {
     expect(filas[1]!.textContent).toContain(formatoMoneda.format(45000));
     // Sin trabajos no hay promedio: guion, no un cero engañoso.
     expect(filas[2]!.textContent).toContain("—");
+    // El encabezado suma los trabajos del periodo.
+    expect(screen.getByText("2 técnicos · 4 trabajos")).toBeInTheDocument();
   });
 });

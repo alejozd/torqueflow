@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockAjustar = vi.fn();
 const mockAnular = vi.fn();
+const mockReactivar = vi.fn();
 vi.mock("@/app/actions/liquidacion-actions", () => ({
   actualizarAjusteLiquidacionAction: (...args: unknown[]) => mockAjustar(...args),
   anularLiquidacionAction: (...args: unknown[]) => mockAnular(...args),
+  reactivarLiquidacionAction: (...args: unknown[]) => mockReactivar(...args),
   pagarLiquidacionAction: vi.fn(),
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -70,15 +72,18 @@ describe("LiquidacionFila", () => {
     mockAjustar.mockResolvedValue({ error: null, success: true });
     mockAnular.mockReset();
     mockAnular.mockResolvedValue({ error: null });
+    mockReactivar.mockReset();
+    mockReactivar.mockResolvedValue({ error: null });
   });
 
   it("muestra las cifras del técnico y el estado del documento", () => {
     renderFila(base);
 
-    const texto = screen.getByRole("row").textContent ?? "";
-    expect(texto).toContain("Ana");
-    expect(texto).toContain("4");
-    expect(texto).toContain("Pendiente");
+    const celdas = within(screen.getByRole("row")).getAllByRole("cell");
+    expect(celdas[0]!.textContent).toContain("Ana");
+    expect(celdas[2]!.textContent).toBe("4"); // Trabajos, no el "40 %" del esquema
+    expect(celdas[5]!.textContent).toContain("40 % de la mano de obra");
+    expect(screen.getByText("Pendiente")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Pagar" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ajuste" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Anular" })).toBeInTheDocument();
@@ -118,7 +123,7 @@ describe("LiquidacionFila", () => {
     expect(formData.get("motivo")).toBe("Herramienta rota");
   });
 
-  it("pide confirmación antes de anular y exige motivo", async () => {
+  it("pide confirmación antes de anular y llama la action con el motivo", async () => {
     renderFila(base);
 
     await userEvent.click(screen.getByRole("button", { name: "Anular" }));
@@ -137,7 +142,7 @@ describe("LiquidacionFila", () => {
     expect(screen.getByRole("button", { name: "Anular" })).toBeInTheDocument();
   });
 
-  it("una anulada no ofrece acciones y muestra el motivo", () => {
+  it("una anulada ofrece reactivarla y muestra el motivo", () => {
     renderFila({
       ...base,
       documento: { ...base.documento!, estado: "ANULADA", motivoAnulacion: "Se pagó por fuera" },
@@ -145,7 +150,26 @@ describe("LiquidacionFila", () => {
 
     expect(screen.getByText("Anulada")).toBeInTheDocument();
     expect(screen.getByText(/Se pagó por fuera/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reactivar" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Anular" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Pagar" })).not.toBeInTheDocument();
+  });
+
+  it("reactiva una anulada", async () => {
+    renderFila({ ...base, documento: { ...base.documento!, estado: "ANULADA" } });
+
+    await userEvent.click(screen.getByRole("button", { name: "Reactivar" }));
+
+    await waitFor(() => expect(mockReactivar).toHaveBeenCalledWith("l1"));
+  });
+
+  it("muestra el error de la action al reactivar", async () => {
+    mockReactivar.mockResolvedValue({ error: "Ese periodo ya está liquidado en otro documento para ese técnico" });
+    renderFila({ ...base, documento: { ...base.documento!, estado: "ANULADA" } });
+
+    await userEvent.click(screen.getByRole("button", { name: "Reactivar" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("ya está liquidado en otro documento");
   });
 
   it("muestra el error de la action al ajustar", async () => {

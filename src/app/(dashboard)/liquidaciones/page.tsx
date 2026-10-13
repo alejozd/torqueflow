@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { getFrecuenciaLiquidacion, listLiquidacionesDelPeriodo } from "@/app/actions/liquidacion-actions";
 import { requireRole } from "@/lib/auth/guards";
-import { periodoActual, periodoAnterior, periodoSiguiente } from "@/lib/liquidaciones/periodo";
-import { esPeriodoDeFrecuencia } from "@/lib/validation/liquidacion";
+import { frecuenciaDePeriodo, periodoActual, periodoAnterior, periodoSiguiente } from "@/lib/liquidaciones/periodo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { EsquemaLiquidacionSection } from "./esquema-liquidacion-section";
 import { FrecuenciaLiquidacionForm } from "./frecuencia-liquidacion-form";
 import { LiquidacionesTabla } from "./liquidaciones-tabla";
+
+const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" });
 
 export default async function LiquidacionesPage({
   searchParams,
@@ -19,10 +20,13 @@ export default async function LiquidacionesPage({
   await requireRole(["ADMIN"]);
   const { periodo: pedido } = await searchParams;
 
-  const frecuencia = await getFrecuenciaLiquidacion();
-  // Un periodo de la URL solo se acepta si tiene el formato de la frecuencia
-  // vigente; si no, se cae al periodo en curso.
-  const periodo = pedido && esPeriodoDeFrecuencia(frecuencia, pedido) ? pedido : periodoActual(frecuencia, new Date());
+  const frecuenciaConfigurada = await getFrecuenciaLiquidacion();
+  // Cualquier periodo bien formado se puede consultar, aunque su frecuencia ya
+  // no sea la del taller: si no, las liquidaciones de la frecuencia anterior
+  // quedarían imposibles de ver (y de pagar).
+  const frecuenciaDelPedido = pedido ? frecuenciaDePeriodo(pedido) : null;
+  const frecuencia = frecuenciaDelPedido ?? frecuenciaConfigurada;
+  const periodo = frecuenciaDelPedido && pedido ? pedido : periodoActual(frecuenciaConfigurada, new Date());
 
   const datos = await listLiquidacionesDelPeriodo(periodo);
 
@@ -92,7 +96,19 @@ export default async function LiquidacionesPage({
               <AlertDescription>{datos.error}</AlertDescription>
             </Alert>
           ) : (
-            <LiquidacionesTabla filas={datos.filas} periodo={datos.periodo} etiquetaPeriodo={datos.etiqueta} />
+            <>
+              {datos.sinAsignar && datos.sinAsignar.trabajos > 0 ? (
+                <Alert>
+                  <AlertDescription>
+                    {datos.sinAsignar.trabajos === 1 ? "Hay 1 trabajo" : `Hay ${datos.sinAsignar.trabajos} trabajos`} sin
+                    mecánico asignado en este periodo (
+                    {formatoMoneda.format(datos.sinAsignar.montoManoObra)} de mano de obra): eso no se le liquida a
+                    nadie. Asígnalo en las órdenes si quieres pagarlo.
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+              <LiquidacionesTabla filas={datos.filas} periodo={datos.periodo} etiquetaPeriodo={datos.etiqueta} />
+            </>
           )}
         </CardContent>
       </Card>

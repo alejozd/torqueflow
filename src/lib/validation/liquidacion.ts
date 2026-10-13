@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { esSemanaIsoValida } from "@/lib/liquidaciones/periodo";
 import { vacioComoUndefined } from "./money";
 import { fechaSchema } from "./reporte";
 
@@ -39,6 +40,15 @@ export const periodoLiquidacionInputSchema = z
     const esperado = PERIODO_POR_FRECUENCIA[datos.frecuencia];
     if (!esperado.regex.test(datos.periodo)) {
       ctx.addIssue({ code: "custom", path: ["periodo"], message: esperado.mensaje });
+      return;
+    }
+    // El formato no basta: `2027-W53` no existe (2027 tiene 52 semanas) y su
+    // ventana caería en 2028-W01, bloqueando esa semana real.
+    if (datos.frecuencia === "SEMANAL") {
+      const [anio, semana] = datos.periodo.split("-W").map(Number);
+      if (!esSemanaIsoValida(anio!, semana!)) {
+        ctx.addIssue({ code: "custom", path: ["periodo"], message: "Esa semana no existe en el año" });
+      }
     }
   });
 

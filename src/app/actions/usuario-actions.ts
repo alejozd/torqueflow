@@ -367,11 +367,13 @@ export async function updateUsuarioAction(
 }
 
 /**
- * Does NOT pre-check every one of Usuario's eight onDelete:Restrict
- * relations (órdenes, DVIs, facturas, pagos, historial, entradas, citas,
- * mecánico) -- friendlyPrismaErrorMessage's existing P2003 branch already
- * gives one honest, generic Spanish message for all of them. Only the
- * last-ADMIN rule gets its own check, because it is not a foreign key.
+ * Does NOT pre-check every one of Usuario's onDelete:Restrict relations
+ * (órdenes, DVIs, facturas, pagos, historial, entradas, citas, mecánico,
+ * liquidaciones de la Fase 19) -- friendlyPrismaErrorMessage's existing P2003
+ * branch already gives one honest, generic Spanish message for all of them.
+ * Only two rules get their own check, because neither is a plain foreign key:
+ * the last-ADMIN rule, and a técnico with liquidaciones (donde el ADMIN sí
+ * tiene algo que hacer antes: anularlas).
  */
 export async function deleteUsuarioAction(usuarioId: string): Promise<void> {
   const session = await requireRole(["ADMIN"]);
@@ -383,6 +385,17 @@ export async function deleteUsuarioAction(usuarioId: string): Promise<void> {
   });
   if (!usuario) {
     throw new Error("Usuario no encontrado");
+  }
+
+  // Fase 19: `liquidaciones_mecanico` apunta a Usuario con onDelete: Restrict
+  // (el técnico liquidado y quien generó el documento), así que borrar un
+  // técnico con liquidaciones falla por FK. Se dice qué hacer en vez de dejar
+  // el genérico "hay registros relacionados".
+  const liquidaciones = await tenantDb.liquidacionMecanico.count({ where: { usuarioId } });
+  if (liquidaciones > 0) {
+    throw new Error(
+      "Ese técnico tiene liquidaciones: anula las pendientes y resuélvelas antes de eliminarlo.",
+    );
   }
 
   if (usuario.role === "ADMIN") {

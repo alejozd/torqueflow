@@ -14,6 +14,7 @@ const mockUsuarioDelete = vi.fn();
 const mockUsuarioCount = vi.fn();
 const mockSedeFindMany = vi.fn();
 const mockOrdenGroupBy = vi.fn();
+const mockLiquidacionCount = vi.fn();
 const mockAuditLogCreate = vi.fn();
 const mockTransaction = vi.fn((cb: (tx: unknown) => unknown) =>
   cb({
@@ -33,6 +34,7 @@ vi.mock("@/lib/db/tenant-client", () => ({
     },
     sede: { findMany: mockSedeFindMany },
     ordenTrabajo: { groupBy: mockOrdenGroupBy },
+    liquidacionMecanico: { count: mockLiquidacionCount },
     $transaction: mockTransaction,
   }),
 }));
@@ -657,9 +659,21 @@ describe("deleteUsuarioAction", () => {
     mockUsuarioFindUnique.mockReset();
     mockUsuarioCount.mockReset();
     mockUsuarioDelete.mockReset();
+    mockLiquidacionCount.mockReset().mockResolvedValue(0);
     mockReleaseTenantUserEmail.mockReset().mockResolvedValue(undefined);
     mockAuditLogCreate.mockReset();
     mockTransaction.mockClear();
+  });
+
+  it("se niega a eliminar un técnico que tiene liquidaciones, diciendo qué hacer", async () => {
+    mockUsuarioFindUnique.mockResolvedValue({ role: "TECNICO", email: "tec@taller.test", nombre: "Técnico Dos" });
+    mockLiquidacionCount.mockResolvedValue(2);
+
+    await expect(deleteUsuarioAction("u2")).rejects.toThrow(
+      "Ese técnico tiene liquidaciones: anula las pendientes y resuélvelas antes de eliminarlo.",
+    );
+    expect(mockUsuarioDelete).not.toHaveBeenCalled();
+    expect(mockReleaseTenantUserEmail).not.toHaveBeenCalled();
   });
 
   it("refuses to delete the last ADMIN", async () => {

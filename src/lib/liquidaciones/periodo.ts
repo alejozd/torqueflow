@@ -196,3 +196,30 @@ export function ventanasSolapan(
   const b = rangoDelPeriodo(frecuenciaB, periodoB);
   return a.gte.getTime() < b.lt.getTime() && b.gte.getTime() < a.lt.getTime();
 }
+
+const FORMATOS: { frecuencia: FrecuenciaLiquidacion; regex: RegExp }[] = [
+  { frecuencia: "MENSUAL", regex: /^\d{4}-(0[1-9]|1[0-2])$/ },
+  { frecuencia: "QUINCENAL", regex: /^\d{4}-(0[1-9]|1[0-2])-Q[12]$/ },
+  { frecuencia: "SEMANAL", regex: /^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$/ },
+];
+
+/**
+ * Frecuencia que corresponde a la forma de un periodo. Hace falta porque un
+ * periodo ya liquidado sigue siendo legible (y pagable) después de que el
+ * taller cambie de frecuencia: la forma del string lo identifica sin ambigüedad.
+ */
+export function frecuenciaDePeriodo(periodo: string): FrecuenciaLiquidacion | null {
+  return FORMATOS.find((formato) => formato.regex.test(periodo))?.frecuencia ?? null;
+}
+
+/**
+ * ¿Existe esa semana ISO en ese año? El formato `2027-W53` es sintácticamente
+ * válido pero 2027 solo tiene 52 semanas: sin esta comprobación se crearía un
+ * documento con una ventana que en realidad pertenece a 2028-W01, bloqueando
+ * esa semana real.
+ */
+export function esSemanaIsoValida(anio: number, semana: number): boolean {
+  const lunes = lunesDeSemanaIso(anio, semana);
+  const real = semanaIsoDeDia(lunes);
+  return real.anio === anio && real.semana === semana;
+}

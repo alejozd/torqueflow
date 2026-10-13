@@ -3,10 +3,11 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockGuardar = vi.fn();
+const mockQuitar = vi.fn();
 vi.mock("@/app/actions/liquidacion-actions", () => ({
   guardarEsquemaLiquidacionAction: (...args: unknown[]) => mockGuardar(...args),
+  quitarEsquemaLiquidacionAction: (...args: unknown[]) => mockQuitar(...args),
   guardarFrecuenciaLiquidacionAction: vi.fn(),
-  listTecnicosConEsquema: vi.fn(),
   getFrecuenciaLiquidacion: vi.fn(),
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -33,6 +34,8 @@ describe("EsquemaLiquidacionSection", () => {
   beforeEach(() => {
     mockGuardar.mockReset();
     mockGuardar.mockResolvedValue({ error: null, success: true });
+    mockQuitar.mockReset();
+    mockQuitar.mockResolvedValue({ error: null });
   });
 
   it("lista a los técnicos de la sede con su forma de pago", () => {
@@ -91,5 +94,21 @@ describe("EsquemaLiquidacionSection", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Un esquema mixto necesita el porcentaje y el monto base");
     expect(screen.getByRole("button", { name: "Guardar esquema" })).toBeInTheDocument();
+  });
+
+  it("quita el esquema tras confirmar", async () => {
+    render(<EsquemaLiquidacionSection tecnicos={tecnicos} />);
+
+    await userEvent.click(screen.getAllByRole("button", { name: "Quitar esquema" })[0]!);
+    expect(screen.getByText("¿Dejar a este técnico sin esquema?")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Quitar" }));
+
+    await waitFor(() => expect(mockQuitar).toHaveBeenCalledWith("t1"));
+  });
+
+  it("no ofrece quitar el esquema a quien no lo tiene", () => {
+    render(<EsquemaLiquidacionSection tecnicos={[tecnicos[2]!]} />);
+
+    expect(screen.queryByRole("button", { name: "Quitar esquema" })).not.toBeInTheDocument();
   });
 });

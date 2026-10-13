@@ -54,6 +54,14 @@ describe("periodoLiquidacionInputSchema", () => {
     );
   });
 
+  it("rechaza una semana ISO que no existe en ese año", () => {
+    // 2027 tiene 52 semanas: 2027-W53 caería en 2028-W01.
+    const r = periodoLiquidacionInputSchema.safeParse({ frecuencia: "SEMANAL", periodo: "2027-W53" });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0]?.message).toBe("Esa semana no existe en el año");
+    expect(periodoLiquidacionInputSchema.safeParse({ frecuencia: "SEMANAL", periodo: "2026-W53" }).success).toBe(true);
+  });
+
   it("rechaza un periodo vacío", () => {
     expect(periodoLiquidacionInputSchema.safeParse({ frecuencia: "MENSUAL", periodo: "  " }).success).toBe(false);
   });

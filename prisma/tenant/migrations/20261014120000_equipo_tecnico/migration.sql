@@ -109,4 +109,8 @@ ALTER TABLE "liquidaciones_mecanico" ADD CONSTRAINT "liquidaciones_mecanico_anul
 -- Seed: categoría de gasto del sistema para pagar liquidaciones de mecánicos.
 -- El aprovisionamiento de tenants corre migrate deploy, así que esto cubre
 -- talleres existentes y nuevos (misma idea que la siembra de la Fase 16).
-INSERT INTO "categorias_gasto" ("id", "nombre", "orden") VALUES ('cat_liquidacion_mecanicos', 'Liquidación de mecánicos', 11);
+-- ON CONFLICT: la tabla es editable desde la Fase 16, así que el taller pudo
+-- crear ya una categoría con ese nombre (nombre es único); sin esto, migrate
+-- deploy fallaría entero.
+INSERT INTO "categorias_gasto" ("id", "nombre", "orden") VALUES ('cat_liquidacion_mecanicos', 'Liquidación de mecánicos', 11)
+ON CONFLICT ("nombre") DO NOTHING;

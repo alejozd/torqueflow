@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  esSemanaIsoValida,
   etiquetaPeriodo,
+  frecuenciaDePeriodo,
   periodoActual,
   periodoAnterior,
   periodoSiguiente,
@@ -118,5 +120,33 @@ describe("ventanasSolapan", () => {
 
   it("una quincena solapa con la semana que la contiene", () => {
     expect(ventanasSolapan("QUINCENAL", "2026-10-Q2", "SEMANAL", "2026-W42")).toBe(true);
+  });
+});
+
+describe("frecuenciaDePeriodo", () => {
+  it("reconoce la frecuencia por la forma del periodo", () => {
+    expect(frecuenciaDePeriodo("2026-10")).toBe("MENSUAL");
+    expect(frecuenciaDePeriodo("2026-10-Q2")).toBe("QUINCENAL");
+    expect(frecuenciaDePeriodo("2026-W42")).toBe("SEMANAL");
+  });
+
+  it("devuelve null si no es un periodo válido", () => {
+    expect(frecuenciaDePeriodo("2026")).toBeNull();
+    expect(frecuenciaDePeriodo("2026-13")).toBeNull();
+    expect(frecuenciaDePeriodo("")).toBeNull();
+  });
+});
+
+describe("esSemanaIsoValida", () => {
+  it("acepta las semanas que existen en el año", () => {
+    expect(esSemanaIsoValida(2026, 1)).toBe(true);
+    expect(esSemanaIsoValida(2026, 41)).toBe(true);
+    // 2026 empieza en jueves, así que tiene 53 semanas ISO.
+    expect(esSemanaIsoValida(2026, 53)).toBe(true);
+  });
+
+  it("rechaza una semana que no existe (2027 solo tiene 52)", () => {
+    expect(esSemanaIsoValida(2027, 53)).toBe(false);
+    expect(esSemanaIsoValida(2025, 53)).toBe(false);
   });
 });

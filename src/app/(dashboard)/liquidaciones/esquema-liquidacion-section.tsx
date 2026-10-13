@@ -4,9 +4,11 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   guardarEsquemaLiquidacionAction,
+  quitarEsquemaLiquidacionAction,
   type EsquemaLiquidacionFormState,
   type TecnicoConEsquema,
 } from "@/app/actions/liquidacion-actions";
+import { ConfirmacionEnLinea } from "@/components/confirmacion-en-linea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -131,6 +133,26 @@ function FormularioEsquema({ tecnico, onGuardado }: { tecnico: TecnicoConEsquema
  */
 export function EsquemaLiquidacionSection({ tecnicos }: { tecnicos: TecnicoConEsquema[] }) {
   const [editando, setEditando] = useState<string | null>(null);
+  const [quitando, setQuitando] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function quitar(usuarioId: string) {
+    startTransition(async () => {
+      try {
+        const result = await quitarEsquemaLiquidacionAction(usuarioId);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        setError(null);
+        setQuitando(null);
+        toast.success("Esquema quitado: ese técnico ya no se liquida");
+      } catch {
+        toast.error("No se pudo quitar el esquema");
+      }
+    });
+  }
 
   if (tecnicos.length === 0) {
     return (
@@ -141,32 +163,58 @@ export function EsquemaLiquidacionSection({ tecnicos }: { tecnicos: TecnicoConEs
   }
 
   return (
-    <ul className="flex flex-col gap-2">
-      {tecnicos.map((tecnico) => (
-        <li key={tecnico.usuarioId} className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2 rounded-md border p-2">
-            <span className="font-medium">{tecnico.nombre}</span>
-            <span
-              className={
-                tecnico.tipo ? "ml-auto text-xs text-muted-foreground" : "ml-auto text-xs font-medium text-destructive"
-              }
-            >
-              {descripcionEsquema(tecnico)}
-            </span>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setEditando(editando === tecnico.usuarioId ? null : tecnico.usuarioId)}
-            >
-              {editando === tecnico.usuarioId ? "Cerrar" : tecnico.tipo ? "Editar" : "Definir esquema"}
-            </Button>
-          </div>
-          {editando === tecnico.usuarioId ? (
-            <FormularioEsquema tecnico={tecnico} onGuardado={() => setEditando(null)} />
-          ) : null}
-        </li>
-      ))}
-    </ul>
+    <div className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-2">
+        {tecnicos.map((tecnico) => (
+          <li key={tecnico.usuarioId} className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2 rounded-md border p-2">
+              <span className="font-medium">{tecnico.nombre}</span>
+              <span
+                className={
+                  tecnico.tipo
+                    ? "ml-auto text-xs text-muted-foreground"
+                    : "ml-auto text-xs font-medium text-destructive"
+                }
+              >
+                {descripcionEsquema(tecnico)}
+              </span>
+              {quitando === tecnico.usuarioId ? (
+                <ConfirmacionEnLinea
+                  pregunta="¿Dejar a este técnico sin esquema?"
+                  etiquetaConfirmar="Quitar"
+                  pendiente={isPending}
+                  onCancelar={() => setQuitando(null)}
+                  onConfirmar={() => quitar(tecnico.usuarioId)}
+                />
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setEditando(editando === tecnico.usuarioId ? null : tecnico.usuarioId)}
+                  >
+                    {editando === tecnico.usuarioId ? "Cerrar" : tecnico.tipo ? "Editar" : "Definir esquema"}
+                  </Button>
+                  {tecnico.tipo ? (
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setQuitando(tecnico.usuarioId)}>
+                      Quitar esquema
+                    </Button>
+                  ) : null}
+                </>
+              )}
+            </div>
+            {editando === tecnico.usuarioId ? (
+              <FormularioEsquema tecnico={tecnico} onGuardado={() => setEditando(null)} />
+            ) : null}
+          </li>
+        ))}
+      </ul>
+      {error ? (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }

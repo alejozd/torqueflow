@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   actualizarAjusteLiquidacionAction,
   anularLiquidacionAction,
+  reactivarLiquidacionAction,
   type AjusteLiquidacionFormState,
   type LiquidacionFila as FilaDatos,
 } from "@/app/actions/liquidacion-actions";
@@ -73,6 +74,18 @@ export function LiquidacionFila({ fila, etiquetaPeriodo }: { fila: FilaDatos; et
     });
   }
 
+  function reactivar() {
+    startTransition(async () => {
+      const result = await reactivarLiquidacionAction(documento!.id);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setError(null);
+      toast.success("Liquidación reactivada");
+    });
+  }
+
   return (
     <>
       <TableRow>
@@ -134,6 +147,11 @@ export function LiquidacionFila({ fila, etiquetaPeriodo }: { fila: FilaDatos; et
             {documento && documento.estado !== "ANULADA" && !anulando ? (
               <Button type="button" size="sm" variant="ghost" onClick={() => setAnulando(true)}>
                 Anular
+              </Button>
+            ) : null}
+            {documento?.estado === "ANULADA" ? (
+              <Button type="button" size="sm" variant="outline" disabled={isPending} onClick={reactivar}>
+                Reactivar
               </Button>
             ) : null}
           </div>

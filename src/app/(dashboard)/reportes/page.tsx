@@ -109,7 +109,8 @@ export default async function ReportesPage({
       <div className="flex flex-wrap items-center gap-2.5">
         <h1 className="text-2xl font-semibold">Reportes</h1>
         <Badge variant="outline" className="font-normal text-muted-foreground">
-          {productividad.filas.length} {productividad.filas.length === 1 ? "técnico" : "técnicos"} con órdenes
+          {productividad.filas.length} {productividad.filas.length === 1 ? "técnico" : "técnicos"} ·{" "}
+          {productividad.filas.reduce((suma, fila) => suma + fila.trabajos, 0)} trabajos
         </Badge>
       </div>
 

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 
 const mockListar = vi.fn();
@@ -6,13 +6,14 @@ const mockFrecuencia = vi.fn();
 vi.mock("@/app/actions/liquidacion-actions", () => ({
   listLiquidacionesDelPeriodo: (...args: unknown[]) => mockListar(...args),
   getFrecuenciaLiquidacion: (...args: unknown[]) => mockFrecuencia(...args),
-  listTecnicosConEsquema: vi.fn(),
   // Las que usan los componentes cliente que la página monta.
   guardarEsquemaLiquidacionAction: vi.fn(),
+  quitarEsquemaLiquidacionAction: vi.fn(),
   guardarFrecuenciaLiquidacionAction: vi.fn(),
   generarLiquidacionesAction: vi.fn(),
   actualizarAjusteLiquidacionAction: vi.fn(),
   anularLiquidacionAction: vi.fn(),
+  reactivarLiquidacionAction: vi.fn(),
   pagarLiquidacionAction: vi.fn(),
 }));
 vi.mock("@/lib/auth/guards", () => ({ requireRole: vi.fn(), requireSession: vi.fn() }));
@@ -41,6 +42,7 @@ const DATOS = {
   etiqueta: "octubre de 2026",
   error: null,
   filas: [FILA],
+  sinAsignar: null,
 };
 
 async function renderPage(periodo?: string) {
@@ -49,8 +51,16 @@ async function renderPage(periodo?: string) {
 
 describe("LiquidacionesPage", () => {
   beforeEach(() => {
+    // Reloj fijo: la página calcula el periodo en curso, así que sin esto el
+    // test caduca al cambiar de mes.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-11T15:00:00.000Z"));
     mockFrecuencia.mockReset().mockResolvedValue("MENSUAL");
     mockListar.mockReset().mockResolvedValue(DATOS);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("muestra el periodo en curso, sus filas y las dos tarjetas de configuración", async () => {
@@ -81,10 +91,34 @@ describe("LiquidacionesPage", () => {
     expect(screen.getByRole("link", { name: "Periodo actual" })).toHaveAttribute("href", "/liquidaciones");
   });
 
-  it("ignora un periodo de la URL con otro formato", async () => {
-    await renderPage("2026-08-Q1");
+  it("acepta un periodo de otra frecuencia y navega con la suya", async () => {
+    // El taller ya es quincenal, pero quedan liquidaciones mensuales por pagar.
+    mockFrecuencia.mockResolvedValue("QUINCENAL");
+
+    await renderPage("2026-10");
+
+    expect(mockListar).toHaveBeenCalledWith("2026-10");
+    expect(screen.getByRole("link", { name: "← Anterior" })).toHaveAttribute("href", "/liquidaciones?periodo=2026-09");
+  });
+
+  it("ignora un periodo de la URL que no es un periodo válido", async () => {
+    await renderPage("2026-08-Q3");
 
     // Cae al periodo en curso en vez de consultar algo inválido.
-    expect(mockListar).toHaveBeenCalledWith(expect.stringMatching(/^\d{4}-\d{2}$/));
+    expect(mockListar).toHaveBeenCalledWith("2026-10");
+  });
+
+  it("avisa de la mano de obra sin mecánico, que no se liquida", async () => {
+    mockListar.mockResolvedValue({ ...DATOS, sinAsignar: { ordenes: 1, trabajos: 2, montoManoObra: 30000 } });
+
+    await renderPage();
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Hay 2 trabajos sin mecánico asignado");
+  });
+
+  it("no avisa si toda la mano de obra tiene mecánico", async () => {
+    await renderPage();
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
