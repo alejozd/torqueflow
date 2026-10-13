@@ -28,6 +28,7 @@ enum TipoEventoAuditoria {
   ACTA_FIRMAR
   GARANTIA_REGISTRAR
   GARANTIA_ELIMINAR
+  PRIORIDAD_CAMBIAR
 }
 
 /// Cada cuánto liquida el taller a sus mecánicos (D5 de la Fase 19). Es un
@@ -56,6 +57,15 @@ enum EstadoOrden {
   TERMINADA
   ENTREGADA
   ANULADA
+}
+
+/// Qué va primero en el taller (Fase 22). Categórico a propósito: todo el dominio
+/// usa `Record<Enum, etiqueta/color>` y no hay ningún ranking numérico en el schema.
+enum PrioridadOrden {
+  BAJA
+  NORMAL
+  ALTA
+  URGENTE
 }
 
 enum EstadoCita {
@@ -316,6 +326,8 @@ model OrdenTrabajo {
   kilometrajeIngreso Int?                       @map("kilometraje_ingreso")
   /// Nivel con que entró el vehículo (Fase 21): se imprime en el acta de entrega.
   nivelCombustible   NivelCombustible?          @map("nivel_combustible")
+  /// Qué va primero (Fase 22). Ordena el listado y las columnas del tablero.
+  prioridad          PrioridadOrden             @default(NORMAL)
   sintomas           String?
   items              ItemOrden[]
   manoDeObra         ManoDeObra[]
@@ -848,6 +860,8 @@ model AvisoVencimiento {
 model ConfiguracionTaller {
   id                    String                @id @default("singleton")
   diasAvisoVencimiento  Int                   @default(30) @map("dias_aviso_vencimiento")
+  /// Días sin actividad para considerar una orden estancada (Fase 22).
+  diasOrdenEstancada    Int                   @default(3) @map("dias_orden_estancada")
   frecuenciaLiquidacion FrecuenciaLiquidacion @default(MENSUAL) @map("frecuencia_liquidacion")
   updatedAt             DateTime              @updatedAt @map("updated_at")
 
