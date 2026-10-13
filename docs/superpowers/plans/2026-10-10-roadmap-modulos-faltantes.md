@@ -42,7 +42,7 @@
 | **21** | `fase21-recepcion-garantias` | 12, 13, 14 | Diagrama de daños, acta de recepción/entrega con firma, garantías por trabajo/repuesto | — |
 | **22** | `fase22-flujo-taller` | 15, 16, 17 | Prioridad en orden, alertas de estancadas/sin entregar, tablero kanban | — |
 | **23** | *(aplazada)* | 10, 20 | Enlace público del estado de la orden (DVI, cotización), encuesta/reseña posventa — **aplazada el 2026-10-12 junto con facturación electrónica DIAN**: introduce la primera superficie sin sesión, una escritura anónima y un token con expiración/revocación. Medición de riesgos y esfuerzo en `2026-10-12-fase23-portal-cliente.md` | 21 (recomendado) |
-| **24** | `fase24-mostrador-compras` | 22, 23, 24 | Venta de mostrador con devoluciones, cuentas por pagar a proveedores, exportación CSV/PDF | 17 |
+| **24** | `fase24-mostrador-compras` | 22, 23, 24 | Venta de mostrador con devoluciones, cuentas por pagar a proveedores, exportación CSV/PDF | 17 | ✅ merge `62924f8` |
 | **25** | *(backlog)* | 25, 26, 27, 28 | Flotas, asistente IA, RUNT, exportación contable — se replanifica junto a facturación electrónica (y ahora también con la 23) | 17, DIAN |
 
 ### Orden sugerido
