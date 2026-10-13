@@ -83,19 +83,23 @@ const observacionesSchema = z
   .optional()
   .transform((valor) => (valor ? valor : undefined));
 
-export const actaEntregaInputSchema = z
-  .object({
-    recibidoPor: z
-      .string()
-      .trim()
-      .min(1, "Escribe el nombre de quien recibe")
-      .max(120, "El nombre admite máximo 120 caracteres"),
-    documentoRecibe: documentoRecibeSchema,
-    observaciones: observacionesSchema,
+/** Datos del acta que se pueden guardar sin firma (borrador de entrega). */
+export const actaDatosSchema = z.object({
+  recibidoPor: z
+    .string()
+    .trim()
+    .min(1, "Escribe el nombre de quien recibe")
+    .max(120, "El nombre admite máximo 120 caracteres"),
+  documentoRecibe: documentoRecibeSchema,
+  observaciones: observacionesSchema,
+});
+
+export const actaEntregaInputSchema = actaDatosSchema
+  .extend({
     /** Firma dibujada en pantalla (PNG ya guardado por la acción). */
-    firmaUrl: z.string().trim().min(1).optional(),
+    firmaUrl: z.preprocess(vacioComoUndefined, z.string().trim().min(1).optional()),
     /** Foto o escaneo del acta firmada en papel (ya guardado por la acción). */
-    firmaFotoUrl: z.string().trim().min(1).optional(),
+    firmaFotoUrl: z.preprocess(vacioComoUndefined, z.string().trim().min(1).optional()),
   })
   .superRefine((datos, ctx) => {
     const firmas = [datos.firmaUrl, datos.firmaFotoUrl].filter(Boolean).length;
@@ -107,6 +111,7 @@ export const actaEntregaInputSchema = z
     }
   });
 
+export type ActaDatosInput = z.infer<typeof actaDatosSchema>;
 export type ActaEntregaInput = z.infer<typeof actaEntregaInputSchema>;
 
 /** El acta y la entrega comparten contrato: entregar es firmar y cerrar (D6). */
@@ -115,8 +120,10 @@ export const entregaInputSchema = actaEntregaInputSchema;
 export const garantiaInputSchema = z
   .object({
     tipo: tipoGarantiaSchema,
-    manoDeObraId: z.string().trim().min(1).optional(),
-    itemOrdenId: z.string().trim().min(1).optional(),
+    // Un campo vacío del formulario llega como "": sin esto, Zod contestaría en
+    // inglés antes de que el superRefine explique cuál línea falta.
+    manoDeObraId: z.preprocess(vacioComoUndefined, z.string().trim().min(1).optional()),
+    itemOrdenId: z.preprocess(vacioComoUndefined, z.string().trim().min(1).optional()),
     descripcion: z
       .string()
       .trim()
