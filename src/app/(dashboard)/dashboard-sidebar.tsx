@@ -7,6 +7,7 @@ import {
   BarChart3,
   CalendarDays,
   Coins,
+  FileSpreadsheet,
   FileText,
   HandCoins,
   History,
@@ -77,6 +78,9 @@ const CARTERA: NavItem = { href: "/cartera", label: "Cartera", icon: HandCoins }
 // El catálogo de servicios se administra solo como ADMIN, pero el grupo
 // Inventario lo ve todo el mundo: el ítem se agrega condicionalmente abajo.
 const SERVICIOS: NavItem = { href: "/servicios", label: "Servicios", icon: ListChecks };
+// Importar desde Excel lo hacen ADMIN y RECEPCION (carga inicial de datos); el
+// ítem vive en Administración, que se arma según el rol en el componente.
+const IMPORTAR: NavItem = { href: "/importar", label: "Importar", icon: FileSpreadsheet };
 
 const INVENTARIO: NavGroup = {
   label: "Inventario",
@@ -175,6 +179,7 @@ export interface SidebarPlanInfo {
 export function DashboardSidebar({
   esAdmin,
   puedeVerFinanzas,
+  puedeImportar,
   tenantSlug,
   plan,
   cotizacionesPendientesSeguimiento,
@@ -185,6 +190,7 @@ export function DashboardSidebar({
 }: {
   esAdmin: boolean;
   puedeVerFinanzas: boolean;
+  puedeImportar: boolean;
   tenantSlug: string;
   plan: SidebarPlanInfo | null;
   cotizacionesPendientesSeguimiento?: number;
@@ -196,6 +202,12 @@ export function DashboardSidebar({
   const pathname = usePathname();
   const operacion = puedeVerFinanzas ? { ...OPERACION, items: [...OPERACION.items, CAJA, CARTERA, GASTOS] } : OPERACION;
   const inventario = esAdmin ? { ...INVENTARIO, items: [...INVENTARIO.items, SERVICIOS] } : INVENTARIO;
+  // Administración es de ADMIN, pero "Importar" también lo ve RECEPCION: para
+  // ese rol el grupo queda con ese único ítem (y con ninguno, no se pinta).
+  const administracion: NavGroup = {
+    ...ADMINISTRACION,
+    items: esAdmin ? [...ADMINISTRACION.items, IMPORTAR] : puedeImportar ? [IMPORTAR] : [],
+  };
 
   return (
     <div className="dark">
@@ -238,7 +250,9 @@ export function DashboardSidebar({
             pathname={pathname}
             badgeCountByHref={{ "/repuestos": repuestosStockBajo }}
           />
-          {esAdmin ? <NavGroupSection group={ADMINISTRACION} pathname={pathname} /> : null}
+          {administracion.items.length > 0 ? (
+            <NavGroupSection group={administracion} pathname={pathname} />
+          ) : null}
         </SidebarContent>
         {plan ? (
           <SidebarFooter className="gap-2 border-t border-sidebar-border px-3 py-3 group-data-[collapsible=icon]:hidden">
