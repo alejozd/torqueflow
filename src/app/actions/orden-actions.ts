@@ -52,6 +52,26 @@ const ORDEN_DETAIL_INCLUDE = {
 
 export type OrdenWithDetalle = Prisma.OrdenTrabajoGetPayload<{ include: typeof ORDEN_DETAIL_INCLUDE }>;
 
+/**
+ * La ficha de la orden suma la recepción, el acta y las garantías (Fase 21). Se
+ * mantiene aparte del include del listado para no cargar esas relaciones en la
+ * lista de órdenes, que no las usa.
+ */
+const ORDEN_FICHA_INCLUDE = {
+  ...ORDEN_DETAIL_INCLUDE,
+  danios: { orderBy: { createdAt: "asc" } },
+  acta: true,
+  garantias: {
+    orderBy: { createdAt: "desc" },
+    include: {
+      manoDeObra: { select: { id: true, descripcion: true } },
+      itemOrden: { select: { id: true, descripcion: true } },
+    },
+  },
+} satisfies Prisma.OrdenTrabajoInclude;
+
+export type OrdenFicha = Prisma.OrdenTrabajoGetPayload<{ include: typeof ORDEN_FICHA_INCLUDE }>;
+
 export async function listOrdenes(estado?: EstadoOrden): Promise<OrdenWithDetalle[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
@@ -94,14 +114,14 @@ export async function listOrdenesByVehiculo(vehiculoId: string): Promise<OrdenDe
   });
 }
 
-export async function getOrden(id: string): Promise<OrdenWithDetalle | null> {
+export async function getOrden(id: string): Promise<OrdenFicha | null> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
   // findFirst, not findUnique: findUnique cannot carry the sede filter, so an
   // id from another sede would resolve. This is the IDOR boundary.
   return tenantDb.ordenTrabajo.findFirst({
     where: { id, ...scopeOrden(session.user.sedeActivaId) },
-    include: ORDEN_DETAIL_INCLUDE,
+    include: ORDEN_FICHA_INCLUDE,
   });
 }
 
@@ -326,13 +346,20 @@ export async function updateEstadoOrdenAction(
     return { error: `No se puede cambiar de ${orden.estado} a ${parsedEstado.data}` };
   }
 
+  // Entregar no es un cambio de estado más: la orden pasa a ENTREGADA firmando el
+  // acta de entrega (Fase 21, `entregarOrdenAction`), y ENTREGADA es inmutable.
+  // Sin este rechazo, un POST directo a esta acción dejaría la orden entregada
+  // sin acta y sin forma de crearla (D6). La UI ya no ofrece la opción.
+  if (parsedEstado.data === "ENTREGADA") {
+    return { error: "La orden se entrega firmando el acta de entrega, no desde el cambio de estado" };
+  }
+
   try {
     await tenantDb.$transaction(async (tx) => {
       await tx.ordenTrabajo.update({
         where: { id },
         data: {
           estado: parsedEstado.data,
-          entregadaAt: parsedEstado.data === "ENTREGADA" ? new Date() : undefined,
           anuladaAt: parsedEstado.data === "ANULADA" ? new Date() : undefined,
         },
       });

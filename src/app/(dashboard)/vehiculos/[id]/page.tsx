@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { getVehiculo } from "@/app/actions/vehiculo-actions";
 import { getDiasAvisoVencimiento } from "@/app/actions/configuracion-taller-actions";
 import { listOrdenesByVehiculo, listTecnicos, type OrdenDeVehiculo } from "@/app/actions/orden-actions";
+import { listGarantiasDeVehiculo } from "@/app/actions/recepcion-actions";
 import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/vehiculo-marca-modelo-actions";
 import { EditarVehiculoDialog } from "../../clientes/[id]/editar-vehiculo-dialog";
 import { NuevaOrdenDialog } from "../../clientes/[id]/nueva-orden-dialog";
@@ -13,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSession } from "@/lib/auth/guards";
 import { totalOrden } from "@/lib/dashboard/calculos";
 import { VencimientoBadge } from "@/components/vencimiento-badge";
+import { GarantiasCard } from "./garantias-card";
 import { cn } from "@/lib/utils";
 import { ETIQUETA_TIPO_VEHICULO } from "@/lib/validation/vehiculo";
 import { estadoVencimiento } from "@/lib/vencimientos/estado-vencimiento";
@@ -85,13 +87,14 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
     notFound();
   }
 
-  const [ordenes, tecnicos, session, marcas, modelos, diasAviso] = await Promise.all([
+  const [ordenes, tecnicos, session, marcas, modelos, diasAviso, garantias] = await Promise.all([
     listOrdenesByVehiculo(id),
     listTecnicos(),
     requireSession(),
     listMarcasVehiculo(),
     listTodosLosModelosVehiculo(),
     getDiasAvisoVencimiento(),
+    listGarantiasDeVehiculo(id),
   ]);
   const esAdmin = session.user.role === "ADMIN";
 
@@ -209,6 +212,7 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
         </div>
 
         <div className="flex flex-col gap-6">
+          <GarantiasCard garantias={garantias} sedeActivaId={session.user.sedeActivaId} />
           <Card>
             <CardHeader>
               <CardTitle>Vehículo</CardTitle>

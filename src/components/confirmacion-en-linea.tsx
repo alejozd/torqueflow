@@ -16,6 +16,8 @@ export function ConfirmacionEnLinea({
   pendiente = false,
   enviaFormulario = false,
   destructiva = true,
+  nombreBoton,
+  valorBoton,
 }: {
   pregunta: string;
   etiquetaConfirmar: string;
@@ -24,6 +26,13 @@ export function ConfirmacionEnLinea({
   pendiente?: boolean;
   enviaFormulario?: boolean;
   destructiva?: boolean;
+  /**
+   * Con `enviaFormulario`, el `name`/`value` del botón de confirmar viaja en el
+   * FormData: lo usa el formulario del acta para saber que la acción elegida es
+   * entregar sin depender de un campo oculto (que sin JS quedaría desfasado).
+   */
+  nombreBoton?: string;
+  valorBoton?: string;
 }) {
   // The trigger button unmounts when this strip appears, so focus would fall
   // to <body>; park it on the safe choice ("No") instead.
@@ -41,6 +50,8 @@ export function ConfirmacionEnLinea({
         size="sm"
         disabled={pendiente}
         onClick={onConfirmar}
+        name={nombreBoton}
+        value={valorBoton}
       >
         {etiquetaConfirmar}
       </Button>

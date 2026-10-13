@@ -52,3 +52,6 @@ Thumbs.db
 # Local tool caches
 .codegraph/
 .atl/
+
+# Directorio de trabajo temporal del agente (nunca debe entrar al repo).
+.dsh-tmp/
