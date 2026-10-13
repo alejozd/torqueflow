@@ -11,6 +11,7 @@ const mockCreate = vi.fn();
 const mockFindMany = vi.fn();
 const mockOrdenFindFirst = vi.fn();
 const mockUpdate = vi.fn();
+const mockUpdateMany = vi.fn();
 const mockSedeFindFirst = vi.fn();
 const mockUsuarioFindMany = vi.fn();
 const mockUsuarioFindFirst = vi.fn();
@@ -20,7 +21,7 @@ const mockVehiculoFindUnique = vi.fn();
 const mockAuditLogCreate = vi.fn();
 const mockTransaction = vi.fn((cb: (tx: unknown) => unknown) =>
   cb({
-    ordenTrabajo: { update: mockUpdate },
+    ordenTrabajo: { update: mockUpdate, updateMany: mockUpdateMany },
     auditLog: { create: mockAuditLogCreate },
   }),
 );
@@ -31,6 +32,7 @@ vi.mock("@/lib/db/tenant-client", () => ({
       findMany: mockFindMany,
       findFirst: mockOrdenFindFirst,
       update: mockUpdate,
+      updateMany: mockUpdateMany,
     },
     sede: { findFirst: mockSedeFindFirst },
     usuario: { findMany: mockUsuarioFindMany, findFirst: mockUsuarioFindFirst },
@@ -58,9 +60,11 @@ import {
   listTecnicos,
   updateEstadoOrdenAction,
   asignarMecanicoAction,
+  cambiarPrioridadAction,
   type OrdenFormState,
   type EstadoFormState,
   type AsignarMecanicoFormState,
+  type PrioridadFormState,
 } from "./orden-actions";
 
 const initialState: OrdenFormState = { error: null, success: false };
@@ -704,5 +708,103 @@ describe("asignarMecanicoAction", () => {
       where: { id: "orden-de-otra-sede", sedeId: "sede-1" },
       select: { estado: true, factura: { select: { id: true } }, mecanicoId: true },
     });
+  });
+});
+
+describe("cambiarPrioridadAction", () => {
+  const inicialPrioridad: PrioridadFormState = { error: null, success: false };
+
+  function conPrioridad(prioridad: string): FormData {
+    const formData = new FormData();
+    formData.set("prioridad", prioridad);
+    return formData;
+  }
+
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockOrdenFindFirst.mockReset().mockResolvedValue({
+      id: "o1",
+      estado: "EN_PROCESO",
+      prioridad: "NORMAL",
+      factura: null,
+    });
+    mockUpdateMany.mockReset().mockResolvedValue({ count: 1 });
+    mockAuditLogCreate.mockReset().mockResolvedValue({});
+  });
+
+  it("cambia la prioridad y la audita, sin pisar un cambio simultáneo", async () => {
+    const result = await cambiarPrioridadAction("o1", inicialPrioridad, conPrioridad("URGENTE"));
+
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith({
+      where: { id: "o1", sedeId: "sede-1" },
+      select: { id: true, estado: true, prioridad: true, factura: { select: { id: true } } },
+    });
+    expect(mockUpdateMany).toHaveBeenCalledWith({
+      where: { id: "o1", prioridad: "NORMAL" },
+      data: { prioridad: "URGENTE" },
+    });
+    expect(mockAuditLogCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        tipo: "PRIORIDAD_CAMBIAR",
+        entidadId: "o1",
+        detalle: { anterior: "NORMAL", nueva: "URGENTE" },
+      }),
+    });
+  });
+
+  it("rechaza una prioridad que no existe", async () => {
+    const result = await cambiarPrioridadAction("o1", inicialPrioridad, conPrioridad("ALTISIMA"));
+
+    expect(result).toEqual({ error: "Prioridad inválida", success: false });
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("no cambia la prioridad de una orden entregada, anulada o facturada", async () => {
+    mockOrdenFindFirst.mockResolvedValue({ id: "o1", estado: "ENTREGADA", prioridad: "NORMAL", factura: null });
+    expect((await cambiarPrioridadAction("o1", inicialPrioridad, conPrioridad("ALTA"))).error).toContain(
+      "no se puede modificar",
+    );
+
+    mockOrdenFindFirst.mockResolvedValue({ id: "o1", estado: "TERMINADA", prioridad: "NORMAL", factura: { id: "f1" } });
+    expect((await cambiarPrioridadAction("o1", inicialPrioridad, conPrioridad("ALTA"))).error).toContain(
+      "no se puede modificar",
+    );
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("no encuentra una orden de otra sede", async () => {
+    mockOrdenFindFirst.mockResolvedValue(null);
+
+    const result = await cambiarPrioridadAction("ajena", inicialPrioridad, conPrioridad("ALTA"));
+
+    expect(result).toEqual({ error: "Orden no encontrada", success: false });
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "ajena", sedeId: "sede-1" } }));
+  });
+
+  it("si alguien la cambió antes, avisa y no audita", async () => {
+    mockUpdateMany.mockResolvedValue({ count: 0 });
+
+    const result = await cambiarPrioridadAction("o1", inicialPrioridad, conPrioridad("ALTA"));
+
+    expect(result.error).toContain("Otra persona cambió la prioridad");
+    expect(mockAuditLogCreate).not.toHaveBeenCalled();
+  });
+
+  it("guardar la misma prioridad no escribe ni audita", async () => {
+    const result = await cambiarPrioridadAction("o1", inicialPrioridad, conPrioridad("NORMAL"));
+
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+    expect(mockAuditLogCreate).not.toHaveBeenCalled();
+  });
+
+  it("traduce un fallo de base a un mensaje amigable", async () => {
+    mockUpdateMany.mockRejectedValue(new Error("db down"));
+
+    const result = await cambiarPrioridadAction("o1", inicialPrioridad, conPrioridad("ALTA"));
+
+    expect(result).toEqual({ error: "No se pudo cambiar la prioridad", success: false });
   });
 });
