@@ -9,6 +9,12 @@
 
 export type EstadoGarantia = "VIGENTE" | "VENCIDA" | "SIN_COBERTURA";
 
+export const ETIQUETA_VIGENCIA: Record<EstadoGarantia, string> = {
+  VIGENTE: "Vigente",
+  VENCIDA: "Vencida",
+  SIN_COBERTURA: "Informativa",
+};
+
 export interface CoberturaGarantia {
   cubreHasta: Date | null;
   cubreHastaKm: number | null;

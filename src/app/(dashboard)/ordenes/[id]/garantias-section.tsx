@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
 import { Textarea } from "@/components/ui/textarea";
+import { coberturaDe } from "@/lib/garantias/cobertura";
 import type { TipoGarantia } from "@/generated/prisma-tenant";
 
 const initialState: RecepcionFormState = { error: null, success: false };
@@ -33,15 +34,6 @@ export interface GarantiaVista {
   nota: string | null;
 }
 
-const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeZone: "UTC" });
-
-export function coberturaDe(garantia: Pick<GarantiaVista, "cubreHasta" | "cubreHastaKm">): string {
-  const partes = [
-    garantia.cubreHasta ? `hasta el ${formatoFecha.format(garantia.cubreHasta)}` : null,
-    garantia.cubreHastaKm !== null ? `hasta ${garantia.cubreHastaKm.toLocaleString("es-CO")} km` : null,
-  ].filter((parte): parte is string => parte !== null);
-  return partes.length > 0 ? partes.join(" o ") : "Sin cobertura (informativa)";
-}
 
 /**
  * Garantías de la orden (D3/D12): se registran mientras la orden es editable y se

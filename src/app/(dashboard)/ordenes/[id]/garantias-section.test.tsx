@@ -10,7 +10,7 @@ vi.mock("@/app/actions/recepcion-actions", () => ({
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-import { GarantiasSection, coberturaDe } from "./garantias-section";
+import { GarantiasSection } from "./garantias-section";
 
 const TRABAJO = { id: "m1", descripcion: "Cambio de aceite" };
 const REPUESTO = { id: "i1", descripcion: "Filtro ×2" };
@@ -28,15 +28,6 @@ function renderSection(props: Partial<Parameters<typeof GarantiasSection>[0]> = 
     />,
   );
 }
-
-describe("coberturaDe", () => {
-  it("describe la cobertura o avisa que es informativa", () => {
-    expect(coberturaDe({ cubreHasta: new Date("2027-03-15T00:00:00.000Z"), cubreHastaKm: null })).toContain("hasta el");
-    expect(coberturaDe({ cubreHasta: null, cubreHastaKm: 95000 })).toBe("hasta 95.000 km");
-    expect(coberturaDe({ cubreHasta: new Date("2027-03-15T00:00:00.000Z"), cubreHastaKm: 95000 })).toContain(" o ");
-    expect(coberturaDe({ cubreHasta: null, cubreHastaKm: null })).toBe("Sin cobertura (informativa)");
-  });
-});
 
 describe("GarantiasSection", () => {
   beforeEach(() => {
