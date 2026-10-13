@@ -92,6 +92,17 @@ export async function crearVentaMostradorAction(
     });
   }
 
+  // Los repuestos tienen que ser de la sede activa: el id llega del formulario.
+  if (porRepuesto.size > 0) {
+    const propios = await tenantDb.repuesto.findMany({
+      where: { id: { in: [...porRepuesto.keys()] }, ...scopeRepuesto(sedeId) },
+      select: { id: true },
+    });
+    if (propios.length !== porRepuesto.size) {
+      return { error: "Alguno de los repuestos no pertenece a tu sede activa", success: false };
+    }
+  }
+
   let numero: number;
   try {
     const venta = await tenantDb.$transaction(async (tx) => {

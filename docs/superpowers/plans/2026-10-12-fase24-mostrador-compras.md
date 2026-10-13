@@ -103,17 +103,40 @@ categoría en los reportes; y cualquier comprobante impreso de la venta (no se p
 | **D1** | **La venta de mostrador es un documento propio** (`VentaMostrador` + `VentaMostradorItem`), con **sede obligatoria**, número consecutivo propio (`@unique @default(autoincrement())`, como la factura) y **cliente opcional**. No se toca `Factura` ni su `ordenId` obligatorio y único (`schema.prisma:547-548`). |
 | **D2** | **Cobrar exige caja abierta, y se cierra el hueco heredado**: además de exigirlo en el mostrador, `registrarPagoAction` (fase 17) pasa a exigir una `CajaSesion` abierta de la sede. Es la forma barata y correcta de arreglarlo: el arqueo calcula la ventana por **sede + `createdAt`** (`caja-actions.ts:79-89`), así que si todo movimiento nace dentro de una sesión abierta, ninguno queda fuera. **No** se añade `sesionId` a los pagos (sería una migración sobre el corazón del dinero sin necesidad). |
 | **D3** | **Cliente opcional**, con "Consumidor final" como etiqueta cuando no hay cliente. Sin cliente no hay crédito: la venta tiene que quedar **pagada** para cerrarse. Con cliente identificado sí se admite saldo (espejo de la factura). |
-| **D4** | **La devolución devuelve dinero** por el mismo método con que se cobró, **reingresa el stock** a la bodega del repuesto y queda registrada en el arqueo de la sesión. Es un documento propio (`DevolucionMostrador` + items) con número consecutivo y **auditada**. |
-| **D5** | **Las cuentas por pagar nacen de la entrada de mercancía** (`CuentaPorPagar` con `entradaId @unique`): es el hecho económico y el único punto que ya mueve el stock. La entrada puede registrarse **pagada al contado**, en cuyo caso la cuenta nace y se salda en la misma transacción. Una sola fuente de deuda por entrada: imposible contarla dos veces. |
+| **D4** | **La devolución devuelve dinero**, reingresa el stock a la bodega del repuesto y queda registrada en el arqueo de la sesión. Es un documento propio (`DevolucionMostrador` + items) con número consecutivo y **auditada**. El método de devolución lo elige el operador (devolver en efectivo algo cobrado con tarjeta es legítimo: sale del cajón y el arqueo lo refleja). |
+| **D5** | **Las cuentas por pagar nacen de la entrada de mercancía** (`CuentaPorPagar` con `entradaId @unique`): es el hecho económico y el único punto que ya mueve el stock. **La deuda se salda con un abono**, no con un interruptor de "pagado al contado" al registrar la entrada: un solo camino en vez de dos, y el botón de la pantalla puede abonar el saldo completo. Una sola fuente de deuda por entrada: imposible contarla dos veces. |
 | **D6** | **Abonos a proveedor con guarda**: `PagoProveedor` con decremento atómico guardado (`saldoPendiente: { gte: monto }`, el patrón de `pago-actions.ts:44-67`) y "pagada" **derivado** del saldo, nunca un flag manual. |
 | **D7** | **El arqueo suma ventas de mostrador y resta sus devoluciones**: la ventana sigue siendo sede + `createdAt`, pero con dos fuentes nuevas en `caja-actions.ts` y el cálculo en la lógica pura de `src/lib/caja/resumen.ts`. Mismo tratamiento que pagos y gastos: **efectivo** separado de no efectivo. |
 | **D8** | **El mostrador descuenta stock con el mismo patrón guardado de la factura** (`updateMany where stockActual >= cantidad` + agregado por repuesto) y **dentro de la misma transacción** que la venta: no hay ventana para sobrevender. |
 | **D9** | **Una devolución no puede superar lo vendido menos lo ya devuelto**, y se calcula con lógica pura y testeada (`cantidadDevolvible`). El stock se reingresa en la misma transacción. |
 | **D10** | **Exportación en `.xlsx`** con la dependencia que ya existe (`write-excel-file`), desde **rutas API** con `Content-Disposition` (precedente: la plantilla de importación), filtradas **por sede en el servidor**. Cuatro reportes: cartera, cuentas por pagar, ventas del día y arqueos de caja. |
-| **D11** | **Roles**: vender, cobrar y devolver: `ADMIN`, `RECEPCION` y `TECNICO` (es trabajo de mostrador, como el cambio de estado de una orden). Cobrar y abonar a proveedores: `ADMIN` y `RECEPCION`. Registrar entradas de mercancía y pagos a proveedor ya tienen sus roles hoy y no cambian. Exportar: cualquier sesión (los reportes de dinero ya se ven en el panel). |
+| **D11** | **Roles**: vender en el mostrador: `ADMIN`, `RECEPCION` y `TECNICO` (es trabajo de atención). **Cobrar una venta y devolverla: `ADMIN` y `RECEPCION`** (sale o entra dinero del cajón). Abonar una cuenta por pagar: `ADMIN` y `RECEPCION`. Registrar entradas de mercancía ya tiene sus roles hoy y no cambia. Exportar: `ADMIN` y `RECEPCION`, los mismos que ven esos reportes en pantalla. |
 | **D12** | **Se audita la devolución** (`VENTA_DEVOLVER`): es dinero que sale del cajón. Registrar ventas, cobros y abonos **no** se audita, por coherencia con la facturación y los pagos actuales (el catálogo no los audita hoy). |
 | **D13** | **Sin comprobante impreso de la venta** en esta fase (no se pidió); si algún día se quiere, el precedente de impresión es la cotización y el acta. |
 | **D14** | **La deuda de un proveedor no se mezcla con los gastos**: `Gasto` se queda como está (sin proveedor ni estado de pago). Si el taller compra algo que no entra a inventario, sigue siendo un gasto. |
+| **D15** | **El arqueo se extendió en la Task 1**, no en la Task 2 como decía el plan: el tipo de `MovimientosCaja` es compartido con la lógica pura, así que dejarlo a medias rompía la compilación. |
+| **D16** | **Pagar en efectivo a un proveedor exige caja abierta y entra en el arqueo** como egreso (transferencia o tarjeta no tocan el cajón y no lo exigen). Es la misma regla de D2 aplicada a lo que introduce esta fase. |
+
+---
+
+## 7. Fix round de la revisión independiente
+
+La revisión del diff completo (otro modelo, solo lectura) encontró tres fallos altos y cinco medios. Todos se corrigieron y quedaron con test:
+
+| # | Hallazgo | Arreglo |
+|---|---|---|
+| **A1** | Dos devoluciones simultáneas de la misma línea pagaban y reingresaban stock dos veces: el tope se calculaba con lecturas fuera de la transacción y, en una venta ya cobrada, la guarda del saldo ni se ejecutaba. | `ventaMostradorItem.updateMany` **condicional** sobre `devueltoCantidad` (una fila solo avanza si nadie devolvió antes esas unidades). Test del caso concurrente. |
+| **A2** | Un descuento mayor que el subtotal daba total negativo, se guardaba como pago negativo y el arqueo lo sumaba como ingreso. Alcanzable desde la propia pantalla. | `refine` en `ventaMostradorInputSchema` (descuento ≤ subtotal) + test. |
+| **A3** | Los abonos a proveedor en efectivo (nuevos de esta fase) salían del cajón sin aparecer en ningún arqueo. | Exigen caja abierta y el arqueo los resta como egreso (`pagosProveedorEfectivo`). Tests de la acción y del arqueo. |
+| **M1** | Una venta a crédito saldada por devolución quedaba PENDIENTE con saldo 0. | La acción marca PAGADA cuando el saldo llega a cero, como el cobro. Test. |
+| **M2** | Re-sincronizar la cuenta escribía el saldo absoluto desde una lectura previa y podía pisar un abono simultáneo. | El saldo se ajusta con un **incremento del cambio del total**; el estado se recalcula después. |
+| **M3** | El mostrador no comprobaba que el repuesto fuera de la sede activa (el id llega del formulario). | Se validan los repuestos contra `scopeRepuesto(sedeId)` antes de tocar el stock. Test. |
+| **M4** | En una venta con descuento, devolver una línea pagaba su precio sin descuento. | `totalDevolucion` **reparte el descuento en proporción** (`base × total/subtotal`), con el tope anterior como red. Tests. |
+| **Bajo** | `pagoAlContadoSchema` sin uso, mensaje de la caja impreciso sobre anticipos. | Se eliminó el esquema muerto y se corrigió el texto. |
+
+**Límites conocidos y aceptados** (documentados, no arreglados): la pantalla lista solo las ventas **de hoy**, así que una venta a crédito de ayer no se puede cobrar ni devolver desde la interfaz (las acciones sí lo permiten); y el hueco heredado sigue abierto en los **anticipos** y en los **gastos pagados en efectivo**, que se registran con la caja cerrada y por tanto quedan fuera del arqueo (no son de esta fase, pero son el mismo problema: conviene cerrarlos igual que se cerró el cobro).
+
+También se corrigió un **test intermitente ajeno** (`clientes/[id]/nuevo-vehiculo-form.test.tsx`): fallaba por tiempo (5.029 ms en el límite de 5 s bajo carga) y ahora tiene margen explícito. El test más lento de esta fase recibió el mismo trato.
 
 ---
 

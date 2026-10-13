@@ -32,7 +32,7 @@ export async function sincronizarCuentaPorPagar(
       createdAt: true,
       items: { select: { cantidad: true, precioCompraUnitario: true } },
       cuentaPorPagar: {
-        select: { id: true, pagos: { select: { monto: true } } },
+        select: { id: true, total: true },
       },
     },
   });
@@ -58,13 +58,31 @@ export async function sincronizarCuentaPorPagar(
     return;
   }
 
-  // Ya existe (se añadió otro ítem, o se está re-sincronizando): el total manda y
-  // el saldo se recalcula contra los abonos, que nunca se tocan aquí.
-  const pagado = entrada.cuentaPorPagar.pagos.reduce((suma, pago) => suma + Number(pago.monto), 0);
-  const saldo = Math.max(0, Math.round((totalRedondeado - pagado) * 100) / 100);
+  // Ya existe (se añadió otro ítem, o se está re-sincronizando). El saldo se
+  // ajusta con un **incremento del cambio del total**, nunca escribiendo un valor
+  // absoluto calculado con una lectura previa: eso pisaría un abono simultáneo
+  // (los abonos usan un decremento guardado).
+  const delta = Math.round((totalRedondeado - Number(entrada.cuentaPorPagar.total)) * 100) / 100;
 
+  if (delta !== 0) {
+    await tx.cuentaPorPagar.update({
+      where: { id: entrada.cuentaPorPagar.id },
+      data: { total: totalRedondeado, saldoPendiente: { increment: delta } },
+    });
+  } else {
+    await tx.cuentaPorPagar.update({
+      where: { id: entrada.cuentaPorPagar.id },
+      data: { total: totalRedondeado },
+    });
+  }
+
+  const actualizada = await tx.cuentaPorPagar.findUniqueOrThrow({
+    where: { id: entrada.cuentaPorPagar.id },
+    select: { saldoPendiente: true },
+  });
+  const saldoCero = Number(actualizada.saldoPendiente) <= 0;
   await tx.cuentaPorPagar.update({
     where: { id: entrada.cuentaPorPagar.id },
-    data: { total: totalRedondeado, saldoPendiente: saldo, estado: saldo <= 0 ? "PAGADA" : "PENDIENTE" },
+    data: { estado: saldoCero ? "PAGADA" : "PENDIENTE" },
   });
 }

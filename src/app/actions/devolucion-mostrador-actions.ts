@@ -25,7 +25,8 @@ import type { Role } from "@/generated/prisma-tenant";
 const ROLES_DEVOLUCION: Role[] = ["ADMIN", "RECEPCION"];
 
 const SIN_CAJA = "Abre la caja antes de devolver en el mostrador";
-const STOCK_INSUFICIENTE = "LINEA_INVALIDA";
+const DEVOLUCION_YA_REGISTRADA = "DEVOLUCION_YA_REGISTRADA";
+const SALDO_CAMBIADO = "SALDO_CAMBIADO";
 
 export interface DevolucionFormState {
   error: string | null;
@@ -69,6 +70,7 @@ export async function crearDevolucionAction(
     where: { id: ventaId, sedeId },
     select: {
       id: true,
+      subtotal: true,
       total: true,
       saldoPendiente: true,
       items: { select: { id: true, repuestoId: true, descripcion: true, cantidad: true, precioUnitario: true, devueltoCantidad: true } },
@@ -79,7 +81,10 @@ export async function crearDevolucionAction(
   if (!(await sesionDeCajaAbierta(tenantDb, sedeId))) return { error: SIN_CAJA, success: false };
 
   // Cada línea elegida tiene que existir en esta venta y caber en lo devolvible.
-  const porItem = new Map<string, { cantidad: number; repuestoId: string | null; descripcion: string; precioUnitario: number }>();
+  const porItem = new Map<
+    string,
+    { cantidad: number; vendida: number; repuestoId: string | null; descripcion: string; precioUnitario: number }
+  >();
   for (const pedida of parsed.data.lineas) {
     const item = venta.items.find((candidato) => candidato.id === pedida.ventaItemId);
     if (!item) return { error: "Una de las líneas no pertenece a esta venta", success: false };
@@ -96,6 +101,7 @@ export async function crearDevolucionAction(
     }
     porItem.set(item.id, {
       cantidad: acumulada,
+      vendida: item.cantidad,
       repuestoId: item.repuestoId,
       descripcion: item.descripcion,
       precioUnitario: Number(item.precioUnitario),
@@ -105,6 +111,7 @@ export async function crearDevolucionAction(
   const yaDevuelto = venta.devoluciones.reduce((suma, devolucion) => suma + Number(devolucion.total), 0);
   const calculado = totalDevolucion(
     [...porItem.values()].map((linea) => ({ cantidad: linea.cantidad, precioUnitario: linea.precioUnitario })),
+    { subtotal: Number(venta.subtotal), total: Number(venta.total) },
   );
   const total = montoADevolverPermitido(Number(venta.total), yaDevuelto, calculado);
 
@@ -123,15 +130,16 @@ export async function crearDevolucionAction(
   let numero: number;
   try {
     const devolucion = await tenantDb.$transaction(async (tx) => {
-      for (const [repuestoId, cantidad] of porRepuesto) {
-        await tx.repuesto.update({ where: { id: repuestoId }, data: { stockActual: { increment: cantidad } } });
-      }
-
+      // Primero las guardas: cada línea solo avanza si nadie devolvió antes esas
+      // unidades. En una venta ya cobrada `aCuenta` es 0, así que la guarda del
+      // saldo no protege nada aquí: sin esta, dos devoluciones simultáneas de la
+      // misma línea pagarían y reingresarían el stock dos veces.
       for (const [ventaItemId, linea] of porItem) {
-        await tx.ventaMostradorItem.update({
-          where: { id: ventaItemId },
+        const { count } = await tx.ventaMostradorItem.updateMany({
+          where: { id: ventaItemId, devueltoCantidad: { lte: linea.vendida - linea.cantidad } },
           data: { devueltoCantidad: { increment: linea.cantidad } },
         });
+        if (count === 0) throw new Error(DEVOLUCION_YA_REGISTRADA);
       }
 
       if (aCuenta > 0) {
@@ -140,7 +148,21 @@ export async function crearDevolucionAction(
           where: { id: ventaId, saldoPendiente: { gte: aCuenta } },
           data: { saldoPendiente: { decrement: aCuenta } },
         });
-        if (count === 0) throw new Error(STOCK_INSUFICIENTE);
+        if (count === 0) throw new Error(SALDO_CAMBIADO);
+
+        // Si la devolución terminó de saldar la deuda, la venta queda pagada: el
+        // estado se deriva del saldo, como en el cobro.
+        const actualizada = await tx.ventaMostrador.findUniqueOrThrow({
+          where: { id: ventaId },
+          select: { saldoPendiente: true },
+        });
+        if (Number(actualizada.saldoPendiente) <= 0) {
+          await tx.ventaMostrador.update({ where: { id: ventaId }, data: { estado: "PAGADA" } });
+        }
+      }
+
+      for (const [repuestoId, cantidad] of porRepuesto) {
+        await tx.repuesto.update({ where: { id: repuestoId }, data: { stockActual: { increment: cantidad } } });
       }
 
       const creada = await tx.devolucionMostrador.create({
@@ -176,7 +198,10 @@ export async function crearDevolucionAction(
     });
     numero = devolucion.numero;
   } catch (err) {
-    if (err instanceof Error && err.message === STOCK_INSUFICIENTE) {
+    if (err instanceof Error && err.message === DEVOLUCION_YA_REGISTRADA) {
+      return { error: "Alguien acaba de devolver esas unidades: revisa antes de volver a guardar", success: false };
+    }
+    if (err instanceof Error && err.message === SALDO_CAMBIADO) {
       return { error: "El saldo de la venta cambió mientras devolvías: revisa antes de guardar", success: false };
     }
     return { error: friendlyPrismaErrorMessage(err, "No se pudo registrar la devolución"), success: false };

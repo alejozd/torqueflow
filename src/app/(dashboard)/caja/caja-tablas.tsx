@@ -18,6 +18,7 @@ const ETIQUETA_TIPO = {
   ANTICIPO: "Anticipo",
   DEVOLUCION: "Devolución",
   GASTO: "Gasto",
+  PAGO_PROVEEDOR: "Pago a proveedor",
 } as const;
 
 const ETIQUETA_METODO = {

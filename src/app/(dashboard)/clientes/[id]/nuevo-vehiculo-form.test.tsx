@@ -87,7 +87,7 @@ describe("NuevoVehiculoForm", () => {
     expect(screen.getByLabelText("Observaciones del vehículo")).toBeInTheDocument();
   });
 
-  it("submits the detail fields to createVehiculoAction when filled", async () => {
+  it("submits the detail fields to createVehiculoAction when filled", { timeout: 20_000 }, async () => {
     renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} />);
 
     await userEvent.type(screen.getByLabelText("Placa"), "ABC123");

@@ -15,7 +15,7 @@ export interface CajaFormState {
   success: boolean;
 }
 
-export type TipoMovimientoCaja = "PAGO" | "VENTA" | "ANTICIPO" | "DEVOLUCION" | "GASTO";
+export type TipoMovimientoCaja = "PAGO" | "VENTA" | "ANTICIPO" | "DEVOLUCION" | "GASTO" | "PAGO_PROVEEDOR";
 
 export interface MovimientoCajaFila {
   id: string;
@@ -96,6 +96,11 @@ async function cargarMovimientos(
     where: { sedeId, createdAt: ventana },
     include: { venta: { select: { numero: true } } },
   });
+  // Abonos a proveedores en efectivo: sale dinero del cajón (Fase 24).
+  const pagosProveedor = await tenantDb.pagoProveedor.findMany({
+    where: { metodoPago: "EFECTIVO", createdAt: ventana, cuenta: { entrada: { bodega: { sedeId } } } },
+    include: { cuenta: { select: { proveedor: { select: { nombre: true } } } } },
+  });
 
   const filas: MovimientoCajaFila[] = [
     ...pagos.map((p) => ({
@@ -140,6 +145,14 @@ async function cargarMovimientos(
       // bajó la deuda del cliente y no es efectivo.
       monto: -Number(d.montoEnEfectivo),
     })),
+    ...pagosProveedor.map((p) => ({
+      id: `pago-proveedor-${p.id}`,
+      fecha: p.createdAt,
+      tipo: "PAGO_PROVEEDOR" as const,
+      descripcion: `Pago a ${p.cuenta.proveedor.nombre}`,
+      metodo: p.metodoPago as Metodo,
+      monto: -Number(p.monto),
+    })),
     ...gastos.map((g) => ({
       id: `gasto-${g.id}`,
       fecha: g.createdAt,
@@ -163,6 +176,7 @@ async function cargarMovimientos(
       ],
       ventasMostrador: pagosMostrador.map((p) => ({ monto: Number(p.monto), metodo: p.metodoPago as Metodo })),
       gastosEfectivo: gastos.map((g) => Number(g.monto)),
+      pagosProveedorEfectivo: pagosProveedor.map((p) => Number(p.monto)),
     },
     filas,
   };

@@ -11,6 +11,8 @@ export interface MovimientosCaja {
   /// (ambas son dinero que sale del cajón, con el mismo trato).
   devoluciones: { monto: number; metodo: Metodo }[];
   gastosEfectivo: number[]; // montos de gastos pagadoEnEfectivo
+  /// Fase 24: abonos a proveedores pagados en efectivo (sale del cajón).
+  pagosProveedorEfectivo: number[];
 }
 
 export interface ResumenCaja {
@@ -36,6 +38,7 @@ export function calcularResumenCaja(baseInicial: number, movimientos: Movimiento
     else devolucionesOtrosMetodos = roundMoney(devolucionesOtrosMetodos + d.monto);
   }
   for (const g of movimientos.gastosEfectivo) egresosEfectivo = roundMoney(egresosEfectivo + g);
+  for (const p of movimientos.pagosProveedorEfectivo) egresosEfectivo = roundMoney(egresosEfectivo + p);
 
   const efectivoEsperado = roundMoney(baseInicial + ingresosPorMetodo.EFECTIVO - egresosEfectivo);
   return { ingresosPorMetodo, egresosEfectivo, devolucionesOtrosMetodos, efectivoEsperado, totalIngresos };

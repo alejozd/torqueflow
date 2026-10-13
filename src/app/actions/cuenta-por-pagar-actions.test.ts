@@ -13,6 +13,7 @@ const tx = {
 };
 const db = {
   cuentaPorPagar: { findFirst: vi.fn(), findMany: vi.fn() },
+  cajaSesion: { findFirst: vi.fn() },
   $transaction: (fn: (cliente: typeof tx) => unknown) => fn(tx),
 };
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
@@ -35,6 +36,7 @@ describe("abonarCuentaPorPagarAction", () => {
     mockRequireRole.mockResolvedValue(SESION);
     mockRequireSession.mockResolvedValue(SESION);
     db.cuentaPorPagar.findFirst.mockResolvedValue({ id: "c1", saldoPendiente: "170000" });
+    db.cajaSesion.findFirst.mockResolvedValue({ id: "s1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
     tx.cuentaPorPagar.updateMany.mockResolvedValue({ count: 1 });
     tx.cuentaPorPagar.findUniqueOrThrow.mockResolvedValue({ saldoPendiente: "0" });
     tx.pagoProveedor.create.mockResolvedValue({});
@@ -89,6 +91,22 @@ describe("abonarCuentaPorPagarAction", () => {
         where: { id: "ajena", entrada: { bodega: { sedeId: "sede-1" } } },
       }),
     );
+  });
+
+  it("pagar en efectivo exige caja abierta; por transferencia no", async () => {
+    db.cajaSesion.findFirst.mockResolvedValue(null);
+
+    const enEfectivo = await abonarCuentaPorPagarAction("c1", inicial, fd({ monto: "1000", metodoPago: "EFECTIVO" }));
+    expect(enEfectivo.error).toBe("Abre la caja antes de pagar en efectivo a un proveedor");
+    expect(tx.pagoProveedor.create).not.toHaveBeenCalled();
+
+    // Una transferencia no toca el cajón, así que no necesita sesión.
+    const porTransferencia = await abonarCuentaPorPagarAction(
+      "c1",
+      inicial,
+      fd({ monto: "1000", metodoPago: "TRANSFERENCIA" }),
+    );
+    expect(porTransferencia.success).toBe(true);
   });
 
   it("rechaza un monto vacío, cero o sin método", async () => {

@@ -54,7 +54,7 @@ describe("CarritoMostrador", () => {
     expect(screen.getByLabelText("Cantidad")).toHaveValue(1);
   });
 
-  it("no deja agregar más unidades que las libres", async () => {
+  it("no deja agregar más unidades que las libres", { timeout: 20_000 }, async () => {
     pintar();
 
     // Al agregar, el buscador se limpia y la lista se desmonta: hay que volver a

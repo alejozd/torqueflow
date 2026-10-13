@@ -32,15 +32,29 @@ describe("cantidadDevolvible", () => {
 
 describe("totalDevolucion y su tope", () => {
   it("devuelve el valor de las líneas con su IVA", () => {
-    expect(totalDevolucion([{ cantidad: 1, precioUnitario: 100000 }])).toBe(119000);
+    // Venta sin descuento: factor 1.
+    expect(totalDevolucion([{ cantidad: 1, precioUnitario: 100000 }], { subtotal: 100000, total: 119000 })).toBe(119000);
   });
 
-  it("el tope impide devolver más de lo que se cobró (caso de una venta con descuento)", () => {
-    // Venta con descuento: se cobró 107.100 por dos unidades de 50.000.
-    const totalVenta = calcularTotalesVenta([{ cantidad: 2, precioUnitario: 50000 }], 10000).total;
-    const calculado = totalDevolucion([{ cantidad: 2, precioUnitario: 50000 }]); // 119.000, sin el descuento
+  it("reparte el descuento de la venta en proporción a lo devuelto", () => {
+    // Dos líneas de 100.000 con 50.000 de descuento: la venta cobró 178.500.
+    const venta = { subtotal: 200000, total: 178500 };
 
-    expect(calculado).toBeGreaterThan(totalVenta);
+    // Devolver una línea no paga 119.000 (su precio sin descuento) sino su parte.
+    expect(totalDevolucion([{ cantidad: 1, precioUnitario: 100000 }], venta)).toBe(89250);
+    // Devolver todo devuelve exactamente lo cobrado.
+    expect(totalDevolucion([{ cantidad: 2, precioUnitario: 100000 }], venta)).toBe(178500);
+  });
+
+  it("sin subtotal (venta de solo líneas libres a cero) no devuelve nada", () => {
+    expect(totalDevolucion([{ cantidad: 1, precioUnitario: 0 }], { subtotal: 0, total: 0 })).toBe(0);
+  });
+
+  it("el tope impide devolver más de lo que se cobró", () => {
+    const totalVenta = calcularTotalesVenta([{ cantidad: 2, precioUnitario: 50000 }], 10000).total;
+    const calculado = totalDevolucion([{ cantidad: 2, precioUnitario: 50000 }], { subtotal: 100000, total: totalVenta });
+
+    expect(calculado).toBe(totalVenta);
     expect(montoADevolverPermitido(totalVenta, 0, calculado)).toBe(totalVenta);
   });
 

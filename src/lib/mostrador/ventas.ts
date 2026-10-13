@@ -25,12 +25,19 @@ export function cantidadDevolvible(vendida: number, yaDevuelta: number): number 
 }
 
 /**
- * Lo que valen las líneas devueltas, con el mismo IVA que la venta. El descuento
- * de la venta **no** se reparte entre líneas a propósito: repartirlo exigiría
- * decidir prorrateos que nadie pidió.
+ * Lo que vale lo devuelto, **repartiendo el descuento de la venta en proporción**.
+ * Sin repartirlo, devolver una línea de una venta con descuento pagaría su precio
+ * sin descuento, más de lo que el cliente pagó por ella. El factor sale del total
+ * cobrado sobre el subtotal, así que devolver todas las líneas devuelve
+ * exactamente el total (y el tope de `montoADevolverPermitido` sigue de red).
  */
-export function totalDevolucion(lineas: { cantidad: number; precioUnitario: number }[]): number {
-  return calcularTotalesVenta(lineas, 0).total;
+export function totalDevolucion(
+  lineas: { cantidad: number; precioUnitario: number }[],
+  venta: { subtotal: number; total: number },
+): number {
+  if (venta.subtotal <= 0) return 0;
+  const base = lineas.reduce((suma, linea) => suma + linea.cantidad * linea.precioUnitario, 0);
+  return roundMoney(base * (venta.total / venta.subtotal));
 }
 
 /**

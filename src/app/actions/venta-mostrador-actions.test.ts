@@ -11,6 +11,7 @@ const tx = {
 const db = {
   cajaSesion: { findFirst: vi.fn() },
   cliente: { findFirst: vi.fn() },
+  repuesto: { findMany: vi.fn() },
   ventaMostrador: { findFirst: vi.fn() },
   $transaction: (fn: (cliente: typeof tx) => unknown) => fn(tx),
 };
@@ -46,6 +47,7 @@ describe("crearVentaMostradorAction", () => {
     mockRequireRole.mockResolvedValue(SESION);
     db.cajaSesion.findFirst.mockResolvedValue({ id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
     db.cliente.findFirst.mockResolvedValue({ id: "cli1" });
+    db.repuesto.findMany.mockResolvedValue([{ id: "r1" }]);
     tx.repuesto.updateMany.mockResolvedValue({ count: 1 });
     tx.ventaMostrador.create.mockResolvedValue({ id: "v1", numero: 7 });
     tx.pagoVentaMostrador.create.mockResolvedValue({});
@@ -132,6 +134,25 @@ describe("crearVentaMostradorAction", () => {
     const r = await crearVentaMostradorAction(inicial, venta({ clienteId: "nope" }));
 
     expect(r.error).toBe("Cliente no encontrado");
+  });
+
+  it("rechaza un descuento mayor que el subtotal (daría un total negativo)", async () => {
+    const r = await crearVentaMostradorAction(inicial, venta({ descuento: "60000" }));
+
+    expect(r).toEqual({ error: "El descuento no puede ser mayor que el subtotal", success: false });
+    expect(tx.ventaMostrador.create).not.toHaveBeenCalled();
+  });
+
+  it("un repuesto de otra sede se rechaza antes de tocar el stock", async () => {
+    db.repuesto.findMany.mockResolvedValue([]);
+
+    const r = await crearVentaMostradorAction(inicial, venta());
+
+    expect(r).toEqual({ error: "Alguno de los repuestos no pertenece a tu sede activa", success: false });
+    expect(db.repuesto.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: { in: ["r1"] } }) }),
+    );
+    expect(tx.ventaMostrador.create).not.toHaveBeenCalled();
   });
 
   it("rechaza líneas mal formadas sin tocar la base", async () => {

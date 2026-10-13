@@ -7,6 +7,7 @@ const db = {
   pago: { findMany: vi.fn() },
   pagoVentaMostrador: { findMany: vi.fn() },
   devolucionMostrador: { findMany: vi.fn() },
+  pagoProveedor: { findMany: vi.fn() },
   anticipo: { findMany: vi.fn() },
   gasto: { findMany: vi.fn() },
   sede: { findUnique: vi.fn() },
@@ -38,6 +39,7 @@ function movimientosVacios() {
   db.pago.findMany.mockResolvedValue([]);
   db.pagoVentaMostrador.findMany.mockResolvedValue([]);
   db.devolucionMostrador.findMany.mockResolvedValue([]);
+  db.pagoProveedor.findMany.mockResolvedValue([]);
   db.anticipo.findMany.mockResolvedValue([]);
   db.gasto.findMany.mockResolvedValue([]);
 }
@@ -106,6 +108,29 @@ describe("getCajaActual", () => {
     expect(r.movimientos).toHaveLength(4);
     expect(r.movimientos.map((m) => m.tipo).sort()).toEqual(["ANTICIPO", "DEVOLUCION", "GASTO", "PAGO"]);
     expect(r.caja).toMatchObject({ id: "c1", baseInicial: 100000, abiertaPorNombre: "Ana" });
+  });
+
+  it("un abono a proveedor en efectivo resta del arqueo (Fase 24)", async () => {
+    db.cajaSesion.findFirst.mockResolvedValue(sesionAbierta());
+    db.pagoProveedor.findMany.mockResolvedValue([
+      {
+        id: "pp1",
+        monto: 40000,
+        metodoPago: "EFECTIVO",
+        createdAt: new Date("2026-10-15T19:00:00Z"),
+        cuenta: { proveedor: { nombre: "Repuestos del Norte" } },
+      },
+    ]);
+
+    const r = await getCajaActual({});
+
+    // 100000 - 40000
+    expect(r.resumen?.efectivoEsperado).toBe(60000);
+    expect(db.pagoProveedor.findMany.mock.calls[0][0].where).toMatchObject({
+      metodoPago: "EFECTIVO",
+      cuenta: { entrada: { bodega: { sedeId: "s1" } } },
+    });
+    expect(r.movimientos.map((m) => [m.tipo, m.monto])).toEqual([["PAGO_PROVEEDOR", -40000]]);
   });
 
   it("las ventas de mostrador suman y sus devoluciones restan en el arqueo (Fase 24)", async () => {

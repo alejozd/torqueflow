@@ -5,8 +5,8 @@ vi.mock("@/lib/auth/guards", () => ({ requireRole: (...args: unknown[]) => mockR
 
 const tx = {
   repuesto: { update: vi.fn() },
-  ventaMostradorItem: { update: vi.fn() },
-  ventaMostrador: { updateMany: vi.fn() },
+  ventaMostradorItem: { updateMany: vi.fn() },
+  ventaMostrador: { updateMany: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
   devolucionMostrador: { create: vi.fn() },
   auditLog: { create: vi.fn() },
 };
@@ -42,6 +42,7 @@ const ITEM = {
 function venta(cambios: Record<string, unknown> = {}) {
   return {
     id: "v1",
+    subtotal: "50000",
     total: "59500",
     saldoPendiente: "0",
     items: [{ ...ITEM }],
@@ -66,8 +67,10 @@ describe("crearDevolucionAction", () => {
     db.cajaSesion.findFirst.mockResolvedValue({ id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
     db.ventaMostrador.findFirst.mockResolvedValue(venta());
     tx.repuesto.update.mockResolvedValue({});
-    tx.ventaMostradorItem.update.mockResolvedValue({});
+    tx.ventaMostradorItem.updateMany.mockResolvedValue({ count: 1 });
     tx.ventaMostrador.updateMany.mockResolvedValue({ count: 1 });
+    tx.ventaMostrador.findUniqueOrThrow.mockResolvedValue({ saldoPendiente: "0" });
+    tx.ventaMostrador.update.mockResolvedValue({});
     tx.devolucionMostrador.create.mockResolvedValue({ id: "d1", numero: 3 });
     tx.auditLog.create.mockResolvedValue({});
   });
@@ -81,8 +84,8 @@ describe("crearDevolucionAction", () => {
       where: { id: "r1" },
       data: { stockActual: { increment: 1 } },
     });
-    expect(tx.ventaMostradorItem.update).toHaveBeenCalledWith({
-      where: { id: "i1" },
+    expect(tx.ventaMostradorItem.updateMany).toHaveBeenCalledWith({
+      where: { id: "i1", devueltoCantidad: { lte: 1 } },
       data: { devueltoCantidad: { increment: 1 } },
     });
     const creada = tx.devolucionMostrador.create.mock.calls[0]![0].data;
@@ -193,6 +196,31 @@ describe("crearDevolucionAction", () => {
     const creada = tx.devolucionMostrador.create.mock.calls[0]![0].data;
     // El valor de las líneas (59.500) queda topado por lo que la venta cobró (40.000).
     expect(Number(creada.total)).toBe(40000);
+  });
+
+  it("una segunda devolución simultánea de la misma línea no paga ni reingresa stock", async () => {
+    // La guarda por línea no encuentra unidades libres: alguien devolvió antes.
+    tx.ventaMostradorItem.updateMany.mockResolvedValue({ count: 0 });
+
+    const r = await crearDevolucionAction("v1", inicial, devolucion());
+
+    expect(r.error).toContain("Alguien acaba de devolver esas unidades");
+    expect(tx.repuesto.update).not.toHaveBeenCalled();
+    expect(tx.devolucionMostrador.create).not.toHaveBeenCalled();
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it("una devolución que salda la deuda deja la venta pagada", async () => {
+    db.ventaMostrador.findFirst.mockResolvedValue(venta({ saldoPendiente: "59500" }));
+    tx.ventaMostrador.findUniqueOrThrow.mockResolvedValue({ saldoPendiente: "0" });
+
+    await crearDevolucionAction(
+      "v1",
+      inicial,
+      devolucion({ lineas: JSON.stringify([{ ventaItemId: "i1", cantidad: 2 }]) }),
+    );
+
+    expect(tx.ventaMostrador.update).toHaveBeenCalledWith({ where: { id: "v1" }, data: { estado: "PAGADA" } });
   });
 
   it("un saldo que cambió mientras se devolvía avisa y no registra nada", async () => {

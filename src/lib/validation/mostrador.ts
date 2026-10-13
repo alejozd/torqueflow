@@ -27,18 +27,28 @@ export const lineaVentaSchema = z.object({
   ),
 });
 
-export const ventaMostradorInputSchema = z.object({
-  clienteId: z.preprocess(vacioComoUndefined, z.string().trim().min(1).optional()),
-  lineas: z.array(lineaVentaSchema).min(1, "Agrega al menos un producto"),
-  descuento: z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? 0 : v),
-    z.coerce.number({ error: "El descuento no es válido" }).min(0, "El descuento no puede ser negativo"),
-  ),
-  metodoPago: metodoPagoVentaSchema,
-  referencia: z.preprocess(vacioComoUndefined, z.string().trim().max(120).optional()),
-  /** Con cliente, puede quedar a crédito; sin cliente, la venta tiene que salir pagada. */
-  cobrarTodo: z.preprocess((v) => v === "true" || v === true, z.boolean()),
-});
+export const ventaMostradorInputSchema = z
+  .object({
+    clienteId: z.preprocess(vacioComoUndefined, z.string().trim().min(1).optional()),
+    lineas: z.array(lineaVentaSchema).min(1, "Agrega al menos un producto"),
+    descuento: z.preprocess(
+      (v) => (v === "" || v === null || v === undefined ? 0 : v),
+      z.coerce.number({ error: "El descuento no es válido" }).min(0, "El descuento no puede ser negativo"),
+    ),
+    metodoPago: metodoPagoVentaSchema,
+    referencia: z.preprocess(vacioComoUndefined, z.string().trim().max(120).optional()),
+    /** Con cliente, puede quedar a crédito; sin cliente, la venta tiene que salir pagada. */
+    cobrarTodo: z.preprocess((v) => v === "true" || v === true, z.boolean()),
+  })
+  .refine(
+    // Sin esto un descuento mayor que el subtotal daría un total negativo, que se
+    // guardaría como pago negativo y el arqueo sumaría como ingreso (D8).
+    (datos) => {
+      const subtotal = datos.lineas.reduce((suma, linea) => suma + linea.cantidad * linea.precioUnitario, 0);
+      return datos.descuento <= subtotal;
+    },
+    { error: "El descuento no puede ser mayor que el subtotal", path: ["descuento"] },
+  );
 
 /** Cobro de una venta que quedó a crédito. */
 export const cobroVentaSchema = z.object({
