@@ -24,6 +24,11 @@ describe("normalizarEncabezado", () => {
     expect(normalizarEncabezado("\uFEFFNombre")).toBe("nombre");
   });
 
+  it("ignora el asterisco con que la plantilla marca las columnas obligatorias", () => {
+    expect(normalizarEncabezado("Nombre *")).toBe("nombre");
+    expect(normalizarEncabezado("Precio mano de obra *")).toBe("preciomanodeobra");
+  });
+
   it("no inventa nada con celdas vacías o que no son texto", () => {
     expect(normalizarEncabezado(null)).toBe("");
     expect(normalizarEncabezado(undefined)).toBe("");

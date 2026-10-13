@@ -25,13 +25,14 @@ function sinTildes(texto: string): string {
 }
 
 /**
- * Encabezado comparable: sin BOM, sin tildes, en minúsculas y sin espacios ni
- * separadores, para que "Teléfono", "TELEFONO" y "teléfono " sean lo mismo.
+ * Encabezado comparable: sin BOM, sin tildes, en minúsculas y sin nada que no
+ * sea letra o dígito, para que "Teléfono", "TELEFONO", "Nombre *" (la plantilla
+ * marca así las columnas obligatorias) y "teléfono " sean lo mismo.
  */
 export function normalizarEncabezado(valor: unknown): string {
   return sinTildes(aTexto(valor).replace(/^\uFEFF/, ""))
     .toLowerCase()
-    .replace(/[\s_-]+/g, "");
+    .replace(/[^a-z0-9]/g, "");
 }
 
 /** Texto tal como se guarda: recortado y con los espacios internos colapsados. */
