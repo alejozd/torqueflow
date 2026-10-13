@@ -8,6 +8,9 @@ import { getDiasAvisoVencimiento } from "@/app/actions/configuracion-taller-acti
 import { requireSession } from "@/lib/auth/guards";
 import { NuevaOrdenDialog } from "./nueva-orden-dialog";
 import { PRIORIDAD_BADGE_CLASSNAME } from "./prioridad-tono";
+import { ESTADO_BADGE_CLASSNAME, ESTADO_BADGE_VARIANT, ESTADO_DOT_COLOR, ESTADO_LABELS } from "./estado-tono";
+import { TableroOrdenes, type ColumnaTablero } from "./tablero-ordenes";
+import { esOrdenMutable } from "@/lib/orden/mutable-guard";
 import {
   ALERTAS_VALIDAS,
   ESTADOS_VALIDOS,
@@ -31,42 +34,6 @@ import { inferirColorVehiculo } from "@/lib/color-vehiculo";
 import { formatoFechaCorta, formatoFechaRelativa, inicioMesBogota, inicioSemanaBogota } from "@/lib/fecha-bogota";
 import { ETIQUETA_PRIORIDAD, ORDEN_PRIORIDAD, compararPorPrioridad, type MotivoAlerta } from "@/lib/orden/flujo";
 import { cn } from "@/lib/utils";
-
-const ESTADO_LABELS: Record<EstadoOrden, string> = {
-  BORRADOR: "Borrador",
-  EN_PROCESO: "En proceso",
-  TERMINADA: "Terminada",
-  ENTREGADA: "Entregada",
-  ANULADA: "Anulada",
-};
-
-// Draft -> in progress (amber, active work) -> finished (blue, ready) ->
-// delivered (green, done) -> cancelled (red). Badge's own variants only cover
-// default/secondary/destructive/outline, so the amber/blue/green states use
-// the same bg-X/10 + text-X className mechanism the destructive variant uses.
-const ESTADO_BADGE_CLASSNAME: Record<EstadoOrden, string> = {
-  BORRADOR: "",
-  EN_PROCESO: "border-transparent bg-[oklch(0.7_0.15_60/0.15)] text-[oklch(0.55_0.15_60)]",
-  TERMINADA: "border-transparent bg-[oklch(0.44_0.12_250/0.1)] text-[oklch(0.44_0.12_250)]",
-  ENTREGADA: "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]",
-  ANULADA: "",
-};
-
-const ESTADO_BADGE_VARIANT: Partial<Record<EstadoOrden, "outline" | "destructive">> = {
-  BORRADOR: "outline",
-  ANULADA: "destructive",
-};
-
-// Dot/left-border tone per columna del tablero -- mismos tonos que
-// ESTADO_BADGE_CLASSNAME (o el neutro/destructivo estándar para los estados
-// que usan variant en vez de className propio).
-const ESTADO_DOT_COLOR: Record<EstadoOrden, string> = {
-  BORRADOR: "oklch(0.7 0 0)",
-  EN_PROCESO: "oklch(0.55 0.15 60)",
-  TERMINADA: "oklch(0.44 0.12 250)",
-  ENTREGADA: "oklch(0.4 0.1 150)",
-  ANULADA: "oklch(0.5 0.2 27)",
-};
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", {
   style: "currency",
@@ -96,15 +63,6 @@ function calcularTotalOrden(orden: OrdenRow): number {
   const itemsTotal = orden.items.reduce((suma, item) => suma + item.cantidad * Number(item.precioUnitario), 0);
   const manoObraTotal = orden.manoDeObra.reduce((suma, linea) => suma + Number(linea.valor), 0);
   return itemsTotal + manoObraTotal;
-}
-
-function iniciales(nombre: string): string {
-  return nombre
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((parte) => parte[0]?.toUpperCase() ?? "")
-    .join("");
 }
 
 interface ColumnaKanban {
@@ -386,6 +344,25 @@ export default async function OrdenesPage({
   const columnasBase = agruparPorEstado(filtradas, estadoFiltro);
   const columnas = estadoFiltro ? columnasBase.filter((columna) => columna.estado === estadoFiltro) : columnasBase;
 
+  // El tablero es un componente cliente: se le pasan datos planos (nada de
+  // Prisma ni de fechas), y la marca de alerta va cruzada por id.
+  const columnasTablero: ColumnaTablero[] = columnas.map((columna) => ({
+    estado: columna.estado,
+    ordenes: columna.ordenes.map((orden) => ({
+      id: orden.id,
+      estado: orden.estado,
+      prioridad: orden.prioridad,
+      placa: orden.vehiculo.placa,
+      sintomas: orden.sintomas,
+      cliente: orden.cliente.nombre,
+      mecanico: orden.mecanico?.nombre ?? null,
+      total: calcularTotalOrden(orden),
+      movible: esOrdenMutable(orden),
+      alertaDias: alertas.get(orden.id)?.dias ?? null,
+      alertaMotivo: alertas.get(orden.id)?.motivo ?? null,
+    })),
+  }));
+
   return (
     <main className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -559,77 +536,7 @@ export default async function OrdenesPage({
               headerClassName="bg-muted"
             />
           ) : (
-            <div className="flex items-start gap-3 overflow-x-auto pb-1">
-              {columnas.map((columna) => (
-                <div
-                  key={columna.estado}
-                  className="flex w-64 shrink-0 flex-col gap-2 rounded-xl border border-border bg-muted/30 p-2"
-                >
-                  <div className="flex items-center gap-1.5 px-1.5 py-1">
-                    <span
-                      className="size-1.5 shrink-0 rounded-full"
-                      style={{ background: ESTADO_DOT_COLOR[columna.estado] }}
-                    />
-                    <span className="flex-1 text-xs font-semibold">{ESTADO_LABELS[columna.estado]}</span>
-                    <span className="font-mono text-[11px] text-muted-foreground">{columna.ordenes.length}</span>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    {columna.ordenes.length === 0 ? (
-                      <p className="px-1.5 text-xs text-muted-foreground">Sin órdenes</p>
-                    ) : (
-                      columna.ordenes.map((orden) => (
-                        <Link
-                          key={orden.id}
-                          href={`/ordenes/${orden.id}`}
-                          style={{ borderLeftColor: ESTADO_DOT_COLOR[columna.estado] }}
-                          className="flex flex-col gap-1.5 rounded-lg border border-l-2 border-border bg-card p-2.5 text-xs transition-shadow hover:shadow-md"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-mono text-[13px] font-semibold">{orden.vehiculo.placa}</span>
-                            <span className="flex items-center gap-1">
-                              <Badge
-                                variant="outline"
-                                className={cn("text-[10px]", PRIORIDAD_BADGE_CLASSNAME[orden.prioridad])}
-                              >
-                                {ETIQUETA_PRIORIDAD[orden.prioridad]}
-                              </Badge>
-                              <span className="font-mono text-[10px] text-muted-foreground">
-                                #{orden.id.slice(-8).toUpperCase()}
-                              </span>
-                            </span>
-                          </div>
-                          {alertas.has(orden.id) ? (
-                            <Badge
-                              variant="outline"
-                              className="w-fit gap-1 border-transparent bg-destructive/10 text-[10px] text-destructive"
-                            >
-                              <Clock className="size-3 shrink-0" />
-                              {alertas.get(orden.id)!.dias} días sin actividad
-                            </Badge>
-                          ) : null}
-                          <p className="line-clamp-2 text-muted-foreground">
-                            {orden.sintomas ?? "Sin síntomas registrados"}
-                          </p>
-                          <p className="text-[10.5px] text-muted-foreground">{orden.cliente.nombre}</p>
-                          <div className="flex items-center justify-between gap-2 border-t border-border pt-1.5">
-                            <span className="flex min-w-0 items-center gap-1.5 text-[10.5px] text-muted-foreground">
-                              <span className="grid size-4 shrink-0 place-items-center rounded-full bg-muted text-[8.5px] font-semibold text-foreground">
-                                {orden.mecanico ? iniciales(orden.mecanico.nombre) : "–"}
-                              </span>
-                              <span className="truncate">{orden.mecanico ? orden.mecanico.nombre : "Sin asignar"}</span>
-                            </span>
-                            <span className="shrink-0 font-mono text-[11px] font-medium">
-                              {formatoMoneda.format(calcularTotalOrden(orden))}
-                            </span>
-                          </div>
-                        </Link>
-                      ))
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <TableroOrdenes columnas={columnasTablero} />
           )}
         </CardContent>
       </Card>
