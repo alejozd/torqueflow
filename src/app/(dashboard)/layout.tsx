@@ -153,6 +153,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           <DashboardSidebar
             esAdmin={esAdmin}
             puedeVerFinanzas={puedeVerFinanzas}
+            puedeImportar={session.user.role === "ADMIN" || session.user.role === "RECEPCION"}
             tenantSlug={session.user.tenantSlug}
             plan={plan}
             cotizacionesPendientesSeguimiento={cotizacionesPendientesSeguimiento}
