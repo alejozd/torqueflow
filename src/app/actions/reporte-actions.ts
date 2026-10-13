@@ -8,7 +8,7 @@ import { computeRentabilidad, type RentabilidadTotales } from "@/lib/reportes/re
 import { computeRentabilidadNeta, type RentabilidadNeta } from "@/lib/gastos/rentabilidad-neta";
 import { contarRecurrentesPendientesEnRango } from "@/lib/gastos/pendientes-db";
 import { roundMoney } from "@/lib/money/round";
-import { computeProductividad, type ProductividadFila } from "@/lib/reportes/productividad";
+import { computeProduccionPorMecanico, type ProduccionFila } from "@/lib/liquidaciones/produccion";
 
 /** Raw filters as they arrive from the URL. The date range is mandatory. */
 export interface ReporteFiltros {
@@ -144,7 +144,7 @@ export async function getReporteRentabilidad(filtros: ReporteFiltros): Promise<R
 export interface ReporteProductividadResult {
   filtros: ReporteFiltrosAplicados;
   error: string | null;
-  filas: ProductividadFila[];
+  filas: ProduccionFila[];
 }
 
 /**
@@ -153,6 +153,10 @@ export interface ReporteProductividadResult {
  * this report answers "who delivered what in this window". An ENTREGADA orden
  * has no outgoing transition and cannot be mutated once invoiced, so its
  * ManoDeObra lines are final.
+ *
+ * El trabajo se atribuye por línea (D3 de la Fase 19), no por orden: se
+ * seleccionan el mecánico de la orden y el de cada línea para que
+ * `atribuirManoDeObra` decida. Es la misma lógica que usa la liquidación.
  */
 export async function getReporteProductividad(filtros: ReporteFiltros): Promise<ReporteProductividadResult> {
   const session = await requireRole(["ADMIN"]);
@@ -193,16 +197,24 @@ export async function getReporteProductividad(filtros: ReporteFiltros): Promise<
       mecanicoId: true,
       // select-only: never pull the whole Usuario row (passwordHash leak class).
       mecanico: { select: { nombre: true } },
-      manoDeObra: { select: { valor: true } },
+      manoDeObra: {
+        select: {
+          valor: true,
+          mecanicoId: true,
+          mecanico: { select: { nombre: true } },
+        },
+      },
     },
   });
 
-  const filas = computeProductividad(
+  const filas = computeProduccionPorMecanico(
     ordenes.map((orden) => ({
       mecanicoId: orden.mecanicoId,
       mecanicoNombre: orden.mecanico?.nombre ?? null,
       manoDeObra: orden.manoDeObra.map((linea) => ({
         valor: Number(linea.valor),
+        mecanicoId: linea.mecanicoId,
+        mecanicoNombre: linea.mecanico?.nombre ?? null,
       })),
     })),
   );

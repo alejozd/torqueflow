@@ -7,10 +7,11 @@ import {
 } from "@/app/actions/reporte-actions";
 import { listSedes } from "@/app/actions/sede-actions";
 import { rangoMesActual } from "@/lib/reportes/rango-fechas";
+import { montoPorTrabajo } from "@/lib/liquidaciones/calculo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
@@ -31,12 +32,27 @@ const COLUMNS: DataTableColumn<FilaProductividad>[] = [
   {
     header: "Órdenes entregadas",
     className: "text-right",
-    cell: (fila) => <span className="font-mono">{fila.ordenesCompletadas}</span>,
+    cell: (fila) => <span className="font-mono">{fila.ordenes}</span>,
+  },
+  {
+    // Un "trabajo" es una línea de mano de obra: la unidad con la que este
+    // taller liquida a sus mecánicos (Fase 19).
+    header: "Trabajos",
+    className: "text-right",
+    cell: (fila) => <span className="font-mono">{fila.trabajos}</span>,
   },
   {
     header: "Mano de obra",
     className: "text-right",
-    cell: (fila) => <span className="font-mono font-medium">{formatoMoneda.format(fila.montoManoDeObra)}</span>,
+    cell: (fila) => <span className="font-mono font-medium">{formatoMoneda.format(fila.montoManoObra)}</span>,
+  },
+  {
+    header: "Promedio por trabajo",
+    className: "text-right",
+    cell: (fila) => {
+      const promedio = montoPorTrabajo(fila.montoManoObra, fila.trabajos);
+      return <span className="font-mono text-muted-foreground">{promedio === null ? "—" : formatoMoneda.format(promedio)}</span>;
+    },
   },
 ];
 
@@ -93,7 +109,8 @@ export default async function ReportesPage({
       <div className="flex flex-wrap items-center gap-2.5">
         <h1 className="text-2xl font-semibold">Reportes</h1>
         <Badge variant="outline" className="font-normal text-muted-foreground">
-          {productividad.filas.length} {productividad.filas.length === 1 ? "técnico" : "técnicos"} con órdenes
+          {productividad.filas.length} {productividad.filas.length === 1 ? "técnico" : "técnicos"} ·{" "}
+          {productividad.filas.reduce((suma, fila) => suma + fila.trabajos, 0)} trabajos
         </Badge>
       </div>
 
@@ -272,6 +289,10 @@ export default async function ReportesPage({
       <Card>
         <CardHeader>
           <CardTitle>Productividad por técnico</CardTitle>
+          <CardDescription>
+            Órdenes entregadas en el rango y trabajos (líneas de mano de obra) de cada técnico; el promedio es sobre su
+            mano de obra.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {/* An error must not read as "no data": show it instead of an empty table. */}

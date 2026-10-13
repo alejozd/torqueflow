@@ -1,8 +1,5 @@
 import { z } from "zod";
-import { requiredMoney } from "./money";
-
-/** Empty inputs and missing FormData keys (null) mean "not provided". */
-const vacioComoUndefined = (valor: unknown) => (valor === "" || valor === null ? undefined : valor);
+import { requiredMoney, vacioComoUndefined } from "./money";
 
 export const bodegaInputSchema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio"),

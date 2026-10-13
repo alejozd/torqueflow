@@ -108,4 +108,34 @@ describe("ReportesPage", () => {
 
     expect(screen.getByText("No hay órdenes entregadas en este rango.")).toBeInTheDocument();
   });
+
+  it("muestra los trabajos y el promedio por trabajo de cada técnico", async () => {
+    const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" });
+    mockProductividad.mockResolvedValue({
+      filtros: FILTROS,
+      error: null,
+      filas: [
+        { mecanicoId: "t1", mecanicoNombre: "Ana", ordenes: 3, trabajos: 4, montoManoObra: 180000 },
+        { mecanicoId: "t2", mecanicoNombre: "Beto", ordenes: 1, trabajos: 0, montoManoObra: 0 },
+      ],
+    });
+
+    await renderPage();
+
+    const tarjeta = screen.getByText("Productividad por técnico").closest("[data-slot=card]") as HTMLElement;
+    expect(within(tarjeta).getByText("Trabajos")).toBeInTheDocument();
+    expect(within(tarjeta).getByText("Promedio por trabajo")).toBeInTheDocument();
+
+    const filas = within(tarjeta).getAllByRole("row");
+    expect(filas[1]!.textContent).toContain("Ana");
+    expect(filas[1]!.textContent).toContain("3");
+    expect(filas[1]!.textContent).toContain("4");
+    expect(filas[1]!.textContent).toContain(formatoMoneda.format(180000));
+    // 180000 / 4
+    expect(filas[1]!.textContent).toContain(formatoMoneda.format(45000));
+    // Sin trabajos no hay promedio: guion, no un cero engañoso.
+    expect(filas[2]!.textContent).toContain("—");
+    // El encabezado suma los trabajos del periodo.
+    expect(screen.getByText("2 técnicos · 4 trabajos")).toBeInTheDocument();
+  });
 });

@@ -10,6 +10,12 @@ export const TIPOS_EVENTO_AUDITORIA: TipoEventoAuditoria[] = [
   "USUARIO_ACTUALIZAR_PERMISOS",
   "USUARIO_ELIMINAR",
   "BODEGA_ELIMINAR",
+  "LIQUIDACION_GENERAR",
+  "LIQUIDACION_AJUSTAR",
+  "LIQUIDACION_PAGAR",
+  "LIQUIDACION_ANULAR",
+  "LIQUIDACION_ESQUEMA_ACTUALIZAR",
+  "LIQUIDACION_FRECUENCIA_ACTUALIZAR",
 ];
 
 export const TIPO_EVENTO_AUDITORIA_LABELS: Record<TipoEventoAuditoria, string> = {
@@ -17,4 +23,10 @@ export const TIPO_EVENTO_AUDITORIA_LABELS: Record<TipoEventoAuditoria, string> =
   USUARIO_ACTUALIZAR_PERMISOS: "Permisos actualizados",
   USUARIO_ELIMINAR: "Usuario eliminado",
   BODEGA_ELIMINAR: "Bodega eliminada",
+  LIQUIDACION_GENERAR: "Liquidación generada",
+  LIQUIDACION_AJUSTAR: "Liquidación ajustada",
+  LIQUIDACION_PAGAR: "Liquidación pagada",
+  LIQUIDACION_ANULAR: "Liquidación anulada",
+  LIQUIDACION_ESQUEMA_ACTUALIZAR: "Esquema de pago actualizado",
+  LIQUIDACION_FRECUENCIA_ACTUALIZAR: "Frecuencia de liquidación actualizada",
 };
