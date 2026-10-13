@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export const ALLOWED_UPLOAD_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
@@ -59,7 +59,16 @@ export interface SavedUpload {
   url: string;
 }
 
-export async function saveDviFoto(tenantSchema: string, dviId: string, file: File): Promise<SavedUpload> {
+/** Extensiones que la ruta de descarga sabe servir (y por tanto las únicas borrables). */
+const EXTENSIONES_PERMITIDAS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
+
+const PREFIJO_URL = "/api/uploads/";
+
+/**
+ * Valida y escribe un archivo bajo `<UPLOADS_DIR>/<segmentos…>/<uuid>.<ext>`. Es
+ * el único sitio que toca el disco: cada entrada pública decide sus segmentos.
+ */
+async function guardarArchivo(segments: string[], file: File): Promise<SavedUpload> {
   if (!isAllowedMimeType(file.type)) {
     throw new Error(`Tipo de archivo no permitido: ${file.type}`);
   }
@@ -74,12 +83,64 @@ export async function saveDviFoto(tenantSchema: string, dviId: string, file: Fil
 
   const extension = MIME_EXTENSIONS[file.type];
   const filename = `${randomUUID()}.${extension}`;
-  const relativeSegments = [tenantSchema, "dvi", dviId, filename];
-  const absoluteDir = path.join(getUploadsRoot(), tenantSchema, "dvi", dviId);
+  const relativeSegments = [...segments, filename];
+  const absoluteDir = path.join(getUploadsRoot(), ...segments);
 
   await mkdir(absoluteDir, { recursive: true });
   await writeFile(path.join(absoluteDir, filename), buffer);
 
   const relativePath = relativeSegments.join("/");
-  return { relativePath, url: `/api/uploads/${relativePath}` };
+  return { relativePath, url: `${PREFIJO_URL}${relativePath}` };
+}
+
+export async function saveDviFoto(tenantSchema: string, dviId: string, file: File): Promise<SavedUpload> {
+  return guardarArchivo([tenantSchema, "dvi", dviId], file);
+}
+
+/** Qué se guarda de una orden: la firma dibujada o la foto del acta firmada. */
+export type TipoArchivoOrden = "acta" | "firma";
+
+/**
+ * Archivos de la orden (Fase 21): `<tenant>/ordenes/<ordenId>/<tipo>/<uuid>.<ext>`.
+ * La firma de pantalla llega como PNG y la foto del acta como jpeg/png/webp: las
+ * dos pasan por las mismas validaciones de MIME, tamaño y magic bytes.
+ */
+export async function saveOrdenArchivo(
+  tenantSchema: string,
+  ordenId: string,
+  tipo: TipoArchivoOrden,
+  file: File,
+): Promise<SavedUpload> {
+  return guardarArchivo([tenantSchema, "ordenes", ordenId, tipo], file);
+}
+
+/**
+ * Borra el archivo de una URL de `/api/uploads/...`, siempre dentro de la raíz
+ * del tenant de la sesión: se resuelve la ruta y se comprueba con el **mismo**
+ * criterio que la ruta de descarga (`src/app/api/uploads/[...path]/route.ts`),
+ * comparando contra la raíz del tenant más el separador para que un directorio
+ * hermano con el mismo prefijo no pase. Devuelve si borró algo; que el archivo ya
+ * no esté no es un error (borrar dos veces no falla).
+ */
+export async function borrarUpload(tenantSchema: string, url: string): Promise<boolean> {
+  if (!url.startsWith(PREFIJO_URL)) return false;
+
+  const segments = url.slice(PREFIJO_URL.length).split("/").filter(Boolean);
+  if (segments[0] !== tenantSchema) return false;
+
+  const uploadsRoot = getUploadsRoot();
+  const tenantRoot = path.join(uploadsRoot, tenantSchema);
+  const requestedPath = path.join(uploadsRoot, ...segments);
+  const tenantRootWithSep = tenantRoot + path.sep;
+
+  if (requestedPath !== tenantRoot && !requestedPath.startsWith(tenantRootWithSep)) return false;
+  if (!EXTENSIONES_PERMITIDAS.has(path.extname(requestedPath).toLowerCase())) return false;
+
+  try {
+    await unlink(requestedPath);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
 }

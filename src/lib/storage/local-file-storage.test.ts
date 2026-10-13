@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { saveDviFoto } from "./local-file-storage";
+import { borrarUpload, saveDviFoto, saveOrdenArchivo } from "./local-file-storage";
 
 let uploadsDir: string;
 const originalUploadsDir = process.env.UPLOADS_DIR;
@@ -75,3 +75,75 @@ describe("saveDviFoto", () => {
     expect(saved.url).toMatch(/\.webp$/);
   });
 });
+
+describe("saveOrdenArchivo", () => {
+  it("guarda la firma y la foto del acta bajo ordenes/<ordenId>/<tipo>/", async () => {
+    const firma = await saveOrdenArchivo("taller_perez", "o1", "firma", makeFile(new Uint8Array(PNG_MAGIC), "image/png", "firma.png"));
+    const acta = await saveOrdenArchivo("taller_perez", "o1", "acta", makeFile(new Uint8Array(JPEG_MAGIC), "image/jpeg", "acta.jpg"));
+
+    expect(firma.url).toMatch(/^\/api\/uploads\/taller_perez\/ordenes\/o1\/firma\/[^/]+\.png$/);
+    expect(acta.url).toMatch(/^\/api\/uploads\/taller_perez\/ordenes\/o1\/acta\/[^/]+\.jpg$/);
+    // Los dos archivos están de verdad en disco.
+    await expect(readFile(path.join(uploadsDir, firma.relativePath))).resolves.toBeTruthy();
+    await expect(readFile(path.join(uploadsDir, acta.relativePath))).resolves.toBeTruthy();
+  });
+
+  it("mantiene las validaciones: MIME no permitido y magic bytes falsos", async () => {
+    await expect(
+      saveOrdenArchivo("taller_perez", "o1", "acta", makeFile(new Uint8Array([1]), "application/pdf", "acta.pdf")),
+    ).rejects.toThrow(/no permitido/);
+    await expect(
+      saveOrdenArchivo("taller_perez", "o1", "firma", makeFile(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]), "image/png")),
+    ).rejects.toThrow(/imagen válida/);
+  });
+});
+
+describe("borrarUpload", () => {
+  async function existe(ruta: string): Promise<boolean> {
+    try {
+      await readFile(ruta);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  it("borra el archivo guardado y no falla si se pide otra vez", async () => {
+    const guardado = await saveOrdenArchivo(
+      "taller_perez",
+      "o1",
+      "firma",
+      makeFile(new Uint8Array(PNG_MAGIC), "image/png", "firma.png"),
+    );
+    const enDisco = path.join(uploadsDir, guardado.relativePath);
+
+    await expect(borrarUpload("taller_perez", guardado.url)).resolves.toBe(true);
+    await expect(existe(enDisco)).resolves.toBe(false);
+    await expect(borrarUpload("taller_perez", guardado.url)).resolves.toBe(false);
+  });
+
+  it("no borra nada fuera de la raíz del tenant, ni con otra extensión, ni con URL ajena", async () => {
+    // Archivo de otro tenant que un intento de travesía no debe alcanzar.
+    const victima = path.join(uploadsDir, "otro_taller", "secreto.png");
+    await guardarArchivoDePrueba(victima);
+
+    const intentos = [
+      "/api/uploads/taller_perez/../../otro_taller/secreto.png",
+      "/api/uploads/otro_taller/secreto.png",
+      "/api/uploads/taller_perez/ordenes/o1/firma/archivo.pdf",
+      "https://ejemplo.com/api/uploads/taller_perez/ordenes/o1/firma/x.png",
+      "/tmp/archivo.png",
+    ];
+    for (const url of intentos) {
+      await expect(borrarUpload("taller_perez", url)).resolves.toBe(false);
+    }
+
+    await expect(existe(victima)).resolves.toBe(true);
+  });
+});
+
+/** Escribe un archivo arbitrario dentro de UPLOADS_DIR (para el caso de travesía). */
+async function guardarArchivoDePrueba(destino: string): Promise<void> {
+  await mkdir(path.dirname(destino), { recursive: true });
+  await writeFile(destino, new Uint8Array(PNG_MAGIC));
+}
