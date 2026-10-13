@@ -6,6 +6,7 @@ const db = {
   gasto: { findMany: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), aggregate: vi.fn(), groupBy: vi.fn(), findUnique: vi.fn() },
   categoriaGasto: { findUnique: vi.fn() },
   sede: { findUnique: vi.fn() },
+  cajaSesion: { findFirst: vi.fn() },
 };
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -31,10 +32,24 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-10-15T15:00:00Z"));
   mockRequireRole.mockResolvedValue(RECEPCION);
+  db.cajaSesion.findFirst.mockResolvedValue({ id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
 });
 afterEach(() => vi.useRealTimers());
 
 describe("gastos", () => {
+  it("no registra un gasto pagado en efectivo con la caja cerrada (Fase 24)", async () => {
+    db.cajaSesion.findFirst.mockResolvedValue(null);
+    db.categoriaGasto.findUnique.mockResolvedValue({ id: "cat_arriendo", activo: true });
+
+    const r = await crearGastoAction(inicial, form({ ...valido, pagadoEnEfectivo: "true" }));
+
+    expect(r).toEqual({ error: "Abre la caja antes de registrar un gasto pagado en efectivo", success: false });
+    expect(db.gasto.create).not.toHaveBeenCalled();
+
+    // Un gasto que no sale del cajón sí se puede registrar con la caja cerrada.
+    expect(await crearGastoAction(inicial, form({ ...valido }))).toEqual({ error: null, success: true });
+  });
+
   it("crearGastoAction (RECEPCION) usa la sede activa aunque envíe otra", async () => {
     db.categoriaGasto.findUnique.mockResolvedValue({ id: "cat_arriendo", activo: true });
     const f = form({ ...valido, sedeId: "s2" });

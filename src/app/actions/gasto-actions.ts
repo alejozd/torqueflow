@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
+import { sesionDeCajaAbierta } from "@/lib/caja/sesion";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { ETIQUETA_MES, periodoActualBogota, periodoAnterior, rangoDelPeriodo } from "@/lib/gastos/periodo";
@@ -70,6 +71,13 @@ export async function crearGastoAction(prevState: GastoFormState, formData: Form
   const errorCategoria = await validarCategoria(tenantDb, categoriaId);
   if (errorCategoria) return { error: errorCategoria, success: false };
 
+  // Un gasto pagado en efectivo sale del cajón: sin caja abierta quedaría fuera
+  // del arqueo (Fase 24, D2).
+  const pagadoEnEfectivo = leerPagadoEnEfectivo(formData);
+  if (pagadoEnEfectivo && !(await sesionDeCajaAbierta(tenantDb, sedeId))) {
+    return { error: "Abre la caja antes de registrar un gasto pagado en efectivo", success: false };
+  }
+
   try {
     await tenantDb.gasto.create({
       data: {
@@ -80,7 +88,7 @@ export async function crearGastoAction(prevState: GastoFormState, formData: Form
         fecha: new Date(`${fecha}T00:00:00.000Z`),
         referencia: referencia ?? null,
         registradoPorId: session.user.id,
-        pagadoEnEfectivo: leerPagadoEnEfectivo(formData),
+        pagadoEnEfectivo,
       },
     });
   } catch (err) {
@@ -121,6 +129,12 @@ export async function actualizarGastoAction(
   const errorCategoria = await validarCategoria(tenantDb, categoriaId, actual.categoriaId);
   if (errorCategoria) return { error: errorCategoria, success: false };
 
+  // Editar un gasto también puede convertirlo en "pagado en efectivo": misma regla.
+  const pagadoEnEfectivo = leerPagadoEnEfectivo(formData);
+  if (pagadoEnEfectivo && !(await sesionDeCajaAbierta(tenantDb, sedeId))) {
+    return { error: "Abre la caja antes de marcar un gasto como pagado en efectivo", success: false };
+  }
+
   try {
     await tenantDb.gasto.update({
       where: { id: gastoId },
@@ -131,7 +145,7 @@ export async function actualizarGastoAction(
         monto,
         fecha: new Date(`${fecha}T00:00:00.000Z`),
         referencia: referencia ?? null,
-        pagadoEnEfectivo: leerPagadoEnEfectivo(formData),
+        pagadoEnEfectivo,
       },
     });
   } catch (err) {

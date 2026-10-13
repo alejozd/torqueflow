@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth/guards";
+import { sesionDeCajaAbierta } from "@/lib/caja/sesion";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { anticipoInputSchema, devolverAnticipoInputSchema } from "@/lib/validation/caja";
@@ -66,6 +67,12 @@ export async function registrarAnticipoAction(
     return { error: "No se pueden registrar anticipos en una orden anulada", success: false };
   }
 
+  // Un anticipo es dinero que entra al cajón: exige caja abierta, o quedaría
+  // registrado sin aparecer en ningún arqueo (Fase 24, D2).
+  if (!(await sesionDeCajaAbierta(tenantDb, orden.sedeId))) {
+    return { error: "Abre la caja antes de registrar el anticipo", success: false };
+  }
+
   try {
     await tenantDb.anticipo.create({
       data: {
@@ -100,6 +107,11 @@ export async function devolverAnticipoAction(
     select: { id: true, ordenId: true },
   });
   if (!anticipo) return { error: "Anticipo no encontrado", success: false };
+
+  // Devolver un anticipo saca dinero del cajón: misma regla que el cobro.
+  if (!(await sesionDeCajaAbierta(tenantDb, session.user.sedeActivaId))) {
+    return { error: "Abre la caja antes de devolver el anticipo", success: false };
+  }
 
   try {
     // Conditional update: a concurrent invoice that applied it wins.

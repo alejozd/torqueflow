@@ -57,8 +57,9 @@ export default async function CajaPage({
           <Alert>
             <AlertTitle>La caja está cerrada</AlertTitle>
             <AlertDescription>
-              Cobrar exige la caja abierta, así que no se pueden registrar cobros hasta que abras la de tu sede. Los
-              anticipos sí se siguen registrando con la caja cerrada, y en ese caso quedan fuera de todo arqueo.
+              Todo el dinero de la sede pasa por la caja: cobros, anticipos, gastos en efectivo y pagos a proveedores
+              exigen la caja abierta para que ninguno quede fuera del arqueo. Ábrela para poder registrar
+              movimientos.
             </AlertDescription>
           </Alert>
           <Card>

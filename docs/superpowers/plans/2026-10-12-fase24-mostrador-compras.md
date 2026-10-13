@@ -134,7 +134,7 @@ La revisión del diff completo (otro modelo, solo lectura) encontró tres fallos
 | **M4** | En una venta con descuento, devolver una línea pagaba su precio sin descuento. | `totalDevolucion` **reparte el descuento en proporción** (`base × total/subtotal`), con el tope anterior como red. Tests. |
 | **Bajo** | `pagoAlContadoSchema` sin uso, mensaje de la caja impreciso sobre anticipos. | Se eliminó el esquema muerto y se corrigió el texto. |
 
-**Límites conocidos y aceptados** (documentados, no arreglados): la pantalla lista solo las ventas **de hoy**, así que una venta a crédito de ayer no se puede cobrar ni devolver desde la interfaz (las acciones sí lo permiten); y el hueco heredado sigue abierto en los **anticipos** y en los **gastos pagados en efectivo**, que se registran con la caja cerrada y por tanto quedan fuera del arqueo (no son de esta fase, pero son el mismo problema: conviene cerrarlos igual que se cerró el cobro).
+**Límites conocidos y aceptados** (documentados, no arreglados): la pantalla lista solo las ventas **de hoy**, así que una venta a crédito de ayer no se puede cobrar ni devolver desde la interfaz (las acciones sí lo permiten). Los huecos heredados de los **anticipos** y de los **gastos pagados en efectivo** —que se podían registrar con la caja cerrada y quedaban fuera del arqueo— **se cerraron en esta misma fase** con la autorización del usuario: ahora exigen caja abierta, igual que el cobro, con sus tests.
 
 También se corrigió un **test intermitente ajeno** (`clientes/[id]/nuevo-vehiculo-form.test.tsx`): fallaba por tiempo (5.029 ms en el límite de 5 s bajo carga) y ahora tiene margen explícito. El test más lento de esta fase recibió el mismo trato.
 
