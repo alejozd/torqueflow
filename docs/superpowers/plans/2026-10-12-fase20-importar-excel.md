@@ -91,7 +91,7 @@ clientes/repuestos (hoy no existen: `src/lib/planes/limites.ts:3-6` solo tiene `
 | **D2** | **Solo crea.** Una fila cuya clave ya existe (en la base o repetida dentro del mismo archivo) **no se toca**: se cuenta y se reporta como "ya existía", con su clave. Nada se sobrescribe sin querer; reimportar el mismo archivo es inofensivo. |
 | **D3** | **Importa lo válido y reporta lo rechazado**: cada fila rechazada se devuelve con `hoja`, número de fila (el de Excel, contando el encabezado), columna y motivo en español. Las filas buenas de esa misma hoja sí entran. |
 | **D4** | **Las cuatro entidades**: `Clientes`, `Vehículos`, `Repuestos`, `Servicios`, en ese orden de dependencias (un vehículo necesita su cliente; un repuesto necesita bodega). |
-| **D5** | **Repuestos: catálogo + stock inicial.** `bodegaId` es obligatorio en el modelo (`schema.prisma:455-456`) y debe ser de la sede activa, así que el formulario **pide la bodega siempre**; si el archivo trae `cantidad inicial`, se pide también un **proveedor** y el stock entra por la vía trazable: se crea el repuesto con `stockActual: 0` y, para cada fila con cantidad, una `EntradaMercancia` con su `EntradaMercanciaItem` + `stockActual: { increment }` (misma semántica que `crearEntradaMercanciaAction`). Sin proveedor elegido, las filas con cantidad se rechazan con ese motivo (y el resto entra). |
+| **D5** | **Repuestos: catálogo + stock inicial.** `bodegaId` es obligatorio en el modelo (`schema.prisma:455-456`) y debe ser de la sede activa, así que el formulario **pide la bodega siempre**; si el archivo trae `cantidad inicial`, se pide también un **proveedor** y el stock entra por la vía trazable: se crea el repuesto con `stockActual: 0` y, para las filas con cantidad, **una sola** `EntradaMercancia` con un `EntradaMercanciaItem` por repuesto + `stockActual: { increment }` (misma semántica que `crearEntradaMercanciaAction`; ver D17 del fix round). Sin proveedor elegido, las filas con cantidad se rechazan con ese motivo (y el resto entra). |
 | **D6** | **Claves de duplicado** (todas normalizadas: minúsculas, sin tildes, sin espacios de sobra): Clientes → `documento` si viene, si no `nombre`; Vehículos → `placa` (mayúsculas, sin espacios ni guiones); Repuestos → `codigo` (mayúsculas); Servicios → `nombre`. Solo `placa`, `codigo` y `nombre` de servicio son únicos en la base; el de clientes es un dedupe de aplicación, igual que en `scripts/seed-clientes.ts:88-95`. |
 | **D7** | **Topes explícitos y avisados**: archivo ≤ **5 MB** (por debajo del `bodySizeLimit: "6mb"`), ≤ **2.000 filas por hoja** (las que sobren se reportan como rechazadas), y el reporte devuelve como máximo **200 rechazos** visibles (el resto se cuenta: "y N más"). |
 | **D8** | **Esta fase no lleva migración ni evento de auditoría.** Todo lo que crea ya existe en el esquema y la importación es **aditiva** (no borra ni modifica nada); la casa solo audita acciones destructivas y de dinero (`bodega-actions.ts:124-136` es el patrón). Se reevalúa si más adelante la importación puede actualizar. |
@@ -320,6 +320,42 @@ la action relee el archivo, valida cada fila con los esquemas del servidor y cal
 un archivo enorme consuma memoria o tiempo. Ninguna consulta devuelve filas completas de `Usuario`
 (siempre `select` mínimo). El nombre del archivo subido **no** se usa como ruta ni se guarda en disco:
 se lee en memoria y se descarta. La plantilla se descarga autenticada (`requireRole`).
+
+## 4-bis. Decisiones del fix round (revisión final)
+
+La revisión final del diff completo encontró un crítico (un vehículo podía quedar asignado a un cliente
+homónimo), cuatro importantes y varios menores; se cerraron antes del merge. Quedan como parte del
+diseño, no como parches:
+
+- **D13 — El cliente de un vehículo se identifica sin ambigüedad.** Si la fila de Vehículos trae
+  documento, **manda el documento**: no se cae al nombre si no resuelve (caer al nombre era lo que
+  asignaba el vehículo a un homónimo). Sin documento se busca por nombre, y si ese nombre lo comparten
+  dos clientes la fila se rechaza pidiendo el documento. En Clientes, una fila **con** documento se
+  identifica solo por documento: antes se miraban documento y nombre, así que un cliente nuevo que se
+  llamara como otro existente se omitía como "ya existía" (pérdida silenciosa de datos).
+- **D14 — Las transacciones tienen margen y no dejan ids fantasma.** Las cuatro transacciones (una por
+  hoja, D11) piden `maxWait: 10s` y `timeout: 120s`: Prisma aborta a los 5 s por defecto y el tope de la
+  fase admite 2.000 filas con hasta tres sentencias cada una. Además los clientes creados se registran
+  **después** del commit, así que un rollback no deja a Vehículos resolviendo contra ids que no existen
+  (que tumbaba su hoja entera en vez de rechazar por fila).
+- **D15 — El dinero se acota antes de escribir.** Las columnas de dinero son `Decimal(10,2)`: un precio
+  por encima del máximo se rechaza con mensaje propio en español (como ya hacía Servicios con
+  `PRECIO_MAXIMO`) en vez de reventar el `create` y dejar la hoja entera en un error genérico.
+- **D16 — El reporte prioriza lo accionable.** El tope de 200 novedades muestra primero las
+  **rechazadas** y después las que ya existían (si no, reimportar un archivo llenaba las 200 con "ya
+  existía" y ocultaba lo que hay que corregir), y el exceso de filas por encima del tope se agrupa en
+  **un solo aviso** (`filasSobrantes` mantiene el conteo real en el resumen).
+- **D17 — Una sola entrada de mercancía por hoja.** Las filas de Repuestos con cantidad inicial
+  comparten una `EntradaMercancia` (un ítem por repuesto) en vez de crear una entrada por fila: refleja
+  mejor una carga inicial de inventario y sigue siendo trazable, con test propio.
+- **D18 — Las claves de duplicado viven en `duplicados.ts`.** `claveDuplicado` salió del contrato de
+  hojas (nadie lo leía y no podía expresar la regla doble de Clientes); la acción reutiliza `buscarHoja`
+  en vez de su propio emparejador, se eliminó `contarNovedades` sin uso y el booleano de Servicios usa
+  `normalizarBooleano` en vez de reimplementarlo.
+- **Menores del mismo round:** el correo se guarda en minúsculas, la hoja de instrucciones avisa de que
+  la segunda fila es un ejemplo (subir la plantilla sin tocarla importaba la fila de ejemplo como dato),
+  y se reforzaron los tests (homónimos, placa ya existente con otro formato, fallo de Repuestos,
+  opciones de transacción, topes).
 
 ## 5. Verificación final de la fase
 
