@@ -11,7 +11,7 @@ vi.mock("@/lib/db/tenant-client", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { guardarDiasAvisoAction } from "./configuracion-taller-actions";
+import { guardarDiasAvisoAction, guardarDiasEstancadaAction } from "./configuracion-taller-actions";
 
 const inicial = { error: null, success: false };
 
@@ -55,5 +55,48 @@ describe("guardarDiasAvisoAction", () => {
     expect(r.success).toBe(false);
     expect(r.error).toBe("Ingresa un número de días entre 1 y 90");
     expect(mockUpsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("guardarDiasEstancadaAction", () => {
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockUpsert.mockReset().mockResolvedValue({});
+  });
+
+  it("exige ADMIN y guarda el umbral en el singleton", async () => {
+    const fd = new FormData();
+    fd.set("diasOrdenEstancada", "5");
+
+    const r = await guardarDiasEstancadaAction(inicial, fd);
+
+    expect(r).toEqual({ error: null, success: true });
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockUpsert).toHaveBeenCalledWith({
+      where: { id: "singleton" },
+      create: { id: "singleton", diasOrdenEstancada: 5 },
+      update: { diasOrdenEstancada: 5 },
+    });
+  });
+
+  it.each(["0", "91", "abc", "", "2.5"])("rechaza %s", async (valor) => {
+    const fd = new FormData();
+    fd.set("diasOrdenEstancada", valor);
+
+    const r = await guardarDiasEstancadaAction(inicial, fd);
+
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("Ingresa un número de días entre 1 y 90");
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it("devuelve un error amigable si el upsert falla", async () => {
+    mockUpsert.mockRejectedValue(new Error("db down"));
+    const fd = new FormData();
+    fd.set("diasOrdenEstancada", "5");
+
+    const r = await guardarDiasEstancadaAction(inicial, fd);
+
+    expect(r).toEqual({ error: "No se pudo guardar la configuración", success: false });
   });
 });

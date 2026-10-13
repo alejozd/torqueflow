@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb, type TenantPrismaClient } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
-import { ordenTrabajoInputSchema, estadoOrdenSchema } from "@/lib/validation/orden";
+import { ordenTrabajoInputSchema, estadoOrdenSchema, prioridadOrdenSchema } from "@/lib/validation/orden";
 import { isValidEstadoTransition } from "@/lib/orden/estado-transitions";
-import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
+import { assertOrdenMutable, esOrdenMutable } from "@/lib/orden/mutable-guard";
 import { scopeOrden } from "@/lib/sede/scope";
 import {
   CONFIGURACION_SMTP_ID,
@@ -33,6 +33,9 @@ export interface TecnicoOption {
   id: string;
   nombre: string;
 }
+
+/** Error centinela: aborta la transacción y se traduce a un mensaje de usuario. */
+const PRIORIDAD_CAMBIADA = "__prioridad_cambiada__";
 
 const ORDEN_DETAIL_INCLUDE = {
   cliente: true,
@@ -378,6 +381,9 @@ export async function updateEstadoOrdenAction(
   }
 
   revalidatePath(`/ordenes/${id}`);
+  // El tablero (Fase 22) mueve órdenes desde /ordenes: sin revalidar el listado,
+  // la tarjeta se quedaría en su columna vieja y los contadores no se moverían.
+  revalidatePath("/ordenes");
 
   const nuevoEstado = parsedEstado.data;
   const advertencia = esEstadoNotificable(nuevoEstado)
@@ -399,6 +405,68 @@ export async function updateEstadoOrdenAction(
 export interface AsignarMecanicoFormState {
   error: string | null;
   success: boolean;
+}
+
+export interface PrioridadFormState {
+  error: string | null;
+  success: boolean;
+}
+
+/**
+ * Cambia la prioridad de la orden (Fase 22, D3): qué va primero en el taller.
+ * Mismos roles que asignar el mecánico (ADMIN/RECEPCION) y solo mientras la orden
+ * sea editable. La escritura es condicional para no pisar un cambio simultáneo, y
+ * queda auditada porque la prioridad es una decisión, no un dato de adorno.
+ */
+export async function cambiarPrioridadAction(
+  ordenId: string,
+  prevState: PrioridadFormState,
+  formData: FormData,
+): Promise<PrioridadFormState> {
+  void prevState;
+  const parsed = prioridadOrdenSchema.safeParse(formData.get("prioridad") ?? "");
+  if (!parsed.success) return { error: "Prioridad inválida", success: false };
+
+  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const orden = await tenantDb.ordenTrabajo.findFirst({
+    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
+    select: { id: true, estado: true, prioridad: true, factura: { select: { id: true } } },
+  });
+  if (!orden) return { error: "Orden no encontrada", success: false };
+  if (!esOrdenMutable({ estado: orden.estado, factura: orden.factura })) {
+    return { error: "La orden ya no se puede modificar: no se puede cambiar la prioridad", success: false };
+  }
+  // Idempotente: volver a guardar la misma prioridad no escribe ni audita nada.
+  if (orden.prioridad === parsed.data) return { error: null, success: true };
+
+  try {
+    await tenantDb.$transaction(async (tx) => {
+      const actualizadas = await tx.ordenTrabajo.updateMany({
+        where: { id: ordenId, prioridad: orden.prioridad },
+        data: { prioridad: parsed.data },
+      });
+      if (actualizadas.count === 0) throw new Error(PRIORIDAD_CAMBIADA);
+
+      await registrarEventoAuditoria(tx, {
+        tipo: "PRIORIDAD_CAMBIAR",
+        actorId: session.user.id,
+        entidadTipo: "OrdenTrabajo",
+        entidadId: ordenId,
+        detalle: { anterior: orden.prioridad, nueva: parsed.data },
+      });
+    });
+  } catch (err) {
+    if (err instanceof Error && err.message === PRIORIDAD_CAMBIADA) {
+      return { error: "Otra persona cambió la prioridad: revisa antes de guardar", success: false };
+    }
+    return { error: friendlyPrismaErrorMessage(err, "No se pudo cambiar la prioridad"), success: false };
+  }
+
+  revalidatePath("/ordenes");
+  revalidatePath(`/ordenes/${ordenId}`);
+  return { error: null, success: true };
 }
 
 /**

@@ -45,3 +45,20 @@ export const manoDeObraInputSchema = z.object({
 export type ManoDeObraInput = z.infer<typeof manoDeObraInputSchema>;
 
 export const estadoOrdenSchema = z.enum(["BORRADOR", "EN_PROCESO", "TERMINADA", "ENTREGADA", "ANULADA"]);
+
+/** Fase 22: prioridad de la orden (qué va primero en el taller). */
+export const prioridadOrdenSchema = z.enum(["BAJA", "NORMAL", "ALTA", "URGENTE"]);
+
+export const PRIORIDAD_ORDEN_POR_DEFECTO = "NORMAL" as const;
+
+/** Fase 22: umbral de días sin actividad para considerar una orden estancada. */
+export const DIAS_ESTANCADA_MIN = 1;
+export const DIAS_ESTANCADA_MAX = 90;
+
+const MENSAJE_DIAS_ESTANCADA = `Ingresa un número de días entre ${DIAS_ESTANCADA_MIN} y ${DIAS_ESTANCADA_MAX}`;
+
+export const diasEstancadaSchema = z.coerce
+  .number({ error: MENSAJE_DIAS_ESTANCADA })
+  .int(MENSAJE_DIAS_ESTANCADA)
+  .min(DIAS_ESTANCADA_MIN, MENSAJE_DIAS_ESTANCADA)
+  .max(DIAS_ESTANCADA_MAX, MENSAJE_DIAS_ESTANCADA);

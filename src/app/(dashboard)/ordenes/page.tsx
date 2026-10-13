@@ -1,11 +1,31 @@
 import Link from "next/link";
-import { AlertCircle, AlertTriangle, ArrowDown, ArrowUp, Car, DollarSign, UserPlus, Wrench } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowDown, ArrowUp, Car, Clock, DollarSign, UserPlus, Wrench } from "lucide-react";
 import { listOrdenes, listTecnicos, type OrdenWithDetalle } from "@/app/actions/orden-actions";
+import { getAlertasTaller, type AlertaTaller } from "@/app/actions/alertas-taller-actions";
 import { listClientesParaOrden } from "@/app/actions/cliente-actions";
 import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/vehiculo-marca-modelo-actions";
 import { getDiasAvisoVencimiento } from "@/app/actions/configuracion-taller-actions";
 import { requireSession } from "@/lib/auth/guards";
 import { NuevaOrdenDialog } from "./nueva-orden-dialog";
+import { PRIORIDAD_BADGE_CLASSNAME } from "./prioridad-tono";
+import { ESTADO_BADGE_CLASSNAME, ESTADO_BADGE_VARIANT, ESTADO_DOT_COLOR, ESTADO_LABELS } from "./estado-tono";
+import { TableroOrdenes, type ColumnaTablero } from "./tablero-ordenes";
+import { esOrdenMutable } from "@/lib/orden/mutable-guard";
+import {
+  ALERTAS_VALIDAS,
+  ESTADOS_VALIDOS,
+  ETIQUETA_FILTRO_ALERTA,
+  compararPrioridad,
+  construirHrefOrdenes,
+  filtrarPorAlerta,
+  parseAlerta,
+  parseEstado,
+  parseOrder,
+  parseSort,
+  parseVista,
+  type SortKey,
+  type SortOrder,
+} from "./filtros-ordenes";
 import type { EstadoOrden } from "@/generated/prisma-tenant";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -13,49 +33,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { inferirColorVehiculo } from "@/lib/color-vehiculo";
 import { formatoFechaCorta, formatoFechaRelativa, inicioMesBogota, inicioSemanaBogota } from "@/lib/fecha-bogota";
+import { ETIQUETA_PRIORIDAD, compararPorPrioridad, type MotivoAlerta } from "@/lib/orden/flujo";
 import { cn } from "@/lib/utils";
-
-const ESTADOS_VALIDOS: EstadoOrden[] = ["BORRADOR", "EN_PROCESO", "TERMINADA", "ENTREGADA", "ANULADA"];
-
-type SortKey = "fecha" | "total" | "estado" | "cliente";
-type SortOrder = "asc" | "desc";
-const SORT_KEYS: SortKey[] = ["fecha", "total", "estado", "cliente"];
-
-const ESTADO_LABELS: Record<EstadoOrden, string> = {
-  BORRADOR: "Borrador",
-  EN_PROCESO: "En proceso",
-  TERMINADA: "Terminada",
-  ENTREGADA: "Entregada",
-  ANULADA: "Anulada",
-};
-
-// Draft -> in progress (amber, active work) -> finished (blue, ready) ->
-// delivered (green, done) -> cancelled (red). Badge's own variants only cover
-// default/secondary/destructive/outline, so the amber/blue/green states use
-// the same bg-X/10 + text-X className mechanism the destructive variant uses.
-const ESTADO_BADGE_CLASSNAME: Record<EstadoOrden, string> = {
-  BORRADOR: "",
-  EN_PROCESO: "border-transparent bg-[oklch(0.7_0.15_60/0.15)] text-[oklch(0.55_0.15_60)]",
-  TERMINADA: "border-transparent bg-[oklch(0.44_0.12_250/0.1)] text-[oklch(0.44_0.12_250)]",
-  ENTREGADA: "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]",
-  ANULADA: "",
-};
-
-const ESTADO_BADGE_VARIANT: Partial<Record<EstadoOrden, "outline" | "destructive">> = {
-  BORRADOR: "outline",
-  ANULADA: "destructive",
-};
-
-// Dot/left-border tone per columna del tablero -- mismos tonos que
-// ESTADO_BADGE_CLASSNAME (o el neutro/destructivo estándar para los estados
-// que usan variant en vez de className propio).
-const ESTADO_DOT_COLOR: Record<EstadoOrden, string> = {
-  BORRADOR: "oklch(0.7 0 0)",
-  EN_PROCESO: "oklch(0.55 0.15 60)",
-  TERMINADA: "oklch(0.44 0.12 250)",
-  ENTREGADA: "oklch(0.4 0.1 150)",
-  ANULADA: "oklch(0.5 0.2 27)",
-};
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", {
   style: "currency",
@@ -87,15 +66,6 @@ function calcularTotalOrden(orden: OrdenRow): number {
   return itemsTotal + manoObraTotal;
 }
 
-function iniciales(nombre: string): string {
-  return nombre
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((parte) => parte[0]?.toUpperCase() ?? "")
-    .join("");
-}
-
 interface ColumnaKanban {
   estado: EstadoOrden;
   ordenes: OrdenRow[];
@@ -103,26 +73,16 @@ interface ColumnaKanban {
 
 // Fixed ESTADOS_VALIDOS order (not grouped from `ordenes`' own order) so every
 // columna renders even when empty, matching the mockup's always-visible board.
-function agruparPorEstado(ordenes: OrdenRow[]): ColumnaKanban[] {
-  return ESTADOS_VALIDOS.map((estado) => ({
+// ANULADA is the exception (Fase 22, D10): a cancelled orden is not part of the
+// live flow, so it only gets a column when that estado is what you filtered by.
+function agruparPorEstado(ordenes: OrdenRow[], estadoFiltro?: EstadoOrden): ColumnaKanban[] {
+  const estados = estadoFiltro === "ANULADA" ? ESTADOS_VALIDOS : ESTADOS_VALIDOS.filter((estado) => estado !== "ANULADA");
+  return estados.map((estado) => ({
     estado,
-    ordenes: ordenes.filter((orden) => orden.estado === estado),
+    ordenes: ordenes
+      .filter((orden) => orden.estado === estado)
+      .sort((a, b) => compararPorPrioridad(a, b)),
   }));
-}
-
-function construirHrefOrdenes(base: {
-  estado?: EstadoOrden;
-  vista?: "tabla" | "tablero";
-  sort?: SortKey;
-  order?: SortOrder;
-}): string {
-  const params = new URLSearchParams();
-  if (base.estado) params.set("estado", base.estado);
-  if (base.vista && base.vista !== "tabla") params.set("vista", base.vista);
-  if (base.sort) params.set("sort", base.sort);
-  if (base.sort && base.order === "asc") params.set("order", "asc");
-  const query = params.toString();
-  return query ? `/ordenes?${query}` : "/ordenes";
 }
 
 /**
@@ -137,6 +97,7 @@ function SortableHeader({
   orderActual,
   estadoFiltro,
   vistaActual,
+  alertaFiltro,
 }: {
   label: string;
   sortKey: SortKey;
@@ -144,12 +105,19 @@ function SortableHeader({
   orderActual: SortOrder;
   estadoFiltro: EstadoOrden | undefined;
   vistaActual: "tabla" | "tablero";
+  alertaFiltro: MotivoAlerta | undefined;
 }) {
   const isActive = sortActual === sortKey;
   const nextOrder: SortOrder = isActive && orderActual === "desc" ? "asc" : "desc";
   return (
     <Link
-      href={construirHrefOrdenes({ estado: estadoFiltro, vista: vistaActual, sort: sortKey, order: nextOrder })}
+      href={construirHrefOrdenes({
+        estado: estadoFiltro,
+        vista: vistaActual,
+        sort: sortKey,
+        order: nextOrder,
+        alerta: alertaFiltro,
+      })}
       className="inline-flex items-center gap-1 hover:text-foreground"
     >
       {label}
@@ -173,6 +141,9 @@ function compararOrdenes(a: OrdenRow, b: OrdenRow, sort: SortKey, order: SortOrd
     case "cliente":
       cmp = a.cliente.nombre.localeCompare(b.cliente.nombre);
       break;
+    case "prioridad":
+      cmp = compararPrioridad(a, b, order);
+      break;
   }
   return order === "asc" ? cmp : -cmp;
 }
@@ -188,10 +159,12 @@ function buildColumns(
   sortActual: SortKey | undefined,
   orderActual: SortOrder,
   estadoFiltro: EstadoOrden | undefined,
+  alertaFiltro: MotivoAlerta | undefined,
   vistaActual: "tabla" | "tablero",
   ahora: Date,
+  alertas: Map<string, AlertaTaller>,
 ): DataTableColumn<OrdenRow>[] {
-  const sortableHeaderProps = { sortActual, orderActual, estadoFiltro, vistaActual };
+  const sortableHeaderProps = { sortActual, orderActual, estadoFiltro, vistaActual, alertaFiltro };
   return [
     {
       header: "Orden",
@@ -229,15 +202,30 @@ function buildColumns(
     },
     {
       header: <SortableHeader label="Estado" sortKey="estado" {...sortableHeaderProps} />,
-      cell: (orden) => (
-        <Badge
-          variant={ESTADO_BADGE_VARIANT[orden.estado]}
-          className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[orden.estado])}
-        >
-          <span className="size-1.5 shrink-0 rounded-full" style={{ background: ESTADO_DOT_COLOR[orden.estado] }} />
-          {ESTADO_LABELS[orden.estado]}
-        </Badge>
-      ),
+      cell: (orden) => {
+        const alerta = alertas.get(orden.id);
+        return (
+          <div className="flex flex-col gap-1">
+            <Badge
+              variant={ESTADO_BADGE_VARIANT[orden.estado]}
+              className={cn("w-fit gap-1.5", ESTADO_BADGE_CLASSNAME[orden.estado])}
+            >
+              <span className="size-1.5 shrink-0 rounded-full" style={{ background: ESTADO_DOT_COLOR[orden.estado] }} />
+              {ESTADO_LABELS[orden.estado]}
+            </Badge>
+            {alerta ? (
+              <Badge
+                variant="outline"
+                className="w-fit gap-1 border-transparent bg-destructive/10 text-destructive"
+                title={`${ETIQUETA_FILTRO_ALERTA[alerta.motivo]}: ${alerta.dias} días sin actividad`}
+              >
+                <Clock className="size-3 shrink-0" />
+                {alerta.dias} {alerta.dias === 1 ? "día" : "días"}
+              </Badge>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       header: "Mecánico",
@@ -267,6 +255,18 @@ function buildColumns(
       ),
     },
     {
+      header: <SortableHeader label="Prioridad" sortKey="prioridad" {...sortableHeaderProps} />,
+      cell: (orden) => (
+        <Badge
+          variant="outline"
+          className={cn("gap-1.5", PRIORIDAD_BADGE_CLASSNAME[orden.prioridad])}
+          data-prioridad={orden.prioridad}
+        >
+          {ETIQUETA_PRIORIDAD[orden.prioridad]}
+        </Badge>
+      ),
+    },
+    {
       header: "Ítems",
       className: "text-right",
       cell: (orden) => <span className="font-mono">{contarItems(orden)}</span>,
@@ -283,18 +283,19 @@ function buildColumns(
 export default async function OrdenesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ estado?: string; vista?: string; sort?: string; order?: string }>;
+  searchParams: Promise<{ estado?: string; vista?: string; sort?: string; order?: string; alerta?: string }>;
 }) {
-  const { estado, vista, sort, order } = await searchParams;
-  const estadoFiltro = ESTADOS_VALIDOS.includes(estado as EstadoOrden) ? (estado as EstadoOrden) : undefined;
-  const vistaActual: "tabla" | "tablero" = vista === "tablero" ? "tablero" : "tabla";
-  const sortActual = SORT_KEYS.includes(sort as SortKey) ? (sort as SortKey) : undefined;
-  const orderActual: SortOrder = order === "asc" ? "asc" : "desc";
+  const { estado, vista, sort, order, alerta } = await searchParams;
+  const estadoFiltro = parseEstado(estado);
+  const alertaFiltro = parseAlerta(alerta);
+  const vistaActual = parseVista(vista);
+  const sortActual = parseSort(sort);
+  const orderActual = parseOrder(order);
 
   // Fetched once, unfiltered: the KPI cards summarize every orden of the sede
   // regardless of which estado the list below is currently filtered to, so a
   // single read is filtered client-side rather than re-querying per filter.
-  const [ordenes, clientes, tecnicos, session, marcas, modelos, diasAviso] = await Promise.all([
+  const [ordenes, clientes, tecnicos, session, marcas, modelos, diasAviso, alertasTaller] = await Promise.all([
     listOrdenes(),
     listClientesParaOrden(),
     listTecnicos(),
@@ -302,9 +303,15 @@ export default async function OrdenesPage({
     listMarcasVehiculo(),
     listTodosLosModelosVehiculo(),
     getDiasAvisoVencimiento(),
+    getAlertasTaller(),
   ]);
   const esAdmin = session.user.role === "ADMIN";
-  const filtradas = estadoFiltro ? ordenes.filter((orden) => orden.estado === estadoFiltro) : ordenes;
+  // Las alertas se cruzan por id (una sola lectura con select mínimo): el listado
+  // no carga ítems, mano de obra, DVI ni daños solo para pintar la marca.
+  const alertas = new Map(alertasTaller.alertas.map((item) => [item.ordenId, item]));
+  const motivos = new Map(alertasTaller.alertas.map((item) => [item.ordenId, item.motivo]));
+  const porEstado = estadoFiltro ? ordenes.filter((orden) => orden.estado === estadoFiltro) : ordenes;
+  const filtradas = filtrarPorAlerta(porEstado, alertaFiltro, motivos);
 
   const ahora = new Date();
   const inicioMes = inicioMesBogota(ahora);
@@ -335,8 +342,27 @@ export default async function OrdenesPage({
   // con un estado elegido, agruparPorEstado(filtradas) solo deja cards en esa
   // columna, así que se colapsa a mostrar únicamente esa columna en vez de
   // 4 columnas vacías.
-  const columnasBase = agruparPorEstado(filtradas);
+  const columnasBase = agruparPorEstado(filtradas, estadoFiltro);
   const columnas = estadoFiltro ? columnasBase.filter((columna) => columna.estado === estadoFiltro) : columnasBase;
+
+  // El tablero es un componente cliente: se le pasan datos planos (nada de
+  // Prisma ni de fechas), y la marca de alerta va cruzada por id.
+  const columnasTablero: ColumnaTablero[] = columnas.map((columna) => ({
+    estado: columna.estado,
+    ordenes: columna.ordenes.map((orden) => ({
+      id: orden.id,
+      estado: orden.estado,
+      prioridad: orden.prioridad,
+      placa: orden.vehiculo.placa,
+      sintomas: orden.sintomas,
+      cliente: orden.cliente.nombre,
+      mecanico: orden.mecanico?.nombre ?? null,
+      total: calcularTotalOrden(orden),
+      movible: esOrdenMutable(orden),
+      alertaDias: alertas.get(orden.id)?.dias ?? null,
+      alertaMotivo: alertas.get(orden.id)?.motivo ?? null,
+    })),
+  }));
 
   return (
     <main className="flex flex-col gap-6">
@@ -350,7 +376,7 @@ export default async function OrdenesPage({
         <NuevaOrdenDialog clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} esAdmin={esAdmin} diasAviso={diasAviso} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
         <KpiCard
           title="En bahía"
           value={enBahia}
@@ -389,6 +415,16 @@ export default async function OrdenesPage({
           iconBgColor={KPI_TONE.success.iconBg}
           className={KPI_TONE.success.cardBg}
         />
+
+        <KpiCard
+          title="Estancadas"
+          value={alertasTaller.alertas.length}
+          valueColor={alertasTaller.alertas.length > 0 ? "warning" : "success"}
+          subtitle={`Sin actividad en ${alertasTaller.diasUmbral} días o más`}
+          icon={<Clock className={cn("size-5", KPI_TONE.warning.icon)} />}
+          iconBgColor={KPI_TONE.warning.iconBg}
+          className={KPI_TONE.warning.cardBg}
+        />
       </div>
 
       <Card>
@@ -399,7 +435,7 @@ export default async function OrdenesPage({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <nav aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
               <Link
-                href={construirHrefOrdenes({ vista: vistaActual, sort: sortActual, order: orderActual })}
+                href={construirHrefOrdenes({ vista: vistaActual, sort: sortActual, order: orderActual, alerta: alertaFiltro })}
                 className={cn(
                   "rounded-full border px-3 py-1 text-sm transition-colors",
                   estadoFiltro === undefined
@@ -412,7 +448,13 @@ export default async function OrdenesPage({
               {ESTADOS_VALIDOS.map((value) => (
                 <Link
                   key={value}
-                  href={construirHrefOrdenes({ estado: value, vista: vistaActual, sort: sortActual, order: orderActual })}
+                  href={construirHrefOrdenes({
+                    estado: value,
+                    vista: vistaActual,
+                    sort: sortActual,
+                    order: orderActual,
+                    alerta: alertaFiltro,
+                  })}
                   className={cn(
                     "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors",
                     estadoFiltro === value
@@ -429,9 +471,39 @@ export default async function OrdenesPage({
               ))}
             </nav>
 
+            {/* Fase 22: lo que quedó parado o listo sin entregar, filtrable sin
+                perderse de la vista de estados. */}
+            <nav aria-label="Filtrar por alerta" className="flex flex-wrap gap-2">
+              {ALERTAS_VALIDAS.map((motivo) => {
+                const cuantas = alertasTaller.alertas.filter((item) => item.motivo === motivo).length;
+                return (
+                  <Link
+                    key={motivo}
+                    href={construirHrefOrdenes({
+                      estado: estadoFiltro,
+                      vista: vistaActual,
+                      sort: sortActual,
+                      order: orderActual,
+                      alerta: alertaFiltro === motivo ? undefined : motivo,
+                    })}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors",
+                      alertaFiltro === motivo
+                        ? "border-destructive bg-destructive text-white"
+                        : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
+                    )}
+                  >
+                    <Clock className="size-3.5 shrink-0" />
+                    {ETIQUETA_FILTRO_ALERTA[motivo]}
+                    <span className="font-mono text-xs">{cuantas}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+
             <div className="flex gap-1 rounded-full border border-input p-0.5">
               <Link
-                href={construirHrefOrdenes({ estado: estadoFiltro, vista: "tablero", sort: sortActual, order: orderActual })}
+                href={construirHrefOrdenes({ estado: estadoFiltro, vista: "tablero", sort: sortActual, order: orderActual, alerta: alertaFiltro })}
                 className={cn(
                   "rounded-full px-3 py-1 text-sm transition-colors",
                   vistaActual === "tablero"
@@ -442,7 +514,7 @@ export default async function OrdenesPage({
                 Tablero
               </Link>
               <Link
-                href={construirHrefOrdenes({ estado: estadoFiltro, vista: "tabla", sort: sortActual, order: orderActual })}
+                href={construirHrefOrdenes({ estado: estadoFiltro, vista: "tabla", sort: sortActual, order: orderActual, alerta: alertaFiltro })}
                 className={cn(
                   "rounded-full px-3 py-1 text-sm transition-colors",
                   vistaActual === "tabla"
@@ -457,7 +529,7 @@ export default async function OrdenesPage({
 
           {vistaActual === "tabla" ? (
             <DataTable
-              columns={buildColumns(sortActual, orderActual, estadoFiltro, vistaActual, ahora)}
+              columns={buildColumns(sortActual, orderActual, estadoFiltro, alertaFiltro, vistaActual, ahora, alertas)}
               rows={sortActual ? [...filtradas].sort((a, b) => compararOrdenes(a, b, sortActual, orderActual)) : filtradas}
               getRowKey={(orden) => orden.id}
               rowHref={(orden) => `/ordenes/${orden.id}`}
@@ -465,60 +537,7 @@ export default async function OrdenesPage({
               headerClassName="bg-muted"
             />
           ) : (
-            <div className="flex items-start gap-3 overflow-x-auto pb-1">
-              {columnas.map((columna) => (
-                <div
-                  key={columna.estado}
-                  className="flex w-64 shrink-0 flex-col gap-2 rounded-xl border border-border bg-muted/30 p-2"
-                >
-                  <div className="flex items-center gap-1.5 px-1.5 py-1">
-                    <span
-                      className="size-1.5 shrink-0 rounded-full"
-                      style={{ background: ESTADO_DOT_COLOR[columna.estado] }}
-                    />
-                    <span className="flex-1 text-xs font-semibold">{ESTADO_LABELS[columna.estado]}</span>
-                    <span className="font-mono text-[11px] text-muted-foreground">{columna.ordenes.length}</span>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    {columna.ordenes.length === 0 ? (
-                      <p className="px-1.5 text-xs text-muted-foreground">Sin órdenes</p>
-                    ) : (
-                      columna.ordenes.map((orden) => (
-                        <Link
-                          key={orden.id}
-                          href={`/ordenes/${orden.id}`}
-                          style={{ borderLeftColor: ESTADO_DOT_COLOR[columna.estado] }}
-                          className="flex flex-col gap-1.5 rounded-lg border border-l-2 border-border bg-card p-2.5 text-xs transition-shadow hover:shadow-md"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-mono text-[13px] font-semibold">{orden.vehiculo.placa}</span>
-                            <span className="font-mono text-[10px] text-muted-foreground">
-                              #{orden.id.slice(-8).toUpperCase()}
-                            </span>
-                          </div>
-                          <p className="line-clamp-2 text-muted-foreground">
-                            {orden.sintomas ?? "Sin síntomas registrados"}
-                          </p>
-                          <p className="text-[10.5px] text-muted-foreground">{orden.cliente.nombre}</p>
-                          <div className="flex items-center justify-between gap-2 border-t border-border pt-1.5">
-                            <span className="flex min-w-0 items-center gap-1.5 text-[10.5px] text-muted-foreground">
-                              <span className="grid size-4 shrink-0 place-items-center rounded-full bg-muted text-[8.5px] font-semibold text-foreground">
-                                {orden.mecanico ? iniciales(orden.mecanico.nombre) : "–"}
-                              </span>
-                              <span className="truncate">{orden.mecanico ? orden.mecanico.nombre : "Sin asignar"}</span>
-                            </span>
-                            <span className="shrink-0 font-mono text-[11px] font-medium">
-                              {formatoMoneda.format(calcularTotalOrden(orden))}
-                            </span>
-                          </div>
-                        </Link>
-                      ))
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <TableroOrdenes columnas={columnasTablero} />
           )}
         </CardContent>
       </Card>

@@ -1,0 +1,292 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import Link from "next/link";
+import { Clock, MoreHorizontal, Truck } from "lucide-react";
+import { toast } from "sonner";
+import { updateEstadoOrdenAction, type EstadoFormState } from "@/app/actions/orden-actions";
+import { ConfirmacionEnLinea } from "@/components/confirmacion-en-linea";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import {
+  ESTADO_DOT_COLOR,
+  ESTADO_LABELS,
+  destinosArrastrables,
+  ofreceMenu,
+  puedeAnular,
+  puedeEntregar,
+  requiereConfirmacion,
+} from "./estado-tono";
+import { PRIORIDAD_BADGE_CLASSNAME } from "./prioridad-tono";
+import { ETIQUETA_PRIORIDAD, type MotivoAlerta } from "@/lib/orden/flujo";
+import { ESTADO_ORDEN_TRANSITIONS } from "@/lib/orden/estado-transitions";
+import type { EstadoOrden, PrioridadOrden } from "@/generated/prisma-tenant";
+
+const initialState: EstadoFormState = { error: null, advertencia: null };
+
+const formatoMoneda = new Intl.NumberFormat("es-CO", {
+  style: "currency",
+  currency: "COP",
+  maximumFractionDigits: 0,
+});
+
+export interface TarjetaTablero {
+  id: string;
+  estado: EstadoOrden;
+  prioridad: PrioridadOrden;
+  placa: string;
+  sintomas: string | null;
+  cliente: string;
+  mecanico: string | null;
+  total: number;
+  /** Se puede mover: la orden sigue siendo editable. */
+  movible: boolean;
+  alertaDias: number | null;
+  alertaMotivo: MotivoAlerta | null;
+}
+
+export interface ColumnaTablero {
+  estado: EstadoOrden;
+  ordenes: TarjetaTablero[];
+}
+
+/**
+ * Tablero del taller (Fase 22, D8-D11): arrastrar una tarjeta a otra columna o
+ * usar el menú "Mover a…" mueve la orden de estado llamando a la MISMA acción del
+ * cambio de estado (nada de caminos de escritura nuevos). A `Entregada` no se
+ * suelta ni se elige: entregar es firmar el acta, así que la tarjeta de una orden
+ * terminada ofrece ese enlace. Anular tampoco se arrastra (es destructivo): pasa
+ * por el menú, con confirmación.
+ */
+export function TableroOrdenes({ columnas }: { columnas: ColumnaTablero[] }) {
+  const [arrastrando, setArrastrando] = useState<TarjetaTablero | null>(null);
+  const [sobreColumna, setSobreColumna] = useState<EstadoOrden | null>(null);
+  const [confirmando, setConfirmando] = useState<{ tarjeta: TarjetaTablero; destino: EstadoOrden } | null>(null);
+  const [pendiente, startTransition] = useTransition();
+
+  function mover(tarjeta: TarjetaTablero, destino: EstadoOrden) {
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set("estado", destino);
+      let resultado: EstadoFormState;
+      try {
+        resultado = await updateEstadoOrdenAction(tarjeta.id, initialState, formData);
+      } catch {
+        toast.error("No se pudo mover la orden. Intenta de nuevo.");
+        return;
+      }
+      if (resultado.error) {
+        toast.error(resultado.error);
+        return;
+      }
+      toast.success(`${tarjeta.placa}: ${ESTADO_LABELS[destino]}`);
+    });
+  }
+
+  function pedirMovimiento(tarjeta: TarjetaTablero, destino: EstadoOrden) {
+    if (requiereConfirmacion(destino)) {
+      setConfirmando({ tarjeta, destino });
+      return;
+    }
+    mover(tarjeta, destino);
+  }
+
+  return (
+    <>
+      {confirmando ? (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-2">
+          <ConfirmacionEnLinea
+            pregunta={`¿Anular la orden ${confirmando.tarjeta.placa}? No se podrá editar después.`}
+            etiquetaConfirmar="Sí, anular"
+            pendiente={pendiente}
+            onConfirmar={() => {
+              mover(confirmando.tarjeta, confirmando.destino);
+              setConfirmando(null);
+            }}
+            onCancelar={() => setConfirmando(null)}
+          />
+        </div>
+      ) : null}
+
+      <div className="flex items-start gap-3 overflow-x-auto pb-1">
+        {columnas.map((columna) => {
+          const admiteSoltar = arrastrando
+            ? ESTADO_ORDEN_TRANSITIONS[arrastrando.estado].includes(columna.estado) && columna.estado !== "ENTREGADA"
+            : false;
+
+          return (
+            <div
+              key={columna.estado}
+              data-columna={columna.estado}
+              onDragOver={(evento) => {
+                if (!admiteSoltar) return;
+                evento.preventDefault();
+                setSobreColumna(columna.estado);
+              }}
+              onDragLeave={() => setSobreColumna((actual) => (actual === columna.estado ? null : actual))}
+              onDrop={(evento) => {
+                if (!arrastrando || !admiteSoltar) return;
+                evento.preventDefault();
+                const tarjeta = arrastrando;
+                setArrastrando(null);
+                setSobreColumna(null);
+                mover(tarjeta, columna.estado);
+              }}
+              className={cn(
+                "flex w-64 shrink-0 flex-col gap-2 rounded-xl border border-border bg-muted/30 p-2 transition-colors",
+                sobreColumna === columna.estado && "border-primary bg-primary/5",
+              )}
+            >
+              <div className="flex items-center gap-1.5 px-1.5 py-1">
+                <span
+                  className="size-1.5 shrink-0 rounded-full"
+                  style={{ background: ESTADO_DOT_COLOR[columna.estado] }}
+                />
+                <span className="flex-1 text-xs font-semibold">{ESTADO_LABELS[columna.estado]}</span>
+                <span className="font-mono text-[11px] text-muted-foreground">{columna.ordenes.length}</span>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                {columna.ordenes.length === 0 ? (
+                  <p className="px-1.5 text-xs text-muted-foreground">Sin órdenes</p>
+                ) : (
+                  columna.ordenes.map((tarjeta) => (
+                    <Tarjeta
+                      key={tarjeta.id}
+                      tarjeta={tarjeta}
+                      pendiente={pendiente}
+                      onArrastrar={() => setArrastrando(tarjeta)}
+                      onSoltarArrastre={() => {
+                        setArrastrando(null);
+                        setSobreColumna(null);
+                      }}
+                      onMover={(destino) => pedirMovimiento(tarjeta, destino)}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function Tarjeta({
+  tarjeta,
+  pendiente,
+  onArrastrar,
+  onSoltarArrastre,
+  onMover,
+}: {
+  tarjeta: TarjetaTablero;
+  pendiente: boolean;
+  onArrastrar: () => void;
+  onSoltarArrastre: () => void;
+  onMover: (destino: EstadoOrden) => void;
+}) {
+  const destinos = destinosArrastrables(tarjeta.estado);
+  // El menú también sale cuando no hay nada que arrastrar pero sí algo que
+  // ofrecer: una orden TERMINADA solo puede entregarse firmando el acta.
+  const muestraMenu = ofreceMenu(tarjeta.estado, tarjeta.movible);
+  const anulable = puedeAnular(tarjeta.estado, tarjeta.movible);
+  const entregable = puedeEntregar(tarjeta.estado, tarjeta.movible);
+  const movible = tarjeta.movible && destinos.length > 0;
+
+  return (
+    <div
+      draggable={movible && !pendiente}
+      onDragStart={() => onArrastrar()}
+      onDragEnd={onSoltarArrastre}
+      style={{ borderLeftColor: ESTADO_DOT_COLOR[tarjeta.estado] }}
+      className={cn(
+        "flex flex-col gap-1.5 rounded-lg border border-l-2 border-border bg-card p-2.5 text-xs transition-shadow hover:shadow-md",
+        movible && "cursor-grab active:cursor-grabbing",
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <Link href={`/ordenes/${tarjeta.id}`} className="font-mono text-[13px] font-semibold hover:underline">
+          {tarjeta.placa}
+        </Link>
+        <span className="flex items-center gap-1">
+          <Badge variant="outline" className={cn("text-[10px]", PRIORIDAD_BADGE_CLASSNAME[tarjeta.prioridad])}>
+            {ETIQUETA_PRIORIDAD[tarjeta.prioridad]}
+          </Badge>
+          {muestraMenu ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-6"
+                    aria-label={`Mover la orden ${tarjeta.placa}`}
+                    disabled={pendiente}
+                  />
+                }
+              >
+                <MoreHorizontal className="size-3.5" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Mover a…</DropdownMenuLabel>
+                {destinos.map((destino) => (
+                  <DropdownMenuItem key={destino} onSelect={() => onMover(destino)}>
+                    {ESTADO_LABELS[destino]}
+                  </DropdownMenuItem>
+                ))}
+                {entregable ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem render={<Link href={`/ordenes/${tarjeta.id}#entrega`} />}>
+                      <Truck className="size-3.5" />
+                      Entregar (firmar acta)
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+                {anulable ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive" onSelect={() => onMover("ANULADA")}>
+                      Anular
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+        </span>
+      </div>
+
+      {tarjeta.alertaDias !== null ? (
+        <Badge
+          variant="outline"
+          className="w-fit gap-1 border-transparent bg-destructive/10 text-[10px] text-destructive"
+          title={tarjeta.alertaMotivo === "TERMINADA_SIN_ENTREGAR" ? "Lista sin entregar" : "Estancada"}
+        >
+          <Clock className="size-3 shrink-0" />
+          {tarjeta.alertaDias} días sin actividad
+        </Badge>
+      ) : null}
+
+      <p className="line-clamp-2 text-muted-foreground">{tarjeta.sintomas ?? "Sin síntomas registrados"}</p>
+      <p className="text-[10.5px] text-muted-foreground">{tarjeta.cliente}</p>
+      <div className="flex items-center justify-between gap-2 border-t border-border pt-1.5">
+        <span className="truncate text-[10.5px] text-muted-foreground">
+          {tarjeta.mecanico ?? "Sin asignar"}
+        </span>
+        <span className="shrink-0 font-mono text-[11px] font-medium">{formatoMoneda.format(tarjeta.total)}</span>
+      </div>
+    </div>
+  );
+}
