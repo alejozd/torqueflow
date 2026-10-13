@@ -55,6 +55,7 @@ CREATE TABLE "devoluciones_mostrador" (
     "sede_id" TEXT NOT NULL,
     "motivo" TEXT,
     "total" DECIMAL(10,2) NOT NULL,
+    "monto_en_efectivo" DECIMAL(10,2) NOT NULL,
     "metodo_pago" "MetodoPago" NOT NULL,
     "creado_por_id" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

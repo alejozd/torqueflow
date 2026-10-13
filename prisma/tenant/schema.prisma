@@ -1300,7 +1300,12 @@ model DevolucionMostrador {
   sedeId        String        @map("sede_id")
   sede          Sede          @relation(fields: [sedeId], references: [id], onDelete: Restrict)
   motivo        String?
+  /// Valor de lo devuelto (con su IVA).
   total         Decimal       @db.Decimal(10, 2)
+  /// Lo que realmente salió del cajón: si la venta estaba a crédito, la
+  /// devolución baja primero la deuda y solo el exceso se paga en dinero. El
+  /// arqueo cuenta esto, no `total`.
+  montoEnEfectivo Decimal     @map("monto_en_efectivo") @db.Decimal(10, 2)
   metodoPago    MetodoPago    @map("metodo_pago")
   creadoPorId   String        @map("creado_por_id")
   creadoPor     Usuario       @relation("DevolucionMostradorCreadaPor", fields: [creadoPorId], references: [id], onDelete: Restrict)

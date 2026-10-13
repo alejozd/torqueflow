@@ -136,7 +136,9 @@ async function cargarMovimientos(
       tipo: "DEVOLUCION" as const,
       descripcion: `Devolución venta #${d.venta.numero}`,
       metodo: d.metodoPago as Metodo,
-      monto: -Number(d.total),
+      // Solo lo que salió del cajón: si la venta estaba a crédito, parte (o todo)
+      // bajó la deuda del cliente y no es efectivo.
+      monto: -Number(d.montoEnEfectivo),
     })),
     ...gastos.map((g) => ({
       id: `gasto-${g.id}`,
@@ -157,7 +159,7 @@ async function cargarMovimientos(
           monto: Number(d.monto),
           metodo: (d.metodoDevolucion ?? "EFECTIVO") as Metodo,
         })),
-        ...devolucionesMostrador.map((d) => ({ monto: Number(d.total), metodo: d.metodoPago as Metodo })),
+        ...devolucionesMostrador.map((d) => ({ monto: Number(d.montoEnEfectivo), metodo: d.metodoPago as Metodo })),
       ],
       ventasMostrador: pagosMostrador.map((p) => ({ monto: Number(p.monto), metodo: p.metodoPago as Metodo })),
       gastosEfectivo: gastos.map((g) => Number(g.monto)),

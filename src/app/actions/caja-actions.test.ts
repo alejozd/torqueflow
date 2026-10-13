@@ -114,7 +114,14 @@ describe("getCajaActual", () => {
       { id: "pv1", monto: 80000, metodoPago: "EFECTIVO", createdAt: new Date("2026-10-15T14:30:00Z"), venta: { numero: 3 } },
     ]);
     db.devolucionMostrador.findMany.mockResolvedValue([
-      { id: "d1", total: 30000, metodoPago: "EFECTIVO", createdAt: new Date("2026-10-15T18:00:00Z"), venta: { numero: 3 } },
+      {
+        id: "d1",
+        total: 30000,
+        montoEnEfectivo: 30000,
+        metodoPago: "EFECTIVO",
+        createdAt: new Date("2026-10-15T18:00:00Z"),
+        venta: { numero: 3 },
+      },
     ]);
 
     const r = await getCajaActual({});
