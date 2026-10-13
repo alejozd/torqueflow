@@ -343,6 +343,37 @@ cliente): el `Gasto` del pago usa el `total` congelado del documento. Ninguna co
 completas de `Usuario` (siempre `select` de `{id, nombre}`). El trabajo y los importes de un técnico no
 se exponen a quien no sea ADMIN.
 
+## 4-bis. Decisiones del fix round (revisión final)
+
+La revisión final del diff completo encontró un crítico y varios importantes; se cerraron antes del
+merge. Estas decisiones quedan como parte del diseño, no como parches:
+
+- **D16 — Una liquidación nunca tiene total negativo.** Al recalcular una pendiente se conserva su
+  ajuste, salvo que el cálculo nuevo ya no lo admita: entonces el ajuste se descarta (total =
+  `montoCalculado`), se cuenta en `ajustesDescartados` y queda en el detalle de la auditoría. `pagar`
+  exige además un total **mayor que cero**. Sin esto, un ajuste negativo válido más una caída de
+  producción producía un `Gasto` negativo con `pagadoEnEfectivo`, inflando caja y utilidad neta.
+- **D17 — El estado se revalida dentro de la transacción.** Ajustar, pagar, anular y recalcular escriben
+  con `updateMany({ where: { id, estado… } })` y abortan si `count !== 1`; pagar exige además
+  `gastoId: null`. Dos ADMIN concurrentes ya no pueden revertir una `PAGADA` a `PENDIENTE` dejando su
+  gasto vivo, ni emitir un segundo gasto por el mismo trabajo.
+- **D18 — La frecuencia de un periodo sale de su forma, no de la configuración.** Cualquier periodo bien
+  formado (`2026-10`, `2026-10-Q1`, `2026-W42`) sigue siendo consultable, pagable y hasta generable
+  después de que el taller cambie de frecuencia; la navegación del periodo usa la frecuencia del propio
+  periodo. La fila incluye además al técnico que ya no está en la sede activa pero tiene documento del
+  periodo, para que su liquidación no quede imposible de pagar o anular. D6 sigue impidiendo el doble
+  pago entre frecuencias, y el solapamiento **no** cuenta las anuladas (anular un mensual no bloquea
+  para siempre sus quincenas).
+- **D19 — Reactivar una anulada es explícito.** `Generar` ya no resucita anuladas (las cuenta como
+  omitidas): reactivar es una acción por fila que recalcula con el esquema vigente, limpia ajuste, pago
+  y anulación, y respeta el solapamiento.
+- **Menores del mismo round:** se eliminó `listTecnicosConEsquema` (sin uso en producción); se puede
+  dejar a un técnico sin esquema desde la UI; la página avisa de la mano de obra sin mecánico (que no
+  se le liquida a nadie) y el encabezado de `/reportes` suma los trabajos del periodo; la validación
+  rechaza semanas ISO inexistentes (`2027-W53`); la categoría del sistema debe estar activa para pagar;
+  la siembra usa `ON CONFLICT ("nombre") DO NOTHING` (la tabla es editable desde la Fase 16); y borrar un
+  técnico con liquidaciones explica que hay que anularlas antes (FK `Restrict`).
+
 ## 5. Verificación final de la fase
 
 `npx tsc --noEmit` (`--incremental false` si hay sandbox), `npm test` completo, `npx eslint` en lo
