@@ -110,6 +110,15 @@ estados (no hay tabla de historial y esta fase no la crea); badge de alertas en 
 | **D13** | **Sin badge en el sidebar**: el layout ya lanza seis consultas por request y una alerta de estancadas necesitaría otra más en todas las páginas; el Inicio y el listado bastan. |
 | **D14** | **La prioridad no se cambia desde la fila de la tabla**: cada fila ya está cubierta por un link estirado (`DataTable` lo hace "Ver detalle") y los e2e resuelven la fila por ahí, así que el formulario vive en la ficha de la orden y en el tablero (donde la tarjeta es el propio control). En la tabla la prioridad es columna ordenable con su marca, que es lo que se consulta de un vistazo. |
 
+### D15–D18: lo que cambió tras la revisión independiente (fix round)
+
+| # | Hallazgo → decisión |
+|---|---|
+| **D15** | **Crítico: el tablero no refrescaba el listado.** `updateEstadoOrdenAction` solo revalidaba la ficha, así que al mover una orden desde el tablero la tarjeta se quedaba en su columna vieja y los contadores no se movían hasta recargar (la función central de la fase parecía fallar). Ahora revalida también `/ordenes`, con un test que lo fija. |
+| **D16** | **Límite conocido de "actividad", documentado en vez de improvisado**: de lo cargado a la orden solo se mira su **alta** (`createdAt`), porque ninguno de esos modelos guarda `updatedAt` (solo `Dvi`). Editar o borrar una línea ya cargada no cuenta como actividad. Cerrarlo pediría añadir `updatedAt` a cuatro modelos y acordarse de tocarlo en cada acción: queda escrito en `src/lib/orden/flujo.ts` y en el plan. |
+| **D17** | **La consulta de alertas se acota a un año**: sin cota recorría todo el histórico de órdenes terminadas de la sede en cada carga del Inicio, y un auto olvidado de hace dos años salía como alerta del día. `limiteHistorialAlertas` es lógica pura y está probada. |
+| **D18** | **Se cierran los huecos de test que señaló la revisión**: rol sin permiso en `cambiarPrioridadAction` (el guard lanza y la acción no atrapa ni escribe), revalidación del listado, soltar en la misma columna, `requiereConfirmacion` como decisión pura y el sentido del orden por prioridad en un comparador probado (`compararPrioridad`), en vez de depender de la doble negación suelta del comparador. El menú "Mover a…" sigue sin test unitario porque el popup de Base UI no se puede abrir en jsdom (no hay precedente en el repo); lo que sí se prueba es la decisión de qué ofrece y el arrastre de punta a punta. |
+
 ---
 
 ## 2. Modelo, validación y lógica (Task 1)
