@@ -29,6 +29,7 @@ enum TipoEventoAuditoria {
   GARANTIA_REGISTRAR
   GARANTIA_ELIMINAR
   PRIORIDAD_CAMBIAR
+  VENTA_DEVOLVER
 }
 
 /// Cada cuánto liquida el taller a sus mecánicos (D5 de la Fase 19). Es un
@@ -152,6 +153,11 @@ model Usuario {
   daniosCreados                 DanioOrden[]            @relation("DanioCreadoPor")
   actasCreadas                  ActaEntrega[]           @relation("ActaCreadoPor")
   garantiasCreadas              Garantia[]              @relation("GarantiaCreadoPor")
+  ventasMostradorCreadas        VentaMostrador[]        @relation("VentaMostradorCreadaPor")
+  pagosVentaMostrador           PagoVentaMostrador[]    @relation("PagoVentaMostradorRegistradoPor")
+  devolucionesMostradorCreadas  DevolucionMostrador[]   @relation("DevolucionMostradorCreadaPor")
+  cuentasPorPagarCreadas        CuentaPorPagar[]        @relation("CuentaPorPagarCreadaPor")
+  pagosProveedorRegistrados     PagoProveedor[]         @relation("PagoProveedorRegistradoPor")
   createdAt                     DateTime                @default(now()) @map("created_at")
   updatedAt                     DateTime                @updatedAt @map("updated_at")
 
@@ -167,6 +173,7 @@ model Cliente {
   vehiculos           Vehiculo[]
   ordenes             OrdenTrabajo[]
   facturas            Factura[]
+  ventasMostrador     VentaMostrador[]
   citas               Cita[]
   cotizaciones        Cotizacion[]
   recordatorios       RecordatorioEnviado[]
@@ -286,6 +293,8 @@ model Sede {
   usuariosPorDefecto Usuario[]      @relation("UsuarioSedeDefecto")
   gastos             Gasto[]
   gastosRecurrentes  GastoRecurrente[]
+  ventasMostrador    VentaMostrador[]
+  devolucionesMostrador DevolucionMostrador[]
   liquidaciones      LiquidacionMecanico[]
   createdAt          DateTime       @default(now()) @map("created_at")
   updatedAt          DateTime       @updatedAt @map("updated_at")
@@ -456,6 +465,7 @@ model Proveedor {
   repuestos     Repuesto[]
   entradas      EntradaMercancia[]
   pedidosCompra PedidoCompra[]
+  cuentasPorPagar CuentaPorPagar[]
   createdAt     DateTime           @default(now()) @map("created_at")
   updatedAt     DateTime           @updatedAt @map("updated_at")
 
@@ -486,6 +496,8 @@ model Repuesto {
   itemsOrden           ItemOrden[]
   itemsCotizacion      ItemCotizacion[]
   servicios            ServicioRepuesto[]
+  ventaMostradorItems  VentaMostradorItem[]
+  devolucionMostradorItems DevolucionMostradorItem[]
   createdAt            DateTime               @default(now()) @map("created_at")
   updatedAt            DateTime               @updatedAt @map("updated_at")
 
@@ -503,6 +515,8 @@ model EntradaMercancia {
   creadoPorId  String                 @map("creado_por_id")
   creadoPor    Usuario                @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
   items        EntradaMercanciaItem[]
+  /// La deuda con el proveedor que nace de esta entrada (Fase 24, D5).
+  cuentaPorPagar CuentaPorPagar?
   /// Set when the entrada was created by receiving a pedido de compra.
   pedidoCompra PedidoCompra?
   createdAt    DateTime               @default(now()) @map("created_at")
@@ -1205,4 +1219,156 @@ model Garantia {
   @@index([itemOrdenId])
   @@index([creadoPorId])
   @@map("garantias")
+}
+
+// ---------------------------------------------------------------------------
+// Fase 24 — Mostrador y compras
+// ---------------------------------------------------------------------------
+
+/// Venta de mostrador: lo que se vende sin orden de trabajo. Documento propio
+/// (D1) para no tocar `Factura`, cuya `ordenId` es obligatoria y única; con sede
+/// obligatoria porque el arqueo de caja llega a la sede por aquí, y con cliente
+/// opcional ("Consumidor final" cuando no lo hay).
+model VentaMostrador {
+  id             String        @id @default(cuid())
+  numero         Int           @unique @default(autoincrement())
+  estado         EstadoFactura @default(PENDIENTE)
+  sedeId         String        @map("sede_id")
+  sede           Sede          @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  clienteId      String?       @map("cliente_id")
+  cliente        Cliente?      @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  subtotal       Decimal       @db.Decimal(10, 2)
+  descuento      Decimal       @default(0) @db.Decimal(10, 2)
+  iva            Decimal       @db.Decimal(10, 2)
+  total          Decimal       @db.Decimal(10, 2)
+  saldoPendiente Decimal       @map("saldo_pendiente") @db.Decimal(10, 2)
+  creadoPorId    String        @map("creado_por_id")
+  creadoPor      Usuario       @relation("VentaMostradorCreadaPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  items          VentaMostradorItem[]
+  pagos          PagoVentaMostrador[]
+  devoluciones   DevolucionMostrador[]
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@index([sedeId, createdAt])
+  @@index([clienteId])
+  @@map("ventas_mostrador")
+}
+
+model VentaMostradorItem {
+  id             String         @id @default(cuid())
+  ventaId        String         @map("venta_id")
+  venta          VentaMostrador @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  /// Sin repuesto es una línea libre (mano de obra suelta o un producto que no está en el inventario).
+  repuestoId     String?        @map("repuesto_id")
+  repuesto       Repuesto?      @relation(fields: [repuestoId], references: [id], onDelete: SetNull)
+  descripcion    String
+  cantidad       Int
+  /// Precio copiado al vender: cambiar el precio del repuesto no reescribe la venta.
+  precioUnitario Decimal        @map("precio_unitario") @db.Decimal(10, 2)
+  devueltoCantidad Int          @default(0) @map("devuelto_cantidad")
+  devoluciones   DevolucionMostradorItem[]
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  @@index([ventaId])
+  @@index([repuestoId])
+  @@map("venta_mostrador_items")
+}
+
+model PagoVentaMostrador {
+  id              String        @id @default(cuid())
+  ventaId         String        @map("venta_id")
+  venta           VentaMostrador @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  monto           Decimal       @db.Decimal(10, 2)
+  metodoPago      MetodoPago    @map("metodo_pago")
+  referencia      String?
+  registradoPorId String        @map("registrado_por_id")
+  registradoPor   Usuario       @relation("PagoVentaMostradorRegistradoPor", fields: [registradoPorId], references: [id], onDelete: Restrict)
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  @@index([ventaId])
+  @@map("pagos_venta_mostrador")
+}
+
+/// Devolución de una venta de mostrador: devuelve dinero (D4) y reingresa stock.
+/// Documento propio y auditado, con su propio número consecutivo.
+model DevolucionMostrador {
+  id            String        @id @default(cuid())
+  numero        Int           @unique @default(autoincrement())
+  ventaId       String        @map("venta_id")
+  venta         VentaMostrador @relation(fields: [ventaId], references: [id], onDelete: Restrict)
+  sedeId        String        @map("sede_id")
+  sede          Sede          @relation(fields: [sedeId], references: [id], onDelete: Restrict)
+  motivo        String?
+  /// Valor de lo devuelto (con su IVA).
+  total         Decimal       @db.Decimal(10, 2)
+  /// Lo que realmente salió del cajón: si la venta estaba a crédito, la
+  /// devolución baja primero la deuda y solo el exceso se paga en dinero. El
+  /// arqueo cuenta esto, no `total`.
+  montoEnEfectivo Decimal     @map("monto_en_efectivo") @db.Decimal(10, 2)
+  metodoPago    MetodoPago    @map("metodo_pago")
+  creadoPorId   String        @map("creado_por_id")
+  creadoPor     Usuario       @relation("DevolucionMostradorCreadaPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  items         DevolucionMostradorItem[]
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  @@index([ventaId])
+  @@index([sedeId, createdAt])
+  @@map("devoluciones_mostrador")
+}
+
+model DevolucionMostradorItem {
+  id             String            @id @default(cuid())
+  devolucionId   String            @map("devolucion_id")
+  devolucion     DevolucionMostrador @relation(fields: [devolucionId], references: [id], onDelete: Cascade)
+  ventaItemId    String            @map("venta_item_id")
+  ventaItem      VentaMostradorItem @relation(fields: [ventaItemId], references: [id], onDelete: Restrict)
+  repuestoId     String?           @map("repuesto_id")
+  repuesto       Repuesto?         @relation(fields: [repuestoId], references: [id], onDelete: SetNull)
+  cantidad       Int
+  precioUnitario Decimal           @map("precio_unitario") @db.Decimal(10, 2)
+  createdAt      DateTime          @default(now()) @map("created_at")
+
+  @@index([devolucionId])
+  @@index([ventaItemId])
+  @@map("devolucion_mostrador_items")
+}
+
+/// Lo que el taller debe por una entrada de mercancía (D5). `entradaId` es único:
+/// una sola fuente de deuda por entrada, imposible contarla dos veces. Espejo de
+/// la cartera: saldo en el documento, abonos en tabla hija y "pagada" derivado.
+model CuentaPorPagar {
+  id             String        @id @default(cuid())
+  entradaId      String        @unique @map("entrada_id")
+  entrada        EntradaMercancia @relation(fields: [entradaId], references: [id], onDelete: Restrict)
+  proveedorId    String        @map("proveedor_id")
+  proveedor      Proveedor     @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  total          Decimal       @db.Decimal(10, 2)
+  saldoPendiente Decimal       @map("saldo_pendiente") @db.Decimal(10, 2)
+  estado         EstadoFactura @default(PENDIENTE)
+  /// Fecha de la deuda (la de la entrada); de aquí sale la antigüedad.
+  fecha          DateTime      @db.Date
+  creadoPorId    String        @map("creado_por_id")
+  creadoPor      Usuario       @relation("CuentaPorPagarCreadaPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  pagos          PagoProveedor[]
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@index([proveedorId, estado])
+  @@map("cuentas_por_pagar")
+}
+
+model PagoProveedor {
+  id              String          @id @default(cuid())
+  cuentaId        String          @map("cuenta_id")
+  cuenta          CuentaPorPagar  @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+  monto           Decimal         @db.Decimal(10, 2)
+  metodoPago      MetodoPago      @map("metodo_pago")
+  referencia      String?
+  registradoPorId String          @map("registrado_por_id")
+  registradoPor   Usuario         @relation("PagoProveedorRegistradoPor", fields: [registradoPorId], references: [id], onDelete: Restrict)
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  @@index([cuentaId])
+  @@map("pagos_proveedor")
 }

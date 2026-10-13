@@ -12,9 +12,11 @@ const mockAnticipoCreate = vi.fn();
 const mockAnticipoFindMany = vi.fn();
 const mockAnticipoFindFirst = vi.fn();
 const mockAnticipoUpdateMany = vi.fn();
+const mockCajaFindFirst = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     ordenTrabajo: { findFirst: mockOrdenFindFirst },
+    cajaSesion: { findFirst: mockCajaFindFirst },
     anticipo: {
       create: mockAnticipoCreate,
       findMany: mockAnticipoFindMany,
@@ -48,7 +50,21 @@ describe("registrarAnticipoAction", () => {
     mockRequireRole.mockReset().mockResolvedValue(SESSION);
     mockOrdenFindFirst.mockReset().mockResolvedValue({ id: "o1", sedeId: "sede-1", estado: "EN_PROCESO", factura: null });
     mockAnticipoCreate.mockReset().mockResolvedValue({ id: "a1" });
+    mockCajaFindFirst.mockReset().mockResolvedValue({ id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
     mockRevalidate.mockReset();
+  });
+
+  it("no registra el anticipo con la caja cerrada (Fase 24)", async () => {
+    mockCajaFindFirst.mockResolvedValue(null);
+
+    const r = await registrarAnticipoAction("o1", initial, fd({ monto: "50000", metodoPago: "EFECTIVO" }));
+
+    expect(r).toEqual({ error: "Abre la caja antes de registrar el anticipo", success: false });
+    expect(mockAnticipoCreate).not.toHaveBeenCalled();
+    expect(mockCajaFindFirst).toHaveBeenCalledWith({
+      where: { sedeId: "sede-1", cerradaAt: null },
+      select: { id: true, abiertaAt: true },
+    });
   });
 
   it("creates a PENDIENTE anticipo with the sede of the orden and revalidates", async () => {

@@ -7,6 +7,7 @@ import {
   BarChart3,
   CalendarDays,
   Coins,
+  CreditCard,
   FileSpreadsheet,
   FileText,
   HandCoins,
@@ -20,6 +21,7 @@ import {
   PackagePlus,
   Receipt,
   ShieldAlert,
+  Store,
   Truck,
   UserCog,
   Users,
@@ -69,12 +71,16 @@ const OPERACION: NavGroup = {
     { href: "/citas", label: "Citas", icon: CalendarDays },
     { href: "/vencimientos", label: "Vencimientos", icon: ShieldAlert },
     { href: "/facturas", label: "Facturas", icon: Receipt },
+    // Vender en el mostrador lo puede hacer cualquiera que atienda: va sin
+    // condicionar por rol (Fase 24).
+    { href: "/mostrador", label: "Mostrador", icon: Store },
   ],
 };
 
 const GASTOS: NavItem = { href: "/gastos", label: "Gastos", icon: Wallet };
 const CAJA: NavItem = { href: "/caja", label: "Caja", icon: Landmark };
 const CARTERA: NavItem = { href: "/cartera", label: "Cartera", icon: HandCoins };
+const CUENTAS_POR_PAGAR: NavItem = { href: "/cuentas-por-pagar", label: "Cuentas por pagar", icon: CreditCard };
 // El catálogo de servicios se administra solo como ADMIN, pero el grupo
 // Inventario lo ve todo el mundo: el ítem se agrega condicionalmente abajo.
 const SERVICIOS: NavItem = { href: "/servicios", label: "Servicios", icon: ListChecks };
@@ -200,7 +206,9 @@ export function DashboardSidebar({
   repuestosStockBajo?: number;
 }) {
   const pathname = usePathname();
-  const operacion = puedeVerFinanzas ? { ...OPERACION, items: [...OPERACION.items, CAJA, CARTERA, GASTOS] } : OPERACION;
+  const operacion = puedeVerFinanzas
+    ? { ...OPERACION, items: [...OPERACION.items, CAJA, CARTERA, CUENTAS_POR_PAGAR, GASTOS] }
+    : OPERACION;
   const inventario = esAdmin ? { ...INVENTARIO, items: [...INVENTARIO.items, SERVICIOS] } : INVENTARIO;
   // Administración es de ADMIN, pero "Importar" también lo ve RECEPCION: para
   // ese rol el grupo queda con ese único ítem (y con ninguno, no se pinta).

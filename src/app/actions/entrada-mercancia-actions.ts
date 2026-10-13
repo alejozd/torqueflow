@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
+import { sincronizarCuentaPorPagar } from "@/lib/proveedores/sincronizar-cuenta";
 import { entradaMercanciaInputSchema, entradaMercanciaItemInputSchema } from "@/lib/validation/inventario";
 import { scopeBodega, scopeEntrada, scopeRepuesto } from "@/lib/sede/scope";
 import type { Prisma } from "@/generated/prisma-tenant";
@@ -129,20 +130,22 @@ export async function addEntradaItemAction(
   }
 
   try {
-    await tenantDb.$transaction([
-      tenantDb.entradaMercanciaItem.create({
+    await tenantDb.$transaction(async (tx) => {
+      await tx.entradaMercanciaItem.create({
         data: {
           entradaId,
           repuestoId: parsed.data.repuestoId,
           cantidad: parsed.data.cantidad,
           precioCompraUnitario: parsed.data.precioCompraUnitario,
         },
-      }),
-      tenantDb.repuesto.update({
+      });
+      await tx.repuesto.update({
         where: { id: parsed.data.repuestoId },
         data: { stockActual: { increment: parsed.data.cantidad } },
-      }),
-    ]);
+      });
+      // La deuda con el proveedor se recalcula con cada ítem que entra (Fase 24, D5).
+      await sincronizarCuentaPorPagar(tx, entradaId, session.user.id);
+    });
   } catch (err) {
     return {
       error: friendlyPrismaErrorMessage(err, "Error al registrar el ítem recibido"),

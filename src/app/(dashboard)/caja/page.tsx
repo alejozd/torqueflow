@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth/guards";
 import { periodoActualBogota } from "@/lib/gastos/periodo";
 import { periodoSchema } from "@/lib/validation/gasto";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { BotonExportar } from "@/components/boton-exportar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
@@ -43,9 +44,12 @@ export default async function CajaPage({
 
   return (
     <main className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Caja</h1>
-        <p className="text-sm text-muted-foreground">{nombreSede}</p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold">Caja</h1>
+          <p className="text-sm text-muted-foreground">{nombreSede}</p>
+        </div>
+        <BotonExportar reporte="arqueos" etiqueta="Exportar arqueos" />
       </div>
 
       {!caja || !resumen ? (
@@ -53,7 +57,9 @@ export default async function CajaPage({
           <Alert>
             <AlertTitle>La caja está cerrada</AlertTitle>
             <AlertDescription>
-              Los pagos y anticipos se registran igual, pero no quedan en un arqueo hasta que abras la caja.
+              Todo el dinero de la sede pasa por la caja: cobros, anticipos, gastos en efectivo y pagos a proveedores
+              exigen la caja abierta para que ninguno quede fuera del arqueo. Ábrela para poder registrar
+              movimientos.
             </AlertDescription>
           </Alert>
           <Card>

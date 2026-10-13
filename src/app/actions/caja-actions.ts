@@ -15,7 +15,7 @@ export interface CajaFormState {
   success: boolean;
 }
 
-export type TipoMovimientoCaja = "PAGO" | "ANTICIPO" | "DEVOLUCION" | "GASTO";
+export type TipoMovimientoCaja = "PAGO" | "VENTA" | "ANTICIPO" | "DEVOLUCION" | "GASTO" | "PAGO_PROVEEDOR";
 
 export interface MovimientoCajaFila {
   id: string;
@@ -87,6 +87,20 @@ async function cargarMovimientos(
   const gastos = await tenantDb.gasto.findMany({
     where: { sedeId, pagadoEnEfectivo: true, createdAt: ventana },
   });
+  // Fase 24: las ventas de mostrador son ingreso y sus devoluciones, egreso.
+  const pagosMostrador = await tenantDb.pagoVentaMostrador.findMany({
+    where: { createdAt: ventana, venta: { sedeId } },
+    include: { venta: { select: { numero: true } } },
+  });
+  const devolucionesMostrador = await tenantDb.devolucionMostrador.findMany({
+    where: { sedeId, createdAt: ventana },
+    include: { venta: { select: { numero: true } } },
+  });
+  // Abonos a proveedores en efectivo: sale dinero del cajón (Fase 24).
+  const pagosProveedor = await tenantDb.pagoProveedor.findMany({
+    where: { metodoPago: "EFECTIVO", createdAt: ventana, cuenta: { entrada: { bodega: { sedeId } } } },
+    include: { cuenta: { select: { proveedor: { select: { nombre: true } } } } },
+  });
 
   const filas: MovimientoCajaFila[] = [
     ...pagos.map((p) => ({
@@ -113,6 +127,32 @@ async function cargarMovimientos(
       metodo: (d.metodoDevolucion ?? "EFECTIVO") as Metodo,
       monto: -Number(d.monto),
     })),
+    ...pagosMostrador.map((p) => ({
+      id: `venta-${p.id}`,
+      fecha: p.createdAt,
+      tipo: "VENTA" as const,
+      descripcion: `Venta de mostrador #${p.venta.numero}`,
+      metodo: p.metodoPago as Metodo,
+      monto: Number(p.monto),
+    })),
+    ...devolucionesMostrador.map((d) => ({
+      id: `devolucion-mostrador-${d.id}`,
+      fecha: d.createdAt,
+      tipo: "DEVOLUCION" as const,
+      descripcion: `Devolución venta #${d.venta.numero}`,
+      metodo: d.metodoPago as Metodo,
+      // Solo lo que salió del cajón: si la venta estaba a crédito, parte (o todo)
+      // bajó la deuda del cliente y no es efectivo.
+      monto: -Number(d.montoEnEfectivo),
+    })),
+    ...pagosProveedor.map((p) => ({
+      id: `pago-proveedor-${p.id}`,
+      fecha: p.createdAt,
+      tipo: "PAGO_PROVEEDOR" as const,
+      descripcion: `Pago a ${p.cuenta.proveedor.nombre}`,
+      metodo: p.metodoPago as Metodo,
+      monto: -Number(p.monto),
+    })),
     ...gastos.map((g) => ({
       id: `gasto-${g.id}`,
       fecha: g.createdAt,
@@ -127,11 +167,16 @@ async function cargarMovimientos(
     resumenBase: {
       pagos: pagos.map((p) => ({ monto: Number(p.monto), metodo: p.metodoPago as Metodo })),
       anticipos: anticipos.map((a) => ({ monto: Number(a.monto), metodo: a.metodoPago as Metodo })),
-      devoluciones: devoluciones.map((d) => ({
-        monto: Number(d.monto),
-        metodo: (d.metodoDevolucion ?? "EFECTIVO") as Metodo,
-      })),
+      devoluciones: [
+        ...devoluciones.map((d) => ({
+          monto: Number(d.monto),
+          metodo: (d.metodoDevolucion ?? "EFECTIVO") as Metodo,
+        })),
+        ...devolucionesMostrador.map((d) => ({ monto: Number(d.montoEnEfectivo), metodo: d.metodoPago as Metodo })),
+      ],
+      ventasMostrador: pagosMostrador.map((p) => ({ monto: Number(p.monto), metodo: p.metodoPago as Metodo })),
       gastosEfectivo: gastos.map((g) => Number(g.monto)),
+      pagosProveedorEfectivo: pagosProveedor.map((p) => Number(p.monto)),
     },
     filas,
   };

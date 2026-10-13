@@ -4,9 +4,15 @@ export type Metodo = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "OTRO";
 
 export interface MovimientosCaja {
   pagos: { monto: number; metodo: Metodo }[]; // pagos de facturas (sin ANTICIPO)
+  /// Fase 24: ventas de mostrador cobradas en la ventana (ingreso, igual que un pago).
+  ventasMostrador: { monto: number; metodo: Metodo }[];
   anticipos: { monto: number; metodo: Metodo }[]; // anticipos recibidos en la ventana
-  devoluciones: { monto: number; metodo: Metodo }[]; // anticipos devueltos en la ventana
+  /// Anticipos devueltos **y** devoluciones de ventas de mostrador en la ventana
+  /// (ambas son dinero que sale del cajón, con el mismo trato).
+  devoluciones: { monto: number; metodo: Metodo }[];
   gastosEfectivo: number[]; // montos de gastos pagadoEnEfectivo
+  /// Fase 24: abonos a proveedores pagados en efectivo (sale del cajón).
+  pagosProveedorEfectivo: number[];
 }
 
 export interface ResumenCaja {
@@ -20,7 +26,7 @@ export interface ResumenCaja {
 export function calcularResumenCaja(baseInicial: number, movimientos: MovimientosCaja): ResumenCaja {
   const ingresosPorMetodo: Record<Metodo, number> = { EFECTIVO: 0, TARJETA: 0, TRANSFERENCIA: 0, OTRO: 0 };
   let totalIngresos = 0;
-  for (const m of [...movimientos.pagos, ...movimientos.anticipos]) {
+  for (const m of [...movimientos.pagos, ...movimientos.ventasMostrador, ...movimientos.anticipos]) {
     ingresosPorMetodo[m.metodo] = roundMoney(ingresosPorMetodo[m.metodo] + m.monto);
     totalIngresos = roundMoney(totalIngresos + m.monto);
   }
@@ -32,6 +38,7 @@ export function calcularResumenCaja(baseInicial: number, movimientos: Movimiento
     else devolucionesOtrosMetodos = roundMoney(devolucionesOtrosMetodos + d.monto);
   }
   for (const g of movimientos.gastosEfectivo) egresosEfectivo = roundMoney(egresosEfectivo + g);
+  for (const p of movimientos.pagosProveedorEfectivo) egresosEfectivo = roundMoney(egresosEfectivo + p);
 
   const efectivoEsperado = roundMoney(baseInicial + ingresosPorMetodo.EFECTIVO - egresosEfectivo);
   return { ingresosPorMetodo, egresosEfectivo, devolucionesOtrosMetodos, efectivoEsperado, totalIngresos };
