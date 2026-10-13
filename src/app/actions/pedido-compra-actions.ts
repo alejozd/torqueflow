@@ -6,6 +6,7 @@ import { requireRole, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { publicDb } from "@/lib/db/public-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
+import { sincronizarCuentaPorPagar } from "@/lib/proveedores/sincronizar-cuenta";
 import { CANTIDAD_MAXIMA_LINEA } from "@/lib/validation/inventario";
 import { CONFIGURACION_SMTP_ID, descifrarConfiguracionSmtp, type ConfiguracionSmtpAlmacenada } from "@/lib/email/smtp-config";
 import { enviarEmail } from "@/lib/email/enviar-email";
@@ -328,6 +329,8 @@ export async function recibirPedidoCompraAction(
           data: { stockActual: { increment: linea.cantidad } },
         });
       }
+      // La deuda con el proveedor nace con la mercancía (Fase 24, D5).
+      await sincronizarCuentaPorPagar(tx, entrada.id, session.user.id);
       // estado guard inside the transaction: two people receiving at once
       // must not create two entradas for the same pedido.
       const { count } = await tx.pedidoCompra.updateMany({

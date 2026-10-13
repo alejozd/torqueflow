@@ -22,9 +22,10 @@ vi.mock("@/lib/db/public-client", () => ({
 
 const repuesto = { findMany: vi.fn(), update: vi.fn() };
 const pedidoCompra = { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() };
-const entradaMercancia = { create: vi.fn() };
+const entradaMercancia = { create: vi.fn(), findUniqueOrThrow: vi.fn() };
+const cuentaPorPagar = { create: vi.fn(), update: vi.fn() };
 const configuracionSmtp = { findUnique: vi.fn() };
-const tx = { repuesto, pedidoCompra, entradaMercancia };
+const tx = { repuesto, pedidoCompra, entradaMercancia, cuentaPorPagar };
 const $transaction = vi.fn((fn: (cliente: typeof tx) => unknown) => fn(tx));
 
 vi.mock("@/lib/db/tenant-client", () => ({
@@ -64,10 +65,23 @@ beforeEach(() => {
   mockRequireRole.mockReset().mockResolvedValue(sesion);
   mockRevalidatePath.mockReset();
   mockEnviarEmail.mockReset().mockResolvedValue(undefined);
-  for (const fn of [...Object.values(repuesto), ...Object.values(pedidoCompra), entradaMercancia.create, configuracionSmtp.findUnique]) {
+  for (const fn of [
+    ...Object.values(repuesto),
+    ...Object.values(pedidoCompra),
+    ...Object.values(entradaMercancia),
+    ...Object.values(cuentaPorPagar),
+    configuracionSmtp.findUnique,
+  ]) {
     fn.mockReset();
   }
   $transaction.mockClear();
+  // La recepción crea la deuda con el proveedor por lo recibido (Fase 24, D5).
+  entradaMercancia.findUniqueOrThrow.mockResolvedValue({
+    proveedorId: "p1",
+    createdAt: HOY,
+    items: [{ cantidad: 6, precioCompraUnitario: "1500" }],
+    cuentaPorPagar: null,
+  });
   vi.useFakeTimers();
   vi.setSystemTime(HOY);
 });

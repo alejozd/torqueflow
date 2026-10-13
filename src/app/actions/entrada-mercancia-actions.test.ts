@@ -10,17 +10,41 @@ vi.mock("@/lib/auth/guards", () => ({
 const mockEntradaCreate = vi.fn();
 const mockEntradaFindMany = vi.fn();
 const mockEntradaFindFirst = vi.fn();
+const mockEntradaFindUniqueOrThrow = vi.fn();
 const mockItemCreate = vi.fn();
 const mockRepuestoUpdate = vi.fn();
 const mockRepuestoFindFirst = vi.fn();
 const mockBodegaFindFirst = vi.fn();
-const mockTransaction = vi.fn((ops: unknown[]) => Promise.all(ops));
+const mockCuentaCreate = vi.fn();
+const mockCuentaUpdate = vi.fn();
+const mockTransaction = vi.fn((arg: unknown) => {
+  const cliente = {
+    entradaMercancia: {
+      create: mockEntradaCreate,
+      findMany: mockEntradaFindMany,
+      findFirst: mockEntradaFindFirst,
+      findUniqueOrThrow: mockEntradaFindUniqueOrThrow,
+    },
+    entradaMercanciaItem: { create: mockItemCreate },
+    repuesto: { update: mockRepuestoUpdate, findFirst: mockRepuestoFindFirst },
+    cuentaPorPagar: { create: mockCuentaCreate, update: mockCuentaUpdate },
+  };
+  // La forma interactiva (Fase 24: el ítem, el stock y la deuda van juntos).
+  if (typeof arg === "function") return (arg as (c: typeof cliente) => unknown)(cliente);
+  return Promise.all(arg as unknown[]);
+});
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
-    entradaMercancia: { create: mockEntradaCreate, findMany: mockEntradaFindMany, findFirst: mockEntradaFindFirst },
+    entradaMercancia: {
+      create: mockEntradaCreate,
+      findMany: mockEntradaFindMany,
+      findFirst: mockEntradaFindFirst,
+      findUniqueOrThrow: mockEntradaFindUniqueOrThrow,
+    },
     entradaMercanciaItem: { create: mockItemCreate },
     repuesto: { update: mockRepuestoUpdate, findFirst: mockRepuestoFindFirst },
     bodega: { findFirst: mockBodegaFindFirst },
+    cuentaPorPagar: { create: mockCuentaCreate, update: mockCuentaUpdate },
     $transaction: mockTransaction,
   }),
 }));
@@ -95,6 +119,15 @@ describe("addEntradaItemAction", () => {
     mockTransaction.mockClear();
     mockEntradaFindFirst.mockReset().mockResolvedValue({ bodegaId: "b1" });
     mockRepuestoFindFirst.mockReset().mockResolvedValue({ bodegaId: "b1" });
+    mockCuentaCreate.mockReset();
+    mockCuentaUpdate.mockReset();
+    // La deuda se recalcula desde los ítems de la entrada (Fase 24, D5).
+    mockEntradaFindUniqueOrThrow.mockReset().mockResolvedValue({
+      proveedorId: "p1",
+      createdAt: new Date("2026-10-17T13:00:00Z"),
+      items: [{ cantidad: 20, precioCompraUnitario: "8.5" }],
+      cuentaPorPagar: null,
+    });
   });
 
   it("returns a validation error when cantidad is less than 1", async () => {
@@ -141,6 +174,10 @@ describe("addEntradaItemAction", () => {
       data: { stockActual: { increment: 20 } },
     });
     expect(mockTransaction).toHaveBeenCalledTimes(1);
+    // La misma transacción crea la deuda con el proveedor por el valor recibido.
+    expect(mockCuentaCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ entradaId: "e1", proveedorId: "p1", total: 170, saldoPendiente: 170 }),
+    });
     // The entradas list shows per-entrada totals, so it must refresh too.
     expect(mockRevalidatePath).toHaveBeenCalledWith("/entradas-mercancia");
     expect(mockRevalidatePath).toHaveBeenCalledWith("/entradas-mercancia/e1");
