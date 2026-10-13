@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { destinosArrastrables, ofreceMenu, puedeAnular, puedeEntregar } from "./estado-tono";
+import { destinosArrastrables, ofreceMenu, puedeAnular, puedeEntregar, requiereConfirmacion } from "./estado-tono";
 
 describe("destinosArrastrables", () => {
   it("solo ofrece transiciones válidas y nunca Entregada ni Anular", () => {
@@ -32,6 +32,13 @@ describe("puedeEntregar, puedeAnular y ofreceMenu", () => {
       expect(ofreceMenu(estado, false)).toBe(false);
       expect(puedeEntregar(estado, false)).toBe(false);
       expect(puedeAnular(estado, false)).toBe(false);
+    }
+  });
+
+  it("anular es el único movimiento que pide confirmación", () => {
+    expect(requiereConfirmacion("ANULADA")).toBe(true);
+    for (const destino of ["EN_PROCESO", "TERMINADA", "ENTREGADA"] as const) {
+      expect(requiereConfirmacion(destino)).toBe(false);
     }
   });
 });

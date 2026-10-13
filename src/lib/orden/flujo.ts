@@ -9,6 +9,12 @@ import type { EstadoOrden, PrioridadOrden } from "@/generated/prisma-tenant";
  * `OrdenTrabajo.updatedAt` solo se mueve cuando alguien toca la fila de la orden
  * (estado, mecánico, recepción), así que cargar repuestos durante tres días
  * dejaría la orden como estancada si solo se mirara la cabecera.
+ *
+ * **Límite conocido:** de los hijos se mira su alta (`createdAt`), porque ninguno
+ * de esos modelos guarda `updatedAt` (solo `Dvi` lo tiene). Editar o borrar una
+ * línea ya cargada no cuenta como actividad. Cerrarlo pediría añadir `updatedAt`
+ * a cuatro modelos y acordarse de tocarlo en cada acción; queda documentado en vez
+ * de improvisado.
  */
 
 export type MotivoAlerta = "ESTANCADA" | "TERMINADA_SIN_ENTREGAR";
@@ -24,6 +30,17 @@ export interface ActividadDeOrden {
 }
 
 const MS_POR_DIA = 24 * 60 * 60 * 1000;
+
+/**
+ * Una orden más vieja que esto ya no es "flujo de taller" sino historia: acota la
+ * consulta de alertas para que no recorra años de órdenes terminadas, y evita que
+ * un auto olvidado de hace dos años salga como alerta del día.
+ */
+export const DIAS_HISTORIAL_ALERTAS = 365;
+
+export function limiteHistorialAlertas(ahora: Date): Date {
+  return new Date(ahora.getTime() - DIAS_HISTORIAL_ALERTAS * MS_POR_DIA);
+}
 
 export function ultimaActividad(orden: ActividadDeOrden): Date {
   const momentos = [

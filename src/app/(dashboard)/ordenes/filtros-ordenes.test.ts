@@ -3,6 +3,7 @@ import {
   ALERTAS_VALIDAS,
   ETIQUETA_FILTRO_ALERTA,
   SORT_KEYS,
+  compararPrioridad,
   construirHrefOrdenes,
   filtrarPorAlerta,
   parseAlerta,
@@ -39,6 +40,20 @@ describe("parseo de la URL", () => {
     expect(SORT_KEYS).toContain("prioridad");
     expect(ALERTAS_VALIDAS).toEqual(["ESTANCADA", "TERMINADA_SIN_ENTREGAR"]);
     expect(ETIQUETA_FILTRO_ALERTA.TERMINADA_SIN_ENTREGAR).toBe("Sin entregar");
+  });
+});
+
+describe("compararPrioridad", () => {
+  const urgente = { prioridad: "URGENTE" as const };
+  const baja = { prioridad: "BAJA" as const };
+  const normal = { prioridad: "NORMAL" as const };
+
+  it("descendente deja primero lo más urgente (el primer clic de la columna)", () => {
+    expect([baja, urgente, normal].sort((a, b) => compararPrioridad(a, b, "desc"))).toEqual([urgente, normal, baja]);
+  });
+
+  it("ascendente deja primero lo menos urgente", () => {
+    expect([urgente, baja, normal].sort((a, b) => compararPrioridad(a, b, "asc"))).toEqual([baja, normal, urgente]);
   });
 });
 

@@ -48,7 +48,8 @@ vi.mock("@/lib/email/enviar-email", () => ({
   enviarEmail: (...args: unknown[]) => mockEnviarEmail(...args),
 }));
 
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+const mockRevalidatePath = vi.fn();
+vi.mock("next/cache", () => ({ revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args) }));
 
 import { cifrarSecreto } from "@/lib/crypto/secret-box";
 import {
@@ -391,6 +392,22 @@ describe("updateEstadoOrdenAction", () => {
     expect(result.error).toBe("La orden se entrega firmando el acta de entrega, no desde el cambio de estado");
     expect(mockUpdate).not.toHaveBeenCalled();
     expect(mockAuditLogCreate).not.toHaveBeenCalled();
+  });
+
+  it("revalida el listado además de la ficha, para que el tablero se refresque (Fase 22)", async () => {
+    // El tablero mueve órdenes desde /ordenes: sin esto la tarjeta se queda en su
+    // columna vieja y los contadores no se mueven hasta recargar.
+    mockOrdenFindFirst.mockResolvedValue({ ...ORDEN_BASE, estado: "EN_PROCESO" });
+    mockUpdate.mockResolvedValue({ id: "o1", estado: "TERMINADA" });
+    mockConfiguracionSmtpFindUnique.mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("estado", "TERMINADA");
+
+    const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
+
+    expect(result.error).toBeNull();
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/ordenes");
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/ordenes/o1");
   });
 
   it("returns 'Orden no encontrada' when the order does not exist", async () => {
@@ -806,5 +823,14 @@ describe("cambiarPrioridadAction", () => {
     const result = await cambiarPrioridadAction("o1", inicialPrioridad, conPrioridad("ALTA"));
 
     expect(result).toEqual({ error: "No se pudo cambiar la prioridad", success: false });
+  });
+
+  it("un rol sin permiso no llega a tocar la orden", async () => {
+    // El guard real lanza (redirect); la acción no debe atraparlo ni escribir nada.
+    mockRequireRole.mockRejectedValue(new Error("NEXT_REDIRECT"));
+
+    await expect(cambiarPrioridadAction("o1", inicialPrioridad, conPrioridad("ALTA"))).rejects.toThrow("NEXT_REDIRECT");
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+    expect(mockAuditLogCreate).not.toHaveBeenCalled();
   });
 });

@@ -61,12 +61,20 @@ describe("getAlertasTaller", () => {
     expect(alertas[0]).toMatchObject({ placa: "ABC123", cliente: "Ana", mecanico: "Luis", prioridad: "NORMAL" });
   });
 
-  it("solo mira órdenes vivas de la sede activa y con lo mínimo para decidir", async () => {
+  it("solo mira órdenes vivas de la sede activa, dentro del último año, y con lo mínimo para decidir", async () => {
     await getAlertasTaller();
 
-    const consulta = mockFindMany.mock.calls[0]![0] as { where: Record<string, unknown>; select: Record<string, unknown> };
+    const consulta = mockFindMany.mock.calls[0]![0] as {
+      where: { sedeId: string; estado: unknown; createdAt: { gte: Date } };
+      select: Record<string, unknown>;
+    };
 
-    expect(consulta.where).toEqual({ sedeId: "sede-1", estado: { in: ["EN_PROCESO", "TERMINADA"] } });
+    expect(consulta.where.sedeId).toBe("sede-1");
+    expect(consulta.where.estado).toEqual({ in: ["EN_PROCESO", "TERMINADA"] });
+    // Acotado a un año para no recorrer todo el histórico de la sede.
+    const limite = consulta.where.createdAt.gte;
+    const dias = Math.round((Date.now() - limite.getTime()) / (24 * 60 * 60 * 1000));
+    expect(dias).toBe(365);
     // Nada de `Usuario` completo: el nombre del mecánico y poco más.
     expect(consulta.select).toMatchObject({ mecanico: { select: { nombre: true } }, cliente: { select: { nombre: true } } });
   });

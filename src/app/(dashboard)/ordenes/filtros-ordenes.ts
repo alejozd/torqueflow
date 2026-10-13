@@ -1,5 +1,5 @@
-import type { EstadoOrden } from "@/generated/prisma-tenant";
-import type { MotivoAlerta } from "@/lib/orden/flujo";
+import type { EstadoOrden, PrioridadOrden } from "@/generated/prisma-tenant";
+import { ORDEN_PRIORIDAD, type MotivoAlerta } from "@/lib/orden/flujo";
 
 /**
  * Filtros, orden y URL del listado de órdenes (Fase 22). Viven aparte de la
@@ -48,6 +48,21 @@ export interface ParametrosOrdenes {
   sort?: SortKey;
   order?: SortOrder;
   alerta?: MotivoAlerta;
+}
+
+/**
+ * Orden por prioridad para la tabla. El sentido es explícito porque la doble
+ * negación del comparador (`order === "asc" ? cmp : -cmp`) es fácil de leer al
+ * revés: descendente deja primero lo más urgente, que es lo que uno espera al
+ * pulsar la columna por primera vez.
+ */
+export function compararPrioridad(
+  a: { prioridad: PrioridadOrden },
+  b: { prioridad: PrioridadOrden },
+  order: SortOrder,
+): number {
+  const urgencia = ORDEN_PRIORIDAD[a.prioridad] - ORDEN_PRIORIDAD[b.prioridad];
+  return order === "asc" ? -urgencia : urgencia;
 }
 
 /** Arma la URL conservando las otras dimensiones (estado, vista, orden y alerta). */

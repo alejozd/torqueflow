@@ -103,6 +103,18 @@ describe("TableroOrdenes", () => {
     expect(mockUpdateEstado).not.toHaveBeenCalled();
   });
 
+  it("soltar en la misma columna no hace nada", async () => {
+    render(<TableroOrdenes columnas={columnas(tarjeta({ estado: "BORRADOR" }))} />);
+
+    const origen = screen.getByText("ABC123").closest("[draggable]")!;
+    const misma = screen.getByText("Borrador").closest("[data-columna]")!;
+    fireEvent.dragStart(origen);
+    fireEvent.dragOver(misma);
+    fireEvent.drop(misma);
+
+    expect(mockUpdateEstado).not.toHaveBeenCalled();
+  });
+
   it("una orden ya no editable no se arrastra ni ofrece menú", () => {
     render(<TableroOrdenes columnas={columnas(tarjeta({ estado: "ENTREGADA", movible: false }))} />);
 

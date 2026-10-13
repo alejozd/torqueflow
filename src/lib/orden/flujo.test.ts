@@ -6,6 +6,7 @@ import {
   alertaDeOrden,
   compararPorPrioridad,
   diasSinActividad,
+  limiteHistorialAlertas,
   ultimaActividad,
   type ActividadDeOrden,
 } from "./flujo";
@@ -110,5 +111,15 @@ describe("prioridad", () => {
   it("etiqueta los dos motivos de alerta", () => {
     expect(ETIQUETA_ALERTA.ESTANCADA).toBe("Estancada");
     expect(ETIQUETA_ALERTA.TERMINADA_SIN_ENTREGAR).toBe("Terminada sin entregar");
+  });
+});
+
+describe("limiteHistorialAlertas", () => {
+  it("deja fuera lo que ya es historia, no flujo de taller", () => {
+    const limite = limiteHistorialAlertas(AHORA);
+    const dias = Math.round((AHORA.getTime() - limite.getTime()) / (24 * 60 * 60 * 1000));
+
+    expect(dias).toBe(365);
+    expect(limite.getTime()).toBeLessThan(AHORA.getTime());
   });
 });

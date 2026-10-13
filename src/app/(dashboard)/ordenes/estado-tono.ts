@@ -64,3 +64,12 @@ export function puedeAnular(estado: EstadoOrden, movible: boolean): boolean {
 export function ofreceMenu(estado: EstadoOrden, movible: boolean): boolean {
   return movible && (destinosArrastrables(estado).length > 0 || puedeEntregar(estado, movible) || puedeAnular(estado, movible));
 }
+
+/**
+ * Anular no se arrastra y siempre pasa por una confirmación en línea, porque
+ * deja la orden inmutable. El resto de movimientos del tablero son reversibles
+ * a mano y no preguntan.
+ */
+export function requiereConfirmacion(destino: EstadoOrden): boolean {
+  return destino === "ANULADA";
+}

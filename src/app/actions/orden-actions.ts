@@ -381,6 +381,9 @@ export async function updateEstadoOrdenAction(
   }
 
   revalidatePath(`/ordenes/${id}`);
+  // El tablero (Fase 22) mueve órdenes desde /ordenes: sin revalidar el listado,
+  // la tarjeta se quedaría en su columna vieja y los contadores no se moverían.
+  revalidatePath("/ordenes");
 
   const nuevoEstado = parsedEstado.data;
   const advertencia = esEstadoNotificable(nuevoEstado)

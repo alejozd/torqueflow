@@ -15,6 +15,7 @@ import {
   ALERTAS_VALIDAS,
   ESTADOS_VALIDOS,
   ETIQUETA_FILTRO_ALERTA,
+  compararPrioridad,
   construirHrefOrdenes,
   filtrarPorAlerta,
   parseAlerta,
@@ -32,7 +33,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { inferirColorVehiculo } from "@/lib/color-vehiculo";
 import { formatoFechaCorta, formatoFechaRelativa, inicioMesBogota, inicioSemanaBogota } from "@/lib/fecha-bogota";
-import { ETIQUETA_PRIORIDAD, ORDEN_PRIORIDAD, compararPorPrioridad, type MotivoAlerta } from "@/lib/orden/flujo";
+import { ETIQUETA_PRIORIDAD, compararPorPrioridad, type MotivoAlerta } from "@/lib/orden/flujo";
 import { cn } from "@/lib/utils";
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", {
@@ -141,7 +142,7 @@ function compararOrdenes(a: OrdenRow, b: OrdenRow, sort: SortKey, order: SortOrd
       cmp = a.cliente.nombre.localeCompare(b.cliente.nombre);
       break;
     case "prioridad":
-      cmp = ORDEN_PRIORIDAD[b.prioridad] - ORDEN_PRIORIDAD[a.prioridad];
+      cmp = compararPrioridad(a, b, order);
       break;
   }
   return order === "asc" ? cmp : -cmp;

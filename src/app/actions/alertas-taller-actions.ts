@@ -3,7 +3,13 @@
 import { requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { leerDiasEstancada } from "@/lib/orden/configuracion-estancada";
-import { ORDEN_PRIORIDAD, alertaDeOrden, diasSinActividad, type MotivoAlerta } from "@/lib/orden/flujo";
+import {
+  ORDEN_PRIORIDAD,
+  alertaDeOrden,
+  diasSinActividad,
+  limiteHistorialAlertas,
+  type MotivoAlerta,
+} from "@/lib/orden/flujo";
 import { scopeOrden } from "@/lib/sede/scope";
 import type { PrioridadOrden } from "@/generated/prisma-tenant";
 
@@ -36,10 +42,17 @@ export async function getAlertasTaller(): Promise<AlertasTaller> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
+  const ahora = new Date();
   const [diasUmbral, ordenes] = await Promise.all([
     leerDiasEstancada(tenantDb),
     tenantDb.ordenTrabajo.findMany({
-      where: { ...scopeOrden(session.user.sedeActivaId), estado: { in: ["EN_PROCESO", "TERMINADA"] } },
+      where: {
+        ...scopeOrden(session.user.sedeActivaId),
+        estado: { in: ["EN_PROCESO", "TERMINADA"] },
+        // Acotado a un año (D16): sin esto se recorrería todo el histórico de
+        // órdenes terminadas de la sede en cada carga del Inicio.
+        createdAt: { gte: limiteHistorialAlertas(ahora) },
+      },
       select: {
         id: true,
         estado: true,
@@ -59,7 +72,6 @@ export async function getAlertasTaller(): Promise<AlertasTaller> {
     }),
   ]);
 
-  const ahora = new Date();
   const alertas = ordenes.flatMap((orden): AlertaTaller[] => {
     const motivo = alertaDeOrden(orden, { ahora, diasUmbral });
     if (!motivo) return [];

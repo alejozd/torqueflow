@@ -17,7 +17,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { ESTADO_DOT_COLOR, ESTADO_LABELS, destinosArrastrables, ofreceMenu, puedeAnular, puedeEntregar } from "./estado-tono";
+import {
+  ESTADO_DOT_COLOR,
+  ESTADO_LABELS,
+  destinosArrastrables,
+  ofreceMenu,
+  puedeAnular,
+  puedeEntregar,
+  requiereConfirmacion,
+} from "./estado-tono";
 import { PRIORIDAD_BADGE_CLASSNAME } from "./prioridad-tono";
 import { ETIQUETA_PRIORIDAD, type MotivoAlerta } from "@/lib/orden/flujo";
 import { ESTADO_ORDEN_TRANSITIONS } from "@/lib/orden/estado-transitions";
@@ -85,7 +93,7 @@ export function TableroOrdenes({ columnas }: { columnas: ColumnaTablero[] }) {
   }
 
   function pedirMovimiento(tarjeta: TarjetaTablero, destino: EstadoOrden) {
-    if (destino === "ANULADA") {
+    if (requiereConfirmacion(destino)) {
       setConfirmando({ tarjeta, destino });
       return;
     }
