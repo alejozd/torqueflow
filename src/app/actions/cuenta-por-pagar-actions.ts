@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth/guards";
-import { sesionDeCajaAbierta } from "@/lib/caja/sesion";
+import { exigirCajaParaEfectivo } from "@/lib/caja/sesion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { agruparCuentasPorPagar, type CuentaPorPagarFila } from "@/lib/proveedores/cuentas-por-pagar";
@@ -48,11 +48,14 @@ export async function abonarCuentaPorPagarAction(
   if (!cuenta) return { error: "Cuenta por pagar no encontrada", success: false };
   if (Number(cuenta.saldoPendiente) <= 0) return { error: "Esa cuenta ya está pagada", success: false };
 
-  // Pagar en efectivo saca dinero del cajón: exige caja abierta, como los cobros
-  // (D2). Por transferencia o tarjeta no hace falta, porque no toca el cajón.
-  if (parsed.data.metodoPago === "EFECTIVO" && !(await sesionDeCajaAbierta(tenantDb, session.user.sedeActivaId))) {
-    return { error: "Abre la caja antes de pagar en efectivo a un proveedor", success: false };
-  }
+  // Pagar en efectivo saca dinero del cajón (fase de consolidación, D3).
+  const errorCaja = await exigirCajaParaEfectivo(
+    tenantDb,
+    session.user.sedeActivaId,
+    parsed.data.metodoPago,
+    "Abre la caja antes de pagar en efectivo a un proveedor",
+  );
+  if (errorCaja) return { error: errorCaja, success: false };
 
   try {
     await tenantDb.$transaction(async (tx) => {

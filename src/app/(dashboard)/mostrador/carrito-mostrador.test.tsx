@@ -15,12 +15,12 @@ const REPUESTOS: RepuestoMostrador[] = [
   { id: "r2", codigo: "BJ-4", nombre: "Bujía", precioVenta: 20000, stockActual: 0, disponible: 0 },
 ];
 
-function pintar(cambios: { cajaAbierta?: boolean } = {}) {
+function pintar(cambios: { efectivoBloqueado?: boolean } = {}) {
   return render(
     <CarritoMostrador
       repuestos={REPUESTOS}
       clientes={[{ id: "c1", nombre: "Ana Pérez" }]}
-      cajaAbierta={cambios.cajaAbierta ?? true}
+      efectivoBloqueado={cambios.efectivoBloqueado ?? false}
     />,
   );
 }
@@ -35,12 +35,24 @@ describe("CarritoMostrador", () => {
     mockCrear.mockReset().mockResolvedValue({ error: null, success: true, numero: 9 });
   });
 
-  it("avisa y no deja cobrar si la caja está cerrada", () => {
-    pintar({ cajaAbierta: false });
+  it("con el control de caja y la caja cerrada, solo bloquea el cobro en efectivo", { timeout: 20_000 }, async () => {
+    pintar({ efectivoBloqueado: true });
 
-    expect(screen.getByText(/Abre la caja de tu sede antes de vender/i)).toBeInTheDocument();
+    expect(screen.getByText(/para cobrar en efectivo abre la caja/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Buscar repuesto")).toBeEnabled();
+    await agregarFiltro();
+    // Efectivo es el método por defecto: no se puede registrar.
     expect(screen.getByRole("button", { name: "Registrar venta" })).toBeDisabled();
-    expect(screen.getByLabelText("Buscar repuesto")).toBeDisabled();
+
+    await userEvent.click(screen.getByLabelText("Cobro"));
+    await userEvent.click(await screen.findByRole("option", { name: "Tarjeta" }));
+    expect(screen.getByRole("button", { name: "Registrar venta" })).toBeEnabled();
+  });
+
+  it("sin bloqueo de efectivo no muestra el aviso de caja", () => {
+    pintar();
+
+    expect(screen.queryByText(/abre la caja/i)).not.toBeInTheDocument();
   });
 
   it("agrega un repuesto y calcula el total con IVA, como el servidor", async () => {

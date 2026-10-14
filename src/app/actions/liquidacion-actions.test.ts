@@ -20,6 +20,7 @@ const db = {
   liquidacionMecanico: { findMany: vi.fn(), findFirst: vi.fn() },
   ordenTrabajo: { findMany: vi.fn() },
   categoriaGasto: { findUnique: vi.fn() },
+  cajaSesion: { findFirst: vi.fn() },
   $transaction: (fn: (cliente: typeof tx) => unknown) => fn(tx),
 };
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
@@ -651,6 +652,30 @@ describe("pagarLiquidacionAction", () => {
     expect(tx.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ tipo: "LIQUIDACION_PAGAR", entidadId: "l1" }),
     });
+  });
+
+  it("con control de caja, pagarla en efectivo exige la caja abierta (hallazgo M1)", async () => {
+    db.configuracionTaller.findUnique.mockResolvedValue({ exigirActaFirmada: false, usarControlCaja: true });
+    db.cajaSesion.findFirst.mockResolvedValue(null);
+    try {
+      const r = await pagarLiquidacionAction("l1", inicialPago, fd({ metodoPago: "EFECTIVO", referencia: "", fecha: "2026-10-31" }));
+
+      expect(r.error).toBe("Abre la caja antes de pagar la liquidación en efectivo");
+      expect(tx.gasto.create).not.toHaveBeenCalled();
+      expect(db.cajaSesion.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { sedeId: "sede-1", cerradaAt: null } }),
+      );
+
+      // Por transferencia no toca el cajón.
+      const transferencia = await pagarLiquidacionAction(
+        "l1",
+        inicialPago,
+        fd({ metodoPago: "TRANSFERENCIA", referencia: "", fecha: "2026-10-31" }),
+      );
+      expect(transferencia.error).toBeNull();
+    } finally {
+      db.configuracionTaller.findUnique.mockReset();
+    }
   });
 
   it("una transferencia no cuenta como efectivo de la caja", async () => {

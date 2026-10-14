@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const opcionesTaller = { exigirActaFirmada: false, usarControlCaja: true };
+
 const mockRequireRole = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({ requireRole: (...args: unknown[]) => mockRequireRole(...args) }));
 
@@ -10,6 +12,8 @@ const tx = {
 };
 const db = {
   cajaSesion: { findFirst: vi.fn() },
+  // Control de caja encendido: la regla del efectivo aplica (fase de consolidación, D3).
+  configuracionTaller: { findUnique: async () => opcionesTaller },
   cliente: { findFirst: vi.fn() },
   repuesto: { findMany: vi.fn() },
   ventaMostrador: { findFirst: vi.fn() },
@@ -107,8 +111,27 @@ describe("crearVentaMostradorAction", () => {
 
     const r = await crearVentaMostradorAction(inicial, venta());
 
-    expect(r.error).toBe("Abre la caja antes de cobrar en el mostrador");
+    expect(r.error).toBe("Abre la caja antes de cobrar en efectivo en el mostrador");
     expect(tx.ventaMostrador.create).not.toHaveBeenCalled();
+  });
+
+  it("con la caja cerrada sí vende con tarjeta o a crédito (solo el efectivo la exige)", async () => {
+    db.cajaSesion.findFirst.mockResolvedValue(null);
+
+    expect((await crearVentaMostradorAction(inicial, venta({ metodoPago: "TARJETA" }))).error).toBeNull();
+    expect(
+      (await crearVentaMostradorAction(inicial, venta({ clienteId: "c1", cobrarTodo: "false" }))).error,
+    ).toBeNull();
+  });
+
+  it("con el control de caja apagado vende en efectivo sin caja", async () => {
+    db.cajaSesion.findFirst.mockResolvedValue(null);
+    opcionesTaller.usarControlCaja = false;
+    try {
+      expect((await crearVentaMostradorAction(inicial, venta())).error).toBeNull();
+    } finally {
+      opcionesTaller.usarControlCaja = true;
+    }
   });
 
   it("sin cliente identificado la venta tiene que quedar pagada", async () => {
@@ -226,8 +249,11 @@ describe("cobrarVentaMostradorAction", () => {
 
     const r = await cobrarVentaMostradorAction("v1", inicial, fd({ monto: "1000", metodoPago: "EFECTIVO" }));
 
-    expect(r.error).toBe("Abre la caja antes de cobrar en el mostrador");
+    expect(r.error).toBe("Abre la caja antes de cobrar en efectivo en el mostrador");
     expect(tx.ventaMostrador.updateMany).not.toHaveBeenCalled();
+
+    const conTarjeta = await cobrarVentaMostradorAction("v1", inicial, fd({ monto: "1000", metodoPago: "TARJETA" }));
+    expect(conTarjeta.error).toBeNull();
   });
 
   it("rechaza un monto vacío o cero sin tocar la base", async () => {

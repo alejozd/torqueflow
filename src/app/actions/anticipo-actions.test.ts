@@ -1,5 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
+const opcionesTaller = { exigirActaFirmada: false, usarControlCaja: true };
+
 const mockRequireRole = vi.fn();
 const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
@@ -17,6 +19,8 @@ vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     ordenTrabajo: { findFirst: mockOrdenFindFirst },
     cajaSesion: { findFirst: mockCajaFindFirst },
+    // Control de caja encendido: la regla del efectivo aplica (fase de consolidación, D3).
+    configuracionTaller: { findUnique: async () => opcionesTaller },
     anticipo: {
       create: mockAnticipoCreate,
       findMany: mockAnticipoFindMany,
@@ -52,6 +56,15 @@ describe("registrarAnticipoAction", () => {
     mockAnticipoCreate.mockReset().mockResolvedValue({ id: "a1" });
     mockCajaFindFirst.mockReset().mockResolvedValue({ id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
     mockRevalidate.mockReset();
+  });
+
+  it("con la caja cerrada sí registra un anticipo por transferencia (solo el efectivo la exige)", async () => {
+    mockCajaFindFirst.mockResolvedValue(null);
+
+    const r = await registrarAnticipoAction("o1", initial, fd({ monto: "50000", metodoPago: "TRANSFERENCIA" }));
+
+    expect(r).toEqual({ error: null, success: true });
+    expect(mockAnticipoCreate).toHaveBeenCalled();
   });
 
   it("no registra el anticipo con la caja cerrada (Fase 24)", async () => {

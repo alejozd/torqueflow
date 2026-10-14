@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
-import { sesionDeCajaAbierta } from "@/lib/caja/sesion";
+import { exigirCajaParaEfectivo } from "@/lib/caja/sesion";
+import { leerOpcionesTaller } from "@/lib/configuracion/opciones-taller";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { ETIQUETA_MES, periodoActualBogota, periodoAnterior, rangoDelPeriodo } from "@/lib/gastos/periodo";
@@ -71,12 +72,15 @@ export async function crearGastoAction(prevState: GastoFormState, formData: Form
   const errorCategoria = await validarCategoria(tenantDb, categoriaId);
   if (errorCategoria) return { error: errorCategoria, success: false };
 
-  // Un gasto pagado en efectivo sale del cajón: sin caja abierta quedaría fuera
-  // del arqueo (Fase 24, D2).
+  // Un gasto pagado en efectivo sale del cajón (fase de consolidación, D3).
   const pagadoEnEfectivo = leerPagadoEnEfectivo(formData);
-  if (pagadoEnEfectivo && !(await sesionDeCajaAbierta(tenantDb, sedeId))) {
-    return { error: "Abre la caja antes de registrar un gasto pagado en efectivo", success: false };
-  }
+  const errorCaja = await exigirCajaParaEfectivo(
+    tenantDb,
+    sedeId,
+    pagadoEnEfectivo,
+    "Abre la caja antes de registrar un gasto pagado en efectivo",
+  );
+  if (errorCaja) return { error: errorCaja, success: false };
 
   try {
     await tenantDb.gasto.create({
@@ -111,7 +115,7 @@ export async function actualizarGastoAction(
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const actual = await tenantDb.gasto.findUnique({
     where: { id: gastoId },
-    select: { gastoRecurrenteId: true, periodo: true, sedeId: true, categoriaId: true },
+    select: { gastoRecurrenteId: true, periodo: true, sedeId: true, categoriaId: true, pagadoEnEfectivo: true },
   });
   if (!actual) return { error: "Gasto no encontrado", success: false };
   // Sin sedeId en el formulario se conserva la sede actual del gasto.
@@ -129,10 +133,15 @@ export async function actualizarGastoAction(
   const errorCategoria = await validarCategoria(tenantDb, categoriaId, actual.categoriaId);
   if (errorCategoria) return { error: errorCategoria, success: false };
 
-  // Editar un gasto también puede convertirlo en "pagado en efectivo": misma regla.
+  // Con control de caja, un gasto ya registrado no se convierte en "pagado en
+  // efectivo": el arqueo lo cuenta por su `createdAt`, así que nunca entraría al
+  // arqueo de la caja de hoy (fase de consolidación, D5 / hallazgo B3).
   const pagadoEnEfectivo = leerPagadoEnEfectivo(formData);
-  if (pagadoEnEfectivo && !(await sesionDeCajaAbierta(tenantDb, sedeId))) {
-    return { error: "Abre la caja antes de marcar un gasto como pagado en efectivo", success: false };
+  if (pagadoEnEfectivo && !actual.pagadoEnEfectivo && (await leerOpcionesTaller(tenantDb)).usarControlCaja) {
+    return {
+      error: "Un gasto ya registrado no se puede pasar a efectivo: registra un gasto nuevo pagado en efectivo",
+      success: false,
+    };
   }
 
   try {

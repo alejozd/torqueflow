@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const opcionesTaller = { exigirActaFirmada: false, usarControlCaja: true };
+
 const mockRequireRole = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({ requireRole: (...a: unknown[]) => mockRequireRole(...a), requireSession: vi.fn() }));
 const db = {
@@ -7,6 +9,8 @@ const db = {
   categoriaGasto: { findUnique: vi.fn() },
   sede: { findUnique: vi.fn() },
   cajaSesion: { findFirst: vi.fn() },
+  // Control de caja encendido: la regla del efectivo aplica (fase de consolidación, D3).
+  configuracionTaller: { findUnique: async () => opcionesTaller },
 };
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -18,7 +22,7 @@ const RECEPCION = { user: { id: "u2", role: "RECEPCION", tenantSchema: "t", sede
 const ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "t", sedeActivaId: "s1" } };
 const valido = { categoriaId: "cat_arriendo", descripcion: "Arriendo", monto: "1500000", fecha: "2026-10-05" };
 
-const ACTUAL = { gastoRecurrenteId: null, periodo: null, sedeId: "s1", categoriaId: "cat_arriendo" };
+const ACTUAL = { gastoRecurrenteId: null, periodo: null, sedeId: "s1", categoriaId: "cat_arriendo", pagadoEnEfectivo: false };
 const RECURRENTE = { gastoRecurrenteId: "r1", periodo: "2026-10", sedeId: "s1", categoriaId: "cat_arriendo" };
 
 function form(obj: Record<string, string>) {
@@ -97,13 +101,32 @@ describe("gastos", () => {
   it("guarda pagadoEnEfectivo al crear y al actualizar", async () => {
     mockRequireRole.mockResolvedValue(ADMIN);
     db.categoriaGasto.findUnique.mockResolvedValue({ id: "cat_arriendo", activo: true });
-    db.gasto.findUnique.mockResolvedValue(ACTUAL);
+    db.gasto.findUnique.mockResolvedValue({ ...ACTUAL, pagadoEnEfectivo: true });
     await crearGastoAction(inicial, form({ ...valido, pagadoEnEfectivo: "true" }));
     expect(db.gasto.create.mock.calls[0][0].data.pagadoEnEfectivo).toBe(true);
     await actualizarGastoAction("g1", inicial, form({ ...valido, pagadoEnEfectivo: "true" }));
     expect(db.gasto.update.mock.calls[0][0].data.pagadoEnEfectivo).toBe(true);
     await actualizarGastoAction("g1", inicial, form(valido));
     expect(db.gasto.update.mock.calls[1][0].data.pagadoEnEfectivo).toBe(false);
+  });
+
+  it("con control de caja, un gasto ya registrado no se pasa a efectivo (B3)", async () => {
+    mockRequireRole.mockResolvedValue(ADMIN);
+    db.categoriaGasto.findUnique.mockResolvedValue({ id: "cat_arriendo", activo: true });
+    db.gasto.findUnique.mockResolvedValue(ACTUAL);
+
+    const r = await actualizarGastoAction("g1", inicial, form({ ...valido, pagadoEnEfectivo: "true" }));
+
+    expect(r.error).toBe("Un gasto ya registrado no se puede pasar a efectivo: registra un gasto nuevo pagado en efectivo");
+    expect(db.gasto.update).not.toHaveBeenCalled();
+
+    // Sin control de caja el arqueo no importa y se deja.
+    opcionesTaller.usarControlCaja = false;
+    try {
+      expect((await actualizarGastoAction("g1", inicial, form({ ...valido, pagadoEnEfectivo: "true" }))).error).toBeNull();
+    } finally {
+      opcionesTaller.usarControlCaja = true;
+    }
   });
 
   it("actualizar permite conservar la categoría actual aunque esté inactiva", async () => {

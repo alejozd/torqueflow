@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole, requireSession } from "@/lib/auth/guards";
-import { sesionDeCajaAbierta } from "@/lib/caja/sesion";
+import { exigirCajaParaEfectivo, sesionDeCajaAbierta } from "@/lib/caja/sesion";
+import { leerOpcionesTaller } from "@/lib/configuracion/opciones-taller";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { inicioDiaBogota } from "@/lib/fecha-bogota";
@@ -17,14 +18,15 @@ import type { Role } from "@/generated/prisma-tenant";
  * con la sede de la sesión, cobro inmediato o a crédito si hay cliente, y el stock
  * descontado **con guarda y dentro de la misma transacción** que la venta.
  *
- * Cobrar (vender o abonar) exige caja abierta: es la única forma de que ningún
- * movimiento de dinero quede fuera del arqueo (D2).
+ * Cobrar en efectivo (al vender o al abonar) exige caja abierta si el taller usa
+ * el control de caja (fase de consolidación, D3): así ningún efectivo queda fuera
+ * del arqueo. Una venta a crédito no mueve dinero y no la exige.
  */
 
 const ROLES_VENTA: Role[] = ["ADMIN", "RECEPCION", "TECNICO"];
 const ROLES_COBRO: Role[] = ["ADMIN", "RECEPCION"];
 
-const SIN_CAJA = "Abre la caja antes de cobrar en el mostrador";
+const SIN_CAJA = "Abre la caja antes de cobrar en efectivo en el mostrador";
 const SALDO_INSUFICIENTE = "SALDO_INSUFICIENTE";
 const STOCK_INSUFICIENTE = "STOCK_INSUFICIENTE";
 
@@ -69,7 +71,10 @@ export async function crearVentaMostradorAction(
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
 
-  if (!(await sesionDeCajaAbierta(tenantDb, sedeId))) return { error: SIN_CAJA, success: false };
+  if (datos.cobrarTodo) {
+    const errorCaja = await exigirCajaParaEfectivo(tenantDb, sedeId, datos.metodoPago, SIN_CAJA);
+    if (errorCaja) return { error: errorCaja, success: false };
+  }
 
   if (datos.clienteId) {
     const cliente = await tenantDb.cliente.findFirst({ where: { id: datos.clienteId }, select: { id: true } });
@@ -193,7 +198,8 @@ export interface VentaMostradorDia {
 }
 
 export interface MostradorDatos {
-  cajaAbierta: boolean;
+  /** El taller usa control de caja y la de la sede está cerrada: no se cobra en efectivo. */
+  efectivoBloqueado: boolean;
   repuestos: RepuestoMostrador[];
   clientes: { id: string; nombre: string }[];
   ventas: VentaMostradorDia[];
@@ -211,8 +217,9 @@ export async function getMostradorDatos(): Promise<MostradorDatos> {
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
 
-  const [sesion, repuestos, clientes, ventas] = await Promise.all([
+  const [sesion, opciones, repuestos, clientes, ventas] = await Promise.all([
     sesionDeCajaAbierta(tenantDb, sedeId),
+    leerOpcionesTaller(tenantDb),
     tenantDb.repuesto.findMany({
       where: { ...scopeRepuesto(sedeId) },
       select: { id: true, codigo: true, nombre: true, precioVenta: true, stockActual: true },
@@ -238,7 +245,7 @@ export async function getMostradorDatos(): Promise<MostradorDatos> {
   const comprometido = await comprometidoPorRepuesto(tenantDb, sedeId);
 
   return {
-    cajaAbierta: sesion !== null,
+    efectivoBloqueado: opciones.usarControlCaja && sesion === null,
     repuestos: repuestos.map((repuesto) => {
       const tomado = comprometido.get(repuesto.id) ?? 0;
       return {
@@ -293,7 +300,8 @@ export async function cobrarVentaMostradorAction(
   });
   if (!venta) return { error: "Venta no encontrada", success: false };
   if (Number(venta.saldoPendiente) <= 0) return { error: "Esa venta ya está pagada", success: false };
-  if (!(await sesionDeCajaAbierta(tenantDb, sedeId))) return { error: SIN_CAJA, success: false };
+  const errorCaja = await exigirCajaParaEfectivo(tenantDb, sedeId, parsed.data.metodoPago, SIN_CAJA);
+  if (errorCaja) return { error: errorCaja, success: false };
 
   try {
     await tenantDb.$transaction(async (tx) => {

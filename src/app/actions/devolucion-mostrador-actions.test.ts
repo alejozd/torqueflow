@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const opcionesTaller = { exigirActaFirmada: false, usarControlCaja: true };
+
 const mockRequireRole = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({ requireRole: (...args: unknown[]) => mockRequireRole(...args) }));
 
@@ -12,6 +14,8 @@ const tx = {
 };
 const db = {
   cajaSesion: { findFirst: vi.fn() },
+  // Control de caja encendido: la regla del efectivo aplica (fase de consolidación, D3).
+  configuracionTaller: { findUnique: async () => opcionesTaller },
   ventaMostrador: { findFirst: vi.fn() },
   $transaction: (fn: (cliente: typeof tx) => unknown) => fn(tx),
 };
@@ -172,7 +176,7 @@ describe("crearDevolucionAction", () => {
   it("exige caja abierta y una venta de la sede", async () => {
     db.cajaSesion.findFirst.mockResolvedValue(null);
     expect((await crearDevolucionAction("v1", inicial, devolucion())).error).toBe(
-      "Abre la caja antes de devolver en el mostrador",
+      "Abre la caja antes de devolver dinero en efectivo en el mostrador",
     );
 
     db.cajaSesion.findFirst.mockResolvedValue({ id: "c1", abiertaAt: new Date() });
@@ -181,6 +185,27 @@ describe("crearDevolucionAction", () => {
     expect(db.ventaMostrador.findFirst).toHaveBeenLastCalledWith(
       expect.objectContaining({ where: { id: "ajena", sedeId: "sede-1" } }),
     );
+  });
+
+  it("lo que no sale del cajón en efectivo no exige caja (fase de consolidación, D3)", async () => {
+    db.cajaSesion.findFirst.mockResolvedValue(null);
+
+    // Devuelto por transferencia: no toca el cajón.
+    expect((await crearDevolucionAction("v1", inicial, devolucion({ metodoPago: "TRANSFERENCIA" }))).error).toBeNull();
+
+    // Venta a crédito: la devolución baja la deuda y no sale dinero.
+    db.ventaMostrador.findFirst.mockResolvedValue(venta({ saldoPendiente: "59500" }));
+    expect((await crearDevolucionAction("v1", inicial, devolucion())).error).toBeNull();
+  });
+
+  it("con el control de caja apagado, ni el efectivo exige caja", async () => {
+    db.cajaSesion.findFirst.mockResolvedValue(null);
+    opcionesTaller.usarControlCaja = false;
+    try {
+      expect((await crearDevolucionAction("v1", inicial, devolucion())).error).toBeNull();
+    } finally {
+      opcionesTaller.usarControlCaja = true;
+    }
   });
 
   it("no devuelve más dinero del que la venta cobró (tope con descuento)", async () => {

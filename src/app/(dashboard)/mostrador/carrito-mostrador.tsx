@@ -31,11 +31,12 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", curren
 export function CarritoMostrador({
   repuestos,
   clientes,
-  cajaAbierta,
+  efectivoBloqueado,
 }: {
   repuestos: RepuestoMostrador[];
   clientes: { id: string; nombre: string }[];
-  cajaAbierta: boolean;
+  /** El taller usa control de caja y la de esta sede está cerrada: no se cobra en efectivo. */
+  efectivoBloqueado: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(crearVentaMostradorAction, initialState);
   const [busqueda, setBusqueda] = useState("");
@@ -104,15 +105,19 @@ export function CarritoMostrador({
 
   const totales = calcularTotalesVenta(lineas, Number(descuento) || 0);
   const sinCliente = clienteId === "";
-  const puedeGuardar = cajaAbierta && lineas.length > 0 && !(sinCliente && !cobrarTodo);
+  // Solo el efectivo cobrado ahora toca el cajón (fase de consolidación, D3): una
+  // venta a crédito o con tarjeta sí se registra con la caja cerrada.
+  const cobraEfectivo = cobrarTodo && metodoPago === "EFECTIVO";
+  const puedeGuardar =
+    lineas.length > 0 && !(sinCliente && !cobrarTodo) && !(efectivoBloqueado && cobraEfectivo);
 
   return (
     <div className="flex flex-col gap-4">
-      {!cajaAbierta ? (
-        <Alert variant="destructive">
+      {efectivoBloqueado ? (
+        <Alert variant={cobraEfectivo ? "destructive" : "default"}>
           <AlertDescription>
-            Abre la caja de tu sede antes de vender en el mostrador: sin caja abierta el cobro quedaría fuera del
-            arqueo.
+            La caja de tu sede está cerrada: puedes vender con tarjeta, transferencia o a crédito, pero para cobrar en
+            efectivo abre la caja.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -123,7 +128,6 @@ export function CarritoMostrador({
           id="buscarRepuesto"
           placeholder="Nombre o código"
           value={busqueda}
-          disabled={!cajaAbierta}
           onChange={(evento) => setBusqueda(evento.target.value)}
         />
         {busqueda.trim() ? (

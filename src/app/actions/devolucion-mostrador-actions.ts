@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
 import { registrarEventoAuditoria } from "@/lib/auditoria/registrarEvento";
-import { sesionDeCajaAbierta } from "@/lib/caja/sesion";
+import { exigirCajaParaEfectivo } from "@/lib/caja/sesion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { cantidadDevolvible, montoADevolverPermitido, totalDevolucion } from "@/lib/mostrador/ventas";
@@ -24,7 +24,7 @@ import type { Role } from "@/generated/prisma-tenant";
 
 const ROLES_DEVOLUCION: Role[] = ["ADMIN", "RECEPCION"];
 
-const SIN_CAJA = "Abre la caja antes de devolver en el mostrador";
+const SIN_CAJA = "Abre la caja antes de devolver dinero en efectivo en el mostrador";
 const DEVOLUCION_YA_REGISTRADA = "DEVOLUCION_YA_REGISTRADA";
 const SALDO_CAMBIADO = "SALDO_CAMBIADO";
 
@@ -78,7 +78,6 @@ export async function crearDevolucionAction(
     },
   });
   if (!venta) return { error: "Venta no encontrada", success: false };
-  if (!(await sesionDeCajaAbierta(tenantDb, sedeId))) return { error: SIN_CAJA, success: false };
 
   // Cada línea elegida tiene que existir en esta venta y caber en lo devolvible.
   const porItem = new Map<
@@ -119,6 +118,16 @@ export async function crearDevolucionAction(
   const saldo = Number(venta.saldoPendiente);
   const aCuenta = Math.min(Math.max(saldo, 0), total);
   const enEfectivo = Math.round((total - aCuenta) * 100) / 100;
+
+  // Solo exige caja lo que de verdad sale del cajón en efectivo (fase de
+  // consolidación, D3): lo que baja la deuda del cliente no toca el dinero.
+  const errorCaja = await exigirCajaParaEfectivo(
+    tenantDb,
+    sedeId,
+    enEfectivo > 0 && parsed.data.metodoPago === "EFECTIVO",
+    SIN_CAJA,
+  );
+  if (errorCaja) return { error: errorCaja, success: false };
 
   // El stock vuelve por repuesto, agregando las líneas repetidas.
   const porRepuesto = new Map<string, number>();

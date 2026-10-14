@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth/guards";
 import { registrarEventoAuditoria } from "@/lib/auditoria/registrarEvento";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
+import { exigirCajaParaEfectivo } from "@/lib/caja/sesion";
 import { leerFrecuenciaLiquidacion } from "@/lib/liquidaciones/configuracion";
 import { CATEGORIA_LIQUIDACION_ID } from "@/lib/liquidaciones/categorias";
 import { calcularMontoLiquidacion, hayCambiosSinReflejar, montoPorTrabajo, totalLiquidacion } from "@/lib/liquidaciones/calculo";
@@ -681,6 +682,16 @@ export async function pagarLiquidacionAction(
   }
 
   const { metodoPago, referencia, fecha } = parsed.data;
+
+  // Pagarla en efectivo saca dinero del cajón: el gasto entra al arqueo por su
+  // `createdAt`, así que con control de caja exige la caja abierta (hallazgo M1).
+  const errorCaja = await exigirCajaParaEfectivo(
+    tenantDb,
+    session.user.sedeActivaId,
+    metodoPago,
+    "Abre la caja antes de pagar la liquidación en efectivo",
+  );
+  if (errorCaja) return { error: errorCaja, success: false };
 
   try {
     await tenantDb.$transaction(async (tx) => {
