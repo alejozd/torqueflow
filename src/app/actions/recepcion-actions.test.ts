@@ -704,6 +704,30 @@ describe("garantías", () => {
     expect((await quitarGarantiaAction("g1")).error).toContain("no se puede modificar");
   });
 
+  it("con la orden ya facturada se puede registrar y quitar una garantía: se hace al entregar", async () => {
+    // Lo normal es facturar y después entregar: las garantías siguen la regla del
+    // acta (la factura no las bloquea), no la de los ítems.
+    db.ordenTrabajo.findFirst.mockResolvedValue({ id: "o1", estado: "TERMINADA", factura: { id: "f1" } });
+    const registrada = await agregarGarantiaAction(
+      "o1",
+      inicial,
+      fd({ tipo: "TRABAJO", manoDeObraId: "m1", descripcion: "Frenos", cubreHasta: "2027-04-14" }),
+    );
+    expect(registrada).toEqual({ error: null, success: true });
+
+    db.garantia.findFirst.mockResolvedValue({ id: "g1", ordenId: "o1", orden: { estado: "TERMINADA", factura: { id: "f1" } } });
+    expect(await quitarGarantiaAction("g1")).toEqual({ error: null, success: true });
+  });
+
+  it("entregada o anulada, la orden ya no recibe garantías", async () => {
+    for (const estado of ["ENTREGADA", "ANULADA"] as const) {
+      db.ordenTrabajo.findFirst.mockResolvedValue({ id: "o1", estado, factura: null });
+      const r = await agregarGarantiaAction("o1", inicial, fd({ tipo: "TRABAJO", manoDeObraId: "m1", descripcion: "X" }));
+      expect(r.success).toBe(false);
+    }
+    expect(tx.garantia.create).not.toHaveBeenCalled();
+  });
+
   it("lista las garantías del vehículo con su vigencia y su sede, sin filtrar por sede", async () => {
     db.vehiculo.findFirst.mockResolvedValue({ id: "v1", kilometraje: 96_000 });
     db.garantia.findMany.mockResolvedValue([

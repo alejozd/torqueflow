@@ -222,20 +222,28 @@ describe("getDashboardOverview", () => {
     ]);
   });
 
-  it("groups facturacion7Dias per UTC day ending today", async () => {
+  it("resume la facturación: 14 días consultados, la semana en los últimos 7 de Bogotá, con cobrado y pendiente", async () => {
     factura.findMany.mockResolvedValue([
-      { createdAt: new Date("2026-08-25T10:00:00.000Z"), total: 100 },
-      { createdAt: new Date("2026-08-20T10:00:00.000Z"), total: 50 },
+      { createdAt: new Date("2026-08-25T10:00:00.000Z"), total: 100, saldoPendiente: 40 },
+      { createdAt: new Date("2026-08-20T10:00:00.000Z"), total: 50, saldoPendiente: 0 },
+      { createdAt: new Date("2026-08-14T10:00:00.000Z"), total: 30, saldoPendiente: 0 }, // semana anterior
     ]);
 
     const overview = await getDashboardOverview();
 
-    expect(overview.facturacion7Dias).toHaveLength(7);
-    expect(overview.facturacion7Dias[0].fecha).toBe("2026-08-19");
-    expect(overview.facturacion7Dias.at(-1)).toEqual({ fecha: "2026-08-25", total: 100 });
-    expect(overview.facturacion7Dias.find((d) => d.fecha === "2026-08-20")).toEqual({
-      fecha: "2026-08-20",
-      total: 50,
-    });
+    // La consulta cubre los 14 días de Bogotá (del 12 al 25 de agosto) y trae el saldo.
+    expect(factura.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          createdAt: { gte: new Date("2026-08-12T05:00:00.000Z"), lt: new Date("2026-08-26T05:00:00.000Z") },
+        }),
+        select: { createdAt: true, total: true, saldoPendiente: true },
+      }),
+    );
+    const { facturacion } = overview;
+    expect(facturacion.dias).toHaveLength(7);
+    expect(facturacion.dias[0]!.fecha).toBe("2026-08-19");
+    expect(facturacion.dias.at(-1)).toEqual({ fecha: "2026-08-25", total: 100, cobrado: 60, pendiente: 40, facturas: 1 });
+    expect(facturacion).toMatchObject({ total: 150, pendiente: 40, totalSemanaAnterior: 30 });
   });
 });

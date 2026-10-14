@@ -53,12 +53,41 @@ describe("DiagramaDanios", () => {
   it("lista las marcas con su daño y su nota, y las resalta en la figura", () => {
     renderDiagrama({ danios: DANIOS });
 
-    const lista = screen.getByRole("list");
+    const lista = screen.getByRole("list", { name: "Daños marcados" });
     expect(within(lista).getByText("Capó")).toBeInTheDocument();
     expect(within(lista).getByText("Golpe")).toBeInTheDocument();
     expect(within(lista).getByText(/Leve/)).toBeInTheDocument();
     expect(within(lista).getByText("Rayón")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Capó (con daño marcado)" })).toBeInTheDocument();
+  });
+
+  it("la figura dice hacia dónde mira y cuántos daños tiene cada zona", () => {
+    renderDiagrama({ danios: [...DANIOS, { id: "d3", zona: "CAPO" as const, tipo: "RAYON" as const, nota: null }] });
+
+    const figura = screen.getByRole("group", { name: /Diagrama de daños del vehículo: Carro/ });
+    expect(within(figura).getByText("▲ Adelante")).toBeInTheDocument();
+    expect(within(figura).getByText("Atrás")).toBeInTheDocument();
+    // Capó tiene dos marcas y la puerta derecha una: el contador las cuenta.
+    expect(within(figura).getByText("2")).toBeInTheDocument();
+    expect(within(figura).getByText("1")).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Leyenda del diagrama" })).toHaveTextContent("Con daño");
+  });
+
+  it("al tocar una zona del dibujo, el formulario dice cuál quedó elegida", async () => {
+    renderDiagrama();
+
+    await userEvent.click(screen.getByRole("button", { name: "Techo" }));
+
+    expect(screen.getByText("Zona elegida:").parentElement).toHaveTextContent("Zona elegida: Techo");
+    expect(screen.getByRole("button", { name: "Techo" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("la moto se dibuja de lado, con su propia orientación", () => {
+    renderDiagrama({ tipoVehiculo: "MOTO" });
+
+    const figura = screen.getByRole("group", { name: /Moto/ });
+    expect(within(figura).getByText("◀ Adelante")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Manubrio" })).toBeInTheDocument();
   });
 
   it("en solo lectura no deja marcar ni quitar", () => {

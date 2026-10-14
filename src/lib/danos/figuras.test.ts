@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { zonaVehiculoSchema } from "@/lib/validation/recepcion";
-import { FIGURAS, LIENZO, figuraDe, zonasDe } from "./figuras";
+import { FIGURAS, etiquetaZona, figuraDe, zonasDe } from "./figuras";
 
 const TODAS = zonaVehiculoSchema.options;
 
@@ -40,42 +40,31 @@ describe("figuras del diagrama", () => {
     }
   });
 
-  it("todas las zonas traen etiqueta en español y cajas dentro del lienzo", () => {
-    // Cada zona se compone de cajas "M x y H x2 V y2 H x Z" (una o varias).
-    const CAJA = /M (\d+) (\d+) H (\d+) V (\d+) H \d+ Z/g;
-
+  it("todas las zonas traen etiqueta en español, cajas dentro de su lienzo y un trazo cerrado", () => {
     for (const figura of Object.values(FIGURAS)) {
       for (const zona of figura.zonas) {
         expect(zona.etiqueta.length).toBeGreaterThan(2);
+        expect(zona.cajas.length, `la zona ${zona.zona} no tiene cajas`).toBeGreaterThan(0);
         expect(zona.d.startsWith("M ")).toBe(true);
         expect(zona.d.endsWith("Z")).toBe(true);
 
-        const cajas = [...zona.d.matchAll(CAJA)];
-        expect(cajas.length, `la zona ${zona.zona} no tiene cajas reconocibles`).toBeGreaterThan(0);
-
-        for (const caja of cajas) {
-          const [x, y, x2, y2] = [Number(caja[1]), Number(caja[2]), Number(caja[3]), Number(caja[4])];
-          expect(x).toBeLessThan(x2);
-          expect(y).toBeLessThan(y2);
-          expect(x2).toBeLessThanOrEqual(LIENZO.ancho);
-          expect(y2).toBeLessThanOrEqual(LIENZO.alto);
+        for (const [x, y, ancho, alto] of zona.cajas) {
+          expect(ancho).toBeGreaterThan(0);
+          expect(alto).toBeGreaterThan(0);
+          expect(x).toBeGreaterThanOrEqual(0);
+          expect(y).toBeGreaterThanOrEqual(0);
+          expect(x + ancho).toBeLessThanOrEqual(figura.lienzo.ancho);
+          expect(y + alto).toBeLessThanOrEqual(figura.lienzo.alto);
         }
       }
     }
   });
 
   it("las zonas de una misma figura no se pisan", () => {
-    const CAJA = /M (\d+) (\d+) H (\d+) V (\d+) H \d+ Z/g;
-    const rectangulos = (d: string) =>
-      [...d.matchAll(CAJA)].map((caja) => ({
-        x1: Number(caja[1]),
-        y1: Number(caja[2]),
-        x2: Number(caja[3]),
-        y2: Number(caja[4]),
-      }));
-
     for (const [nombre, figura] of Object.entries(FIGURAS)) {
-      const todas = figura.zonas.flatMap((zona) => rectangulos(zona.d).map((rectangulo) => ({ zona: zona.zona, ...rectangulo })));
+      const todas = figura.zonas.flatMap((zona) =>
+        zona.cajas.map(([x, y, ancho, alto]) => ({ zona: zona.zona, x1: x, y1: y, x2: x + ancho, y2: y + alto })),
+      );
 
       for (let i = 0; i < todas.length; i += 1) {
         for (let j = i + 1; j < todas.length; j += 1) {
@@ -86,5 +75,27 @@ describe("figuras del diagrama", () => {
         }
       }
     }
+  });
+
+  it("cada figura dice hacia dónde mira (adelante, atrás, izquierda, derecha) y trae su silueta", () => {
+    for (const figura of Object.values(FIGURAS)) {
+      const textos = figura.orientacion.map((rotulo) => rotulo.texto.toLowerCase());
+      expect(textos.some((texto) => texto.includes("adelante"))).toBe(true);
+      expect(textos.some((texto) => texto.includes("atrás"))).toBe(true);
+      expect(figura.silueta.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("el carro se ve desde arriba con el frente hacia arriba: el frente queda por encima del techo y del baúl", () => {
+    const y = (zona: string) => FIGURAS.CARRO.zonas.find((candidata) => candidata.zona === zona)!.cajas[0]![1];
+    expect(y("FRENTE")).toBeLessThan(y("CAPO"));
+    expect(y("CAPO")).toBeLessThan(y("PARABRISAS"));
+    expect(y("PARABRISAS")).toBeLessThan(y("TECHO"));
+    expect(y("TECHO")).toBeLessThan(y("COMPUERTA"));
+  });
+
+  it("la parte trasera del carro se llama Baúl, como se dice en Colombia", () => {
+    expect(etiquetaZona("COMPUERTA")).toBe("Baúl");
+    expect(FIGURAS.CARRO.zonas.find((zona) => zona.zona === "COMPUERTA")?.rotulo).toBe("Baúl");
   });
 });

@@ -5,8 +5,11 @@ import { getDashboardOverview } from "@/app/actions/dashboard-actions";
 import { getAlertasInventario } from "@/app/actions/alertas-inventario-actions";
 import { getAlertasTaller } from "@/app/actions/alertas-taller-actions";
 import { listVencimientos } from "@/app/actions/vencimiento-actions";
+import { resumenKpiVencimientos } from "@/lib/vencimientos/resumen-kpi";
 import { AlertasInventarioCard } from "./alertas-inventario-card";
 import { AlertasTallerCard } from "./alertas-taller-card";
+import { NavSeccionesDashboard } from "./secciones-dashboard";
+import { FacturacionSemanaCard } from "./facturacion-semana-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -115,18 +118,6 @@ function capitalizar(texto: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
-// Dot per pill echoes each section's own dominant color elsewhere on the
-// page: resumen reuses KPI_TONE.info (En el taller/Citas de hoy), flujo
-// reuses the "Terminadas" bar segment (bg-primary), agenda reuses the
-// PROGRAMADA cita dot (amber), facturación reuses the success green used
-// for money figures, and inventario reuses KPI_TONE.danger (Stock bajo).
-const SECCIONES_DASHBOARD = [
-  { id: "resumen", label: "Resumen", dot: "bg-blue-500" },
-  { id: "flujo-taller", label: "Flujo del taller", dot: "bg-primary" },
-  { id: "agenda-hoy", label: "Agenda de hoy", dot: "bg-amber-500" },
-  { id: "facturacion", label: "Facturación", dot: "bg-[oklch(0.4_0.1_150)]" },
-  { id: "alertas-inventario", label: "Inventario", dot: "bg-red-500" },
-] as const;
 
 export default async function InicioPage() {
   const [session, overview, alertasInventario, alertasTaller] = await Promise.all([
@@ -138,7 +129,7 @@ export default async function InicioPage() {
   // El KPI de vencimientos es solo para ADMIN y RECEPCION (spec §4).
   const mostrarVencimientos = session.user.role !== "TECNICO";
   const vencimientos = mostrarVencimientos ? await listVencimientos() : [];
-  const vencimientosVencidos = vencimientos.filter((fila) => fila.estado === "VENCIDO").length;
+  const kpiVencimientos = resumenKpiVencimientos(vencimientos);
   const kpiCartera = (
     <KpiCard
       title="Cartera"
@@ -156,7 +147,6 @@ export default async function InicioPage() {
   const nombre = session.user.name ?? session.user.email;
   const flujoTotal =
     overview.flujo.borrador + overview.flujo.enProceso + overview.flujo.terminadas + overview.flujo.entregadasHoy;
-  const facturacionMax = Math.max(1, ...overview.facturacion7Dias.map((dia) => dia.total));
 
   return (
     <main className="flex flex-col gap-6">
@@ -187,29 +177,7 @@ export default async function InicioPage() {
         </div>
       </div>
 
-      {/*
-        Anchor nav so it's obvious there's more below the fold and the user
-        can jump straight to a section instead of guessing at scroll depth.
-        Sticky at the top of the page's own scroll flow (the layout's header
-        above isn't sticky, so this becomes the fixed reference once scrolled
-        past it). scroll-mt-16 on each section target keeps it from tucking
-        under this bar when jumped to.
-      */}
-      <nav
-        aria-label="Secciones del dashboard"
-        className="sticky top-0 z-10 -mt-4 flex gap-2 overflow-x-auto border-b bg-slate-50/95 py-2 backdrop-blur supports-backdrop-filter:bg-slate-50/75 dark:bg-slate-900/75"
-      >
-        {SECCIONES_DASHBOARD.map((seccion) => (
-          <a
-            key={seccion.id}
-            href={`#${seccion.id}`}
-            className="flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <span className={cn("size-2 shrink-0 rounded-full", seccion.dot)} />
-            {seccion.label}
-          </a>
-        ))}
-      </nav>
+      <NavSeccionesDashboard />
 
       <div
         id="resumen"
@@ -253,7 +221,7 @@ export default async function InicioPage() {
 
         {/* TECNICO cannot open /cartera, so only ADMIN/RECEPCION get the link. */}
         {mostrarVencimientos ? (
-          <Link href="/cartera" className="rounded-xl focus-visible:outline-2">
+          <Link href="/cartera" className="block h-full rounded-xl focus-visible:outline-2">
             {kpiCartera}
           </Link>
         ) : (
@@ -273,18 +241,14 @@ export default async function InicioPage() {
         />
 
         {mostrarVencimientos ? (
-          <Link href="/vencimientos" className="rounded-xl focus-visible:outline-2">
+          <Link href="/vencimientos" className="block h-full rounded-xl focus-visible:outline-2">
             <KpiCard
               title="Vencimientos"
-              value={vencimientos.length}
-              valueColor="warning"
-              subtitle={
-                vencimientosVencidos > 0
-                  ? `${vencimientosVencidos} ${vencimientosVencidos === 1 ? "vencido" : "vencidos"}`
-                  : undefined
-              }
-              subtitleColor="warning"
-              highlight={vencimientos.length > 0}
+              value={kpiVencimientos.total}
+              valueColor={kpiVencimientos.total > 0 ? "warning" : "default"}
+              subtitle={kpiVencimientos.subtitulo}
+              subtitleColor={kpiVencimientos.total > 0 ? "warning" : "default"}
+              highlight={kpiVencimientos.total > 0}
               icon={<ShieldAlert className={cn("size-5", KPI_TONE.warning.icon)} />}
               iconBgColor={KPI_TONE.warning.iconBg}
               className={KPI_TONE.warning.cardBg}
@@ -441,37 +405,7 @@ export default async function InicioPage() {
         </Card>
       </div>
 
-      <Card id="facturacion" className="scroll-mt-16">
-        <CardHeader>
-          <CardTitle>Facturación · últimos 7 días</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex h-32 items-end gap-3">
-            {overview.facturacion7Dias.map((dia) => (
-              <div key={dia.fecha} className="flex h-full flex-1 flex-col items-center gap-1.5">
-                {/*
-                  The bar's % height needs a parent with a definite height:
-                  this flex-1 track fills the column above the date label.
-                */}
-                <div className="flex w-full flex-1 items-end">
-                  <div
-                    className="w-full min-w-2 rounded-t-sm bg-primary/80"
-                    style={{ height: `${Math.max(4, (dia.total / facturacionMax) * 100)}%` }}
-                    title={formatoMoneda.format(dia.total)}
-                  />
-                </div>
-                <span className="text-[0.6875rem] text-muted-foreground">
-                  {new Date(`${dia.fecha}T00:00:00.000Z`).toLocaleDateString("es-CO", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    timeZone: "UTC",
-                  })}
-                </span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <FacturacionSemanaCard resumen={overview.facturacion} />
 
       <AlertasTallerCard diasUmbral={alertasTaller.diasUmbral} alertas={alertasTaller.alertas} />
       <AlertasInventarioCard data={alertasInventario} />

@@ -10,6 +10,7 @@ import {
   type AnticipoFormState,
 } from "@/app/actions/anticipo-actions";
 import { ConfirmacionEnLinea } from "@/components/confirmacion-en-linea";
+import { FormGroup } from "@/components/form-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -114,26 +115,28 @@ export function AnticiposSection({
       ) : null}
 
       {puedeRegistrar ? (
-        <form ref={formRef} onSubmit={registrar} className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="anticipo-monto">Monto</Label>
-            <Input id="anticipo-monto" name="monto" type="number" min="0.01" step="0.01" required className="font-mono" />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="anticipo-metodo">Método de pago</Label>
-            <SelectField id="anticipo-metodo" name="metodoPago" defaultValue="EFECTIVO" items={METODOS} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="anticipo-referencia">Referencia (opcional)</Label>
-            <Input id="anticipo-referencia" name="referencia" />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label className="invisible">Registrar</Label>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? "Registrando..." : "Registrar anticipo"}
-            </Button>
-          </div>
-        </form>
+        <FormGroup label="Registrar anticipo">
+          <form ref={formRef} onSubmit={registrar} className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="anticipo-monto">Monto</Label>
+              <Input id="anticipo-monto" name="monto" type="number" min="0.01" step="0.01" required className="font-mono" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="anticipo-metodo">Método de pago</Label>
+              <SelectField id="anticipo-metodo" name="metodoPago" defaultValue="EFECTIVO" items={METODOS} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="anticipo-referencia">Referencia (opcional)</Label>
+              <Input id="anticipo-referencia" name="referencia" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="invisible">Registrar</Label>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? "Registrando..." : "Registrar anticipo"}
+              </Button>
+            </div>
+          </form>
+        </FormGroup>
       ) : null}
 
       {error ? (

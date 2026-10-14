@@ -56,6 +56,14 @@ describe("NuevoVehiculoForm", () => {
     expect(screen.getByLabelText("Año")).toBeInTheDocument();
   });
 
+  it("la placa se escribe siempre en mayúsculas, aunque el teclado esté en minúsculas", async () => {
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} />);
+
+    await userEvent.type(screen.getByLabelText("Placa"), "abc12d");
+
+    expect(screen.getByLabelText("Placa")).toHaveValue("ABC12D");
+  });
+
   it("does not render free-text Marca/Modelo inputs -- catalog selection only", () => {
     renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} />);
 

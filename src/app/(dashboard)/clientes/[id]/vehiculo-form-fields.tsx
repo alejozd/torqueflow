@@ -112,6 +112,8 @@ export function VehiculoFormFields({
     if (modelo) aplicarModelo(modelo);
   }
 
+  const placaRegistro = register("placa");
+
   return (
     <>
       <FormGroup label="Identificación">
@@ -121,9 +123,19 @@ export function VehiculoFormFields({
             <Input
               id="placa"
               className="font-mono"
+              autoCapitalize="characters"
               aria-invalid={errors.placa ? true : undefined}
               aria-describedby={errors.placa ? "placa-error" : undefined}
-              {...register("placa")}
+              {...placaRegistro}
+              // En Colombia ninguna placa va en minúsculas: se convierte mientras se
+              // escribe (el servidor también la normaliza), sin mover el cursor.
+              onChange={(evento) => {
+                const campo = evento.target;
+                const { selectionStart, selectionEnd } = campo;
+                campo.value = campo.value.toUpperCase();
+                campo.setSelectionRange(selectionStart, selectionEnd);
+                return placaRegistro.onChange(evento);
+              }}
             />
             {errors.placa ? <p id="placa-error" className="text-xs text-destructive">{errors.placa.message}</p> : null}
             {placa && !placaFormatoHabitual(placa, (tipoField.value as TipoVehiculoValor | undefined) ?? "CARRO") ? (

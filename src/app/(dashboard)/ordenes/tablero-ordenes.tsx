@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type MouseEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Clock, MoreHorizontal, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { updateEstadoOrdenAction, type EstadoFormState } from "@/app/actions/orden-actions";
@@ -12,6 +13,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -202,16 +204,28 @@ function Tarjeta({
   const anulable = puedeAnular(tarjeta.estado, tarjeta.movible);
   const entregable = puedeEntregar(tarjeta.estado);
   const movible = tarjeta.movible && destinos.length > 0;
+  const router = useRouter();
+
+  // Un clic en la tarjeta abre la orden, como en cualquier tablero (arrastrar no
+  // dispara click). Se ignoran la placa (ya es un enlace), el botón del menú y
+  // lo que pase dentro del menú: vive en un portal fuera de la tarjeta, pero
+  // React igual le hace llegar sus clics.
+  function abrir(evento: MouseEvent<HTMLDivElement>) {
+    const objetivo = evento.target as HTMLElement;
+    if (!evento.currentTarget.contains(objetivo) || objetivo.closest("a, button")) return;
+    router.push(`/ordenes/${tarjeta.id}`);
+  }
 
   return (
     <div
+      onClick={abrir}
       draggable={movible && !pendiente}
       onDragStart={() => onArrastrar()}
       onDragEnd={onSoltarArrastre}
       style={{ borderLeftColor: ESTADO_DOT_COLOR[tarjeta.estado] }}
       className={cn(
-        "flex flex-col gap-1.5 rounded-lg border border-l-2 border-border bg-card p-2.5 text-xs transition-shadow hover:shadow-md",
-        movible && "cursor-grab active:cursor-grabbing",
+        "flex cursor-pointer flex-col gap-1.5 rounded-lg border border-l-2 border-border bg-card p-2.5 text-xs transition-shadow hover:shadow-md",
+        movible && "active:cursor-grabbing",
       )}
     >
       <div className="flex items-center justify-between gap-2">
@@ -239,12 +253,17 @@ function Tarjeta({
                 <MoreHorizontal className="size-3.5" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Mover a…</DropdownMenuLabel>
-                {destinos.map((destino) => (
-                  <DropdownMenuItem key={destino} onSelect={() => onMover(destino)}>
-                    {ESTADO_LABELS[destino]}
-                  </DropdownMenuItem>
-                ))}
+                {/* Base UI: el título va dentro de un grupo (suelto, abrir el menú rompía la
+                    página) y los ítems reaccionan a onClick, no a onSelect (eso era de Radix:
+                    con onSelect, elegir un destino no hacía nada). */}
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Mover a…</DropdownMenuLabel>
+                  {destinos.map((destino) => (
+                    <DropdownMenuItem key={destino} onClick={() => onMover(destino)}>
+                      {ESTADO_LABELS[destino]}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
                 {entregable ? (
                   <>
                     <DropdownMenuSeparator />
@@ -257,7 +276,7 @@ function Tarjeta({
                 {anulable ? (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem variant="destructive" onSelect={() => onMover("ANULADA")}>
+                    <DropdownMenuItem variant="destructive" onClick={() => onMover("ANULADA")}>
                       Anular
                     </DropdownMenuItem>
                   </>

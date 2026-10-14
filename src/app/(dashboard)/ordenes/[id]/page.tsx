@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { NavSecciones } from "@/components/nav-secciones";
+import { seccionesAbiertas } from "@/lib/orden/secciones";
+import { SeccionOrden } from "./seccion-orden";
 import { notFound } from "next/navigation";
 import { getOrden, listTecnicos } from "@/app/actions/orden-actions";
 import { requireSession } from "@/lib/auth/guards";
@@ -239,6 +242,17 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
     .reduce((suma, a) => suma + a.monto, 0);
   const mostrarAnticipos = !orden.factura || anticipos.length > 0;
   const puedeGestionarAnticipos = session.user.role !== "TECNICO";
+  // Qué secciones van abiertas según el momento de la orden (el acta, plegada
+  // mientras se arma: se usa al entregar).
+  const abiertas = seccionesAbiertas(orden.estado);
+  const resumenEntrega =
+    orden.estado === "ENTREGADA"
+      ? orden.acta?.firmadaAt
+        ? "entregada con acta firmada"
+        : "entregada"
+      : orden.estado === "TERMINADA"
+        ? "lista para entregar"
+        : "se usa al entregar, cuando la orden esté Terminada";
   const total = totalOrden({
     items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
     manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor) })),
@@ -265,19 +279,6 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
               {ESTADO_LABELS[orden.estado]}
             </Badge>
           </div>
-
-          <nav aria-label="Secciones de la orden" className="flex flex-wrap gap-2">
-            {SECCIONES_ORDEN.map((seccion) => (
-              <a
-                key={seccion.id}
-                href={`#${seccion.id}`}
-                className="flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                <span className={cn("size-2 shrink-0 rounded-full", seccion.dot)} />
-                {seccion.label}
-              </a>
-            ))}
-          </nav>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
           {orden.vehiculo.placa} · {orden.vehiculo.marca} {orden.vehiculo.modelo}
@@ -285,152 +286,141 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
         </p>
       </div>
 
+      {/* Fija arriba al hacer scroll, como en el Inicio. */}
+      <NavSecciones etiqueta="Secciones de la orden" secciones={SECCIONES_ORDEN} className="-mt-2" />
+
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex flex-col gap-4">
-          <Card id="informacion" className="scroll-mt-16">
-            <CardHeader>
-              <CardTitle>Información de la orden</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <FormGroup label="Recepción">
-                  <div className="grid grid-cols-2 gap-3">
-                    <InfoField label="Sede" value={orden.sede.nombre} />
-                    <InfoField label="Ingresó" value={formatoFechaHora.format(orden.createdAt)} />
-                    <InfoField label="Km de ingreso" value={orden.kilometrajeIngreso ?? "—"} />
-                    <InfoField label="Recibió" value={orden.creadoPor.nombre} />
-                  </div>
-                </FormGroup>
-
-                <FormGroup label="Vehículo y cliente">
-                  <div className="grid grid-cols-2 gap-3">
-                    <InfoField label="Placa" value={<span className="font-mono">{orden.vehiculo.placa}</span>} />
-                    <InfoField label="Vehículo" value={`${orden.vehiculo.marca} ${orden.vehiculo.modelo}`} />
-                    <InfoField label="Cliente" value={orden.cliente.nombre} />
-                    <InfoField label="Teléfono" value={orden.cliente.telefono ?? "—"} />
-                  </div>
-                </FormGroup>
-
-                <FormGroup label="Asignación">
-                  <div className="grid grid-cols-1 gap-3">
-                    <InfoField
-                      label="Mecánico"
-                      value={
-                        <AsignarMecanicoForm
-                          ordenId={orden.id}
-                          mecanico={orden.mecanico}
-                          tecnicos={tecnicos}
-                          puedeReasignar={session.user.role === "ADMIN"}
-                        />
-                      }
-                    />
-                    <InfoField label="Mano de obra" value={formatoMoneda.format(manoObraTotal)} />
-                  </div>
-                </FormGroup>
-              </div>
-
-              <FormGroup label="Síntomas reportados">
-                <p className="max-w-[78ch] text-sm leading-relaxed">{orden.sintomas ?? "—"}</p>
+          <SeccionOrden
+            id="informacion"
+            titulo="Información de la orden"
+            resumen={orden.mecanico?.nombre ?? "sin mecánico asignado"}
+            abiertaInicial={abiertas.has("informacion")}
+          >
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <FormGroup label="Recepción">
+                <div className="grid grid-cols-2 gap-3">
+                  <InfoField label="Sede" value={orden.sede.nombre} />
+                  <InfoField label="Ingresó" value={formatoFechaHora.format(orden.createdAt)} />
+                  <InfoField label="Km de ingreso" value={orden.kilometrajeIngreso ?? "—"} />
+                  <InfoField label="Recibió" value={orden.creadoPor.nombre} />
+                </div>
               </FormGroup>
-            </CardContent>
-          </Card>
 
-          <Card id="recepcion" className="scroll-mt-16">
-            <CardHeader>
-              <CardTitle>
-                Recepción y daños{" "}
-                <span className="font-normal text-muted-foreground">
-                  · {orden.danios.length} {orden.danios.length === 1 ? "marca" : "marcas"}
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-5">
-              <RecepcionForm
-                ordenId={orden.id}
-                kilometrajeIngreso={orden.kilometrajeIngreso}
-                nivelCombustible={orden.nivelCombustible}
-                soloLectura={!esOrdenMutable(orden)}
-              />
-              <DiagramaDanios
-                ordenId={orden.id}
-                tipoVehiculo={orden.vehiculo.tipo}
-                danios={orden.danios.map((danio) => ({
-                  id: danio.id,
-                  zona: danio.zona,
-                  tipo: danio.tipo,
-                  nota: danio.nota,
-                }))}
-                soloLectura={!esOrdenMutable(orden)}
-                puedeQuitar={puedeQuitar}
-              />
-            </CardContent>
-          </Card>
+              <FormGroup label="Vehículo y cliente">
+                <div className="grid grid-cols-2 gap-3">
+                  <InfoField label="Placa" value={<span className="font-mono">{orden.vehiculo.placa}</span>} />
+                  <InfoField label="Vehículo" value={`${orden.vehiculo.marca} ${orden.vehiculo.modelo}`} />
+                  <InfoField label="Cliente" value={orden.cliente.nombre} />
+                  <InfoField label="Teléfono" value={orden.cliente.telefono ?? "—"} />
+                </div>
+              </FormGroup>
 
-          <Card id="items" className="scroll-mt-16">
-            <CardHeader>
-              <CardTitle>
-                Ítems (repuestos){" "}
-                <span className="font-normal text-muted-foreground">
-                  · {orden.items.length} {orden.items.length === 1 ? "ítem" : "ítems"}
-                </span>
-              </CardTitle>
-              <CardAction>
-                <span className="font-mono text-sm text-muted-foreground">{formatoMoneda.format(repuestosTotal)}</span>
-              </CardAction>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              {!orden.factura && (
-                <>
-                  <AgregarItemForm
-                    ordenId={orden.id}
-                    repuestos={repuestos}
-                    bodegas={bodegas}
-                    proveedores={proveedores}
-                    puedeCrearRepuesto={session.user.role !== "TECNICO"}
+              <FormGroup label="Asignación">
+                <div className="grid grid-cols-1 gap-3">
+                  <InfoField
+                    label="Mecánico"
+                    value={
+                      <AsignarMecanicoForm
+                        ordenId={orden.id}
+                        mecanico={orden.mecanico}
+                        tecnicos={tecnicos}
+                        puedeReasignar={session.user.role === "ADMIN"}
+                      />
+                    }
                   />
-                  {/* Una sola instancia: el servicio escribe en Ítems y en Mano de obra. */}
-                  <AplicarServicioForm ordenId={orden.id} servicios={servicios} />
-                </>
-              )}
-              <DataTable
-                columns={itemsColumns}
-                rows={orden.items}
-                getRowKey={(item) => item.id}
-                emptyMessage="Esta orden no tiene ítems agregados."
-              />
-            </CardContent>
-          </Card>
+                  <InfoField label="Mano de obra" value={formatoMoneda.format(manoObraTotal)} />
+                </div>
+              </FormGroup>
+            </div>
 
-          <Card id="mano-obra" className="scroll-mt-16">
-            <CardHeader>
-              <CardTitle>
-                Mano de obra{" "}
-                <span className="font-normal text-muted-foreground">
-                  · {orden.manoDeObra.length} {orden.manoDeObra.length === 1 ? "línea" : "líneas"}
-                </span>
-              </CardTitle>
-              <CardAction>
-                <span className="font-mono text-sm text-muted-foreground">{formatoMoneda.format(manoObraTotal)}</span>
-              </CardAction>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              {!orden.factura && (
-                <AgregarManoObraForm ordenId={orden.id} tecnicos={tecnicos} mecanicoIdHeader={orden.mecanicoId} />
-              )}
-              <DataTable
-                columns={manoObraColumns}
-                rows={orden.manoDeObra}
-                getRowKey={(linea) => linea.id}
-                emptyMessage="Esta orden no tiene mano de obra registrada."
-              />
-            </CardContent>
-          </Card>
+            <FormGroup label="Síntomas reportados">
+              <p className="max-w-[78ch] text-sm leading-relaxed">{orden.sintomas ?? "—"}</p>
+            </FormGroup>
+          </SeccionOrden>
 
-          <Card id="dvi" className="scroll-mt-16">
-            <CardHeader>
-              <CardTitle>Inspección vehicular digital (DVI)</CardTitle>
-              {atencionCount + criticoCount > 0 ? (
-                <CardAction>
+          <SeccionOrden
+            id="recepcion"
+            titulo="Recepción y daños"
+            resumen={`${orden.danios.length} ${orden.danios.length === 1 ? "marca" : "marcas"}`}
+            abiertaInicial={abiertas.has("recepcion")}
+            contenidoClassName="gap-5"
+          >
+            <RecepcionForm
+              ordenId={orden.id}
+              kilometrajeIngreso={orden.kilometrajeIngreso}
+              nivelCombustible={orden.nivelCombustible}
+              soloLectura={!esOrdenMutable(orden)}
+            />
+            <DiagramaDanios
+              ordenId={orden.id}
+              tipoVehiculo={orden.vehiculo.tipo}
+              danios={orden.danios.map((danio) => ({
+                id: danio.id,
+                zona: danio.zona,
+                tipo: danio.tipo,
+                nota: danio.nota,
+              }))}
+              soloLectura={!esOrdenMutable(orden)}
+              puedeQuitar={puedeQuitar}
+            />
+          </SeccionOrden>
+
+          <SeccionOrden
+            id="items"
+            titulo="Ítems (repuestos)"
+            resumen={`${orden.items.length} ${orden.items.length === 1 ? "ítem" : "ítems"}`}
+            accion={
+              <span className="font-mono text-sm text-muted-foreground">{formatoMoneda.format(repuestosTotal)}</span>
+            }
+            abiertaInicial={abiertas.has("items")}
+          >
+            {!orden.factura && (
+              <>
+                <AgregarItemForm
+                  ordenId={orden.id}
+                  repuestos={repuestos}
+                  bodegas={bodegas}
+                  proveedores={proveedores}
+                  puedeCrearRepuesto={session.user.role !== "TECNICO"}
+                />
+                {/* Una sola instancia: el servicio escribe en Ítems y en Mano de obra. */}
+                <AplicarServicioForm ordenId={orden.id} servicios={servicios} />
+              </>
+            )}
+            <DataTable
+              columns={itemsColumns}
+              rows={orden.items}
+              getRowKey={(item) => item.id}
+              emptyMessage="Esta orden no tiene ítems agregados."
+            />
+          </SeccionOrden>
+
+          <SeccionOrden
+            id="mano-obra"
+            titulo="Mano de obra"
+            resumen={`${orden.manoDeObra.length} ${orden.manoDeObra.length === 1 ? "línea" : "líneas"}`}
+            accion={
+              <span className="font-mono text-sm text-muted-foreground">{formatoMoneda.format(manoObraTotal)}</span>
+            }
+            abiertaInicial={abiertas.has("mano-obra")}
+          >
+            {!orden.factura && (
+              <AgregarManoObraForm ordenId={orden.id} tecnicos={tecnicos} mecanicoIdHeader={orden.mecanicoId} />
+            )}
+            <DataTable
+              columns={manoObraColumns}
+              rows={orden.manoDeObra}
+              getRowKey={(linea) => linea.id}
+              emptyMessage="Esta orden no tiene mano de obra registrada."
+            />
+          </SeccionOrden>
+
+          <SeccionOrden
+            id="dvi"
+            titulo="Inspección vehicular digital (DVI)"
+            accion={
+              atencionCount + criticoCount > 0 ? (
                   <span className="text-xs text-muted-foreground">
                     {atencionCount > 0
                       ? `${atencionCount} ${atencionCount === 1 ? "punto requiere" : "puntos requieren"} atención`
@@ -438,34 +428,39 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
                     {atencionCount > 0 && criticoCount > 0 ? " · " : null}
                     {criticoCount > 0 ? `${criticoCount} crítico${criticoCount > 1 ? "s" : ""}` : null}
                   </span>
-                </CardAction>
-              ) : null}
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <DviChecklistForm
-                ordenId={orden.id}
-                checklist={checklist}
-                items={dviItems}
-                esAdmin={esAdmin}
-                soloLectura={!esOrdenMutable(orden)}
-              />
-              <DviFotoForm ordenId={orden.id} fotos={orden.dvi?.fotos ?? []} soloLectura={!esOrdenMutable(orden)} puedeEliminar={puedeQuitar} />
-            </CardContent>
-          </Card>
+              ) : undefined
+            }
+            abiertaInicial={abiertas.has("dvi")}
+          >
+            <DviChecklistForm
+              ordenId={orden.id}
+              checklist={checklist}
+              items={dviItems}
+              esAdmin={esAdmin}
+              soloLectura={!esOrdenMutable(orden)}
+            />
+            <DviFotoForm ordenId={orden.id} fotos={orden.dvi?.fotos ?? []} soloLectura={!esOrdenMutable(orden)} puedeEliminar={puedeQuitar} />
+          </SeccionOrden>
 
-          <Card id="entrega" className="scroll-mt-16">
-            <CardHeader>
-              <CardTitle>Acta de entrega y garantías</CardTitle>
-              <CardAction>
-                {/* Se puede imprimir antes de firmar: firmar en papel y subir la foto es una de las dos formas. */}
-                {orden.estado === "TERMINADA" || orden.estado === "ENTREGADA" ? (
-                  <Link href={`/ordenes/${orden.id}/acta/imprimir`} className="text-sm underline underline-offset-4">
-                    Imprimir acta
-                  </Link>
-                ) : null}
-              </CardAction>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-5">
+          <SeccionOrden
+            id="entrega"
+            titulo="Acta de entrega y garantías"
+            resumen={resumenEntrega}
+            // Se puede imprimir antes de firmar: firmar en papel y subir la foto es una de las dos formas.
+            accion={
+              orden.estado === "TERMINADA" || orden.estado === "ENTREGADA" ? (
+                <Link href={`/ordenes/${orden.id}/acta/imprimir`} className="text-sm underline underline-offset-4">
+                  Imprimir acta
+                </Link>
+              ) : undefined
+            }
+            abiertaInicial={abiertas.has("entrega")}
+            destacada={orden.estado === "TERMINADA"}
+            contenidoClassName="gap-5"
+          >
+            {/* Dos recuadros con título, como el resto de la ficha: antes las garantías
+                quedaban pegadas al acta sin ningún título y no se encontraban. */}
+            <FormGroup label="Acta de entrega">
               <ActaEntregaForm
                 ordenId={orden.id}
                 estado={orden.estado}
@@ -489,6 +484,8 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
                     : null
                 }
               />
+            </FormGroup>
+            <FormGroup label="Garantías del trabajo">
               <GarantiasSection
                 ordenId={orden.id}
                 garantias={orden.garantias.map((garantia) => ({
@@ -505,37 +502,34 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
                   id: item.id,
                   descripcion: `${item.descripcion} ×${item.cantidad}`,
                 }))}
-                soloLectura={!esOrdenMutable(orden)}
+                soloLectura={orden.estado === "ENTREGADA" || orden.estado === "ANULADA"}
                 puedeQuitar={puedeQuitar}
               />
-            </CardContent>
-          </Card>
+            </FormGroup>
+          </SeccionOrden>
 
           {mostrarAnticipos ? (
-            <Card id="anticipos" className="scroll-mt-16">
-              <CardHeader>
-                <CardTitle>
-                  Anticipos{" "}
-                  <span className="font-normal text-muted-foreground">
-                    · {anticipos.length} {anticipos.length === 1 ? "registro" : "registros"}
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <AnticiposSection
-                  ordenId={orden.id}
-                  anticipos={anticipos}
-                  puedeRegistrar={puedeGestionarAnticipos && !orden.factura && orden.estado !== "ANULADA"}
-                  puedeDevolver={esAdmin}
-                  ordenAnulada={orden.estado === "ANULADA"}
-                />
-              </CardContent>
-            </Card>
+            <SeccionOrden
+              id="anticipos"
+              titulo="Anticipos"
+              resumen={`${anticipos.length} ${anticipos.length === 1 ? "registro" : "registros"}`}
+              abiertaInicial={abiertas.has("anticipos")}
+            >
+              <AnticiposSection
+                ordenId={orden.id}
+                anticipos={anticipos}
+                puedeRegistrar={puedeGestionarAnticipos && !orden.factura && orden.estado !== "ANULADA"}
+                puedeDevolver={esAdmin}
+                ordenAnulada={orden.estado === "ANULADA"}
+              />
+            </SeccionOrden>
           ) : null}
         </div>
 
+        {/* Franja de color arriba de cada tarjeta lateral: se distinguen sin
+            meterles un recuadro gris (cada una muestra una sola cosa). */}
         <div className="sticky top-4 flex flex-col gap-4">
-          <Card>
+          <Card className="border-t-4 border-t-amber-500">
             <CardHeader>
               <CardTitle>Prioridad</CardTitle>
               <CardAction>
@@ -555,7 +549,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-t-4 border-t-[oklch(0.4_0.1_150)]">
             <CardHeader>
               <CardTitle>Totales</CardTitle>
             </CardHeader>
@@ -581,14 +575,14 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-t-4" style={{ borderTopColor: ESTADO_DOT_COLOR[orden.estado] }}>
             <CardHeader>
               <CardTitle>Estado: {ESTADO_LABELS[orden.estado]}</CardTitle>
             </CardHeader>
             <CardContent>
               {orden.estado === "TERMINADA" ? (
                 <p className="text-sm text-muted-foreground">
-                  La orden está terminada: entrégala firmando el acta en la sección «Acta de entrega y garantías».
+                  La orden está terminada: entrégala desde la sección «Acta de entrega y garantías».
                 </p>
               ) : (
                 <CambiarEstadoForm ordenId={orden.id} estadoActual={orden.estado} />
@@ -596,7 +590,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-t-4 border-t-blue-500">
             <CardHeader>
               <CardTitle>Facturación</CardTitle>
             </CardHeader>

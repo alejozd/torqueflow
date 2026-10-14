@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { createOrdenDesdeVehiculoAction, type OrdenFormState, type TecnicoOption } from "@/app/actions/orden-actions";
 import { ordenTrabajoInputSchema } from "@/lib/validation/orden";
@@ -63,6 +64,7 @@ export function NuevaOrdenDesdeCeroForm({
 }) {
   const [state, setState] = useState<OrdenFormState>(initialState);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   // Owned here (not just the initial prop) so ClientVehicleSelector's
   // create-cliente/create-vehículo dialogs can append to it and have the
@@ -107,6 +109,9 @@ export function NuevaOrdenDesdeCeroForm({
         toast.success("Orden creada");
         if (onCreated) onCreated();
         else setState(result);
+        // La orden recién creada sigue en su ficha (recepción, ítems, mano de
+        // obra, DVI…): llevar allí, no dejar al usuario en el listado buscándola.
+        if (result.ordenId) router.push(`/ordenes/${result.ordenId}`);
       } else {
         toast.error(result.error ?? "No se pudo crear la orden");
         setState(result);
