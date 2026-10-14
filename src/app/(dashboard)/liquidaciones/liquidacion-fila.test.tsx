@@ -2,13 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const mockAjustar = vi.fn();
 const mockAnular = vi.fn();
-const mockReactivar = vi.fn();
 vi.mock("@/app/actions/liquidacion-actions", () => ({
-  actualizarAjusteLiquidacionAction: (...args: unknown[]) => mockAjustar(...args),
   anularLiquidacionAction: (...args: unknown[]) => mockAnular(...args),
-  reactivarLiquidacionAction: (...args: unknown[]) => mockReactivar(...args),
   pagarLiquidacionAction: vi.fn(),
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -17,7 +13,7 @@ import type { LiquidacionFila as FilaDatos } from "@/app/actions/liquidacion-act
 import { Table, TableBody } from "@/components/ui/table";
 import { LiquidacionFila, esquemaEnUnaLinea } from "./liquidacion-fila";
 
-const base: FilaDatos = {
+const porPagar: FilaDatos = {
   usuarioId: "t1",
   nombre: "Ana",
   ordenes: 3,
@@ -29,21 +25,18 @@ const base: FilaDatos = {
   montoFijo: null,
   montoSugerido: 72000,
   solapada: false,
-  documento: {
+  pago: null,
+};
+
+const pagada: FilaDatos = {
+  ...porPagar,
+  pago: {
     id: "l1",
-    estado: "PENDIENTE",
-    frecuencia: "MENSUAL",
-    ordenes: 3,
-    trabajos: 4,
-    montoManoObra: 180000,
     montoCalculado: 72000,
-    ajuste: 0,
-    motivoAjuste: null,
-    total: 72000,
-    pagadaAt: null,
-    gastoId: null,
-    motivoAnulacion: null,
-    hayCambios: false,
+    ajuste: -2000,
+    motivoAjuste: "Adelanto",
+    total: 70000,
+    pagadaAt: new Date("2026-10-31T15:00:00.000Z"),
   },
 };
 
@@ -51,7 +44,7 @@ function renderFila(fila: FilaDatos) {
   return render(
     <Table>
       <TableBody>
-        <LiquidacionFila fila={fila} etiquetaPeriodo="octubre de 2026" />
+        <LiquidacionFila fila={fila} periodo="2026-10" etiquetaPeriodo="octubre de 2026" />
       </TableBody>
     </Table>,
   );
@@ -59,126 +52,72 @@ function renderFila(fila: FilaDatos) {
 
 describe("esquemaEnUnaLinea", () => {
   it("describe el esquema vigente", () => {
-    expect(esquemaEnUnaLinea(base)).toBe("40 % de la mano de obra");
-    expect(esquemaEnUnaLinea({ ...base, tipo: null })).toBe("Sin esquema");
-    expect(esquemaEnUnaLinea({ ...base, tipo: "FIJO", porcentaje: null, montoFijo: 1500000 })).toContain("Base fija de");
-    expect(esquemaEnUnaLinea({ ...base, tipo: "MIXTO", porcentaje: 10, montoFijo: 800000 })).toContain("+ 10 %");
+    expect(esquemaEnUnaLinea(porPagar)).toBe("40 % de la mano de obra");
+    expect(esquemaEnUnaLinea({ ...porPagar, tipo: null })).toBe("Sin esquema");
+    expect(esquemaEnUnaLinea({ ...porPagar, tipo: "FIJO", porcentaje: null, montoFijo: 1500000 })).toContain("Base fija de");
+    expect(esquemaEnUnaLinea({ ...porPagar, tipo: "MIXTO", porcentaje: 10, montoFijo: 800000 })).toContain("+ 10 %");
   });
 });
 
 describe("LiquidacionFila", () => {
   beforeEach(() => {
-    mockAjustar.mockReset();
-    mockAjustar.mockResolvedValue({ error: null, success: true });
     mockAnular.mockReset();
     mockAnular.mockResolvedValue({ error: null });
-    mockReactivar.mockReset();
-    mockReactivar.mockResolvedValue({ error: null });
   });
 
-  it("muestra las cifras del técnico y el estado del documento", () => {
-    renderFila(base);
+  it("por pagar: muestra las cifras del técnico, lo que le corresponde y el botón de pagar", () => {
+    renderFila(porPagar);
 
-    const celdas = within(screen.getByRole("row")).getAllByRole("cell");
+    const celdas = within(screen.getAllByRole("row")[0]!).getAllByRole("cell");
     expect(celdas[0]!.textContent).toContain("Ana");
     expect(celdas[2]!.textContent).toBe("4"); // Trabajos, no el "40 %" del esquema
     expect(celdas[5]!.textContent).toContain("40 % de la mano de obra");
-    expect(screen.getByText("Pendiente")).toBeInTheDocument();
+    expect(celdas[6]!.textContent).toMatch(/72\.000/);
+    expect(screen.getByText("Por pagar")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Pagar" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ajuste" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Anular" })).toBeInTheDocument();
-  });
-
-  it("avisa del técnico sin esquema, de los cambios sin reflejar y del solapamiento", () => {
-    renderFila({ ...base, tipo: null, solapada: true, documento: { ...base.documento!, hayCambios: true } });
-
-    expect(screen.getByText("Sin esquema de pago")).toBeInTheDocument();
-    // La columna del esquema sigue diciendo que no tiene.
-    expect(screen.getByText("Sin esquema")).toBeInTheDocument();
-    expect(screen.getByText("Cambios sin reflejar")).toBeInTheDocument();
-    expect(screen.getByText("Ya liquidado en otro periodo")).toBeInTheDocument();
-  });
-
-  it("sin documento no ofrece acciones: primero hay que generar el periodo", () => {
-    renderFila({ ...base, documento: null });
-
-    expect(screen.getByText("Sin generar")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Pagar" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Anular" })).not.toBeInTheDocument();
   });
 
-  it("guarda el ajuste con su motivo", async () => {
-    renderFila(base);
+  it("pagada: muestra lo pagado con su ajuste y solo ofrece anular", () => {
+    renderFila(pagada);
 
-    await userEvent.click(screen.getByRole("button", { name: "Ajuste" }));
-    await userEvent.clear(screen.getByLabelText("Ajuste (puede ser negativo)"));
-    await userEvent.type(screen.getByLabelText("Ajuste (puede ser negativo)"), "-3000");
-    await userEvent.type(screen.getByLabelText("Motivo"), "Herramienta rota");
-    await userEvent.click(screen.getByRole("button", { name: "Guardar ajuste" }));
+    const celdas = within(screen.getAllByRole("row")[0]!).getAllByRole("cell");
+    expect(celdas[6]!.textContent).toMatch(/70\.000/);
+    expect(celdas[6]!.textContent).toContain("Adelanto");
+    expect(screen.getByText("Pagada")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Pagar" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Anular" })).toBeInTheDocument();
+  });
 
-    await waitFor(() => expect(mockAjustar).toHaveBeenCalledTimes(1));
-    const [id, , formData] = mockAjustar.mock.calls[0] as [string, unknown, FormData];
-    expect(id).toBe("l1");
-    expect(formData.get("ajuste")).toBe("-3000");
-    expect(formData.get("motivo")).toBe("Herramienta rota");
+  it("sin esquema o ya pagado en otro periodo no se puede pagar", () => {
+    const { unmount } = renderFila({ ...porPagar, tipo: null, montoSugerido: null });
+    expect(screen.getByText("Sin esquema de pago")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Pagar" })).not.toBeInTheDocument();
+    unmount();
+
+    renderFila({ ...porPagar, solapada: true });
+    expect(screen.getByText("Ya pagado en otro periodo")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Pagar" })).not.toBeInTheDocument();
   });
 
   it("pide confirmación antes de anular y llama la action con el motivo", async () => {
-    renderFila(base);
+    renderFila(pagada);
 
     await userEvent.click(screen.getByRole("button", { name: "Anular" }));
+    expect(screen.getByText("¿Anular el pago y borrar su gasto?")).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText("Motivo de la anulación"), "Se pagó por fuera");
     await userEvent.click(screen.getByRole("button", { name: "Anular" }));
 
     await waitFor(() => expect(mockAnular).toHaveBeenCalledWith("l1", "Se pagó por fuera"));
   });
 
-  it("una pagada solo se puede anular", () => {
-    renderFila({ ...base, documento: { ...base.documento!, estado: "PAGADA" } });
+  it("muestra el error de la action al anular", async () => {
+    mockAnular.mockResolvedValue({ error: "Explica por qué se anula la liquidación" });
+    renderFila(pagada);
 
-    expect(screen.getByText("Pagada")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Pagar" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Ajuste" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Anular" })).toBeInTheDocument();
-  });
+    await userEvent.click(screen.getByRole("button", { name: "Anular" }));
+    await userEvent.click(screen.getByRole("button", { name: "Anular" }));
 
-  it("una anulada ofrece reactivarla y muestra el motivo", () => {
-    renderFila({
-      ...base,
-      documento: { ...base.documento!, estado: "ANULADA", motivoAnulacion: "Se pagó por fuera" },
-    });
-
-    expect(screen.getByText("Anulada")).toBeInTheDocument();
-    expect(screen.getByText(/Se pagó por fuera/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reactivar" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Anular" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Pagar" })).not.toBeInTheDocument();
-  });
-
-  it("reactiva una anulada", async () => {
-    renderFila({ ...base, documento: { ...base.documento!, estado: "ANULADA" } });
-
-    await userEvent.click(screen.getByRole("button", { name: "Reactivar" }));
-
-    await waitFor(() => expect(mockReactivar).toHaveBeenCalledWith("l1"));
-  });
-
-  it("muestra el error de la action al reactivar", async () => {
-    mockReactivar.mockResolvedValue({ error: "Ese periodo ya está liquidado en otro documento para ese técnico" });
-    renderFila({ ...base, documento: { ...base.documento!, estado: "ANULADA" } });
-
-    await userEvent.click(screen.getByRole("button", { name: "Reactivar" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("ya está liquidado en otro documento");
-  });
-
-  it("muestra el error de la action al ajustar", async () => {
-    mockAjustar.mockResolvedValue({ error: "El ajuste no puede dejar el total en negativo", success: false });
-    renderFila(base);
-
-    await userEvent.click(screen.getByRole("button", { name: "Ajuste" }));
-    await userEvent.click(screen.getByRole("button", { name: "Guardar ajuste" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("El ajuste no puede dejar el total en negativo");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Explica por qué se anula la liquidación");
   });
 });

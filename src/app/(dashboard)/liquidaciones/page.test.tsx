@@ -10,10 +10,7 @@ vi.mock("@/app/actions/liquidacion-actions", () => ({
   guardarEsquemaLiquidacionAction: vi.fn(),
   quitarEsquemaLiquidacionAction: vi.fn(),
   guardarFrecuenciaLiquidacionAction: vi.fn(),
-  generarLiquidacionesAction: vi.fn(),
-  actualizarAjusteLiquidacionAction: vi.fn(),
   anularLiquidacionAction: vi.fn(),
-  reactivarLiquidacionAction: vi.fn(),
   pagarLiquidacionAction: vi.fn(),
 }));
 vi.mock("@/lib/auth/guards", () => ({ requireRole: vi.fn(), requireSession: vi.fn() }));
@@ -33,7 +30,7 @@ const FILA = {
   montoFijo: null,
   montoSugerido: 72000,
   solapada: false,
-  documento: null,
+  pago: null,
 };
 
 const DATOS = {
@@ -70,7 +67,7 @@ describe("LiquidacionesPage", () => {
     expect(screen.getByText("octubre de 2026")).toBeInTheDocument();
     const tarjeta = screen.getByText("Producción y liquidación del periodo").closest("[data-slot=card]") as HTMLElement;
     expect(within(tarjeta).getByText("Ana")).toBeInTheDocument();
-    expect(within(tarjeta).getByRole("button", { name: "Generar liquidaciones del periodo" })).toBeInTheDocument();
+    expect(within(tarjeta).getByRole("button", { name: "Pagar" })).toBeInTheDocument();
     expect(screen.getByText("Esquema de pago por técnico")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Cada cuánto se liquida" })).toBeInTheDocument();
   });
