@@ -27,7 +27,7 @@ Hallazgos de la revisión que esta fase cierra (referencia para los tests):
 | B6 | 24 | TECNICO ve cuentas por pagar y ventas del día por URL | 7 |
 | B7 | 21 | `borrarArchivoDeOrden` no rechaza `..` | 7 |
 
-Fuera de alcance (anotado, no se toca): B2 (periodos en UTC, se revisa en la Task 10), B8 (índice
+Fuera de alcance (anotado, no se toca): B8 (índice
 de nombre de servicio), B9 (mostrador valida `stockActual` y no lo disponible), repuestos en
 consignación (fase futura), y el backlog de fases anteriores (RULES.md §7).
 
@@ -136,9 +136,9 @@ invariantes de caja cambian: §5 del traspaso), push.
 
 ## 6. Progreso (ledger)
 
-Estado al 2026-10-13: **Tasks 1–9 hechas**, cada una con su commit y push en `fase-consolidacion`.
-Última verificación completa (tras la Task 9): `tsc` limpio, `eslint` limpio en lo tocado,
-**266 archivos / 2150 tests pasando**. Migración `20261018120000_consolidacion` **aplicada** el 2026-10-14 a `taller_dev` y
+Estado al 2026-10-13: **Tasks 1–10 hechas**, cada una con su commit y push en `fase-consolidacion`.
+Última verificación completa (tras la Task 10): `tsc` limpio, `eslint` limpio en lo tocado,
+**266 archivos / 2121 tests pasando** (bajan porque se fueron los tests de generar/ajustar/reactivar). Migración `20261018120000_consolidacion` **aplicada** el 2026-10-14 a `taller_dev` y
 `taller_dev_reference` (respaldo previo `~/backups/torqueflow_20261014_0002_pre_consolidacion.sql`, 444 KB, los
 dos schemas); `migrate diff` vacío en ambos.
 
@@ -154,6 +154,7 @@ dos schemas); `migrate diff` vacío en ambos.
 | 7 | `2e30dfd` | B1, B5, B6, B7 cerrados (B7 reproducido antes de arreglar: borraba una foto del DVI). Arreglado además un test de UI intermitente de liquidaciones (findBy en vez de getBy). |
 | 8 | `77ab8c9` | D8: cabecera con un contador por motivo (enlace a `/ordenes?alerta=…`, se muestran los dos aunque uno valga 0), máximo 5 filas (placa, cliente, prioridad si no es `NORMAL`, motivo, días) y pie "Mostrando 5 de N". "Ver todas" es un enlace si solo hay un motivo; con los dos ofrece un enlace por motivo (el filtro de `/ordenes` es de un solo motivo). Revisión visual con las 9 alertas reales de `taller_dev` (4 estancadas, 5 sin entregar): no se crearon datos de prueba. |
 | 9 | `ef75c3f` | D9: `src/lib/exportacion/rango-fechas.ts` (Zod, días de Bogotá, `hasta` incluido, máx. 366, los dos o ninguno; por defecto del día 1 del mes a hoy) y `consultas.ts` (`ventasDelRango`, `arqueosDelRango`, fuera de `"use server"` para no exponer el rango sin validar como acción). Rango inválido → 400 sin consultar. `ventas-hoy` → `ventas` (404 el nombre viejo); la hoja de ventas gana columna Fecha; el archivo se llama `reporte-desde-a-hasta.xlsx`. `CajaCerradaFila` y su mapeo (`filaCajaCerrada`) pasaron a `src/lib/caja/resumen.ts`. `BotonExportar` abre un desplegable con dos fechas (`ExportarConRango`, formulario GET nativo) que valida con la misma regla antes de enviar. |
+| 10 | `4e145b2` | D10 (diseño `fcaec93`, `2026-10-13-task10-liquidacion-simplificada.md`): tabla en vivo, el documento nace al pagar (`pagarLiquidacionAction(usuarioId, periodo, …)` con ajuste en el diálogo), anular solo pagadas y el periodo vuelve a estar por pagar. Fuera: generar/regenerar, `PENDIENTE` en el flujo, "Cambios sin reflejar", editor de ajuste, reactivar y el aviso al cambiar la frecuencia. Doble pago: `FOR UPDATE` sobre `usuarios`, `findUnique` por `periodo_usuarioId_sedeId` + `updateMany` condicional a `estado ≠ PAGADA`, `P2002` al crear, y solape entre frecuencias (solo cuentan las `PAGADA`). Verificado contra `taller_dev` con transacción revertida. B2 cerrado: `rangoDelPeriodo` corta a medianoche de Bogotá. Acción 916 → 597 líneas, UI 453 → 379 (la meta de ~450 en la acción no se alcanzó). Sin migración. |
 
 Lecciones de esta fase (para quien siga):
 - Al correr subconjuntos de tests, mirar también **"Test Files … failed"**, no solo las líneas `×`: un
@@ -166,5 +167,5 @@ Lecciones de esta fase (para quien siga):
 - Los mocks de la base de varios tests de acciones declaran `configuracionTaller: { findUnique: async () => opcionesTaller }`
   con `usarControlCaja: true`; para probar la opción apagada se cambia el objeto y se restaura en `finally`.
 
-Pendiente: Task 10; después verificación final (`npm run build` con `.next` borrado),
+Pendiente: verificación final (`npm run build` con `.next` borrado),
 revisión del diff completo, fix round y cierre (§5).

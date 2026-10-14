@@ -63,7 +63,7 @@ periodo (según la frecuencia del taller) → tabla en vivo por técnico → Pag
      `PENDIENTE` heredado); dos pagos simultáneos → uno gana, el otro recibe "ya está pagada".
   2. **Solape entre frecuencias**: no se paga si el técnico ya tiene una `PAGADA` cuya ventana pisa la
      de este periodo (`ventanasSolapan`, ya probada). La fila lo muestra como "Ya pagado en otro periodo".
-  3. Bloqueo `SELECT … FOR UPDATE` sobre el esquema del técnico al inicio del pago: serializa los pagos
+  3. Bloqueo `SELECT … FOR UPDATE` sobre la fila del técnico en `usuarios` (siempre existe, a diferencia del esquema) al inicio del pago: serializa los pagos
      de un mismo técnico (cubre el caso raro de pagar a la vez una quincena y el mes que la contiene).
 - **Auditoría**: `LIQUIDACION_PAGAR` (con la foto y el ajuste) y `LIQUIDACION_ANULAR` (con el gasto
   borrado); esquema y frecuencia, igual que hoy. Los valores `LIQUIDACION_GENERAR` / `_AJUSTAR` del
@@ -97,6 +97,11 @@ Bogotá (`T00:00:00-05:00`, como `fecha-bogota.ts`), con test del borde.
 
 ## 8. Decisiones
 
-1. **Ajuste**: solo en el diálogo de pago (recomendación del agente; pendiente de confirmar por el usuario).
+1. **Ajuste**: solo en el diálogo de pago (aprobado por el usuario el 2026-10-14).
    Queda guardado en el documento pagado con su motivo y en la auditoría.
 2. **B2**: aprobado por el usuario (2026-10-14): los periodos cortan a medianoche de Colombia.
+
+## 9. Resultado
+
+Hecho en `4e145b2`. Acción 916 → 597 líneas y UI 453 → 379: menos de lo estimado en la acción (quedan
+las cinco acciones y la carga del periodo, que concentra la mayor parte).
