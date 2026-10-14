@@ -51,7 +51,8 @@ describe("crearVentaMostradorAction", () => {
     mockRequireRole.mockResolvedValue(SESION);
     db.cajaSesion.findFirst.mockResolvedValue({ id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
     db.cliente.findFirst.mockResolvedValue({ id: "cli1" });
-    db.repuesto.findMany.mockResolvedValue([{ id: "r1" }]);
+    // Precio y nombre del repuesto salen de aquí, no del formulario (fase de consolidación, D6).
+    db.repuesto.findMany.mockResolvedValue([{ id: "r1", nombre: "Filtro de aceite", precioVenta: "25000" }]);
     tx.repuesto.updateMany.mockResolvedValue({ count: 1 });
     tx.ventaMostrador.create.mockResolvedValue({ id: "v1", numero: 7 });
     tx.pagoVentaMostrador.create.mockResolvedValue({});
@@ -61,7 +62,8 @@ describe("crearVentaMostradorAction", () => {
     const r = await crearVentaMostradorAction(inicial, venta());
 
     expect(r).toEqual({ error: null, success: true, numero: 7 });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION", "TECNICO"]);
+    // Vender es cobrar: el técnico no usa el mostrador (D6).
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
     expect(tx.repuesto.updateMany).toHaveBeenCalledWith({
       where: { id: "r1", stockActual: { gte: 2 } },
       data: { stockActual: { decrement: 2 } },
@@ -73,6 +75,46 @@ describe("crearVentaMostradorAction", () => {
     expect(tx.pagoVentaMostrador.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ ventaId: "v1", monto: 59500, metodoPago: "EFECTIVO", registradoPorId: "u1" }),
     });
+  });
+
+  it("ignora el precio y la descripción que manda el navegador para un repuesto (hallazgo M2)", async () => {
+    const manipulada = { repuestoId: "r1", descripcion: "Tornillo", cantidad: 2, precioUnitario: 1 };
+
+    const r = await crearVentaMostradorAction(inicial, venta({ lineas: JSON.stringify([manipulada]) }));
+
+    expect(r.error).toBeNull();
+    const creada = tx.ventaMostrador.create.mock.calls[0]![0].data;
+    expect(creada.items.create).toEqual([
+      { repuestoId: "r1", descripcion: "Filtro de aceite", cantidad: 2, precioUnitario: 25000 },
+    ]);
+    expect(Number(creada.total)).toBe(59500);
+    expect(db.repuesto.findMany).toHaveBeenCalledWith({
+      where: { id: { in: ["r1"] }, bodega: { sedeId: "sede-1" } },
+      select: { id: true, nombre: true, precioVenta: true },
+    });
+  });
+
+  it("una línea libre conserva el precio y la descripción que se escribieron", async () => {
+    const libre = { descripcion: "Lavado de motor", cantidad: 1, precioUnitario: 40000 };
+
+    await crearVentaMostradorAction(inicial, venta({ lineas: JSON.stringify([libre]) }));
+
+    expect(tx.ventaMostrador.create.mock.calls[0]![0].data.items.create).toEqual([
+      { repuestoId: null, descripcion: "Lavado de motor", cantidad: 1, precioUnitario: 40000 },
+    ]);
+  });
+
+  it("el descuento se compara con el subtotal a precios del servidor", async () => {
+    // En el navegador el subtotal "era" 2 × 900.000; con el precio real es 50.000.
+    const inflada = { ...LINEA, precioUnitario: 900000 };
+
+    const r = await crearVentaMostradorAction(
+      inicial,
+      venta({ lineas: JSON.stringify([inflada]), descuento: "100000" }),
+    );
+
+    expect(r.error).toBe("El descuento no puede ser mayor que el subtotal");
+    expect(tx.ventaMostrador.create).not.toHaveBeenCalled();
   });
 
   it("agrega las líneas repetidas del mismo repuesto antes de tocar el stock", async () => {

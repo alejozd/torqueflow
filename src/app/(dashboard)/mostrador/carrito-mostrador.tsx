@@ -198,11 +198,18 @@ export function CarritoMostrador({
               return (
                 <tr key={linea.key} className="border-t">
                   <td className="py-2">
-                    <Input
-                      aria-label="Descripción"
-                      value={linea.descripcion}
-                      onChange={(evento) => cambiar(linea.key, { descripcion: evento.target.value })}
-                    />
+                    {/* Un repuesto lleva el nombre y el precio del inventario: el servidor
+                        los vuelve a tomar de ahí (fase de consolidación, D6). Solo una
+                        línea libre se escribe a mano. */}
+                    {repuesto ? (
+                      <span className="text-sm">{linea.descripcion}</span>
+                    ) : (
+                      <Input
+                        aria-label="Descripción"
+                        value={linea.descripcion}
+                        onChange={(evento) => cambiar(linea.key, { descripcion: evento.target.value })}
+                      />
+                    )}
                   </td>
                   <td className="py-2">
                     <Input
@@ -216,15 +223,19 @@ export function CarritoMostrador({
                     />
                   </td>
                   <td className="py-2">
-                    <Input
-                      aria-label="Precio"
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      className="font-mono"
-                      value={linea.precioUnitario}
-                      onChange={(evento) => cambiar(linea.key, { precioUnitario: Number(evento.target.value) })}
-                    />
+                    {repuesto ? (
+                      <span className="font-mono text-sm">{formatoMoneda.format(linea.precioUnitario)}</span>
+                    ) : (
+                      <Input
+                        aria-label="Precio"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        className="font-mono"
+                        value={linea.precioUnitario}
+                        onChange={(evento) => cambiar(linea.key, { precioUnitario: Number(evento.target.value) })}
+                      />
+                    )}
                   </td>
                   <td className="py-2 text-right font-mono">
                     {formatoMoneda.format(linea.cantidad * linea.precioUnitario)}

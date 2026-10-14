@@ -71,11 +71,12 @@ const OPERACION: NavGroup = {
     { href: "/citas", label: "Citas", icon: CalendarDays },
     { href: "/vencimientos", label: "Vencimientos", icon: ShieldAlert },
     { href: "/facturas", label: "Facturas", icon: Receipt },
-    // Vender en el mostrador lo puede hacer cualquiera que atienda: va sin
-    // condicionar por rol (Fase 24).
-    { href: "/mostrador", label: "Mostrador", icon: Store },
   ],
 };
+
+// Vender en el mostrador es cobrar: lo ven ADMIN y RECEPCION, como la caja
+// (fase de consolidación, D6).
+const MOSTRADOR: NavItem = { href: "/mostrador", label: "Mostrador", icon: Store };
 
 const GASTOS: NavItem = { href: "/gastos", label: "Gastos", icon: Wallet };
 const CAJA: NavItem = { href: "/caja", label: "Caja", icon: Landmark };
@@ -207,7 +208,7 @@ export function DashboardSidebar({
 }) {
   const pathname = usePathname();
   const operacion = puedeVerFinanzas
-    ? { ...OPERACION, items: [...OPERACION.items, CAJA, CARTERA, CUENTAS_POR_PAGAR, GASTOS] }
+    ? { ...OPERACION, items: [...OPERACION.items, MOSTRADOR, CAJA, CARTERA, CUENTAS_POR_PAGAR, GASTOS] }
     : OPERACION;
   const inventario = esAdmin ? { ...INVENTARIO, items: [...INVENTARIO.items, SERVICIOS] } : INVENTARIO;
   // Administración es de ADMIN, pero "Importar" también lo ve RECEPCION: para

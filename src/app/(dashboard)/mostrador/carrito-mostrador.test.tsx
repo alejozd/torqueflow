@@ -113,6 +113,16 @@ describe("CarritoMostrador", () => {
     expect(screen.getByRole("button", { name: "Registrar venta" })).toBeEnabled();
   });
 
+  it("el precio y la descripción de un repuesto no se editan: los pone el inventario", async () => {
+    pintar();
+
+    await agregarFiltro();
+
+    expect(screen.queryByLabelText("Precio")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Descripción")).not.toBeInTheDocument();
+    expect(screen.getByText("Filtro de aceite")).toBeInTheDocument();
+  });
+
   it("permite una línea libre (mano de obra o algo que no está en inventario)", async () => {
     pintar();
 
