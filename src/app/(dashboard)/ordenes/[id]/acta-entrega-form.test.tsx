@@ -89,6 +89,22 @@ describe("ActaEntregaForm", () => {
     expect(mockEntregar).toHaveBeenCalledTimes(1);
   });
 
+  it("tras entregar sin firma, la orden ya entregada ofrece firmar y no dice que se firmó", async () => {
+    const { rerender } = renderForm({ exigirFirma: false });
+
+    await userEvent.click(screen.getByRole("button", { name: "Entregar" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sí, entregar" }));
+    expect(mockEntregar).toHaveBeenCalledTimes(1);
+
+    // El servidor revalida: la misma instancia del formulario recibe la orden ya entregada, sin acta firmada.
+    rerender(<ActaEntregaForm ordenId="o1" estado="ENTREGADA" acta={null} editable exigirFirma={false} />);
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Orden entregada.");
+    expect(screen.queryByText("Acta firmada.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sí, entregar" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Firmar el acta" })).toBeInTheDocument();
+  });
+
   it("si el taller exige firma, lo dice junto al botón", () => {
     renderForm({ exigirFirma: true });
 
