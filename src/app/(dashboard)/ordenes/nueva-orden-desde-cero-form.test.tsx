@@ -4,6 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { Dialog } from "@/components/ui/dialog";
 
 const mockCreateOrdenDesdeVehiculoAction = vi.fn();
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush }) }));
 vi.mock("@/app/actions/orden-actions", () => ({
   createOrdenDesdeVehiculoAction: (...args: unknown[]) => mockCreateOrdenDesdeVehiculoAction(...args),
 }));
@@ -179,6 +181,19 @@ describe("NuevaOrdenDesdeCeroForm", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     const formData = mockCreateOrdenDesdeVehiculoAction.mock.calls[0]![1] as FormData;
     expect(formData.get("vehiculoId")).toBe("v1");
+  });
+
+  it("al crear la orden lleva a su ficha, donde siguen recepción, ítems, DVI y el resto", async () => {
+    mockCreateOrdenDesdeVehiculoAction.mockResolvedValue({ error: null, success: true, ordenId: "o9" });
+    const onCreated = vi.fn();
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} esAdmin={false} diasAviso={30} onCreated={onCreated} />);
+
+    await selectCombobox("Cliente", /Ana Pérez/);
+    await selectCombobox("Vehículo", "ABC123 · Toyota Corolla");
+    await userEvent.click(screen.getByRole("button", { name: "Crear orden" }));
+
+    await vi.waitFor(() => expect(mockPush).toHaveBeenCalledWith("/ordenes/o9"));
+    expect(onCreated).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to a visible success message when rendered without onCreated", async () => {

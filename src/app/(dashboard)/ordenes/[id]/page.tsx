@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { NavSecciones } from "@/components/nav-secciones";
 import { notFound } from "next/navigation";
 import { getOrden, listTecnicos } from "@/app/actions/orden-actions";
 import { requireSession } from "@/lib/auth/guards";
@@ -265,25 +266,15 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
               {ESTADO_LABELS[orden.estado]}
             </Badge>
           </div>
-
-          <nav aria-label="Secciones de la orden" className="flex flex-wrap gap-2">
-            {SECCIONES_ORDEN.map((seccion) => (
-              <a
-                key={seccion.id}
-                href={`#${seccion.id}`}
-                className="flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                <span className={cn("size-2 shrink-0 rounded-full", seccion.dot)} />
-                {seccion.label}
-              </a>
-            ))}
-          </nav>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
           {orden.vehiculo.placa} · {orden.vehiculo.marca} {orden.vehiculo.modelo}
           {orden.vehiculo.anio ? ` ${orden.vehiculo.anio}` : ""} · {orden.cliente.nombre}
         </p>
       </div>
+
+      {/* Fija arriba al hacer scroll, como en el Inicio. */}
+      <NavSecciones etiqueta="Secciones de la orden" secciones={SECCIONES_ORDEN} className="-mt-2" />
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex flex-col gap-4">
