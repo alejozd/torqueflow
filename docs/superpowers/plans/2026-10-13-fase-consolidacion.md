@@ -136,9 +136,9 @@ invariantes de caja cambian: §5 del traspaso), push.
 
 ## 6. Progreso (ledger)
 
-Estado al 2026-10-13: **Tasks 1–7 hechas**, cada una con su commit y push en `fase-consolidacion`.
-Última verificación completa (tras la Task 7): `tsc` limpio, `eslint` limpio en lo tocado,
-**263 archivos / 2124 tests pasando**. Migración **sin aplicar** a la base (va al cierre).
+Estado al 2026-10-13: **Tasks 1–8 hechas**, cada una con su commit y push en `fase-consolidacion`.
+Última verificación completa (tras la Task 8): `tsc` limpio, `eslint` limpio en lo tocado,
+**263 archivos / 2127 tests pasando**. Migración **sin aplicar** a la base (va al cierre).
 
 | Task | Commit | Notas |
 |---|---|---|
@@ -150,6 +150,7 @@ Estado al 2026-10-13: **Tasks 1–7 hechas**, cada una con su commit y push en `
 | 5 | `01dcbeb` | M3 cerrado: `SELECT … FOR UPDATE` sobre entrada y cuenta; saldo = total − Σ abonos. **Verificado contra la base real** con transacción revertida (el `$queryRaw` resuelve el schema del taller). |
 | 6 | `6759bd3` | M4 cerrado: `src/lib/importacion/zip-seguro.ts` descomprime cada entrada con `maxOutputLength` (tope 40 MB, `MAX_BYTES_DESCOMPRIMIDO`); no se fía de los tamaños declarados; rechaza entradas que el directorio central no lista. Helper de zips de prueba en `src/lib/importacion/test-utils.ts`. |
 | 7 | `2e30dfd` | B1, B5, B6, B7 cerrados (B7 reproducido antes de arreglar: borraba una foto del DVI). Arreglado además un test de UI intermitente de liquidaciones (findBy en vez de getBy). |
+| 8 | `77ab8c9` | D8: cabecera con un contador por motivo (enlace a `/ordenes?alerta=…`, se muestran los dos aunque uno valga 0), máximo 5 filas (placa, cliente, prioridad si no es `NORMAL`, motivo, días) y pie "Mostrando 5 de N". "Ver todas" es un enlace si solo hay un motivo; con los dos ofrece un enlace por motivo (el filtro de `/ordenes` es de un solo motivo). Revisión visual con las 9 alertas reales de `taller_dev` (4 estancadas, 5 sin entregar): no se crearon datos de prueba. |
 
 Lecciones de esta fase (para quien siga):
 - Al correr subconjuntos de tests, mirar también **"Test Files … failed"**, no solo las líneas `×`: un
@@ -159,5 +160,5 @@ Lecciones de esta fase (para quien siga):
 - Los mocks de la base de varios tests de acciones declaran `configuracionTaller: { findUnique: async () => opcionesTaller }`
   con `usarControlCaja: true`; para probar la opción apagada se cambia el objeto y se restaura en `finally`.
 
-Pendiente: Tasks 8, 9 y 10; después verificación final (`npm run build` con `.next` borrado),
+Pendiente: Tasks 9 y 10; después verificación final (`npm run build` con `.next` borrado),
 revisión del diff completo, fix round y cierre (§5).
