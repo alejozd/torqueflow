@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 const mockUpdateEstado = vi.fn();
 vi.mock("@/app/actions/orden-actions", () => ({
   updateEstadoOrdenAction: (...args: unknown[]) => mockUpdateEstado(...args),
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush }) }));
 
 import { TableroOrdenes, type ColumnaTablero, type TarjetaTablero } from "./tablero-ordenes";
 
@@ -38,6 +41,24 @@ function columnas(...ordenes: TarjetaTablero[]): ColumnaTablero[] {
 describe("TableroOrdenes", () => {
   beforeEach(() => {
     mockUpdateEstado.mockReset().mockResolvedValue({ error: null, advertencia: null });
+    mockPush.mockReset();
+  });
+
+  it("un clic en cualquier parte de la tarjeta abre la orden", async () => {
+    render(<TableroOrdenes columnas={columnas(tarjeta())} />);
+
+    await userEvent.click(screen.getByText("Ana", { exact: false }));
+
+    expect(mockPush).toHaveBeenCalledWith("/ordenes/o1");
+  });
+
+  it("abrir el menú o elegir en él no abre la orden", async () => {
+    render(<TableroOrdenes columnas={columnas(tarjeta())} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Mover la orden ABC123" }));
+    await userEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "Terminada" }));
+
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it("pinta las columnas con su conteo y las tarjetas", () => {
@@ -65,6 +86,54 @@ describe("TableroOrdenes", () => {
     render(<TableroOrdenes columnas={columnas(tarjeta())} />);
 
     expect(screen.getByRole("button", { name: "Mover la orden ABC123" })).toBeInTheDocument();
+  });
+
+  it("al abrir el menú muestra 'Mover a…' con los destinos y anular (antes rompía la página)", async () => {
+    // Base UI exige que el título del menú vaya dentro de un grupo: suelto, abrir
+    // el menú lanzaba "MenuGroupContext is missing" y la página quedaba en negro.
+    render(<TableroOrdenes columnas={columnas(tarjeta())} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Mover la orden ABC123" }));
+
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).getByText("Mover a…")).toBeInTheDocument();
+    expect(within(menu).getByRole("menuitem", { name: "Terminada" })).toBeInTheDocument();
+    expect(within(menu).getByRole("menuitem", { name: "Anular" })).toBeInTheDocument();
+  });
+
+  it("elegir un destino en el menú mueve la orden", async () => {
+    render(<TableroOrdenes columnas={columnas(tarjeta())} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Mover la orden ABC123" }));
+    await userEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "Terminada" }));
+
+    await waitFor(() => expect(mockUpdateEstado).toHaveBeenCalledTimes(1));
+    expect(mockUpdateEstado.mock.calls[0]![0]).toBe("o1");
+    expect((mockUpdateEstado.mock.calls[0]![2] as FormData).get("estado")).toBe("TERMINADA");
+  });
+
+  it("anular desde el menú pide confirmación antes de anular", async () => {
+    render(<TableroOrdenes columnas={columnas(tarjeta())} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Mover la orden ABC123" }));
+    await userEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "Anular" }));
+
+    expect(await screen.findByText(/¿Anular la orden ABC123\?/)).toBeInTheDocument();
+    expect(mockUpdateEstado).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Sí, anular" }));
+    await waitFor(() => expect((mockUpdateEstado.mock.calls[0]![2] as FormData).get("estado")).toBe("ANULADA"));
+  });
+
+  it("el menú de una orden terminada ofrece ir al acta para entregarla", async () => {
+    render(<TableroOrdenes columnas={columnas(tarjeta({ estado: "TERMINADA" }))} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Mover la orden ABC123" }));
+
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).getByRole("menuitem", { name: /Entregar \(ir al acta\)/ })).toHaveAttribute(
+      "href",
+      "/ordenes/o1#entrega",
+    );
   });
 
   it("una orden terminada sigue ofreciendo el menú, aunque no tenga destinos de arrastre", () => {
