@@ -540,15 +540,15 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
               </CardAction>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <span
-                  className="flex size-10 shrink-0 items-center justify-center rounded-lg"
+                  className="flex size-7 shrink-0 items-center justify-center rounded-md"
                   style={{
                     color: PRIORIDAD_COLOR[orden.prioridad],
                     background: `color-mix(in oklch, ${PRIORIDAD_COLOR[orden.prioridad]} 14%, transparent)`,
                   }}
                 >
-                  <IconoPrioridad className="size-5" aria-hidden />
+                  <IconoPrioridad className="size-4" aria-hidden />
                 </span>
                 <p className="text-sm text-muted-foreground">{PRIORIDAD_DESCRIPCION[orden.prioridad]}</p>
               </div>
