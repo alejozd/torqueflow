@@ -167,5 +167,13 @@ Lecciones de esta fase (para quien siga):
 - Los mocks de la base de varios tests de acciones declaran `configuracionTaller: { findUnique: async () => opcionesTaller }`
   con `usarControlCaja: true`; para probar la opción apagada se cambia el objeto y se restaura en `finally`.
 
-Pendiente: verificación final (`npm run build` con `.next` borrado),
-revisión del diff completo, fix round y cierre (§5).
+Verificación final (2026-10-14): `npm run build` con `.next` borrado OK (los 8 avisos de "Dynamic filesystem
+access" vienen del cliente de Prisma y de una librería empaquetada: ya estaban). Revisión del diff completo
+(`main...fase-consolidacion`, 49 archivos sin contar tests): sin hallazgos de dinero ni de permisos. Fix round
+`29ad45e`: el zip rechaza entradas superpuestas (el índice listando dos veces los mismos datos; hoy no explotable
+porque `read-excel-file` descomprime en streaming por cabeceras locales, defensa en profundidad) y el
+desplegable de fechas de la exportación se cierra con Escape o clic fuera. Tras el fix: `tsc` limpio,
+**266 archivos / 2123 tests**, build limpio.
+
+Pendiente: cierre (§5) — la migración ya está aplicada; falta merge `--no-ff` a `main`, actualizar
+`PROJECT_BRIEF.md` y `docs/TRASPASO-AGENTES.md` (§5: la caja ya no es obligatoria para todo) y push.
