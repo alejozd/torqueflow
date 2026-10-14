@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { CarFront, CircleCheck, Hourglass } from "lucide-react";
 import type { AlertaTaller } from "@/app/actions/alertas-taller-actions";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { ETIQUETA_PRIORIDAD, type MotivoAlerta } from "@/lib/orden/flujo";
+import { type MotivoAlerta } from "@/lib/orden/flujo";
 import { cn } from "@/lib/utils";
 import { ETIQUETA_FILTRO_ALERTA, construirHrefOrdenes } from "./ordenes/filtros-ordenes";
-import { PRIORIDAD_BADGE_CLASSNAME } from "./ordenes/prioridad-tono";
+import { PrioridadBadge } from "./ordenes/prioridad-badge";
 
 /** Filas visibles en el Inicio; el resto se ve en /ordenes con el filtro (D8). */
 const MAX_FILAS = 5;
@@ -93,12 +92,7 @@ export function AlertasTallerCard({ diasUmbral, alertas }: { diasUmbral: number;
                   <span className="shrink-0 font-mono font-medium">{alerta.placa}</span>
                   <span className="min-w-0 flex-1 truncate text-muted-foreground">{alerta.cliente}</span>
                   {alerta.prioridad !== "NORMAL" ? (
-                    <Badge
-                      variant="outline"
-                      className={cn("shrink-0 text-[10px]", PRIORIDAD_BADGE_CLASSNAME[alerta.prioridad])}
-                    >
-                      {ETIQUETA_PRIORIDAD[alerta.prioridad]}
-                    </Badge>
+                    <PrioridadBadge prioridad={alerta.prioridad} className="shrink-0 text-[10px]" />
                   ) : null}
                   <span
                     className={cn(

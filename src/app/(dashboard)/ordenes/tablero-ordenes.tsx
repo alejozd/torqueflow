@@ -28,8 +28,8 @@ import {
   puedeEntregar,
   requiereConfirmacion,
 } from "./estado-tono";
-import { PRIORIDAD_BADGE_CLASSNAME } from "./prioridad-tono";
-import { ETIQUETA_PRIORIDAD, type MotivoAlerta } from "@/lib/orden/flujo";
+import { PrioridadBadge } from "./prioridad-badge";
+import { type MotivoAlerta } from "@/lib/orden/flujo";
 import { ESTADO_ORDEN_TRANSITIONS } from "@/lib/orden/estado-transitions";
 import type { EstadoOrden, PrioridadOrden } from "@/generated/prisma-tenant";
 
@@ -233,9 +233,7 @@ function Tarjeta({
           {tarjeta.placa}
         </Link>
         <span className="flex items-center gap-1">
-          <Badge variant="outline" className={cn("text-[10px]", PRIORIDAD_BADGE_CLASSNAME[tarjeta.prioridad])}>
-            {ETIQUETA_PRIORIDAD[tarjeta.prioridad]}
-          </Badge>
+          <PrioridadBadge prioridad={tarjeta.prioridad} className="text-[10px]" />
           {muestraMenu ? (
             <DropdownMenu>
               <DropdownMenuTrigger

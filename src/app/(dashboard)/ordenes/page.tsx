@@ -7,7 +7,7 @@ import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/v
 import { getDiasAvisoVencimiento } from "@/app/actions/configuracion-taller-actions";
 import { requireSession } from "@/lib/auth/guards";
 import { NuevaOrdenDialog } from "./nueva-orden-dialog";
-import { PRIORIDAD_BADGE_CLASSNAME } from "./prioridad-tono";
+import { PrioridadBadge } from "./prioridad-badge";
 import { ESTADO_BADGE_CLASSNAME, ESTADO_BADGE_VARIANT, ESTADO_DOT_COLOR, ESTADO_LABELS } from "./estado-tono";
 import { TableroOrdenes, type ColumnaTablero } from "./tablero-ordenes";
 import { esOrdenMutable } from "@/lib/orden/mutable-guard";
@@ -33,7 +33,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { inferirColorVehiculo } from "@/lib/color-vehiculo";
 import { formatoFechaCorta, formatoFechaRelativa, inicioMesBogota, inicioSemanaBogota } from "@/lib/fecha-bogota";
-import { ETIQUETA_PRIORIDAD, compararPorPrioridad, type MotivoAlerta } from "@/lib/orden/flujo";
+import { compararPorPrioridad, type MotivoAlerta } from "@/lib/orden/flujo";
 import { cn } from "@/lib/utils";
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", {
@@ -257,13 +257,7 @@ function buildColumns(
     {
       header: <SortableHeader label="Prioridad" sortKey="prioridad" {...sortableHeaderProps} />,
       cell: (orden) => (
-        <Badge
-          variant="outline"
-          className={cn("gap-1.5", PRIORIDAD_BADGE_CLASSNAME[orden.prioridad])}
-          data-prioridad={orden.prioridad}
-        >
-          {ETIQUETA_PRIORIDAD[orden.prioridad]}
-        </Badge>
+        <PrioridadBadge prioridad={orden.prioridad} data-prioridad={orden.prioridad} />
       ),
     },
     {

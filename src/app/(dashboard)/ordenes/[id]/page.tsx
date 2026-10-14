@@ -17,8 +17,8 @@ import { AnticiposSection } from "./anticipos-section";
 import { AsignarMecanicoForm } from "./asignar-mecanico-form";
 import { CambiarEstadoForm } from "./cambiar-estado-form";
 import { CambiarPrioridadForm } from "../cambiar-prioridad-form";
-import { PRIORIDAD_BADGE_CLASSNAME } from "../prioridad-tono";
-import { ETIQUETA_PRIORIDAD } from "@/lib/orden/flujo";
+import { PRIORIDAD_COLOR, PRIORIDAD_DESCRIPCION } from "../prioridad-tono";
+import { PRIORIDAD_ICONO, PrioridadBadge } from "../prioridad-badge";
 import { DiagramaDanios } from "./diagrama-danios";
 import { GarantiasSection } from "./garantias-section";
 import { RecepcionForm } from "./recepcion-form";
@@ -245,6 +245,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
   // Qué secciones van abiertas según el momento de la orden (el acta, plegada
   // mientras se arma: se usa al entregar).
   const abiertas = seccionesAbiertas(orden.estado);
+  const IconoPrioridad = PRIORIDAD_ICONO[orden.prioridad];
   const resumenEntrega =
     orden.estado === "ENTREGADA"
       ? orden.acta?.firmadaAt
@@ -529,16 +530,28 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
         {/* Franja de color arriba de cada tarjeta lateral: se distinguen sin
             meterles un recuadro gris (cada una muestra una sola cosa). */}
         <div className="sticky top-4 flex flex-col gap-4">
-          <Card className="border-t-4 border-t-amber-500">
+          {/* La franja y el ícono toman el color del nivel; el fondo queda blanco
+              para no competir con el resto de la ficha. */}
+          <Card className="border-t-4" style={{ borderTopColor: PRIORIDAD_COLOR[orden.prioridad] }}>
             <CardHeader>
               <CardTitle>Prioridad</CardTitle>
               <CardAction>
-                <Badge variant="outline" className={cn(PRIORIDAD_BADGE_CLASSNAME[orden.prioridad])}>
-                  {ETIQUETA_PRIORIDAD[orden.prioridad]}
-                </Badge>
+                <PrioridadBadge prioridad={orden.prioridad} />
               </CardAction>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <span
+                  className="flex size-10 shrink-0 items-center justify-center rounded-lg"
+                  style={{
+                    color: PRIORIDAD_COLOR[orden.prioridad],
+                    background: `color-mix(in oklch, ${PRIORIDAD_COLOR[orden.prioridad]} 14%, transparent)`,
+                  }}
+                >
+                  <IconoPrioridad className="size-5" aria-hidden />
+                </span>
+                <p className="text-sm text-muted-foreground">{PRIORIDAD_DESCRIPCION[orden.prioridad]}</p>
+              </div>
               {esOrdenMutable(orden) ? (
                 <CambiarPrioridadForm ordenId={orden.id} prioridad={orden.prioridad} />
               ) : (
