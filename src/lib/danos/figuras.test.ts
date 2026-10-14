@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { zonaVehiculoSchema } from "@/lib/validation/recepcion";
-import { FIGURAS, figuraDe, zonasDe } from "./figuras";
+import { FIGURAS, etiquetaZona, figuraDe, zonasDe } from "./figuras";
 
 const TODAS = zonaVehiculoSchema.options;
 
@@ -86,11 +86,16 @@ describe("figuras del diagrama", () => {
     }
   });
 
-  it("el carro se ve desde arriba con el frente hacia arriba: el frente queda por encima del techo y de la compuerta", () => {
+  it("el carro se ve desde arriba con el frente hacia arriba: el frente queda por encima del techo y del baúl", () => {
     const y = (zona: string) => FIGURAS.CARRO.zonas.find((candidata) => candidata.zona === zona)!.cajas[0]![1];
     expect(y("FRENTE")).toBeLessThan(y("CAPO"));
     expect(y("CAPO")).toBeLessThan(y("PARABRISAS"));
     expect(y("PARABRISAS")).toBeLessThan(y("TECHO"));
     expect(y("TECHO")).toBeLessThan(y("COMPUERTA"));
+  });
+
+  it("la parte trasera del carro se llama Baúl, como se dice en Colombia", () => {
+    expect(etiquetaZona("COMPUERTA")).toBe("Baúl");
+    expect(FIGURAS.CARRO.zonas.find((zona) => zona.zona === "COMPUERTA")?.rotulo).toBe("Baúl");
   });
 });

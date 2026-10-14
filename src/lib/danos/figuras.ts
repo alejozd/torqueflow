@@ -82,7 +82,7 @@ function circulo(cx: number, cy: number, r: number): string {
 
 /**
  * Carro visto desde arriba, el frente hacia arriba: en el eje, de adelante hacia
- * atrás, parachoques, capó, parabrisas, techo y compuerta; a cada lado, los
+ * atrás, parachoques, capó, parabrisas, techo y baúl; a cada lado, los
  * guardabarros (laterales) antes y después de la puerta; afuera, espejos y llantas.
  */
 const CARRO: Figura = {
@@ -100,7 +100,7 @@ const CARRO: Figura = {
     zona("CAPO", "Capó", [[84, 48, 92, 84]], { rotulo: "Capó" }),
     zona("PARABRISAS", "Parabrisas", [[88, 134, 84, 36]], { rotulo: "Parabrisas" }),
     zona("TECHO", "Techo", [[88, 172, 84, 120]], { rotulo: "Techo" }),
-    zona("COMPUERTA", "Compuerta", [[84, 294, 92, 112]], { rotulo: "Compuerta", detalle: "maletero, vidrio y parachoques trasero" }),
+    zona("COMPUERTA", "Baúl", [[84, 294, 92, 112]], { rotulo: "Baúl", detalle: "vidrio y parachoques trasero" }),
     zona("PUERTA_IZQUIERDA", "Puerta izquierda", [[44, 136, 38, 152]], { rotulo: "Puerta" }),
     zona("PUERTA_DERECHA", "Puerta derecha", [[178, 136, 38, 152]], { rotulo: "Puerta" }),
     zona(
