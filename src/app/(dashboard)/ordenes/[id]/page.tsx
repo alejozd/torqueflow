@@ -457,48 +457,54 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
               </CardAction>
             </CardHeader>
             <CardContent className="flex flex-col gap-5">
-              <ActaEntregaForm
-                ordenId={orden.id}
-                estado={orden.estado}
-                // El acta no depende de la factura (fase de consolidación, D2): solo una
-                // orden anulada la deja de solo lectura; una entregada sin firma se firma.
-                editable={orden.estado !== "ANULADA"}
-                exigirFirma={opcionesTaller.exigirActaFirmada}
-                puedeBorrar={
-                  orden.estado !== "ENTREGADA" && orden.estado !== "ANULADA" && session.user.role !== "TECNICO"
-                }
-                acta={
-                  orden.acta
-                    ? {
-                        recibidoPor: orden.acta.recibidoPor,
-                        documentoRecibe: orden.acta.documentoRecibe,
-                        observaciones: orden.acta.observaciones,
-                        firmaUrl: orden.acta.firmaUrl,
-                        firmaFotoUrl: orden.acta.firmaFotoUrl,
-                        firmadaAt: orden.acta.firmadaAt,
-                      }
-                    : null
-                }
-              />
-              <GarantiasSection
-                ordenId={orden.id}
-                garantias={orden.garantias.map((garantia) => ({
-                  id: garantia.id,
-                  tipo: garantia.tipo,
-                  descripcion: garantia.descripcion,
-                  linea: garantia.manoDeObra?.descripcion ?? garantia.itemOrden?.descripcion ?? null,
-                  cubreHasta: garantia.cubreHasta,
-                  cubreHastaKm: garantia.cubreHastaKm,
-                  nota: garantia.nota,
-                }))}
-                lineasTrabajo={orden.manoDeObra.map((linea) => ({ id: linea.id, descripcion: linea.descripcion }))}
-                lineasRepuesto={orden.items.map((item) => ({
-                  id: item.id,
-                  descripcion: `${item.descripcion} ×${item.cantidad}`,
-                }))}
-                soloLectura={!esOrdenMutable(orden)}
-                puedeQuitar={puedeQuitar}
-              />
+              {/* Dos recuadros con título, como el resto de la ficha: antes las garantías
+                  quedaban pegadas al acta sin ningún título y no se encontraban. */}
+              <FormGroup label="Acta de entrega">
+                <ActaEntregaForm
+                  ordenId={orden.id}
+                  estado={orden.estado}
+                  // El acta no depende de la factura (fase de consolidación, D2): solo una
+                  // orden anulada la deja de solo lectura; una entregada sin firma se firma.
+                  editable={orden.estado !== "ANULADA"}
+                  exigirFirma={opcionesTaller.exigirActaFirmada}
+                  puedeBorrar={
+                    orden.estado !== "ENTREGADA" && orden.estado !== "ANULADA" && session.user.role !== "TECNICO"
+                  }
+                  acta={
+                    orden.acta
+                      ? {
+                          recibidoPor: orden.acta.recibidoPor,
+                          documentoRecibe: orden.acta.documentoRecibe,
+                          observaciones: orden.acta.observaciones,
+                          firmaUrl: orden.acta.firmaUrl,
+                          firmaFotoUrl: orden.acta.firmaFotoUrl,
+                          firmadaAt: orden.acta.firmadaAt,
+                        }
+                      : null
+                  }
+                />
+              </FormGroup>
+              <FormGroup label="Garantías del trabajo">
+                <GarantiasSection
+                  ordenId={orden.id}
+                  garantias={orden.garantias.map((garantia) => ({
+                    id: garantia.id,
+                    tipo: garantia.tipo,
+                    descripcion: garantia.descripcion,
+                    linea: garantia.manoDeObra?.descripcion ?? garantia.itemOrden?.descripcion ?? null,
+                    cubreHasta: garantia.cubreHasta,
+                    cubreHastaKm: garantia.cubreHastaKm,
+                    nota: garantia.nota,
+                  }))}
+                  lineasTrabajo={orden.manoDeObra.map((linea) => ({ id: linea.id, descripcion: linea.descripcion }))}
+                  lineasRepuesto={orden.items.map((item) => ({
+                    id: item.id,
+                    descripcion: `${item.descripcion} ×${item.cantidad}`,
+                  }))}
+                  soloLectura={!esOrdenMutable(orden)}
+                  puedeQuitar={puedeQuitar}
+                />
+              </FormGroup>
             </CardContent>
           </Card>
 
@@ -579,7 +585,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
             <CardContent>
               {orden.estado === "TERMINADA" ? (
                 <p className="text-sm text-muted-foreground">
-                  La orden está terminada: entrégala firmando el acta en la sección «Acta de entrega y garantías».
+                  La orden está terminada: entrégala desde la sección «Acta de entrega y garantías».
                 </p>
               ) : (
                 <CambiarEstadoForm ordenId={orden.id} estadoActual={orden.estado} />
