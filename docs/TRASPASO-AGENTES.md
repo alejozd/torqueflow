@@ -3,7 +3,8 @@
 > Documento de traspaso. Está escrito para que **otra IA o otro agente** entienda en poco tiempo qué se
 > hizo, cómo se hizo, qué no se puede romper y dónde está cada cosa. Si eres un agente recién llegado:
 > lee esto completo **antes** de tocar código, y después lee los documentos que se citan en §9.
-> Última actualización: 2026-10-14, tras el merge de la fase de consolidación (`dedc201`).
+> Última actualización: 2026-10-14, tras el merge de la fase de consolidación (`dedc201`) y de sus arreglos
+> posteriores al despliegue (`eee9992`).
 
 ---
 
@@ -20,13 +21,14 @@ El trabajo descrito aquí va **desde la Fase 21 hasta la Fase 24**, más una fas
 | 23 — portal del cliente | *(sin rama)* | **aplazada** (con DIAN) | — (documento `a9ea57f`) |
 | 24 — mostrador y compras | `fase24-mostrador-compras` | terminada | `62924f8` |
 | consolidación | `fase-consolidacion` | terminada | `dedc201` |
+| arreglos tras desplegar | `fase-consolidacion-fix` | terminada | `eee9992` |
 
 El brief de la 24 se registró en `b90c7e2`; el de la consolidación, justo después de su merge.
 
 ## 2. Estado actual (verificado, no supuesto)
 
 - `main` con el merge de la consolidación (**`dedc201`**) y su brief encima, árbol limpio.
-- **266 archivos de test / 2123 tests pasando**; `npx tsc --noEmit --incremental false` limpio; `eslint`
+- **266 archivos de test / 2130 tests pasando**; `npx tsc --noEmit --incremental false` limpio; `eslint`
   limpio; `npm run build` OK.
 - Base de datos (una sola, compartida entre el portátil de desarrollo y el servidor): `taller_dev` y
   `taller_dev_reference` con **todas las migraciones aplicadas**, incluidas las de las fases 21, 22 y 24 y la de la consolidación (`20261018120000_consolidacion`).
@@ -139,6 +141,12 @@ Verificación: 266 archivos / 2123 tests, `npm run build` OK, revisión del diff
 `~/backups/torqueflow_20261014_0002_pre_consolidacion.sql` (444 KB). La revisión final la hizo el mismo
 agente que implementó la fase, no otro modelo (§3, paso 7).
 
+**Arreglos tras desplegar** (`fase-consolidacion-fix`, merge `eee9992`, sin migración): el acta ya no dice
+"Acta firmada." tras entregar sin firma ni deja abierta la confirmación de entregar; y **todos los cortes de
+día y de mes pasaron a hora de Colombia**: el "hoy" del Inicio y del menú (cambiaba a las 7 p. m.), los
+reportes, la vigencia de garantías, los arqueos del mes, las cotizaciones aprobadas del mes y la fecha de las
+cuentas por pagar. La regla quedó en §7.
+
 ## 5. Invariantes que NO se pueden romper
 
 - **El efectivo exige caja abierta cuando el taller usa el control de caja** (fase de consolidación, D3).
@@ -230,6 +238,15 @@ Después, la comprobación que vale: `migrate diff` respondiendo **"This is an e
 - **`Pago` y `PagoProveedor` no tienen `sedeId`**: la sede se deduce por la factura (→ orden) o por la
   cuenta (→ entrada → bodega). Cualquier reporte de dinero tiene que hacer ese join o mezclará sedes.
 - **`Factura.ordenId` es obligatorio y único**: una venta sin orden de trabajo no puede ser una factura.
+- **Fechas: instante o solo día.** Colombia es UTC-5 fijo, sin horario de verano. Para **instantes**
+  (`createdAt`, `entregadaAt`, `fechaHora`, `abiertaAt`) los días y meses cortan a medianoche de Bogotá:
+  `buildRangoFechas` (`src/lib/reportes/rango-fechas.ts`), `rangoInstantesDelPeriodo` (gastos/periodo),
+  `inicioDiaBogota`/`inicioMesBogota` y `formatoDiaBogota` (`src/lib/fecha-bogota.ts`). Las columnas de
+  **solo día** (`@db.Date`: `Gasto.fecha`, `Garantia.cubreHasta`, `CuentaPorPagar.fecha`, SOAT y
+  tecnomecánica) Prisma las maneja como medianoche UTC: se filtran con `buildRangoDias` /
+  `rangoDelPeriodo` de gastos, se muestran con `timeZone: "UTC"`, y para guardar "el día de hoy" se usa
+  `new Date(\`${formatoDiaBogota.format(instante)}T00:00:00.000Z\`)`, nunca el instante directo. Con UTC en
+  un instante, lo de después de las 7 p. m. cae en el día siguiente.
 - **`migrate diff --to-schema-datamodel` lee el schema de `TENANT_DATABASE_URL`**: sin esa variable compara
   contra `public` y escupe el script de creación completo, que parece un desfase y no lo es. Defínela con la
   misma URL que `--from-url`.
