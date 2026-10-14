@@ -14,11 +14,18 @@ describe("figuraDe y zonasDe", () => {
     expect(zonasDe("CARRO").map((zona) => zona.zona)).toContain("CAPO");
   });
 
-  it("el carro también puede marcar sus laterales", () => {
-    const carro = zonasDe("CARRO").map((zona) => zona.zona);
+  it("el carro marca cada guardabarros por separado", () => {
+    const carro = zonasDe("CARRO");
 
-    expect(carro).toContain("LATERAL_IZQUIERDO");
-    expect(carro).toContain("LATERAL_DERECHO");
+    for (const nombre of [
+      "GUARDABARROS_DELANTERO_IZQUIERDO",
+      "GUARDABARROS_TRASERO_IZQUIERDO",
+      "GUARDABARROS_DELANTERO_DERECHO",
+      "GUARDABARROS_TRASERO_DERECHO",
+    ] as const) {
+      const guardabarros = carro.find((zona) => zona.zona === nombre);
+      expect(guardabarros?.cajas, `${nombre} debe ser una sola caja`).toHaveLength(1);
+    }
   });
 });
 

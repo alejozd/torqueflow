@@ -83,7 +83,9 @@ function circulo(cx: number, cy: number, r: number): string {
 /**
  * Carro visto desde arriba, el frente hacia arriba: en el eje, de adelante hacia
  * atrás, parachoques, capó, parabrisas, techo y baúl; a cada lado, los
- * guardabarros (laterales) antes y después de la puerta; afuera, espejos y llantas.
+ * guardabarros delantero y trasero (cada uno su zona) antes y después de la
+ * puerta; afuera, espejos y llantas. Los daños viejos marcados como
+ * `LATERAL_*` en un carro se siguen listando, solo que no se pintan.
  */
 const CARRO: Figura = {
   titulo: "Carro (visto desde arriba)",
@@ -103,24 +105,10 @@ const CARRO: Figura = {
     zona("COMPUERTA", "Baúl", [[84, 294, 92, 112]], { rotulo: "Baúl", detalle: "vidrio y parachoques trasero" }),
     zona("PUERTA_IZQUIERDA", "Puerta izquierda", [[44, 136, 38, 152]], { rotulo: "Puerta" }),
     zona("PUERTA_DERECHA", "Puerta derecha", [[178, 136, 38, 152]], { rotulo: "Puerta" }),
-    zona(
-      "LATERAL_IZQUIERDO",
-      "Lateral izquierdo",
-      [
-        [44, 60, 38, 74],
-        [44, 290, 38, 100],
-      ],
-      { detalle: "guardabarros delantero y trasero" },
-    ),
-    zona(
-      "LATERAL_DERECHO",
-      "Lateral derecho",
-      [
-        [178, 60, 38, 74],
-        [178, 290, 38, 100],
-      ],
-      { detalle: "guardabarros delantero y trasero" },
-    ),
+    zona("GUARDABARROS_DELANTERO_IZQUIERDO", "Guardabarros delantero izquierdo", [[44, 60, 38, 74]]),
+    zona("GUARDABARROS_TRASERO_IZQUIERDO", "Guardabarros trasero izquierdo", [[44, 290, 38, 100]]),
+    zona("GUARDABARROS_DELANTERO_DERECHO", "Guardabarros delantero derecho", [[178, 60, 38, 74]]),
+    zona("GUARDABARROS_TRASERO_DERECHO", "Guardabarros trasero derecho", [[178, 290, 38, 100]]),
     zona("ESPEJO_IZQUIERDO", "Espejo izquierdo", [[14, 140, 26, 16]]),
     zona("ESPEJO_DERECHO", "Espejo derecho", [[220, 140, 26, 16]]),
     zona("RINES", "Rines", [
