@@ -95,8 +95,8 @@ Bogotá (`T00:00:00-05:00`, como `fecha-bogota.ts`), con test del borde.
   B2 en `periodo.test.ts`.
 - Un commit (`fase-consol-task 10: …`), verificación completa como en las demás tasks.
 
-## 8. Preguntas para el usuario
+## 8. Decisiones
 
-1. ¿Te sirve que el **ajuste** viva solo en el diálogo de pago (no se puede dejar "preparado" antes de
-   pagar)?
-2. ¿Corregimos **B2** aquí (recomendado: es una línea y un test) o lo dejamos para otra fase?
+1. **Ajuste**: solo en el diálogo de pago (recomendación del agente; pendiente de confirmar por el usuario).
+   Queda guardado en el documento pagado con su motivo y en la auditoría.
+2. **B2**: aprobado por el usuario (2026-10-14): los periodos cortan a medianoche de Colombia.

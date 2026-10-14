@@ -138,7 +138,9 @@ invariantes de caja cambian: §5 del traspaso), push.
 
 Estado al 2026-10-13: **Tasks 1–9 hechas**, cada una con su commit y push en `fase-consolidacion`.
 Última verificación completa (tras la Task 9): `tsc` limpio, `eslint` limpio en lo tocado,
-**266 archivos / 2150 tests pasando**. Migración **sin aplicar** a la base (va al cierre).
+**266 archivos / 2150 tests pasando**. Migración `20261018120000_consolidacion` **aplicada** el 2026-10-14 a `taller_dev` y
+`taller_dev_reference` (respaldo previo `~/backups/torqueflow_20261014_0002_pre_consolidacion.sql`, 444 KB, los
+dos schemas); `migrate diff` vacío en ambos.
 
 | Task | Commit | Notas |
 |---|---|---|
@@ -158,6 +160,9 @@ Lecciones de esta fase (para quien siga):
   archivo de test que no compila reporta "no tests" y parece verde (pasó en la Task 7).
 - Escribir tests con barras invertidas o regex desde scripts de shell las corrompe: usar el editor o
   `String.raw`.
+- `migrate diff --to-schema-datamodel` toma el schema de `TENANT_DATABASE_URL`: sin esa variable compara
+  contra `public` y escupe el script de creación completo (parece un desfase y no lo es). Definirla con la
+  misma URL que `--from-url`.
 - Los mocks de la base de varios tests de acciones declaran `configuracionTaller: { findUnique: async () => opcionesTaller }`
   con `usarControlCaja: true`; para probar la opción apagada se cambia el objeto y se restaura en `finally`.
 
