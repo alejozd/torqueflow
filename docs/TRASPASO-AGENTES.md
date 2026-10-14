@@ -3,8 +3,8 @@
 > Documento de traspaso. Está escrito para que **otra IA o otro agente** entienda en poco tiempo qué se
 > hizo, cómo se hizo, qué no se puede romper y dónde está cada cosa. Si eres un agente recién llegado:
 > lee esto completo **antes** de tocar código, y después lee los documentos que se citan en §9.
-> Última actualización: 2026-10-14, tras el merge de la fase de consolidación (`dedc201`) y de sus arreglos
-> posteriores al despliegue (`eee9992`).
+> Última actualización: 2026-10-14, tras el merge de la fase de consolidación (`dedc201`), de sus arreglos
+> posteriores al despliegue (`eee9992`) y de las mejoras de Inicio y Órdenes (`f8df1f1`).
 
 ---
 
@@ -22,13 +22,14 @@ El trabajo descrito aquí va **desde la Fase 21 hasta la Fase 24**, más una fas
 | 24 — mostrador y compras | `fase24-mostrador-compras` | terminada | `62924f8` |
 | consolidación | `fase-consolidacion` | terminada | `dedc201` |
 | arreglos tras desplegar | `fase-consolidacion-fix` | terminada | `eee9992` |
+| login + Inicio + Órdenes | `fix-login-get`, `mejoras-inicio` | terminada | `f8df1f1` |
 
 El brief de la 24 se registró en `b90c7e2`; el de la consolidación, justo después de su merge.
 
 ## 2. Estado actual (verificado, no supuesto)
 
 - `main` con el merge de la consolidación (**`dedc201`**) y su brief encima, árbol limpio.
-- **266 archivos de test / 2130 tests pasando**; `npx tsc --noEmit --incremental false` limpio; `eslint`
+- **274 archivos de test / 2171 tests pasando**; `npx tsc --noEmit --incremental false` limpio; `eslint`
   limpio; `npm run build` OK.
 - Base de datos (una sola, compartida entre el portátil de desarrollo y el servidor): `taller_dev` y
   `taller_dev_reference` con **todas las migraciones aplicadas**, incluidas las de las fases 21, 22 y 24 y la de la consolidación (`20261018120000_consolidacion`).
@@ -147,6 +148,30 @@ día y de mes pasaron a hora de Colombia**: el "hoy" del Inicio y del menú (cam
 reportes, la vigencia de garantías, los arqueos del mes, las cotizaciones aprobadas del mes y la fecha de las
 cuentas por pagar. La regla quedó en §7.
 
+**Login, Inicio y Órdenes** (`fix-login-get` + `mejoras-inicio`, merge `f8df1f1`, sin migración), revisado con
+el usuario en pantalla:
+
+- **Login**: el formulario es POST y su botón espera a la hidratación (antes un envío temprano hacía un GET con
+  la clave en la URL; salió del backlog).
+- **Inicio**: botón de "Alertas del taller" en la barra de secciones; tarjetas de 11 px de título y cifra que se
+  achica por contenedor (`@container`) para que quepan seis en un portátil, todas del mismo alto; tarjeta de
+  vencimientos con subtítulo siempre; **gráfico de facturación** en HTML/CSS (sin librería, decisión del usuario):
+  cobrado/pendiente, promedio, comparación con la semana anterior, tabla y "Lectura de la semana"
+  (`src/lib/dashboard/facturacion-semana.ts`, frases por reglas, no IA); skeleton (`loading.tsx`) alineado a la
+  página.
+- **Órdenes**: el menú del tablero rompía la página (Base UI exige `DropdownMenuLabel` dentro de
+  `DropdownMenuGroup`) y sus ítems no hacían nada (`onSelect` es de Radix; en Base UI es `onClick`); un clic en la
+  tarjeta abre la orden; "Nueva orden" lleva a la ficha creada; placa siempre en mayúsculas al escribir.
+- **Ficha de la orden**: barra de secciones fija (`src/components/nav-secciones.tsx`, compartida con el Inicio);
+  secciones plegables según el estado (`src/lib/orden/secciones.ts` + `seccion-orden.tsx`: el acta plegada
+  mientras se arma y resaltada al terminar); acta y garantías en recuadros con título; franja de color en las
+  tarjetas laterales; **diagrama de daños** redibujado (`src/lib/danos/figuras.ts`: las zonas son cajas, el trazo
+  se calcula; silueta, orientación, rótulos, contador por zona; "Compuerta" se muestra como "Baúl").
+- **Garantías**: se registran y quitan hasta entregar o anular, aunque la orden ya esté facturada (misma regla
+  que el acta).
+- Datos de demostración en `taller_dev` que el usuario quiere conservar: cliente "Andrea Valencia Ríos", placas
+  JKT482, MRW615, HBL290 y DFN734, 8 facturas del 10 al 14 de octubre de 2026.
+
 ## 5. Invariantes que NO se pueden romper
 
 - **El efectivo exige caja abierta cuando el taller usa el control de caja** (fase de consolidación, D3).
@@ -247,6 +272,10 @@ Después, la comprobación que vale: `migrate diff` respondiendo **"This is an e
   `rangoDelPeriodo` de gastos, se muestran con `timeZone: "UTC"`, y para guardar "el día de hoy" se usa
   ``new Date(`${formatoDiaBogota.format(instante)}T00:00:00.000Z`)``, nunca el instante directo. Con UTC en
   un instante, lo de después de las 7 p. m. cae en el día siguiente.
+- **Base UI no es Radix** (`src/components/ui/dropdown-menu.tsx` envuelve Base UI): los ítems reaccionan a
+  `onClick` (no `onSelect`) y `DropdownMenuLabel` va dentro de `DropdownMenuGroup`, o abrir el menú lanza
+  "MenuGroupContext is missing". Los tests de un menú tienen que **abrirlo y elegir**, no solo ver el botón.
+- **`prettier` no es el formato del repo**: correrlo reformatea cientos de líneas que no se tocaron.
 - **`migrate diff --to-schema-datamodel` lee el schema de `TENANT_DATABASE_URL`**: sin esa variable compara
   contra `public` y escupe el script de creación completo, que parece un desfase y no lo es. Defínela con la
   misma URL que `--from-url`.
