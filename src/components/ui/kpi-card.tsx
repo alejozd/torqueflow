@@ -104,7 +104,9 @@ export function KpiCard({
     <Card className={cn("w-full", highlight && "bg-primary/5 ring-2 ring-primary/25", className)}>
       <CardContent className="flex flex-col gap-1.5">
         <div className="flex items-start justify-between gap-2">
-          <p className="line-clamp-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</p>
+          <p className="line-clamp-2 min-w-0 text-xs font-medium tracking-wide break-words text-muted-foreground uppercase">
+            {title}
+          </p>
           <div className={cn("flex size-8 shrink-0 items-center justify-center rounded-full", iconBgColor)}>
             {icon}
           </div>

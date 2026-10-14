@@ -34,20 +34,3 @@ export function ultimosNDiasIso(hoy: Date, n: number): string[] {
   }
   return dias;
 }
-
-/** Sums Factura.total per Bogotá day, filling requested days with no facturas as 0. */
-export function agruparFacturacionPorDia(
-  facturas: { createdAt: Date; total: number }[],
-  dias: string[],
-): { fecha: string; total: number }[] {
-  const totalesPorDia = new Map<string, number>();
-  for (const dia of dias) {
-    totalesPorDia.set(dia, 0);
-  }
-  for (const factura of facturas) {
-    const dia = formatoDiaBogota.format(factura.createdAt);
-    if (!totalesPorDia.has(dia)) continue;
-    totalesPorDia.set(dia, (totalesPorDia.get(dia) ?? 0) + factura.total);
-  }
-  return dias.map((fecha) => ({ fecha, total: totalesPorDia.get(fecha) ?? 0 }));
-}

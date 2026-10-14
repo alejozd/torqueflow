@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { KPI_TONE } from "./kpi-card";
+import { render, screen } from "@testing-library/react";
+import { KPI_TONE, KpiCard } from "./kpi-card";
 
 describe("KPI_TONE", () => {
   it("keeps the existing tones used across Facturas/Ordenes/Citas unchanged", () => {
@@ -36,5 +37,15 @@ describe("KPI_TONE", () => {
       iconBg: "bg-purple-100 dark:bg-purple-500/20",
       icon: "text-purple-600 dark:text-purple-400",
     });
+  });
+});
+
+describe("KpiCard", () => {
+  it("un título de una sola palabra larga se parte antes que cortarse (VENCIMIENTOS en un portátil)", () => {
+    render(<KpiCard title="Vencimientos" value={3} icon={<span />} />);
+
+    const titulo = screen.getByText("Vencimientos");
+    // min-w-0 deja que el título ceda espacio al ícono; break-words lo parte si aun así no cabe.
+    expect(titulo).toHaveClass("min-w-0", "break-words");
   });
 });

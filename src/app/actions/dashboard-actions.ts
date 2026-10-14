@@ -4,7 +4,8 @@ import { requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { scopeCita, scopeFactura, scopeOrden } from "@/lib/sede/scope";
 import { buildRangoFechas } from "@/lib/reportes/rango-fechas";
-import { agruparFacturacionPorDia, totalOrden, ultimosNDiasIso } from "@/lib/dashboard/calculos";
+import { totalOrden, ultimosNDiasIso } from "@/lib/dashboard/calculos";
+import { resumirFacturacion, type ResumenFacturacion } from "@/lib/dashboard/facturacion-semana";
 import type { EstadoCita, EstadoOrden } from "@/generated/prisma-tenant";
 
 /**
@@ -52,7 +53,8 @@ export interface DashboardOverview {
   ordenesActivasCount: number;
   ordenesRecientes: OrdenRecienteRow[];
   agendaHoy: CitaHoyRow[];
-  facturacion7Dias: { fecha: string; total: number }[];
+  /** La semana (últimos 7 días de Bogotá) frente a los 7 anteriores. */
+  facturacion: ResumenFacturacion;
 }
 
 /**
@@ -71,10 +73,11 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   const sedeActivaId = session.user.sedeActivaId;
 
   const hoy = new Date();
-  const dias7 = ultimosNDiasIso(hoy, 7);
-  const hoyIso = dias7[dias7.length - 1];
+  // 14 días: la semana del gráfico y la anterior, para compararlas.
+  const dias14 = ultimosNDiasIso(hoy, 14);
+  const hoyIso = dias14[dias14.length - 1]!;
   const rangoHoy = buildRangoFechas(hoyIso, hoyIso);
-  const rangoUltimos7Dias = buildRangoFechas(dias7[0], hoyIso);
+  const rangoUltimos14Dias = buildRangoFechas(dias14[0]!, hoyIso);
 
   const [
     enTallerTotal,
@@ -91,7 +94,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     ordenesActivasCount,
     ordenesRecientes,
     citasHoyRows,
-    facturasUltimos7Dias,
+    facturasUltimos14Dias,
   ] = await Promise.all([
     tenantDb.ordenTrabajo.count({
       where: { ...scopeOrden(sedeActivaId), estado: { in: ["BORRADOR", "EN_PROCESO", "TERMINADA"] } },
@@ -154,8 +157,8 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       },
     }),
     tenantDb.factura.findMany({
-      where: { ...scopeFactura(sedeActivaId), createdAt: { gte: rangoUltimos7Dias.gte, lt: rangoUltimos7Dias.lt } },
-      select: { createdAt: true, total: true },
+      where: { ...scopeFactura(sedeActivaId), createdAt: { gte: rangoUltimos14Dias.gte, lt: rangoUltimos14Dias.lt } },
+      select: { createdAt: true, total: true, saldoPendiente: true },
     }),
   ]);
 
@@ -214,9 +217,13 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       clienteNombre: cita.cliente.nombre,
       estado: cita.estado,
     })),
-    facturacion7Dias: agruparFacturacionPorDia(
-      facturasUltimos7Dias.map((factura) => ({ createdAt: factura.createdAt, total: Number(factura.total) })),
-      dias7,
+    facturacion: resumirFacturacion(
+      facturasUltimos14Dias.map((factura) => ({
+        createdAt: factura.createdAt,
+        total: Number(factura.total),
+        saldoPendiente: Number(factura.saldoPendiente),
+      })),
+      dias14,
     ),
   };
 }
