@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth/guards";
 import { registrarEventoAuditoria } from "@/lib/auditoria/registrarEvento";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb, type TenantPrismaClient } from "@/lib/db/tenant-client";
+import { leerOpcionesTaller } from "@/lib/configuracion/opciones-taller";
 import { estadoGarantia, type EstadoGarantia } from "@/lib/garantias/vigencia";
 import type { ResultadoAccion } from "@/lib/resultado-accion";
 import { isValidEstadoTransition } from "@/lib/orden/estado-transitions";
@@ -14,6 +15,7 @@ import { borrarArchivoDeOrden, saveOrdenArchivo, MAX_UPLOAD_SIZE_BYTES } from "@
 import {
   actaDatosSchema,
   actaEntregaInputSchema,
+  type ActaDatosInput,
   danioInputSchema,
   garantiaInputSchema,
   recepcionInputSchema,
@@ -85,6 +87,30 @@ async function cargarOrdenEditable(
   return { orden: { id: orden.id, estado: orden.estado } };
 }
 
+/**
+ * El acta se prepara (y la orden se entrega) mientras la orden no esté entregada
+ * ni anulada. A diferencia del resto de la orden, **la factura no la bloquea**:
+ * lo normal es facturar, cobrar y después entregar el carro (fase de
+ * consolidación, D2). Lo inmutable con factura son los ítems y la mano de obra.
+ */
+async function cargarOrdenParaActa(
+  tenantDb: TenantPrismaClient,
+  sedeActivaId: string,
+  ordenId: string,
+): Promise<{ orden: OrdenEditable } | { error: string }> {
+  const orden = await tenantDb.ordenTrabajo.findFirst({
+    where: { id: ordenId, ...scopeOrden(sedeActivaId) },
+    select: { id: true, estado: true, factura: { select: { id: true } } },
+  });
+  if (!orden) return { error: ORDEN_NO_ENCONTRADA };
+  if (!actaEditable(orden.estado)) return { error: mensajeInmutable(orden.estado, false) };
+  return { orden: { id: orden.id, estado: orden.estado } };
+}
+
+function actaEditable(estado: EstadoOrden): boolean {
+  return estado !== "ENTREGADA" && estado !== "ANULADA";
+}
+
 interface FirmasGuardadas {
   firmaUrl?: string;
   firmaFotoUrl?: string;
@@ -152,7 +178,9 @@ async function guardarFirmaDeFormulario(
     return { firmas: {}, error: error instanceof Error ? error.message : "No se pudo guardar la firma" };
   }
 
-  return { firmas: {}, error: "Falta la firma de quien recibe" };
+  // Sin firma no es un error aquí: firmar la exige (por su esquema) y entregar
+  // decide según la opción del taller.
+  return { firmas: {} };
 }
 
 async function limpiarFirmas(tenantSchema: string, urls: (string | null | undefined)[]): Promise<void> {
@@ -287,7 +315,7 @@ export async function guardarActaAction(
 
   const session = await requireRole(ROLES_ORDEN);
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  const revisada = await cargarOrdenEditable(tenantDb, session.user.sedeActivaId, ordenId);
+  const revisada = await cargarOrdenParaActa(tenantDb, session.user.sedeActivaId, ordenId);
   if ("error" in revisada) return { error: revisada.error, success: false };
 
   try {
@@ -409,9 +437,7 @@ export async function borrarActaAction(ordenId: string): Promise<ResultadoAccion
   if (!orden) return { error: ORDEN_NO_ENCONTRADA, success: false };
   if (!orden.acta) return { error: "La orden no tiene acta", success: false };
   if (orden.acta.firmadaAt) return { error: "Un acta firmada no se borra", success: false };
-  if (!esOrdenMutable({ estado: orden.estado, factura: orden.factura })) {
-    return { error: mensajeInmutable(orden.estado, Boolean(orden.factura)), success: false };
-  }
+  if (!actaEditable(orden.estado)) return { error: mensajeInmutable(orden.estado, false), success: false };
 
   try {
     // Condicional: si alguien firmó o entregó entre la lectura y este borrado no
@@ -431,11 +457,30 @@ export async function borrarActaAction(ordenId: string): Promise<ResultadoAccion
 
 // ---------------------------------------------------------------- entrega
 
+const FIRMA_EXIGIDA =
+  "Este taller exige el acta firmada para entregar: firma en pantalla o sube la foto del acta firmada.";
+
+/** Algún dato del acta escrito en el formulario (nombre, documento u observaciones). */
+function hayDatosDeActa(formData: FormData): boolean {
+  return ["recibidoPor", "documentoRecibe", "observaciones"].some(
+    (campo) => String(formData.get(campo) ?? "").trim() !== "",
+  );
+}
+
 /**
- * Entrega la orden: cambia a `ENTREGADA` y guarda el acta firmada en la misma
- * transacción (D6). Si algo falla no queda ni la orden entregada ni el archivo
- * suelto. No se avisa al cliente: ENTREGADA no es un estado notificable a
- * propósito (`notificaciones/plantilla.ts`), igual que el cambio de estado.
+ * Entrega la orden: cambia a `ENTREGADA` en una transacción junto con el acta.
+ *
+ * - **Con firma** (en pantalla o foto del papel): el acta queda firmada (D6 de la
+ *   Fase 21) y se audita `ACTA_FIRMAR`.
+ * - **Sin firma**: solo si el taller no la exige (opción "Exigir acta firmada",
+ *   fase de consolidación D1). Si se escribió quién recibe, el acta queda sin
+ *   firmar y se puede firmar después (`firmarActaAction`); si no se escribió
+ *   nada, se entrega sin acta. Se audita `ORDEN_ENTREGAR`.
+ *
+ * La factura no impide entregar (D2): solo importa que la orden esté TERMINADA.
+ * Si algo falla no queda ni la orden entregada ni el archivo suelto. No se avisa
+ * al cliente: ENTREGADA no es un estado notificable a propósito
+ * (`notificaciones/plantilla.ts`).
  */
 export async function entregarOrdenAction(
   ordenId: string,
@@ -448,33 +493,49 @@ export async function entregarOrdenAction(
   const orden = await tenantDb.ordenTrabajo.findFirst({
     where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
     include: {
-      factura: { select: { id: true } },
       acta: { select: { id: true, firmadaAt: true, firmaUrl: true, firmaFotoUrl: true } },
     },
   });
   if (!orden) return { error: ORDEN_NO_ENCONTRADA, success: false };
-  if (!esOrdenMutable({ estado: orden.estado, factura: orden.factura })) {
-    return { error: mensajeInmutable(orden.estado, Boolean(orden.factura)), success: false };
-  }
+  if (!actaEditable(orden.estado)) return { error: mensajeInmutable(orden.estado, false), success: false };
   if (!isValidEstadoTransition(orden.estado, "ENTREGADA")) {
     return { error: `No se puede entregar una orden en estado ${orden.estado}`, success: false };
   }
 
   const guardada = await guardarFirmaDeFormulario(session.user.tenantSchema, ordenId, formData);
   if (guardada.error) return { error: guardada.error, success: false };
+  const firmada = Boolean(guardada.firmas.firmaUrl || guardada.firmas.firmaFotoUrl);
 
-  const parsed = actaEntregaInputSchema.safeParse({
+  if (!firmada) {
+    const { exigirActaFirmada } = await leerOpcionesTaller(tenantDb);
+    if (exigirActaFirmada) return { error: FIRMA_EXIGIDA, success: false };
+  }
+
+  // Con firma, el esquema completo (exactamente una firma). Sin firma, los datos
+  // del acta solo si se escribió algo: unas observaciones sin el nombre de quien
+  // recibe se rechazan en vez de perderse en silencio.
+  let datos: ActaDatosInput | null = null;
+  let firmaUrl: string | undefined;
+  let firmaFotoUrl: string | undefined;
+  const crudos = {
     recibidoPor: formData.get("recibidoPor") ?? "",
     documentoRecibe: formData.get("documentoRecibe") ?? "",
     observaciones: formData.get("observaciones") ?? "",
-    ...guardada.firmas,
-  });
-  if (!parsed.success) {
-    await limpiarFirmas(session.user.tenantSchema, [guardada.firmas.firmaUrl, guardada.firmas.firmaFotoUrl]);
-    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
+  };
+  if (firmada) {
+    const parsed = actaEntregaInputSchema.safeParse({ ...crudos, ...guardada.firmas });
+    if (!parsed.success) {
+      await limpiarFirmas(session.user.tenantSchema, [guardada.firmas.firmaUrl, guardada.firmas.firmaFotoUrl]);
+      return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
+    }
+    ({ firmaUrl, firmaFotoUrl } = parsed.data);
+    datos = parsed.data;
+  } else if (hayDatosDeActa(formData)) {
+    const parsed = actaDatosSchema.safeParse(crudos);
+    if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
+    datos = parsed.data;
   }
 
-  const { recibidoPor, documentoRecibe, observaciones, firmaUrl, firmaFotoUrl } = parsed.data;
   const nuevoEstado: EstadoOrden = "ENTREGADA";
 
   try {
@@ -487,34 +548,50 @@ export async function entregarOrdenAction(
       });
       if (transicion.count === 0) throw new Error(ORDEN_CAMBIADA);
 
-      const acta = await tx.actaEntrega.upsert({
-        where: { ordenId },
-        create: {
-          ordenId,
-          recibidoPor,
-          documentoRecibe: documentoRecibe ?? null,
-          observaciones: observaciones ?? null,
+      if (firmada && datos) {
+        const firma = {
+          recibidoPor: datos.recibidoPor,
+          documentoRecibe: datos.documentoRecibe ?? null,
+          observaciones: datos.observaciones ?? null,
           firmaUrl: firmaUrl ?? null,
           firmaFotoUrl: firmaFotoUrl ?? null,
           firmadaAt: new Date(),
-          creadoPorId: session.user.id,
-        },
-        update: {
-          recibidoPor,
-          documentoRecibe: documentoRecibe ?? null,
-          observaciones: observaciones ?? null,
-          firmaUrl: firmaUrl ?? null,
-          firmaFotoUrl: firmaFotoUrl ?? null,
-          firmadaAt: new Date(),
-        },
-        select: { id: true },
-      });
+        };
+        const acta = await tx.actaEntrega.upsert({
+          where: { ordenId },
+          create: { ordenId, ...firma, creadoPorId: session.user.id },
+          update: firma,
+          select: { id: true },
+        });
+        await registrarEventoAuditoria(tx, {
+          tipo: "ACTA_FIRMAR",
+          actorId: session.user.id,
+          entidadTipo: "ActaEntrega",
+          entidadId: acta.id,
+          detalle: { ordenId, estadoAnterior: orden.estado, firma: firmaUrl ? "pantalla" : "foto" },
+        });
+        return;
+      }
+
+      if (datos) {
+        const acta = {
+          recibidoPor: datos.recibidoPor,
+          documentoRecibe: datos.documentoRecibe ?? null,
+          observaciones: datos.observaciones ?? null,
+        };
+        await tx.actaEntrega.upsert({
+          where: { ordenId },
+          create: { ordenId, ...acta, creadoPorId: session.user.id },
+          update: acta,
+          select: { id: true },
+        });
+      }
       await registrarEventoAuditoria(tx, {
-        tipo: "ACTA_FIRMAR",
+        tipo: "ORDEN_ENTREGAR",
         actorId: session.user.id,
-        entidadTipo: "ActaEntrega",
-        entidadId: acta.id,
-        detalle: { ordenId, estadoAnterior: orden.estado, firma: firmaUrl ? "pantalla" : "foto" },
+        entidadTipo: "OrdenTrabajo",
+        entidadId: ordenId,
+        detalle: { estadoAnterior: orden.estado, sinFirma: true, conActa: datos !== null },
       });
     });
   } catch (err) {
@@ -526,14 +603,10 @@ export async function entregarOrdenAction(
   }
 
   // La firma anterior (si el acta ya existía) ya no la usa nadie.
-  await limpiarFirmas(session.user.tenantSchema, [orden.acta?.firmaUrl, orden.acta?.firmaFotoUrl]);
+  if (firmada) await limpiarFirmas(session.user.tenantSchema, [orden.acta?.firmaUrl, orden.acta?.firmaFotoUrl]);
 
   revalidarActa(ordenId);
   revalidatePath("/ordenes");
-
-  // A propósito no se notifica al cliente: ENTREGADA no es un estado notificable
-  // (`src/lib/notificaciones/plantilla.ts`), porque entregar se hace con el
-  // cliente en el mostrador. Es el mismo comportamiento que el cambio de estado.
   return { error: null, success: true };
 }
 

@@ -41,7 +41,7 @@ export const ESTADO_DOT_COLOR: Record<EstadoOrden, string> = {
 
 /**
  * Estados a los que el tablero puede mover una orden: las transiciones válidas
- * menos ENTREGADA, que exige firmar el acta (Fase 21, `entregarOrdenAction`), y
+ * menos ENTREGADA, que se hace desde el acta de entrega (`entregarOrdenAction`), y
  * menos ANULADA, que es destructiva y pasa por el menú con confirmación.
  */
 export function destinosArrastrables(estado: EstadoOrden): EstadoOrden[] {
@@ -50,10 +50,12 @@ export function destinosArrastrables(estado: EstadoOrden): EstadoOrden[] {
 
 /**
  * Estas dos son la razón de que el menú de una orden `TERMINADA` siga
- * apareciendo aunque no tenga destinos de arrastre: su camino es firmar el acta.
+ * apareciendo aunque no tenga destinos de arrastre: su camino es el acta de
+ * entrega. Entregar **no** depende de que la orden sea editable: una terminada
+ * ya facturada se entrega igual (fase de consolidación, D2).
  */
-export function puedeEntregar(estado: EstadoOrden, movible: boolean): boolean {
-  return movible && ESTADO_ORDEN_TRANSITIONS[estado].includes("ENTREGADA");
+export function puedeEntregar(estado: EstadoOrden): boolean {
+  return ESTADO_ORDEN_TRANSITIONS[estado].includes("ENTREGADA");
 }
 
 export function puedeAnular(estado: EstadoOrden, movible: boolean): boolean {
@@ -62,7 +64,7 @@ export function puedeAnular(estado: EstadoOrden, movible: boolean): boolean {
 
 /** El menú "Mover a…" se muestra si hay algo que ofrecer. */
 export function ofreceMenu(estado: EstadoOrden, movible: boolean): boolean {
-  return movible && (destinosArrastrables(estado).length > 0 || puedeEntregar(estado, movible) || puedeAnular(estado, movible));
+  return puedeEntregar(estado) || (movible && (destinosArrastrables(estado).length > 0 || puedeAnular(estado, movible)));
 }
 
 /**

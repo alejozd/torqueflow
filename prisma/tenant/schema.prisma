@@ -26,6 +26,8 @@ enum TipoEventoAuditoria {
   LIQUIDACION_ESQUEMA_ACTUALIZAR
   LIQUIDACION_FRECUENCIA_ACTUALIZAR
   ACTA_FIRMAR
+  /// Fase de consolidación: entrega sin acta firmada (el taller no la exige).
+  ORDEN_ENTREGAR
   GARANTIA_REGISTRAR
   GARANTIA_ELIMINAR
   PRIORIDAD_CAMBIAR

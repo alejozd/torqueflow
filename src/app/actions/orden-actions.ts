@@ -354,7 +354,7 @@ export async function updateEstadoOrdenAction(
   // Sin este rechazo, un POST directo a esta acción dejaría la orden entregada
   // sin acta y sin forma de crearla (D6). La UI ya no ofrece la opción.
   if (parsedEstado.data === "ENTREGADA") {
-    return { error: "La orden se entrega firmando el acta de entrega, no desde el cambio de estado" };
+    return { error: "La orden se entrega desde el acta de entrega de su ficha, no desde el cambio de estado" };
   }
 
   try {

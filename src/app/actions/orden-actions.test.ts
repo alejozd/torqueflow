@@ -389,7 +389,7 @@ describe("updateEstadoOrdenAction", () => {
 
     const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
 
-    expect(result.error).toBe("La orden se entrega firmando el acta de entrega, no desde el cambio de estado");
+    expect(result.error).toBe("La orden se entrega desde el acta de entrega de su ficha, no desde el cambio de estado");
     expect(mockUpdate).not.toHaveBeenCalled();
     expect(mockAuditLogCreate).not.toHaveBeenCalled();
   });

@@ -63,7 +63,7 @@ export interface ColumnaTablero {
  * Tablero del taller (Fase 22, D8-D11): arrastrar una tarjeta a otra columna o
  * usar el menú "Mover a…" mueve la orden de estado llamando a la MISMA acción del
  * cambio de estado (nada de caminos de escritura nuevos). A `Entregada` no se
- * suelta ni se elige: entregar es firmar el acta, así que la tarjeta de una orden
+ * suelta ni se elige: se entrega desde el acta, así que la tarjeta de una orden
  * terminada ofrece ese enlace. Anular tampoco se arrastra (es destructivo): pasa
  * por el menú, con confirmación.
  */
@@ -197,10 +197,10 @@ function Tarjeta({
 }) {
   const destinos = destinosArrastrables(tarjeta.estado);
   // El menú también sale cuando no hay nada que arrastrar pero sí algo que
-  // ofrecer: una orden TERMINADA solo puede entregarse firmando el acta.
+  // ofrecer: una orden TERMINADA se entrega desde el acta de su ficha.
   const muestraMenu = ofreceMenu(tarjeta.estado, tarjeta.movible);
   const anulable = puedeAnular(tarjeta.estado, tarjeta.movible);
-  const entregable = puedeEntregar(tarjeta.estado, tarjeta.movible);
+  const entregable = puedeEntregar(tarjeta.estado);
   const movible = tarjeta.movible && destinos.length > 0;
 
   return (
@@ -250,7 +250,7 @@ function Tarjeta({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem render={<Link href={`/ordenes/${tarjeta.id}#entrega`} />}>
                       <Truck className="size-3.5" />
-                      Entregar (firmar acta)
+                      Entregar (ir al acta)
                     </DropdownMenuItem>
                   </>
                 ) : null}
