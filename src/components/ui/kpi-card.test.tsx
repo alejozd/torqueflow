@@ -48,4 +48,15 @@ describe("KpiCard", () => {
     // min-w-0 deja que el título ceda espacio al ícono; break-words lo parte si aun así no cabe.
     expect(titulo).toHaveClass("min-w-0", "break-words");
   });
+
+  it("ocupa todo el alto de su celda, aunque vaya dentro de un enlace (Cartera, Vencimientos)", () => {
+    render(
+      <a href="/cartera">
+        <KpiCard title="Cartera" value="$ 1" icon={<span />} />
+      </a>,
+    );
+
+    // Sin h-full, la tarjeta dentro del enlace quedaba más baja que sus vecinas de la fila.
+    expect(screen.getByText("Cartera").closest('[data-slot="card"]')).toHaveClass("h-full");
+  });
 });

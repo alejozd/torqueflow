@@ -101,7 +101,7 @@ export function KpiCard({
   className,
 }: KpiCardProps) {
   return (
-    <Card className={cn("@container w-full", highlight && "bg-primary/5 ring-2 ring-primary/25", className)}>
+    <Card className={cn("@container h-full w-full", highlight && "bg-primary/5 ring-2 ring-primary/25", className)}>
       <CardContent className="flex flex-col gap-1.5">
         {/*
           Sized for the Inicio's row of six on a laptop (~152px cards at 1280px):

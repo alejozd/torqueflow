@@ -221,7 +221,7 @@ export default async function InicioPage() {
 
         {/* TECNICO cannot open /cartera, so only ADMIN/RECEPCION get the link. */}
         {mostrarVencimientos ? (
-          <Link href="/cartera" className="rounded-xl focus-visible:outline-2">
+          <Link href="/cartera" className="block h-full rounded-xl focus-visible:outline-2">
             {kpiCartera}
           </Link>
         ) : (
@@ -241,7 +241,7 @@ export default async function InicioPage() {
         />
 
         {mostrarVencimientos ? (
-          <Link href="/vencimientos" className="rounded-xl focus-visible:outline-2">
+          <Link href="/vencimientos" className="block h-full rounded-xl focus-visible:outline-2">
             <KpiCard
               title="Vencimientos"
               value={kpiVencimientos.total}
