@@ -19,8 +19,16 @@ export interface EntradaZip {
   conDescriptor?: boolean;
 }
 
-/** Arma un zip mínimo y válido (cabeceras locales + directorio central + fin). */
-export function armarZip(entradas: EntradaZip[], { omitirDelDirectorio = 0 } = {}): Buffer {
+/**
+ * Arma un zip mínimo y válido (cabeceras locales + directorio central + fin).
+ * `omitirDelDirectorio` deja fuera del índice las últimas entradas;
+ * `repetirEnDirectorio` lista la primera entrada otras N veces (entradas
+ * superpuestas, la base de una bomba zip sin recursión).
+ */
+export function armarZip(
+  entradas: EntradaZip[],
+  { omitirDelDirectorio = 0, repetirEnDirectorio = 0 } = {},
+): Buffer {
   const locales: Buffer[] = [];
   const centrales: Buffer[] = [];
   let desplazamiento = 0;
@@ -62,11 +70,15 @@ export function armarZip(entradas: EntradaZip[], { omitirDelDirectorio = 0 } = {
 
     desplazamiento += 30 + nombre.length + comprimidos.length + descriptor;
   }
-  const directorio = Buffer.concat(centrales.slice(0, centrales.length - omitirDelDirectorio));
+  const listadas = [
+    ...centrales.slice(0, centrales.length - omitirDelDirectorio),
+    ...Array.from({ length: repetirEnDirectorio }, () => centrales[0]!),
+  ];
+  const directorio = Buffer.concat(listadas);
   const fin = Buffer.alloc(22);
   fin.writeUInt32LE(0x06054b50, 0);
-  fin.writeUInt16LE(entradas.length - omitirDelDirectorio, 8);
-  fin.writeUInt16LE(entradas.length - omitirDelDirectorio, 10);
+  fin.writeUInt16LE(listadas.length, 8);
+  fin.writeUInt16LE(listadas.length, 10);
   fin.writeUInt32LE(directorio.length, 12);
   fin.writeUInt32LE(desplazamiento, 16);
   return Buffer.concat([...locales, directorio, fin]);

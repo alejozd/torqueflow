@@ -70,6 +70,10 @@ function leerDirectorio(zip: Buffer): { inicio: number; entradas: Map<number, En
     const comprimido = leer32(zip, posicion + 20);
     const desplazamiento = leer32(zip, posicion + 42);
     if (comprimido === SIN_ZIP64 || desplazamiento === SIN_ZIP64) throw new ZipInvalido();
+    // Dos registros con los mismos datos (entradas superpuestas): un lector que
+    // siga el índice los descomprimiría una vez por registro, y aquí se medirían
+    // una sola vez.
+    if (entradas.has(desplazamiento)) throw new ZipInvalido();
     entradas.set(desplazamiento, { metodo: leer16(zip, posicion + 10), comprimido });
     posicion += 46 + leer16(zip, posicion + 28) + leer16(zip, posicion + 30) + leer16(zip, posicion + 32);
   }

@@ -71,6 +71,14 @@ describe("verificarZipAcotado", () => {
     expect(verificarZipAcotado(zip, MB)).toEqual({ ok: false, motivo: "invalido" });
   });
 
+  it("rechaza entradas superpuestas: el índice lista dos veces los mismos datos", () => {
+    // Un lector que siga el índice descomprimiría esos datos una vez por cada
+    // listado (bomba zip sin recursión); aquí solo se medirían una vez.
+    const zip = armarZip([{ nombre: "a.xml", datos: Buffer.from("<a/>") }], { repetirEnDirectorio: 3 });
+
+    expect(verificarZipAcotado(zip, MB)).toEqual({ ok: false, motivo: "invalido" });
+  });
+
   it("rechaza lo que no es un zip", () => {
     expect(verificarZipAcotado(Buffer.from("esto no es un excel"), MB)).toEqual({ ok: false, motivo: "invalido" });
     expect(verificarZipAcotado(Buffer.alloc(0), MB)).toEqual({ ok: false, motivo: "invalido" });

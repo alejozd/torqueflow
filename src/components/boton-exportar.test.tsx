@@ -48,4 +48,27 @@ describe("BotonExportar", () => {
     expect(fireEvent.submit(container.querySelector("form")!)).toBe(true);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
+
+  it("el desplegable de fechas se cierra con Escape o con un clic fuera", () => {
+    const { container } = render(
+      <div>
+        <p>afuera</p>
+        <BotonExportar reporte="ventas" etiqueta="Exportar ventas" />
+      </div>,
+    );
+    const desplegable = container.querySelector("details")!;
+
+    desplegable.open = true;
+    fireEvent.keyDown(screen.getByLabelText("Desde"), { key: "Escape" });
+    expect(desplegable.open).toBe(false);
+
+    desplegable.open = true;
+    fireEvent.pointerDown(screen.getByText("afuera"));
+    expect(desplegable.open).toBe(false);
+
+    // Un clic dentro no lo cierra.
+    desplegable.open = true;
+    fireEvent.pointerDown(screen.getByLabelText("Hasta"));
+    expect(desplegable.open).toBe(true);
+  });
 });

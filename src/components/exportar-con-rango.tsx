@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { ChevronDown } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,22 @@ export function ExportarConRango({ reporte, etiqueta }: { reporte: string; etiqu
   const id = useId();
   const [porDefecto] = useState(() => rangoPorDefecto(new Date()));
   const [error, setError] = useState<string | null>(null);
+  const desplegable = useRef<HTMLDetailsElement>(null);
+
+  // Se cierra con un clic fuera, como cualquier menú. Solo toca el DOM (el
+  // atributo `open` de <details>), no el estado de React.
+  useEffect(() => {
+    function alPulsarFuera(evento: PointerEvent) {
+      const elemento = desplegable.current;
+      if (elemento?.open && !elemento.contains(evento.target as Node)) elemento.open = false;
+    }
+    document.addEventListener("pointerdown", alPulsarFuera);
+    return () => document.removeEventListener("pointerdown", alPulsarFuera);
+  }, []);
+
+  function alPulsarTecla(evento: KeyboardEvent<HTMLDetailsElement>) {
+    if (evento.key === "Escape" && desplegable.current) desplegable.current.open = false;
+  }
 
   function alEnviar(evento: FormEvent<HTMLFormElement>) {
     const datos = new FormData(evento.currentTarget);
@@ -35,7 +51,7 @@ export function ExportarConRango({ reporte, etiqueta }: { reporte: string; etiqu
   }
 
   return (
-    <details className="relative">
+    <details ref={desplegable} className="relative" onKeyDown={alPulsarTecla}>
       <summary
         className={cn(
           buttonVariants({ variant: "outline", size: "sm" }),
