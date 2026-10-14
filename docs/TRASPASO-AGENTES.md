@@ -245,7 +245,7 @@ Después, la comprobación que vale: `migrate diff` respondiendo **"This is an e
   **solo día** (`@db.Date`: `Gasto.fecha`, `Garantia.cubreHasta`, `CuentaPorPagar.fecha`, SOAT y
   tecnomecánica) Prisma las maneja como medianoche UTC: se filtran con `buildRangoDias` /
   `rangoDelPeriodo` de gastos, se muestran con `timeZone: "UTC"`, y para guardar "el día de hoy" se usa
-  `new Date(\`${formatoDiaBogota.format(instante)}T00:00:00.000Z\`)`, nunca el instante directo. Con UTC en
+  ``new Date(`${formatoDiaBogota.format(instante)}T00:00:00.000Z`)``, nunca el instante directo. Con UTC en
   un instante, lo de después de las 7 p. m. cae en el día siguiente.
 - **`migrate diff --to-schema-datamodel` lee el schema de `TENANT_DATABASE_URL`**: sin esa variable compara
   contra `public` y escupe el script de creación completo, que parece un desfase y no lo es. Defínela con la
