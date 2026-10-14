@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useSyncExternalStore, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
@@ -9,11 +9,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoginErrorAlert } from "./login-error-alert";
 
+const sinSuscripcion = () => () => {};
+
+/**
+ * `false` en el HTML del servidor y durante la hidratación; `true` cuando React
+ * ya controla la página (sin `setState` en un efecto, que eslint prohíbe aquí).
+ */
+function useHidratado(): boolean {
+  return useSyncExternalStore(
+    sinSuscripcion,
+    () => true,
+    () => false,
+  );
+}
+
 export function LoginForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const hidratado = useHidratado();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -54,7 +69,13 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    // Dos defensas para que la clave nunca quede en la URL (backlog: un envío
+    // antes de hidratar hacía el GET nativo, /login?email=…&password=…):
+    // - el botón está desactivado hasta que React controla el formulario, y con
+    //   el botón desactivado el navegador tampoco envía al pulsar Enter;
+    // - si aun así hubiera un envío nativo, es POST: los datos van en el cuerpo,
+    //   no en la URL, el historial ni los registros.
+    <form method="post" onSubmit={handleSubmit} className="flex flex-col gap-5">
       {error ? <LoginErrorAlert message={error} /> : null}
 
       <div className="flex flex-col gap-1.5">
@@ -103,7 +124,7 @@ export function LoginForm() {
 
       <Button
         type="submit"
-        disabled={isPending}
+        disabled={!hidratado || isPending}
         className="h-[42px] w-full rounded-[10px] text-[13.5px]"
       >
         {isPending ? (

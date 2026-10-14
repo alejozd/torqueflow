@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
 
 const mockSignIn = vi.fn();
@@ -18,6 +19,23 @@ describe("LoginForm", () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it("antes de hidratar (HTML del servidor) el botón está desactivado y el form es POST: nunca deja la clave en la URL", () => {
+    // Sin React todavía, un Enter haría el envío nativo del navegador. Por defecto
+    // es GET, que deja /login?email=…&password=… en el historial y en los registros.
+    const html = renderToString(<LoginForm />);
+    const contenedor = document.createElement("div");
+    contenedor.innerHTML = html;
+
+    expect(contenedor.querySelector("form")?.getAttribute("method")).toBe("post");
+    expect(contenedor.querySelector('button[type="submit"]')?.hasAttribute("disabled")).toBe(true);
+  });
+
+  it("ya hidratado, el botón de ingresar está activo", () => {
+    render(<LoginForm />);
+
+    expect(screen.getByRole("button", { name: "Ingresar" })).toBeEnabled();
   });
 
   it("submits only email and password to signIn (Fase 10: no pre-login sede)", async () => {
