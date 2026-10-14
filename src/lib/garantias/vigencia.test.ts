@@ -16,6 +16,14 @@ describe("estadoGarantia", () => {
     );
   });
 
+  it("el último día de cobertura sigue vigente toda la noche en Bogotá", () => {
+    // 12 de octubre, 8 p. m. en Bogotá = 13 de octubre, 1 a. m. UTC.
+    const noche = new Date("2026-10-13T01:00:00.000Z");
+    expect(
+      estadoGarantia({ cubreHasta: new Date("2026-10-12T00:00:00.000Z"), cubreHastaKm: null }, { hoy: noche, kilometraje: null }),
+    ).toBe("VIGENTE");
+  });
+
   it("vence por kilometraje cuando el vehículo ya lo pasó", () => {
     expect(estadoGarantia({ cubreHasta: null, cubreHastaKm: 95_000 }, { hoy: HOY, kilometraje: 95_000 })).toBe("VIGENTE");
     expect(estadoGarantia({ cubreHasta: null, cubreHastaKm: 95_000 }, { hoy: HOY, kilometraje: 95_001 })).toBe("VENCIDA");

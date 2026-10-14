@@ -7,6 +7,7 @@ import {
   periodoDeFechaDb,
   periodosEntre,
   rangoDelPeriodo,
+  rangoInstantesDelPeriodo,
 } from "./periodo";
 
 describe("periodo", () => {
@@ -31,6 +32,15 @@ describe("periodo", () => {
   it("periodosEntre es inclusivo y vacío si desde > hasta", () => {
     expect(periodosEntre("2025-11", "2026-02")).toEqual(["2025-11", "2025-12", "2026-01", "2026-02"]);
     expect(periodosEntre("2026-03", "2026-02")).toEqual([]);
+  });
+
+  it("rangoInstantesDelPeriodo corta el mes a medianoche de Bogotá (para instantes como abiertaAt)", () => {
+    const r = rangoInstantesDelPeriodo("2026-12");
+    expect(r.gte.toISOString()).toBe("2026-12-01T05:00:00.000Z");
+    expect(r.lt.toISOString()).toBe("2027-01-01T05:00:00.000Z");
+    // Una caja abierta el 31 de diciembre a las 8 p. m. en Bogotá es de diciembre.
+    const noche = new Date("2027-01-01T01:00:00.000Z");
+    expect(noche >= r.gte && noche < r.lt).toBe(true);
   });
 
   it("rangoDelPeriodo devuelve medianoches UTC semiabiertas", () => {

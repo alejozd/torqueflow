@@ -20,7 +20,12 @@ describe("totalOrden", () => {
 });
 
 describe("ultimosNDiasIso", () => {
-  it("returns n ISO dates (UTC) ending on the given day, oldest first", () => {
+  it("a las 8 p. m. de Bogotá 'hoy' sigue siendo el día de Bogotá, no el siguiente en UTC", () => {
+    // 25 de agosto, 8 p. m. en Bogotá = 26 de agosto, 1 a. m. UTC.
+    expect(ultimosNDiasIso(new Date("2026-08-26T01:00:00.000Z"), 2)).toEqual(["2026-08-24", "2026-08-25"]);
+  });
+
+  it("returns n Bogotá calendar dates ending on the given day, oldest first", () => {
     const hoy = new Date("2026-08-25T15:00:00.000Z");
     expect(ultimosNDiasIso(hoy, 7)).toEqual([
       "2026-08-19",
@@ -35,7 +40,18 @@ describe("ultimosNDiasIso", () => {
 });
 
 describe("agruparFacturacionPorDia", () => {
-  it("sums Factura.total per UTC day and fills days with no facturas as 0", () => {
+  it("una factura de las 8 p. m. de Bogotá cuenta en ese día de Bogotá", () => {
+    const dias = ["2026-08-25", "2026-08-26"];
+    // 25 de agosto, 8 p. m. en Bogotá = 26 de agosto, 1 a. m. UTC.
+    const facturas = [{ createdAt: new Date("2026-08-26T01:00:00.000Z"), total: 80 }];
+
+    expect(agruparFacturacionPorDia(facturas, dias)).toEqual([
+      { fecha: "2026-08-25", total: 80 },
+      { fecha: "2026-08-26", total: 0 },
+    ]);
+  });
+
+  it("sums Factura.total per Bogotá day and fills days with no facturas as 0", () => {
     const dias = ["2026-08-24", "2026-08-25"];
     const facturas = [
       { createdAt: new Date("2026-08-25T10:00:00.000Z"), total: 100 },

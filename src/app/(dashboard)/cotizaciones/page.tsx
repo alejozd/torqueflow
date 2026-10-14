@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { inferirColorVehiculo } from "@/lib/color-vehiculo";
 import { esCotizacionPendienteDeSeguimiento } from "@/lib/cotizacion/seguimiento-pendiente";
-import { formatoFechaCorta, formatoFechaRelativa } from "@/lib/fecha-bogota";
+import { formatoFechaCorta, formatoFechaRelativa, inicioMesBogota } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
 
 const ESTADOS_VALIDOS: EstadoCotizacion[] = ["BORRADOR", "ENVIADA", "APROBADA", "RECHAZADA", "VENCIDA"];
@@ -204,7 +204,8 @@ export default async function CotizacionesPage({
     esCotizacionPendienteDeSeguimiento(cotizacion, cotizacion.seguimientos[0], ahora),
   );
 
-  const inicioMes = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), 1));
+  // El mes es el de Bogotá: en UTC cambiaba a las 7 p. m. del último día.
+  const inicioMes = inicioMesBogota(ahora);
   const aprobadasMes = cotizaciones.filter((cotizacion) => cotizacion.estado === "APROBADA" && cotizacion.updatedAt >= inicioMes);
 
   const decididas = cotizaciones.filter((cotizacion) => cotizacion.estado === "APROBADA" || cotizacion.estado === "RECHAZADA");

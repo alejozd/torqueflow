@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma-tenant";
+import { formatoDiaBogota } from "@/lib/fecha-bogota";
 
 /**
  * Cuentas por pagar (Fase 24, D5): la deuda nace de la **entrada de mercancía**,
@@ -66,7 +67,9 @@ export async function sincronizarCuentaPorPagar(
         total,
         saldoPendiente: total,
         estado: total <= 0 ? "PAGADA" : "PENDIENTE",
-        fecha: entrada.createdAt,
+        // `fecha` es de solo día (@db.Date): el día de Bogotá de la entrada. Con el
+        // instante, Prisma guardaba el día UTC y una compra de la noche quedaba al día siguiente.
+        fecha: new Date(`${formatoDiaBogota.format(entrada.createdAt)}T00:00:00.000Z`),
         creadoPorId,
       },
     });

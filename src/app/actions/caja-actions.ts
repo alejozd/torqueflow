@@ -11,7 +11,7 @@ import {
   type Metodo,
   type ResumenCaja,
 } from "@/lib/caja/resumen";
-import { periodoActualBogota, rangoDelPeriodo } from "@/lib/gastos/periodo";
+import { periodoActualBogota, rangoInstantesDelPeriodo } from "@/lib/gastos/periodo";
 import { resolverSede, validarSede } from "@/lib/gastos/validaciones-db";
 import { abrirCajaInputSchema, cerrarCajaInputSchema } from "@/lib/validation/caja";
 import { periodoSchema } from "@/lib/validation/gasto";
@@ -284,7 +284,7 @@ export async function listCajasCerradas(filtros: { sedeId?: string; periodo?: st
     : periodoActualBogota(new Date());
 
   const cajas = await tenantDb.cajaSesion.findMany({
-    where: { sedeId, cerradaAt: { not: null }, abiertaAt: rangoDelPeriodo(periodo) },
+    where: { sedeId, cerradaAt: { not: null }, abiertaAt: rangoInstantesDelPeriodo(periodo) },
     include: { abiertaPor: { select: { nombre: true } }, cerradaPor: { select: { nombre: true } } },
     orderBy: { abiertaAt: "desc" },
   });

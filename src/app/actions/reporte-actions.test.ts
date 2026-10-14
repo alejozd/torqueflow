@@ -201,7 +201,7 @@ describe("getReporteProductividad", () => {
       where: {
         sedeId: "sede-activa",
         estado: "ENTREGADA",
-        entregadaAt: { gte: new Date("2026-08-01T00:00:00.000Z"), lt: new Date("2026-08-22T00:00:00.000Z") },
+        entregadaAt: { gte: new Date("2026-08-01T05:00:00.000Z"), lt: new Date("2026-08-22T05:00:00.000Z") },
       },
       select: {
         mecanicoId: true,

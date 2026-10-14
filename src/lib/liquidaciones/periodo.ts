@@ -7,17 +7,14 @@ import type { FrecuenciaLiquidacion } from "@/generated/prisma-tenant";
  * con qué frecuencia se leyó, así que cambiar el ajuste del taller no
  * reinterpreta lo ya liquidado.
  *
- * Dos convenciones, y conviene no confundirlas:
- * - **Qué periodo es "ahora"** se lee del calendario de **Bogotá**
- *   (`formatoDiaBogota`), no de UTC: a las 21:00 del 31 de octubre en Bogotá ya
- *   es 1 de noviembre en UTC, y el periodo en curso sigue siendo octubre.
- * - **La ventana para consultar `entregadaAt`** son medianoches **UTC** del
- *   primer día del periodo y del día siguiente al último, exactamente como
- *   `buildRangoFechas` en `src/lib/reportes/rango-fechas.ts`. Es la misma regla
- *   que usa el reporte de productividad, a propósito: si la liquidación usara
- *   límites en hora de Bogotá y el reporte en UTC, los dos números que el
- *   usuario compara no cuadrarían (esa imprecisión de zona horaria ya existe en
- *   los reportes; unificarla es trabajo de otra fase).
+ * Todo va en el calendario de **Bogotá** (UTC-5 fijo, sin horario de verano):
+ * - **Qué periodo es "ahora"** se lee con `formatoDiaBogota`: a las 21:00 del 31
+ *   de octubre en Bogotá ya es 1 de noviembre en UTC, y el periodo en curso
+ *   sigue siendo octubre.
+ * - **La ventana para consultar `entregadaAt`** corta a medianoche de Bogotá
+ *   (hallazgo B2), igual que `buildRangoFechas` en
+ *   `src/lib/reportes/rango-fechas.ts`: así la liquidación y el reporte de
+ *   productividad, que el usuario compara, cuentan las mismas órdenes.
  */
 
 export interface RangoPeriodo {

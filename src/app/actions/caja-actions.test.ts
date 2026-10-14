@@ -267,7 +267,12 @@ describe("listCajasCerradas", () => {
       },
     ]);
     const r = await listCajasCerradas({ sedeId: "s2", periodo: "2026-10" });
-    expect(db.cajaSesion.findMany.mock.calls[0][0].where).toMatchObject({ sedeId: "s1", cerradaAt: { not: null } });
+    expect(db.cajaSesion.findMany.mock.calls[0][0].where).toMatchObject({
+      sedeId: "s1",
+      cerradaAt: { not: null },
+      // El mes corta a medianoche de Bogotá: abiertaAt es un instante, no una fecha.
+      abiertaAt: { gte: new Date("2026-10-01T05:00:00.000Z"), lt: new Date("2026-11-01T05:00:00.000Z") },
+    });
     expect(r[0]).toMatchObject({ id: "c1", esperado: 150000, contado: 148000, diferencia: -2000, tipo: "FALTANTE", cerroPorNombre: "Luis" });
   });
 });

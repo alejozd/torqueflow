@@ -3,7 +3,7 @@
 import { requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { reporteFiltrosSchema } from "@/lib/validation/reporte";
-import { buildRangoFechas } from "@/lib/reportes/rango-fechas";
+import { buildRangoDias, buildRangoFechas } from "@/lib/reportes/rango-fechas";
 import { computeRentabilidad, type RentabilidadTotales } from "@/lib/reportes/rentabilidad";
 import { computeRentabilidadNeta, type RentabilidadNeta } from "@/lib/gastos/rentabilidad-neta";
 import { contarRecurrentesPendientesEnRango } from "@/lib/gastos/pendientes-db";
@@ -71,6 +71,8 @@ export async function getReporteRentabilidad(filtros: ReporteFiltros): Promise<R
   };
 
   const rango = buildRangoFechas(parsed.data.desde, parsed.data.hasta);
+  // Los gastos se filtran por `fecha`, que es de solo día (@db.Date): otro rango.
+  const dias = buildRangoDias(parsed.data.desde, parsed.data.hasta);
   const facturas = await tenantDb.factura.findMany({
     where: {
       createdAt: { gte: rango.gte, lt: rango.lt },
@@ -105,7 +107,7 @@ export async function getReporteRentabilidad(filtros: ReporteFiltros): Promise<R
 
   const gastosAgrupados = await tenantDb.gasto.groupBy({
     by: ["categoriaId"],
-    where: { sedeId, fecha: { gte: rango.gte, lt: rango.lt } },
+    where: { sedeId, fecha: { gte: dias.gte, lt: dias.lt } },
     _sum: { monto: true },
   });
   const categorias = await tenantDb.categoriaGasto.findMany({
@@ -127,8 +129,8 @@ export async function getReporteRentabilidad(filtros: ReporteFiltros): Promise<R
   const recurrentesSinConfirmar = await contarRecurrentesPendientesEnRango(
     session.user.tenantSchema,
     sedeId,
-    rango.gte,
-    rango.lt,
+    dias.gte,
+    dias.lt,
   );
 
   return {
