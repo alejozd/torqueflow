@@ -133,3 +133,31 @@ fix round.
 Respaldo `pg_dump`, migración a `taller_dev` y `taller_dev_reference`, `migrate diff` vacío,
 `git merge --no-ff` a `main`, actualizar `PROJECT_BRIEF.md` y `docs/TRASPASO-AGENTES.md` (las
 invariantes de caja cambian: §5 del traspaso), push.
+
+## 6. Progreso (ledger)
+
+Estado al 2026-10-13: **Tasks 1–7 hechas**, cada una con su commit y push en `fase-consolidacion`.
+Última verificación completa (tras la Task 7): `tsc` limpio, `eslint` limpio en lo tocado,
+**263 archivos / 2124 tests pasando**. Migración **sin aplicar** a la base (va al cierre).
+
+| Task | Commit | Notas |
+|---|---|---|
+| plan | `c0e01f2` | |
+| 1 | `d912095` | `ConfiguracionTaller.exigirActaFirmada` y `usarControlCaja` (ambas `false`), formulario en `/configuracion-smtp`, `src/lib/configuracion/opciones-taller.ts`. |
+| 2 | `0c704fb` | A1 cerrado. Entregar sin firma (si no se exige) audita `ORDEN_ENTREGAR` (valor nuevo del enum, en la misma migración). El tablero también ofrece entregar una orden facturada (`puedeEntregar(estado)` ya no depende de `movible`). Firmar después de entregar vuelve a funcionar en la UI (`editable` = no anulada). |
+| 3 | `47be72b` | `exigirCajaParaEfectivo(db, sedeId, metodo, mensaje)` → mensaje o `null`, en todos los caminos de dinero + liquidación (M1). B3 cerrado. B4 aceptado (ver D4). Mostrador: con caja cerrada solo se bloquea el cobro en efectivo (`efectivoBloqueado`). |
+| 4 | `2a54529` | M2 cerrado: precio y nombre del repuesto salen del inventario; descuento revalidado con precios reales; mostrador solo ADMIN/RECEPCION (menú, página y acciones). |
+| 5 | `01dcbeb` | M3 cerrado: `SELECT … FOR UPDATE` sobre entrada y cuenta; saldo = total − Σ abonos. **Verificado contra la base real** con transacción revertida (el `$queryRaw` resuelve el schema del taller). |
+| 6 | `6759bd3` | M4 cerrado: `src/lib/importacion/zip-seguro.ts` descomprime cada entrada con `maxOutputLength` (tope 40 MB, `MAX_BYTES_DESCOMPRIMIDO`); no se fía de los tamaños declarados; rechaza entradas que el directorio central no lista. Helper de zips de prueba en `src/lib/importacion/test-utils.ts`. |
+| 7 | `2e30dfd` | B1, B5, B6, B7 cerrados (B7 reproducido antes de arreglar: borraba una foto del DVI). Arreglado además un test de UI intermitente de liquidaciones (findBy en vez de getBy). |
+
+Lecciones de esta fase (para quien siga):
+- Al correr subconjuntos de tests, mirar también **"Test Files … failed"**, no solo las líneas `×`: un
+  archivo de test que no compila reporta "no tests" y parece verde (pasó en la Task 7).
+- Escribir tests con barras invertidas o regex desde scripts de shell las corrompe: usar el editor o
+  `String.raw`.
+- Los mocks de la base de varios tests de acciones declaran `configuracionTaller: { findUnique: async () => opcionesTaller }`
+  con `usarControlCaja: true`; para probar la opción apagada se cambia el objeto y se restaura en `finally`.
+
+Pendiente: Tasks 8, 9 y 10; después verificación final (`npm run build` con `.next` borrado),
+revisión del diff completo, fix round y cierre (§5).
