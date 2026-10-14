@@ -183,10 +183,7 @@ export default async function InicioPage() {
         id="resumen"
         className={cn(
           "grid scroll-mt-16 grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3",
-          // Seis tarjetas solo caben en una fila en pantallas anchas: en un portátil
-          // (xl) cada una quedaba en ~170 px y "VENCIMIENTOS" se cortaba. Ahí van
-          // dos filas de tres.
-          mostrarVencimientos ? "2xl:grid-cols-6" : "xl:grid-cols-5",
+          mostrarVencimientos ? "xl:grid-cols-6" : "xl:grid-cols-5",
         )}>
         <KpiCard
           title="En el taller"
