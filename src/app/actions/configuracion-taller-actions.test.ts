@@ -11,7 +11,11 @@ vi.mock("@/lib/db/tenant-client", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { guardarDiasAvisoAction, guardarDiasEstancadaAction } from "./configuracion-taller-actions";
+import {
+  guardarDiasAvisoAction,
+  guardarDiasEstancadaAction,
+  guardarOpcionesTallerAction,
+} from "./configuracion-taller-actions";
 
 const inicial = { error: null, success: false };
 
@@ -96,6 +100,60 @@ describe("guardarDiasEstancadaAction", () => {
     fd.set("diasOrdenEstancada", "5");
 
     const r = await guardarDiasEstancadaAction(inicial, fd);
+
+    expect(r).toEqual({ error: "No se pudo guardar la configuración", success: false });
+  });
+});
+
+describe("guardarOpcionesTallerAction", () => {
+  beforeEach(() => {
+    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockUpsert.mockReset().mockResolvedValue({});
+  });
+
+  it("exige ADMIN y guarda las dos opciones encendidas", async () => {
+    const fd = new FormData();
+    fd.set("exigirActaFirmada", "true");
+    fd.set("usarControlCaja", "true");
+
+    const r = await guardarOpcionesTallerAction(inicial, fd);
+
+    expect(r).toEqual({ error: null, success: true });
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockUpsert).toHaveBeenCalledWith({
+      where: { id: "singleton" },
+      create: { id: "singleton", exigirActaFirmada: true, usarControlCaja: true },
+      update: { exigirActaFirmada: true, usarControlCaja: true },
+    });
+  });
+
+  it("una casilla sin marcar no viaja en el formulario y se guarda apagada", async () => {
+    const fd = new FormData();
+    fd.set("usarControlCaja", "true");
+
+    await guardarOpcionesTallerAction(inicial, fd);
+
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { exigirActaFirmada: false, usarControlCaja: true } }),
+    );
+  });
+
+  it("solo 'true' enciende una opción", async () => {
+    const fd = new FormData();
+    fd.set("exigirActaFirmada", "si");
+    fd.set("usarControlCaja", "1");
+
+    await guardarOpcionesTallerAction(inicial, fd);
+
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { exigirActaFirmada: false, usarControlCaja: false } }),
+    );
+  });
+
+  it("devuelve un error amigable si el upsert falla", async () => {
+    mockUpsert.mockRejectedValue(new Error("db down"));
+
+    const r = await guardarOpcionesTallerAction(inicial, new FormData());
 
     expect(r).toEqual({ error: "No se pudo guardar la configuración", success: false });
   });

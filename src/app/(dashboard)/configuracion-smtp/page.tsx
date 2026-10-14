@@ -1,7 +1,8 @@
 import { getConfiguracionSmtp, getUltimosEnviosSmtp } from "@/app/actions/smtp-actions";
-import { getDiasAvisoVencimiento, getDiasEstancada } from "@/app/actions/configuracion-taller-actions";
+import { getDiasAvisoVencimiento, getDiasEstancada, getOpcionesTaller } from "@/app/actions/configuracion-taller-actions";
 import { ConfiguracionSmtpForm } from "./configuracion-smtp-form";
 import { EstancadasForm } from "./estancadas-form";
+import { OpcionesTallerForm } from "./opciones-taller-form";
 import { RecordatoriosForm } from "./recordatorios-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,11 +16,12 @@ const ESTADO_BADGE_CLASSNAME = "border-transparent bg-[oklch(0.4_0.1_150/0.1)] t
 export default async function ConfiguracionSmtpPage() {
   // getConfiguracionSmtp calls requireRole(["ADMIN"]), so a TECNICO/RECEPCION
   // reaching this URL is redirected before anything renders.
-  const [configuracion, envios, diasAviso, diasEstancada] = await Promise.all([
+  const [configuracion, envios, diasAviso, diasEstancada, opcionesTaller] = await Promise.all([
     getConfiguracionSmtp(),
     getUltimosEnviosSmtp(),
     getDiasAvisoVencimiento(),
     getDiasEstancada(),
+    getOpcionesTaller(),
   ]);
   const ahora = new Date();
 
@@ -77,6 +79,15 @@ export default async function ConfiguracionSmtpPage() {
             </CardHeader>
             <CardContent>
               <EstancadasForm diasEstancada={diasEstancada} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Funcionamiento del taller</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <OpcionesTallerForm opciones={opcionesTaller} />
             </CardContent>
           </Card>
         </div>
