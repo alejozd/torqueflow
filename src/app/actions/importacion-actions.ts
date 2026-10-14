@@ -13,7 +13,13 @@ import {
   separarDuplicados,
   setDeClaves,
 } from "@/lib/importacion/duplicados";
-import { HOJAS, MAX_BYTES_ARCHIVO, buscarHoja, type HojaContrato } from "@/lib/importacion/hojas";
+import {
+  HOJAS,
+  MAX_BYTES_ARCHIVO,
+  MAX_BYTES_DESCOMPRIMIDO,
+  buscarHoja,
+  type HojaContrato,
+} from "@/lib/importacion/hojas";
 import { leerHoja } from "@/lib/importacion/lectura";
 import {
   limitarFilas,
@@ -34,7 +40,7 @@ import {
   type ClienteResuelto,
   type LecturaOk,
 } from "@/lib/importacion/validacion";
-import { leerLibro } from "@/lib/importacion/xlsx";
+import { LibroDemasiadoGrandeError, leerLibro } from "@/lib/importacion/xlsx";
 import { scopeBodega } from "@/lib/sede/scope";
 
 const BODEGA_AJENA = "La bodega seleccionada no pertenece a tu sede activa.";
@@ -401,7 +407,12 @@ export async function importarAction(
   let hojasLeidas: Awaited<ReturnType<typeof leerLibro>>;
   try {
     hojasLeidas = await leerLibro(archivo);
-  } catch {
+  } catch (error) {
+    if (error instanceof LibroDemasiadoGrandeError) {
+      return resultadoVacio(
+        `El archivo ocupa más de ${Math.round(MAX_BYTES_DESCOMPRIMIDO / 1024 / 1024)} MB al abrirlo: divídelo en varios archivos más pequeños`,
+      );
+    }
     return resultadoVacio("No pudimos leer el archivo: revisa que sea un .xlsx de Excel y que no esté protegido");
   }
 

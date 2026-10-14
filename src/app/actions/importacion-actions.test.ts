@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { escribirLibro } from "@/lib/importacion/xlsx";
 import { resultadoVacio } from "@/lib/importacion/resultado";
+import { MAX_BYTES_ARCHIVO } from "@/lib/importacion/hojas";
+import { armarZip } from "@/lib/importacion/test-utils";
 
 const mockRequireRole = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({ requireRole: (...args: unknown[]) => mockRequireRole(...args) }));
@@ -101,6 +103,22 @@ describe("importarAction", () => {
 
     const basura = new File([new Uint8Array(Buffer.from("no soy un xlsx"))], "roto.xlsx");
     expect((await importarAction(resultadoVacio(), enviar(basura))).error).toContain("No pudimos leer el archivo");
+  });
+
+  it("rechaza una bomba zip antes de que la librería de Excel la descomprima (hallazgo M4)", async () => {
+    // Pocos KB que se expanden a 41 MB: por debajo del tope de 5 MB del archivo.
+    const bomba = armarZip([{ nombre: "xl/worksheets/sheet1.xml", datos: Buffer.alloc(41 * 1024 * 1024) }]);
+    expect(bomba.length).toBeLessThan(MAX_BYTES_ARCHIVO);
+
+    const resultado = await importarAction(
+      resultadoVacio(),
+      enviar(new File([new Uint8Array(bomba)], "bomba.xlsx")),
+    );
+
+    expect(resultado.error).toBe(
+      "El archivo ocupa más de 40 MB al abrirlo: divídelo en varios archivos más pequeños",
+    );
+    expect(db.cliente.findMany).not.toHaveBeenCalled();
   });
 
   it("crea los clientes nuevos y omite los que ya existen, sin tocarlos", async () => {

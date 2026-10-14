@@ -38,6 +38,11 @@ export const MAX_FILAS_POR_HOJA = 2000;
 export const MAX_RECHAZOS_VISIBLES = 200;
 /** Tope de tamaño del archivo, por debajo del `bodySizeLimit` de 6 MB (D7). */
 export const MAX_BYTES_ARCHIVO = 5 * 1024 * 1024;
+/**
+ * Tope de lo que ocupa el libro **descomprimido** (fase de consolidación, M4):
+ * 2.000 filas por hoja en cuatro hojas caben holgadas; una bomba zip, no.
+ */
+export const MAX_BYTES_DESCOMPRIMIDO = 40 * 1024 * 1024;
 export const HOJA_INSTRUCCIONES = "Instrucciones";
 
 export const HOJAS: HojaContrato[] = [
