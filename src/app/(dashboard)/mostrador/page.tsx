@@ -48,7 +48,7 @@ export default async function MostradorPage() {
             en el arqueo de la caja abierta.
           </p>
         </div>
-        <BotonExportar reporte="ventas-hoy" etiqueta="Exportar ventas de hoy" />
+        <BotonExportar reporte="ventas" etiqueta="Exportar ventas" />
       </div>
 
       <Card>

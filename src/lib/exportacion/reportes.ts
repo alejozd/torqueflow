@@ -91,7 +91,8 @@ export function hojaCuentasPorPagar(
 }
 
 /** Ventas de mostrador del día. */
-export function hojaVentasDelDia(
+/** Ventas de mostrador del rango pedido, en orden cronológico. */
+export function hojaVentas(
   ventas: {
     numero: number;
     createdAt: Date;
@@ -102,7 +103,7 @@ export function hojaVentasDelDia(
     items: { cantidad: number; descripcion: string }[];
   }[],
 ): HojaEscrita {
-  const filas: Fila[] = [["Venta", "Hora", "Cliente", "Productos", "Total", "Saldo", "Estado"]];
+  const filas: Fila[] = [["Venta", "Fecha", "Hora", "Cliente", "Productos", "Total", "Saldo", "Estado"]];
   let total = 0;
   let saldo = 0;
 
@@ -110,6 +111,7 @@ export function hojaVentasDelDia(
     const productos = venta.items.map((item) => `${item.cantidad} × ${item.descripcion}`).join("; ");
     filas.push([
       venta.numero,
+      formatoFecha.format(venta.createdAt),
       formatoHora.format(venta.createdAt),
       venta.clienteNombre ?? "Consumidor final",
       productos,
@@ -122,9 +124,9 @@ export function hojaVentasDelDia(
   }
 
   filas.push([]);
-  filas.push(["Total del día", null, null, null, Math.round(total * 100) / 100, Math.round(saldo * 100) / 100, null]);
+  filas.push(["Total", null, null, null, null, Math.round(total * 100) / 100, Math.round(saldo * 100) / 100, null]);
 
-  return { nombre: "Ventas de hoy", filas, anchos: [8, 8, 26, 46, 14, 14, 10] };
+  return { nombre: "Ventas", filas, anchos: [8, 11, 8, 26, 46, 14, 14, 10] };
 }
 
 /** Arqueos de caja cerrados en el período. */

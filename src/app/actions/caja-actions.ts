@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
-import { calcularResumenCaja, diferenciaCierre, type Metodo, type ResumenCaja } from "@/lib/caja/resumen";
+import {
+  calcularResumenCaja,
+  filaCajaCerrada,
+  type CajaCerradaFila,
+  type Metodo,
+  type ResumenCaja,
+} from "@/lib/caja/resumen";
 import { periodoActualBogota, rangoDelPeriodo } from "@/lib/gastos/periodo";
 import { resolverSede, validarSede } from "@/lib/gastos/validaciones-db";
 import { abrirCajaInputSchema, cerrarCajaInputSchema } from "@/lib/validation/caja";
@@ -40,20 +46,6 @@ export interface CajaActual {
   caja: CajaAbierta | null;
   resumen: ResumenCaja | null;
   movimientos: MovimientoCajaFila[];
-}
-
-export interface CajaCerradaFila {
-  id: string;
-  abiertaAt: Date;
-  cerradaAt: Date;
-  abrioPorNombre: string;
-  cerroPorNombre: string;
-  baseInicial: number;
-  esperado: number;
-  contado: number;
-  diferencia: number;
-  tipo: "CUADRA" | "SOBRANTE" | "FALTANTE";
-  notas: string | null;
 }
 
 type TenantDb = ReturnType<typeof getTenantDb>;
@@ -297,22 +289,5 @@ export async function listCajasCerradas(filtros: { sedeId?: string; periodo?: st
     orderBy: { abiertaAt: "desc" },
   });
 
-  return cajas.map((c) => {
-    const esperado = Number(c.efectivoEsperado ?? 0);
-    const contado = Number(c.efectivoContado ?? 0);
-    const { diferencia, tipo } = diferenciaCierre(esperado, contado);
-    return {
-      id: c.id,
-      abiertaAt: c.abiertaAt,
-      cerradaAt: c.cerradaAt as Date,
-      abrioPorNombre: c.abiertaPor.nombre,
-      cerroPorNombre: c.cerradaPor?.nombre ?? "—",
-      baseInicial: Number(c.baseInicial),
-      esperado,
-      contado,
-      diferencia,
-      tipo,
-      notas: c.notas,
-    };
-  });
+  return cajas.map(filaCajaCerrada);
 }

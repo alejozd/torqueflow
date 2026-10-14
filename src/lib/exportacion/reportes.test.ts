@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hojaArqueos, hojaCartera, hojaCuentasPorPagar, hojaVentasDelDia } from "./reportes";
+import { hojaArqueos, hojaCartera, hojaCuentasPorPagar, hojaVentas } from "./reportes";
 import { escribirLibro, leerLibro } from "@/lib/importacion/xlsx";
 import type { CarteraVista } from "@/app/actions/cartera-actions";
 
@@ -74,8 +74,8 @@ describe("reportes de exportación", () => {
     expect(hoja.filas).toContainEqual(["Total por pagar", null, null, null, null, 170000]);
   });
 
-  it("las ventas del día resumen los productos y suman", () => {
-    const hoja = hojaVentasDelDia([
+  it("las ventas llevan fecha y hora, resumen los productos y suman", () => {
+    const hoja = hojaVentas([
       {
         numero: 3,
         createdAt: new Date("2026-10-17T15:30:00Z"),
@@ -93,13 +93,14 @@ describe("reportes de exportación", () => {
     expect(hoja.filas[1]).toEqual([
       3,
       expect.any(String),
+      expect.any(String),
       "Consumidor final",
       "2 × Filtro de aceite; 1 × Bujía",
       59500,
       0,
       "Pagada",
     ]);
-    expect(hoja.filas).toContainEqual(["Total del día", null, null, null, 59500, 0, null]);
+    expect(hoja.filas).toContainEqual(["Total", null, null, null, null, 59500, 0, null]);
   });
 
   it("los arqueos traducen el resultado del cierre", () => {
@@ -125,7 +126,7 @@ describe("reportes de exportación", () => {
   });
 
   it("un texto que empieza por '=' queda como texto y no como fórmula", async () => {
-    const hoja = hojaVentasDelDia([
+    const hoja = hojaVentas([
       {
         numero: 1,
         createdAt: new Date("2026-10-17T15:30:00Z"),
@@ -140,7 +141,7 @@ describe("reportes de exportación", () => {
     const archivo = await escribirLibro([hoja]);
     const [leida] = await leerLibro(archivo);
 
-    expect(leida!.filas[1]![2]).toBe("=SUMA(A1:A9)");
-    expect(leida!.filas[1]![3]).toBe("1 × +peligro");
+    expect(leida!.filas[1]![3]).toBe("=SUMA(A1:A9)");
+    expect(leida!.filas[1]![4]).toBe("1 × +peligro");
   });
 });
