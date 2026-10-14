@@ -28,6 +28,8 @@ const mockTransaction = vi.fn((arg: unknown) => {
     entradaMercanciaItem: { create: mockItemCreate },
     repuesto: { update: mockRepuestoUpdate, findFirst: mockRepuestoFindFirst },
     cuentaPorPagar: { create: mockCuentaCreate, update: mockCuentaUpdate },
+    // El sincronizador bloquea la fila de la entrada antes de leerla (M3).
+    $queryRaw: vi.fn().mockResolvedValue([]),
   };
   // La forma interactiva (Fase 24: el ítem, el stock y la deuda van juntos).
   if (typeof arg === "function") return (arg as (c: typeof cliente) => unknown)(cliente);

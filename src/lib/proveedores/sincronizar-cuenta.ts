@@ -1,4 +1,4 @@
-import type { getTenantDb } from "@/lib/db/tenant-client";
+import type { Prisma } from "@/generated/prisma-tenant";
 
 /**
  * Cuentas por pagar (Fase 24, D5): la deuda nace de la **entrada de mercancía**,
@@ -9,48 +9,63 @@ import type { getTenantDb } from "@/lib/db/tenant-client";
  * - la entrada suelta, que **añade los ítems uno a uno** (por eso el total se
  *   recalcula cada vez, en vez de fijarse al crear la entrada);
  * - la recepción de un pedido, que crea los ítems de golpe.
+ * (La carga inicial de la importación de Excel no crea deuda: es inventario de
+ * arranque, no una compra.)
  *
- * El total sale de los ítems y el saldo de restar lo ya abonado, así que volver a
- * llamarlo es inocuo (idempotente). `entradaId` es único en la tabla: no puede
- * haber dos deudas por la misma entrada.
+ * Concurrencia (fase de consolidación, hallazgo M3): antes el saldo se movía por
+ * la diferencia contra el `total` guardado, y dos ítems añadidos a la vez dejaban
+ * ese total sin uno de ellos; el siguiente ítem lo volvía a sumar y la deuda
+ * quedaba inflada. Ahora:
+ * - se **bloquea la fila de la entrada** (`FOR UPDATE`) antes de leer sus ítems:
+ *   dos sincronizaciones de la misma entrada se ponen en fila, y la segunda ve
+ *   el ítem de la primera;
+ * - se **bloquea la fila de la cuenta** antes de sumar los abonos: un abono
+ *   simultáneo (que hace `updateMany` sobre esa fila) espera, o ya terminó y su
+ *   pago entra en la suma;
+ * - el saldo es **total − Σ abonos**, sin deltas: el total guardado no interviene,
+ *   así que volver a llamarlo es inocuo (idempotente).
+ *
+ * `entradaId` es único en la tabla: no puede haber dos deudas por la misma entrada.
  */
 
 type ClienteTransaccion = Pick<
-  ReturnType<typeof getTenantDb>,
-  "entradaMercancia" | "cuentaPorPagar" | "pagoProveedor"
+  Prisma.TransactionClient,
+  "$queryRaw" | "entradaMercancia" | "cuentaPorPagar" | "pagoProveedor"
 >;
+
+const redondear = (valor: number) => Math.round(valor * 100) / 100;
 
 export async function sincronizarCuentaPorPagar(
   tx: ClienteTransaccion,
   entradaId: string,
   creadoPorId: string,
 ): Promise<void> {
+  // El cliente del taller fija el `search_path` con el schema de su URL, así que
+  // el nombre de la tabla va sin calificar.
+  await tx.$queryRaw`SELECT id FROM entradas_mercancia WHERE id = ${entradaId} FOR UPDATE`;
+
   const entrada = await tx.entradaMercancia.findUniqueOrThrow({
     where: { id: entradaId },
     select: {
       proveedorId: true,
       createdAt: true,
       items: { select: { cantidad: true, precioCompraUnitario: true } },
-      cuentaPorPagar: {
-        select: { id: true, total: true },
-      },
+      cuentaPorPagar: { select: { id: true } },
     },
   });
 
-  const total = entrada.items.reduce(
-    (suma, item) => suma + item.cantidad * Number(item.precioCompraUnitario),
-    0,
+  const total = redondear(
+    entrada.items.reduce((suma, item) => suma + item.cantidad * Number(item.precioCompraUnitario), 0),
   );
-  const totalRedondeado = Math.round(total * 100) / 100;
 
   if (!entrada.cuentaPorPagar) {
     await tx.cuentaPorPagar.create({
       data: {
         entradaId,
         proveedorId: entrada.proveedorId,
-        total: totalRedondeado,
-        saldoPendiente: totalRedondeado,
-        estado: totalRedondeado <= 0 ? "PAGADA" : "PENDIENTE",
+        total,
+        saldoPendiente: total,
+        estado: total <= 0 ? "PAGADA" : "PENDIENTE",
         fecha: entrada.createdAt,
         creadoPorId,
       },
@@ -58,31 +73,13 @@ export async function sincronizarCuentaPorPagar(
     return;
   }
 
-  // Ya existe (se añadió otro ítem, o se está re-sincronizando). El saldo se
-  // ajusta con un **incremento del cambio del total**, nunca escribiendo un valor
-  // absoluto calculado con una lectura previa: eso pisaría un abono simultáneo
-  // (los abonos usan un decremento guardado).
-  const delta = Math.round((totalRedondeado - Number(entrada.cuentaPorPagar.total)) * 100) / 100;
+  const cuentaId = entrada.cuentaPorPagar.id;
+  await tx.$queryRaw`SELECT id FROM cuentas_por_pagar WHERE id = ${cuentaId} FOR UPDATE`;
+  const { _sum } = await tx.pagoProveedor.aggregate({ where: { cuentaId }, _sum: { monto: true } });
+  const saldo = Math.max(0, redondear(total - Number(_sum.monto ?? 0)));
 
-  if (delta !== 0) {
-    await tx.cuentaPorPagar.update({
-      where: { id: entrada.cuentaPorPagar.id },
-      data: { total: totalRedondeado, saldoPendiente: { increment: delta } },
-    });
-  } else {
-    await tx.cuentaPorPagar.update({
-      where: { id: entrada.cuentaPorPagar.id },
-      data: { total: totalRedondeado },
-    });
-  }
-
-  const actualizada = await tx.cuentaPorPagar.findUniqueOrThrow({
-    where: { id: entrada.cuentaPorPagar.id },
-    select: { saldoPendiente: true },
-  });
-  const saldoCero = Number(actualizada.saldoPendiente) <= 0;
   await tx.cuentaPorPagar.update({
-    where: { id: entrada.cuentaPorPagar.id },
-    data: { estado: saldoCero ? "PAGADA" : "PENDIENTE" },
+    where: { id: cuentaId },
+    data: { total, saldoPendiente: saldo, estado: saldo <= 0 ? "PAGADA" : "PENDIENTE" },
   });
 }
