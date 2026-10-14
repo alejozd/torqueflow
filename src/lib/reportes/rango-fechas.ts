@@ -1,40 +1,41 @@
+import { formatoDiaBogota } from "@/lib/fecha-bogota";
+
 const UN_DIA_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Half-open date filter for Prisma: `{ createdAt: { gte, lt } }`.
- * `lt` is the day AFTER the requested end date at UTC midnight, which makes
- * the whole of that end date part of the range.
+ * Filtro semiabierto para Prisma: `{ campo: { gte, lt } }`. `lt` es el día
+ * SIGUIENTE a `hasta`, así que `hasta` entra completo.
  */
 export interface RangoFechas {
   gte: Date;
   lt: Date;
 }
 
-function medianocheUtc(fecha: string): Date {
-  return new Date(`${fecha}T00:00:00.000Z`);
-}
-
-function aFechaIso(fecha: Date): string {
-  const anio = fecha.getUTCFullYear();
-  const mes = String(fecha.getUTCMonth() + 1).padStart(2, "0");
-  const dia = String(fecha.getUTCDate()).padStart(2, "0");
-  return `${anio}-${mes}-${dia}`;
+/**
+ * Para columnas de **instante** (`createdAt`, `entregadaAt`, `fechaHora`): los
+ * días son de Bogotá (UTC-5 fijo, sin horario de verano). Con medianoches UTC,
+ * lo ocurrido después de las 7 p. m. caía en el día siguiente: el Inicio
+ * cambiaba de "hoy" a esa hora y los reportes partían mal los meses.
+ *
+ * Los dos argumentos son `AAAA-MM-DD` ya validados (`reporteFiltrosSchema`).
+ */
+export function buildRangoFechas(desde: string, hasta: string): RangoFechas {
+  const gte = new Date(`${desde}T00:00:00-05:00`);
+  return { gte, lt: new Date(new Date(`${hasta}T00:00:00-05:00`).getTime() + UN_DIA_MS) };
 }
 
 /**
- * Both arguments are `YYYY-MM-DD` strings already validated by
- * `reporteFiltrosSchema`. Boundaries are UTC — see the plan's Global
- * Constraints for why, and for the known local-timezone limitation.
+ * Para columnas de **solo fecha** (`@db.Date`, como `Gasto.fecha`): Prisma las
+ * lee y escribe como medianoche UTC, así que el rango va en UTC. No mezclarlo
+ * con `buildRangoFechas`.
  */
-export function buildRangoFechas(desde: string, hasta: string): RangoFechas {
-  return {
-    gte: medianocheUtc(desde),
-    lt: new Date(medianocheUtc(hasta).getTime() + UN_DIA_MS),
-  };
+export function buildRangoDias(desde: string, hasta: string): RangoFechas {
+  const gte = new Date(`${desde}T00:00:00.000Z`);
+  return { gte, lt: new Date(new Date(`${hasta}T00:00:00.000Z`).getTime() + UN_DIA_MS) };
 }
 
-/** Default range offered by the /reportes page: current UTC month to date. */
+/** Rango por defecto de /reportes: el mes en curso en Bogotá, del día 1 hasta hoy. */
 export function rangoMesActual(hoy: Date): { desde: string; hasta: string } {
-  const primerDia = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), 1));
-  return { desde: aFechaIso(primerDia), hasta: aFechaIso(hoy) };
+  const hasta = formatoDiaBogota.format(hoy);
+  return { desde: `${hasta.slice(0, 7)}-01`, hasta };
 }

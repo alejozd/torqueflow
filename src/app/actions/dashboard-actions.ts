@@ -59,9 +59,8 @@ export interface DashboardOverview {
  * Every aggregation the Inicio/Dashboard page needs (Fase 11-14 UI redesign),
  * gathered in one read-only server action so the page issues one call and
  * one session/tenant resolution instead of one per KPI. "Today" and the
- * 7-day window use UTC calendar-day boundaries -- the same accepted
- * local-timezone limitation as src/lib/reportes/rango-fechas.ts, not
- * re-litigated here.
+ * 7-day window are Bogotá calendar days (src/lib/reportes/rango-fechas.ts):
+ * with UTC days the Inicio rolled over to "tomorrow" at 7 p.m. local time.
  *
  * Inventory alerts (and the "Stock bajo" KPI) come from the separate
  * getAlertasInventario action.

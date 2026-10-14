@@ -18,7 +18,17 @@ import { SelectField } from "@/components/ui/select-field";
 import { Textarea } from "@/components/ui/textarea";
 import { FirmaCanvas } from "./firma-canvas";
 
-const initialState: ActaFormState = { error: null, success: false };
+type Accion = "borrador" | "firmar" | "entregar";
+/** El resultado recuerda qué acción lo produjo: el mensaje de éxito depende de ella. */
+type EstadoFormulario = ActaFormState & { accion?: Accion };
+
+const initialState: EstadoFormulario = { error: null, success: false };
+
+const MENSAJE_EXITO: Record<Accion, string> = {
+  borrador: "Acta guardada.",
+  firmar: "Acta firmada.",
+  entregar: "Orden entregada.",
+};
 
 /** Borra el borrador del acta; se define fuera del render (react-hooks/static-components). */
 function BorrarActa({ ordenId }: { ordenId: string }) {
@@ -80,11 +90,11 @@ export function ActaEntregaForm({
   const [confirmando, setConfirmando] = useState(false);
 
   const [state, formAction, isPending] = useActionState(
-    async (previo: ActaFormState, formData: FormData): Promise<ActaFormState> => {
-      const elegida = String(formData.get("accion") ?? "borrador");
-      if (elegida === "entregar") return entregarOrdenAction(ordenId, previo, formData);
-      if (elegida === "firmar") return firmarActaAction(ordenId, previo, formData);
-      return guardarActaAction(ordenId, previo, formData);
+    async (previo: EstadoFormulario, formData: FormData): Promise<EstadoFormulario> => {
+      const valor = String(formData.get("accion") ?? "borrador");
+      const accion: Accion = valor === "entregar" || valor === "firmar" ? valor : "borrador";
+      const correr = { entregar: entregarOrdenAction, firmar: firmarActaAction, borrador: guardarActaAction }[accion];
+      return { ...(await correr(ordenId, previo, formData)), accion };
     },
     initialState,
   );
@@ -93,6 +103,15 @@ export function ActaEntregaForm({
   const yaEntregada = estado === "ENTREGADA";
   const soloFirma = yaEntregada && !firmada;
   const puedeEntregar = estado === "TERMINADA";
+
+  // Al entregar, el servidor revalida y esta misma instancia recibe la orden ya
+  // entregada: la confirmación de "entregar" no puede quedar abierta encima del
+  // botón de firmar. Se ajusta durante el render (no en un efecto).
+  const [estadoVisto, setEstadoVisto] = useState(estado);
+  if (estado !== estadoVisto) {
+    setEstadoVisto(estado);
+    setConfirmando(false);
+  }
 
   // Cuál de las tres acciones corre lo decide el botón que se pulsa (su
   // `name="accion"` viaja en el FormData y también funciona sin JS): leerlo del
@@ -274,7 +293,7 @@ export function ActaEntregaForm({
       ) : null}
       {state.success ? (
         <p role="status" className="text-xs text-muted-foreground">
-          {soloFirma ? "Acta firmada." : "Acta guardada."}
+          {MENSAJE_EXITO[state.accion ?? "borrador"]}
         </p>
       ) : null}
     </form>

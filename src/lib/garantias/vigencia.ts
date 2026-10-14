@@ -1,3 +1,5 @@
+import { formatoDiaBogota } from "@/lib/fecha-bogota";
+
 /**
  * Vigencia de una garantía (Fase 21, D3): el taller registra una cobertura por
  * fecha y/o por kilometraje, y aquí se decide si sigue vigente. Es lógica pura
@@ -37,7 +39,10 @@ export function estadoGarantia(cobertura: CoberturaGarantia, contexto: ContextoG
       cobertura.cubreHasta.getUTCMonth(),
       cobertura.cubreHasta.getUTCDate(),
     );
-    const hoy = Date.UTC(contexto.hoy.getUTCFullYear(), contexto.hoy.getUTCMonth(), contexto.hoy.getUTCDate());
+    // Hoy es el día de Bogotá, llevado a la misma convención que `cubreHasta`
+    // (@db.Date = medianoche UTC). Con el día UTC, desde las 7 p. m. una
+    // garantía que vence hoy salía vencida.
+    const hoy = Date.parse(`${formatoDiaBogota.format(contexto.hoy)}T00:00:00.000Z`);
     if (hoy > limite) return "VENCIDA";
   }
 

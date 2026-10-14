@@ -43,10 +43,26 @@ export function periodosEntre(desde: string, hasta: string): string[] {
   return periodos;
 }
 
+/**
+ * Rango del mes para columnas de **solo fecha** (`Gasto.fecha`, @db.Date): Prisma
+ * las maneja como medianoche UTC. Para instantes, `rangoInstantesDelPeriodo`.
+ */
 export function rangoDelPeriodo(periodo: string): { gte: Date; lt: Date } {
   return {
     gte: new Date(`${periodo}-01T00:00:00.000Z`),
     lt: new Date(`${periodoSiguiente(periodo)}-01T00:00:00.000Z`),
+  };
+}
+
+/**
+ * Rango del mes para **instantes** (`abiertaAt`, `createdAt`): cortado a
+ * medianoche de Bogotá. Con medianoche UTC, lo ocurrido después de las 7 p. m.
+ * del último día caía en el mes siguiente.
+ */
+export function rangoInstantesDelPeriodo(periodo: string): { gte: Date; lt: Date } {
+  return {
+    gte: new Date(`${periodo}-01T00:00:00-05:00`),
+    lt: new Date(`${periodoSiguiente(periodo)}-01T00:00:00-05:00`),
   };
 }
 

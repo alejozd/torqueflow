@@ -45,9 +45,24 @@ describe("sincronizarCuentaPorPagar", () => {
         total: 2000,
         saldoPendiente: 2000,
         estado: "PENDIENTE",
-        fecha: new Date("2026-10-17T13:00:00Z"),
+        // @db.Date: el día de Bogotá de la entrada, como medianoche UTC.
+        fecha: new Date("2026-10-17T00:00:00.000Z"),
         creadoPorId: "u1",
       },
+    });
+  });
+
+  it("una entrada registrada a las 8 p. m. de Bogotá queda con la fecha de ese día, no la del siguiente", async () => {
+    tx.entradaMercancia.findUniqueOrThrow.mockResolvedValue({
+      ...entrada([{ cantidad: 1, precioCompraUnitario: "1000" }], null),
+      // 17 de octubre, 8 p. m. en Bogotá = 18 de octubre, 1 a. m. UTC.
+      createdAt: new Date("2026-10-18T01:00:00Z"),
+    });
+
+    await sincronizarCuentaPorPagar(tx as never, "e1", "u1");
+
+    expect(tx.cuentaPorPagar.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ fecha: new Date("2026-10-17T00:00:00.000Z") }),
     });
   });
 

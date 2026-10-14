@@ -1,3 +1,5 @@
+import { formatoDiaBogota } from "@/lib/fecha-bogota";
+
 /**
  * Pure aggregation helpers for the Inicio/Dashboard page (Fase 11-14 UI
  * redesign). Deliberately Prisma-type-free and side-effect-free -- same
@@ -16,28 +18,24 @@ export function totalOrden(orden: {
   return itemsTotal + manoDeObraTotal;
 }
 
-function aFechaIsoUtc(fecha: Date): string {
-  const anio = fecha.getUTCFullYear();
-  const mes = String(fecha.getUTCMonth() + 1).padStart(2, "0");
-  const dia = String(fecha.getUTCDate()).padStart(2, "0");
-  return `${anio}-${mes}-${dia}`;
-}
+const UN_DIA_MS = 24 * 60 * 60 * 1000;
 
 /**
- * The last `n` UTC calendar dates ending on `hoy` (inclusive), oldest first --
- * same UTC-boundary convention as src/lib/reportes/rango-fechas.ts (accepted
- * local-timezone limitation, not re-litigated here).
+ * The last `n` Bogotá calendar dates ending on `hoy` (inclusive), oldest first.
+ * Bogotá, not UTC: with UTC dates the Inicio rolled over to "tomorrow" at
+ * 7 p.m. local time. Same rule as src/lib/reportes/rango-fechas.ts.
  */
 export function ultimosNDiasIso(hoy: Date, n: number): string[] {
+  // Mediodía del día de Bogotá: restar días enteros nunca cruza a otra fecha.
+  const mediodia = new Date(`${formatoDiaBogota.format(hoy)}T12:00:00-05:00`).getTime();
   const dias: string[] = [];
   for (let i = n - 1; i >= 0; i -= 1) {
-    const fecha = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate() - i));
-    dias.push(aFechaIsoUtc(fecha));
+    dias.push(formatoDiaBogota.format(new Date(mediodia - i * UN_DIA_MS)));
   }
   return dias;
 }
 
-/** Sums Factura.total per UTC day, filling requested days with no facturas as 0. */
+/** Sums Factura.total per Bogotá day, filling requested days with no facturas as 0. */
 export function agruparFacturacionPorDia(
   facturas: { createdAt: Date; total: number }[],
   dias: string[],
@@ -47,7 +45,7 @@ export function agruparFacturacionPorDia(
     totalesPorDia.set(dia, 0);
   }
   for (const factura of facturas) {
-    const dia = aFechaIsoUtc(factura.createdAt);
+    const dia = formatoDiaBogota.format(factura.createdAt);
     if (!totalesPorDia.has(dia)) continue;
     totalesPorDia.set(dia, (totalesPorDia.get(dia) ?? 0) + factura.total);
   }

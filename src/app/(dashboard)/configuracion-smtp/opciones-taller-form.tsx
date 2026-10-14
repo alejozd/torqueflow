@@ -55,7 +55,7 @@ export function OpcionesTallerForm({ opciones }: { opciones: OpcionesTaller }) {
               defaultChecked={opciones[opcion.nombre]}
               className="peer sr-only"
             />
-            <span className="absolute inset-0 rounded-full bg-muted-foreground/30 transition-colors peer-checked:bg-primary" />
+            <span className="absolute inset-0 rounded-full bg-muted-foreground/30 transition-colors peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2" />
             <span className="absolute left-1 size-4 rounded-full bg-white transition-transform peer-checked:translate-x-5" />
           </label>
           <div className="flex flex-col gap-0.5">
@@ -64,7 +64,11 @@ export function OpcionesTallerForm({ opciones }: { opciones: OpcionesTaller }) {
           </div>
         </div>
       ))}
-      {state.error ? <p className="text-xs text-destructive">{state.error}</p> : null}
+      {state.error ? (
+        <p role="alert" className="text-xs text-destructive">
+          {state.error}
+        </p>
+      ) : null}
       <div>
         <Button type="submit" disabled={isPending}>
           Guardar
