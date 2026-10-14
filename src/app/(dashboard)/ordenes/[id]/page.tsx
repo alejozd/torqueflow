@@ -501,7 +501,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
                     id: item.id,
                     descripcion: `${item.descripcion} ×${item.cantidad}`,
                   }))}
-                  soloLectura={!esOrdenMutable(orden)}
+                  soloLectura={orden.estado === "ENTREGADA" || orden.estado === "ANULADA"}
                   puedeQuitar={puedeQuitar}
                 />
               </FormGroup>

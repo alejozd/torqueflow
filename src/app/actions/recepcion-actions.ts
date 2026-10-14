@@ -630,7 +630,9 @@ export async function agregarGarantiaAction(
 
   const session = await requireRole(ROLES_ORDEN);
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  const revisada = await cargarOrdenEditable(tenantDb, session.user.sedeActivaId, ordenId);
+  // Las garantías siguen la regla del acta, no la de los ítems: se registran al
+  // entregar, y lo normal es facturar antes de entregar (la factura no las bloquea).
+  const revisada = await cargarOrdenParaActa(tenantDb, session.user.sedeActivaId, ordenId);
   if ("error" in revisada) return { error: revisada.error, success: false };
 
   // La línea cubierta tiene que ser de esta orden: si no, la garantía apuntaría
@@ -695,7 +697,7 @@ export async function quitarGarantiaAction(garantiaId: string): Promise<Resultad
     select: { id: true, ordenId: true, orden: { select: { estado: true, factura: { select: { id: true } } } } },
   });
   if (!garantia) return { error: "Garantía no encontrada", success: false };
-  if (!esOrdenMutable(garantia.orden)) return { error: ORDEN_INMUTABLE, success: false };
+  if (!actaEditable(garantia.orden.estado)) return { error: ORDEN_INMUTABLE, success: false };
 
   try {
     await tenantDb.$transaction(async (tx) => {
