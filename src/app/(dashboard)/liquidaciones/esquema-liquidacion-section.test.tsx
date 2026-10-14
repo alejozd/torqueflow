@@ -93,7 +93,9 @@ describe("EsquemaLiquidacionSection", () => {
     await userEvent.click(screen.getByRole("button", { name: "Guardar esquema" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Un esquema mixto necesita el porcentaje y el monto base");
-    expect(screen.getByRole("button", { name: "Guardar esquema" })).toBeInTheDocument();
+    // findBy y no getBy: con la suite en paralelo el botón puede seguir un instante
+    // en "Guardando..." después de que aparece el error.
+    expect(await screen.findByRole("button", { name: "Guardar esquema" })).toBeInTheDocument();
   });
 
   it("quita el esquema tras confirmar", async () => {

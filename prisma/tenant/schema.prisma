@@ -26,6 +26,8 @@ enum TipoEventoAuditoria {
   LIQUIDACION_ESQUEMA_ACTUALIZAR
   LIQUIDACION_FRECUENCIA_ACTUALIZAR
   ACTA_FIRMAR
+  /// Fase de consolidación: entrega sin acta firmada (el taller no la exige).
+  ORDEN_ENTREGAR
   GARANTIA_REGISTRAR
   GARANTIA_ELIMINAR
   PRIORIDAD_CAMBIAR
@@ -877,6 +879,11 @@ model ConfiguracionTaller {
   /// Días sin actividad para considerar una orden estancada (Fase 22).
   diasOrdenEstancada    Int                   @default(3) @map("dias_orden_estancada")
   frecuenciaLiquidacion FrecuenciaLiquidacion @default(MENSUAL) @map("frecuencia_liquidacion")
+  /// Fase de consolidación (D1): si es false, entregar la orden no exige el acta firmada.
+  exigirActaFirmada     Boolean               @default(false) @map("exigir_acta_firmada")
+  /// Fase de consolidación (D3): si es false, ningún movimiento exige caja abierta;
+  /// si es true, solo los movimientos en efectivo la exigen.
+  usarControlCaja       Boolean               @default(false) @map("usar_control_caja")
   updatedAt             DateTime              @updatedAt @map("updated_at")
 
   @@map("configuracion_taller")

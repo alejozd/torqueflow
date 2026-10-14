@@ -7,6 +7,8 @@
 
 import readXlsxFile from "read-excel-file/node";
 import writeXlsxFile from "write-excel-file/node";
+import { MAX_BYTES_DESCOMPRIMIDO } from "./hojas";
+import { verificarZipAcotado } from "./zip-seguro";
 
 export interface HojaLeida {
   nombre: string;
@@ -21,6 +23,14 @@ export interface HojaEscrita {
 }
 
 type EntradaLector = Parameters<typeof readXlsxFile>[0];
+
+/** El libro descomprimido supera `MAX_BYTES_DESCOMPRIMIDO` (posible bomba zip). */
+export class LibroDemasiadoGrandeError extends Error {
+  constructor() {
+    super("El libro descomprimido supera el tope permitido");
+    this.name = "LibroDemasiadoGrandeError";
+  }
+}
 
 /** El lector devuelve celdas ricas (`{ value, type }`); aquí solo importa el valor. */
 function valorDeCelda(celda: unknown): unknown {
@@ -40,6 +50,13 @@ function valorDeCelda(celda: unknown): unknown {
  */
 export async function leerLibro(archivo: Blob | Buffer): Promise<HojaLeida[]> {
   const datos = Buffer.isBuffer(archivo) ? archivo : Buffer.from(await archivo.arrayBuffer());
+  // Antes de entregárselo a la librería, que lo descomprime entero en memoria:
+  // un archivo de pocos KB puede expandirse a gigabytes (hallazgo M4).
+  const verificado = verificarZipAcotado(datos, MAX_BYTES_DESCOMPRIMIDO);
+  if (!verificado.ok) {
+    if (verificado.motivo === "demasiado-grande") throw new LibroDemasiadoGrandeError();
+    throw new Error("El archivo no es un libro de Excel válido");
+  }
   const hojas = await readXlsxFile(datos as unknown as EntradaLector);
   return hojas.map((hoja) => ({
     nombre: hoja.sheet,

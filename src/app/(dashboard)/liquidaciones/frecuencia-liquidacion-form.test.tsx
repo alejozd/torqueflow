@@ -16,7 +16,7 @@ import { FrecuenciaLiquidacionForm } from "./frecuencia-liquidacion-form";
 describe("FrecuenciaLiquidacionForm", () => {
   beforeEach(() => {
     mockGuardar.mockReset();
-    mockGuardar.mockResolvedValue({ error: null, success: true, advertencia: null });
+    mockGuardar.mockResolvedValue({ error: null, success: true });
   });
 
   it("muestra las tres frecuencias en español", async () => {
@@ -41,21 +41,8 @@ describe("FrecuenciaLiquidacionForm", () => {
     expect(formData.get("frecuencia")).toBe("QUINCENAL");
   });
 
-  it("muestra la advertencia cuando ya hay liquidaciones del mes", async () => {
-    mockGuardar.mockResolvedValue({
-      error: null,
-      success: true,
-      advertencia: "Ya hay liquidaciones de este mes: revisa que no vayas a pagar dos veces el mismo trabajo.",
-    });
-    render(<FrecuenciaLiquidacionForm frecuencia="MENSUAL" />);
-
-    await userEvent.click(screen.getByRole("button", { name: "Guardar frecuencia" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("Ya hay liquidaciones de este mes");
-  });
-
   it("muestra el error de la action", async () => {
-    mockGuardar.mockResolvedValue({ error: "Frecuencia inválida", success: false, advertencia: null });
+    mockGuardar.mockResolvedValue({ error: "Frecuencia inválida", success: false });
     render(<FrecuenciaLiquidacionForm frecuencia="MENSUAL" />);
 
     await userEvent.click(screen.getByRole("button", { name: "Guardar frecuencia" }));

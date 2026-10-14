@@ -10,7 +10,8 @@ import {
   ventanasSolapan,
 } from "./periodo";
 
-const UTC = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
+/** Medianoche de Bogotá (UTC-5 fijo): los periodos cortan ahí, no en UTC (hallazgo B2). */
+const BOG = (iso: string) => new Date(`${iso}T00:00:00-05:00`);
 
 describe("periodoActual", () => {
   it("lee el periodo del calendario de Bogotá, no del UTC", () => {
@@ -44,28 +45,38 @@ describe("periodoActual", () => {
 });
 
 describe("rangoDelPeriodo", () => {
-  it("mensual: del día 1 al 1 del mes siguiente, medianoche UTC", () => {
+  it("mensual: del día 1 al 1 del mes siguiente, medianoche de Bogotá", () => {
     expect(rangoDelPeriodo("MENSUAL", "2026-10")).toEqual({
-      gte: UTC("2026-10-01"),
-      lt: UTC("2026-11-01"),
+      gte: BOG("2026-10-01"),
+      lt: BOG("2026-11-01"),
     });
     expect(rangoDelPeriodo("MENSUAL", "2026-12")).toEqual({
-      gte: UTC("2026-12-01"),
-      lt: UTC("2027-01-01"),
+      gte: BOG("2026-12-01"),
+      lt: BOG("2027-01-01"),
     });
+  });
+
+  it("una orden entregada el último día del mes por la noche (hora de Bogotá) cuenta en ese mes (B2)", () => {
+    // 31 de octubre a las 8 p. m. en Bogotá = 1 de noviembre a la 1 a. m. UTC.
+    const entregada = new Date("2026-11-01T01:00:00.000Z");
+    const octubre = rangoDelPeriodo("MENSUAL", "2026-10");
+    const noviembre = rangoDelPeriodo("MENSUAL", "2026-11");
+
+    expect(entregada >= octubre.gte && entregada < octubre.lt).toBe(true);
+    expect(entregada >= noviembre.gte && entregada < noviembre.lt).toBe(false);
   });
 
   it("quincenal: 1–15 y 16–fin de mes, con febrero incluido", () => {
-    expect(rangoDelPeriodo("QUINCENAL", "2026-10-Q1")).toEqual({ gte: UTC("2026-10-01"), lt: UTC("2026-10-16") });
-    expect(rangoDelPeriodo("QUINCENAL", "2026-10-Q2")).toEqual({ gte: UTC("2026-10-16"), lt: UTC("2026-11-01") });
-    expect(rangoDelPeriodo("QUINCENAL", "2026-02-Q2")).toEqual({ gte: UTC("2026-02-16"), lt: UTC("2026-03-01") });
+    expect(rangoDelPeriodo("QUINCENAL", "2026-10-Q1")).toEqual({ gte: BOG("2026-10-01"), lt: BOG("2026-10-16") });
+    expect(rangoDelPeriodo("QUINCENAL", "2026-10-Q2")).toEqual({ gte: BOG("2026-10-16"), lt: BOG("2026-11-01") });
+    expect(rangoDelPeriodo("QUINCENAL", "2026-02-Q2")).toEqual({ gte: BOG("2026-02-16"), lt: BOG("2026-03-01") });
   });
 
   it("semanal: lunes a lunes", () => {
-    expect(rangoDelPeriodo("SEMANAL", "2026-W41")).toEqual({ gte: UTC("2026-10-05"), lt: UTC("2026-10-12") });
+    expect(rangoDelPeriodo("SEMANAL", "2026-W41")).toEqual({ gte: BOG("2026-10-05"), lt: BOG("2026-10-12") });
     // La semana 1 puede empezar en el año anterior.
-    expect(rangoDelPeriodo("SEMANAL", "2026-W01")).toEqual({ gte: UTC("2025-12-29"), lt: UTC("2026-01-05") });
-    expect(rangoDelPeriodo("SEMANAL", "2026-W53")).toEqual({ gte: UTC("2026-12-28"), lt: UTC("2027-01-04") });
+    expect(rangoDelPeriodo("SEMANAL", "2026-W01")).toEqual({ gte: BOG("2025-12-29"), lt: BOG("2026-01-05") });
+    expect(rangoDelPeriodo("SEMANAL", "2026-W53")).toEqual({ gte: BOG("2026-12-28"), lt: BOG("2027-01-04") });
   });
 });
 

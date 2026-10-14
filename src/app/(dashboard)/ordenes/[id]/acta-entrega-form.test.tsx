@@ -63,7 +63,7 @@ describe("ActaEntregaForm", () => {
   });
 
   it("entregar pide confirmación porque es irreversible", async () => {
-    renderForm();
+    renderForm({ exigirFirma: true });
 
     await userEvent.type(screen.getByLabelText("Recibe (nombre)"), "María");
     await userEvent.click(screen.getByRole("button", { name: "Entregar y firmar" }));
@@ -78,11 +78,38 @@ describe("ActaEntregaForm", () => {
     expect(formData.get("accion")).toBe("entregar");
   });
 
+  it("si el taller no exige firma, entregar es un botón y la confirmación lo explica", async () => {
+    renderForm({ exigirFirma: false });
+
+    expect(screen.queryByRole("button", { name: "Entregar y firmar" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Entregar" }));
+
+    expect(screen.getByText(/el acta queda sin firma y se puede firmar después/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Sí, entregar" }));
+    expect(mockEntregar).toHaveBeenCalledTimes(1);
+  });
+
+  it("si el taller exige firma, lo dice junto al botón", () => {
+    renderForm({ exigirFirma: true });
+
+    expect(screen.getByRole("button", { name: "Entregar y firmar" })).toBeInTheDocument();
+    expect(screen.getByText("Este taller exige la firma de quien recibe para entregar.")).toBeInTheDocument();
+  });
+
+  it("una orden que no está terminada no ofrece entregar y explica por qué", () => {
+    renderForm({ estado: "EN_PROCESO" });
+
+    expect(screen.queryByRole("button", { name: /^Entregar/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/se entrega cuando esté Terminada/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Guardar sin firmar" })).toBeInTheDocument();
+  });
+
   it("una orden entregada sin firma solo se firma", () => {
     renderForm({ estado: "ENTREGADA" });
 
     expect(screen.getByRole("button", { name: "Firmar el acta" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Entregar y firmar" })).not.toBeInTheDocument();
+    expect(screen.getByText(/se entregó sin firma/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Entregar/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Guardar sin firmar" })).not.toBeInTheDocument();
   });
 
@@ -111,7 +138,7 @@ describe("ActaEntregaForm", () => {
 
   it("muestra el error de la action (por ejemplo, si falta la firma)", async () => {
     mockEntregar.mockResolvedValue({ error: "Falta la firma de quien recibe", success: false });
-    renderForm();
+    renderForm({ exigirFirma: true });
 
     await userEvent.click(screen.getByRole("button", { name: "Entregar y firmar" }));
     await userEvent.click(screen.getByRole("button", { name: "Sí, entregar" }));

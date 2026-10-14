@@ -27,30 +27,6 @@ export function totalLiquidacion(montoCalculado: number, ajuste: number): number
   return roundMoney(montoCalculado + ajuste);
 }
 
-export interface ProduccionDelPeriodo {
-  ordenes: number;
-  trabajos: number;
-  montoManoObra: number;
-}
-
-/**
- * Lo que el documento congeló, con el monto que se calculó con el esquema de
- * entonces (D10): si el taller produjo más trabajo o cambió el esquema, el
- * monto calculado ahora ya no coincide y hay que avisar antes de pagar.
- */
-export interface LiquidacionCongelada extends ProduccionDelPeriodo {
-  montoCalculado: number;
-}
-
-export function hayCambiosSinReflejar(documento: LiquidacionCongelada, vivo: LiquidacionCongelada): boolean {
-  return (
-    documento.ordenes !== vivo.ordenes ||
-    documento.trabajos !== vivo.trabajos ||
-    documento.montoManoObra !== vivo.montoManoObra ||
-    documento.montoCalculado !== vivo.montoCalculado
-  );
-}
-
 /** Promedio de mano de obra por trabajo; null cuando todavía no hay trabajos. */
 export function montoPorTrabajo(montoManoObra: number, trabajos: number): number | null {
   if (trabajos <= 0) return null;

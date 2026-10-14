@@ -1,6 +1,7 @@
 "use client";
 
-import type { CajaCerradaFila, MovimientoCajaFila } from "@/app/actions/caja-actions";
+import type { MovimientoCajaFila } from "@/app/actions/caja-actions";
+import type { CajaCerradaFila } from "@/lib/caja/resumen";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 

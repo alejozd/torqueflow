@@ -17,6 +17,7 @@ import {
   diasEstancadaSchema,
 } from "@/lib/validation/orden";
 import { leerDiasEstancada } from "@/lib/orden/configuracion-estancada";
+import { leerOpcionesTaller, type OpcionesTaller } from "@/lib/configuracion/opciones-taller";
 
 export interface ConfiguracionTallerFormState {
   error: string | null;
@@ -41,6 +42,46 @@ export async function getDiasAvisoVencimiento(): Promise<number> {
 export async function getDiasEstancada(): Promise<number> {
   const session = await requireSession();
   return leerDiasEstancada(getTenantDb(session.user.tenantSchema));
+}
+
+/** Fase de consolidación: firma obligatoria al entregar y control de caja. */
+export async function getOpcionesTaller(): Promise<OpcionesTaller> {
+  const session = await requireSession();
+  return leerOpcionesTaller(getTenantDb(session.user.tenantSchema));
+}
+
+/**
+ * Guarda las dos opciones del taller. Son casillas: una sin marcar no viaja en el
+ * formulario, así que se lee como apagada; solo el valor "true" la enciende.
+ */
+export async function guardarOpcionesTallerAction(
+  prevState: ConfiguracionTallerFormState,
+  formData: FormData,
+): Promise<ConfiguracionTallerFormState> {
+  void prevState;
+  const session = await requireRole(["ADMIN"]);
+  const opciones: OpcionesTaller = {
+    exigirActaFirmada: formData.get("exigirActaFirmada") === "true",
+    usarControlCaja: formData.get("usarControlCaja") === "true",
+  };
+
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  try {
+    await tenantDb.configuracionTaller.upsert({
+      where: { id: CONFIGURACION_TALLER_ID },
+      create: { id: CONFIGURACION_TALLER_ID, ...opciones },
+      update: opciones,
+    });
+  } catch (err) {
+    return { error: friendlyPrismaErrorMessage(err, "No se pudo guardar la configuración"), success: false };
+  }
+
+  // Las opciones cambian lo que muestran la orden, la caja y el mostrador.
+  revalidatePath("/configuracion-smtp");
+  revalidatePath("/ordenes", "layout");
+  revalidatePath("/caja");
+  revalidatePath("/mostrador");
+  return { error: null, success: true };
 }
 
 export async function guardarDiasEstancadaAction(

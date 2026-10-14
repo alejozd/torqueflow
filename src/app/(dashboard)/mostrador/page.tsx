@@ -11,7 +11,7 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", curren
 const formatoHora = new Intl.DateTimeFormat("es-CO", { hour: "2-digit", minute: "2-digit", timeZone: "America/Bogota" });
 
 export default async function MostradorPage() {
-  const { cajaAbierta, repuestos, clientes, ventas } = await getMostradorDatos();
+  const { efectivoBloqueado, repuestos, clientes, ventas } = await getMostradorDatos();
 
   const columnas: DataTableColumn<(typeof ventas)[number]>[] = [
     { header: "Venta", cell: (venta) => <span className="font-mono">#{venta.numero}</span> },
@@ -48,20 +48,19 @@ export default async function MostradorPage() {
             en el arqueo de la caja abierta.
           </p>
         </div>
-        <BotonExportar reporte="ventas-hoy" etiqueta="Exportar ventas de hoy" />
+        <BotonExportar reporte="ventas" etiqueta="Exportar ventas" />
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Nueva venta</CardTitle>
           <CardDescription>
-            {cajaAbierta
-              ? "Busca el repuesto, ajusta cantidades y cobra. Las unidades libres ya descuentan lo comprometido en órdenes abiertas."
-              : "La caja de tu sede está cerrada: ábrela para poder cobrar."}
+            Busca el repuesto, ajusta cantidades y cobra. Las unidades libres ya descuentan lo comprometido en
+            órdenes abiertas.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <CarritoMostrador repuestos={repuestos} clientes={clientes} cajaAbierta={cajaAbierta} />
+          <CarritoMostrador repuestos={repuestos} clientes={clientes} efectivoBloqueado={efectivoBloqueado} />
         </CardContent>
       </Card>
 

@@ -51,3 +51,47 @@ export function diferenciaCierre(
   const diferencia = roundMoney(contado - esperado);
   return { diferencia, tipo: diferencia === 0 ? "CUADRA" : diferencia > 0 ? "SOBRANTE" : "FALTANTE" };
 }
+
+export interface CajaCerradaFila {
+  id: string;
+  abiertaAt: Date;
+  cerradaAt: Date;
+  abrioPorNombre: string;
+  cerroPorNombre: string;
+  baseInicial: number;
+  esperado: number;
+  contado: number;
+  diferencia: number;
+  tipo: "CUADRA" | "SOBRANTE" | "FALTANTE";
+  notas: string | null;
+}
+
+/** Una sesión de caja cerrada como fila del historial (pantalla y exportación). */
+export function filaCajaCerrada(caja: {
+  id: string;
+  abiertaAt: Date;
+  cerradaAt: Date | null;
+  baseInicial: { toString(): string } | number;
+  efectivoEsperado: { toString(): string } | number | null;
+  efectivoContado: { toString(): string } | number | null;
+  notas: string | null;
+  abiertaPor: { nombre: string };
+  cerradaPor: { nombre: string } | null;
+}): CajaCerradaFila {
+  const esperado = Number(caja.efectivoEsperado ?? 0);
+  const contado = Number(caja.efectivoContado ?? 0);
+  const { diferencia, tipo } = diferenciaCierre(esperado, contado);
+  return {
+    id: caja.id,
+    abiertaAt: caja.abiertaAt,
+    cerradaAt: caja.cerradaAt as Date,
+    abrioPorNombre: caja.abiertaPor.nombre,
+    cerroPorNombre: caja.cerradaPor?.nombre ?? "—",
+    baseInicial: Number(caja.baseInicial),
+    esperado,
+    contado,
+    diferencia,
+    tipo,
+    notas: caja.notas,
+  };
+}

@@ -9,6 +9,7 @@ import { listProveedores } from "@/app/actions/proveedor-actions";
 import { listDviChecklistItems } from "@/app/actions/dvi-checklist-item-actions";
 import { listAnticiposDeOrden } from "@/app/actions/anticipo-actions";
 import { listServicios } from "@/app/actions/servicio-actions";
+import { getOpcionesTaller } from "@/app/actions/configuracion-taller-actions";
 import { AnticiposSection } from "./anticipos-section";
 import { AsignarMecanicoForm } from "./asignar-mecanico-form";
 import { CambiarEstadoForm } from "./cambiar-estado-form";
@@ -197,7 +198,7 @@ function InfoField({ label, value }: { label: string; value: ReactNode }) {
 
 export default async function OrdenDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [session, orden, repuestos, tecnicos, bodegas, proveedores, dviItems, anticipos, servicios] = await Promise.all([
+  const [session, orden, repuestos, tecnicos, bodegas, proveedores, dviItems, anticipos, servicios, opcionesTaller] = await Promise.all([
     requireSession(),
     getOrden(id),
     listRepuestoOptions(),
@@ -207,6 +208,7 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
     listDviChecklistItems(),
     listAnticiposDeOrden(id),
     listServicios({ soloActivos: true }),
+    getOpcionesTaller(),
   ]);
 
   if (!orden) {
@@ -455,7 +457,8 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
             <CardHeader>
               <CardTitle>Acta de entrega y garantías</CardTitle>
               <CardAction>
-                {orden.acta?.firmadaAt ? (
+                {/* Se puede imprimir antes de firmar: firmar en papel y subir la foto es una de las dos formas. */}
+                {orden.estado === "TERMINADA" || orden.estado === "ENTREGADA" ? (
                   <Link href={`/ordenes/${orden.id}/acta/imprimir`} className="text-sm underline underline-offset-4">
                     Imprimir acta
                   </Link>
@@ -466,8 +469,13 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
               <ActaEntregaForm
                 ordenId={orden.id}
                 estado={orden.estado}
-                editable={esOrdenMutable(orden)}
-                puedeBorrar={puedeQuitar}
+                // El acta no depende de la factura (fase de consolidación, D2): solo una
+                // orden anulada la deja de solo lectura; una entregada sin firma se firma.
+                editable={orden.estado !== "ANULADA"}
+                exigirFirma={opcionesTaller.exigirActaFirmada}
+                puedeBorrar={
+                  orden.estado !== "ENTREGADA" && orden.estado !== "ANULADA" && session.user.role !== "TECNICO"
+                }
                 acta={
                   orden.acta
                     ? {

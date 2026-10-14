@@ -1,5 +1,6 @@
 import { Banknote, CreditCard, Landmark, TrendingDown } from "lucide-react";
 import { getCajaActual, listCajasCerradas } from "@/app/actions/caja-actions";
+import { getOpcionesTaller } from "@/app/actions/configuracion-taller-actions";
 import { listSedes } from "@/app/actions/sede-actions";
 import { requireRole } from "@/lib/auth/guards";
 import { periodoActualBogota } from "@/lib/gastos/periodo";
@@ -37,6 +38,7 @@ export default async function CajaPage({
   // redirect()s by throwing.
   const actual = await getCajaActual({ sedeId: sedePedida || undefined });
   const historial = await listCajasCerradas({ sedeId: actual.sedeId, periodo });
+  const { usarControlCaja } = await getOpcionesTaller();
   const sedes = esAdmin ? await listSedes() : undefined;
   const sedesOpciones = sedes?.map((s) => ({ id: s.id, nombre: s.nombre }));
   const nombreSede = sedes?.find((s) => s.id === actual.sedeId)?.nombre ?? session.user.sedeActivaNombre ?? "";
@@ -57,9 +59,9 @@ export default async function CajaPage({
           <Alert>
             <AlertTitle>La caja está cerrada</AlertTitle>
             <AlertDescription>
-              Todo el dinero de la sede pasa por la caja: cobros, anticipos, gastos en efectivo y pagos a proveedores
-              exigen la caja abierta para que ninguno quede fuera del arqueo. Ábrela para poder registrar
-              movimientos.
+              {usarControlCaja
+                ? "Este taller usa control de caja: los cobros y pagos en efectivo exigen la caja abierta para que ninguno quede fuera del arqueo. Tarjeta y transferencia no la necesitan."
+                : "El control de caja está apagado: nada exige abrirla. Si la abres, el arqueo cuenta el efectivo que entre y salga mientras esté abierta. Se enciende en Configuración."}
             </AlertDescription>
           </Alert>
           <Card>

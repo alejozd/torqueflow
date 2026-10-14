@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
-import { sesionDeCajaAbierta } from "@/lib/caja/sesion";
+import { exigirCajaParaEfectivo } from "@/lib/caja/sesion";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { pagoInputSchema } from "@/lib/validation/factura";
@@ -41,12 +41,15 @@ export async function registrarPagoAction(
     return { error: "Factura no encontrada", success: false };
   }
 
-  // Fase 24 (D2): cobrar exige caja abierta. El arqueo calcula su ventana por sede
-  // y `createdAt`, así que un cobro con la caja cerrada se registraba y no aparecía
-  // en ningún arqueo: dinero que no cuadra.
-  if (!(await sesionDeCajaAbierta(tenantDb, session.user.sedeActivaId))) {
-    return { error: "Abre la caja antes de registrar el cobro", success: false };
-  }
+  // Un cobro en efectivo exige caja abierta si el taller usa el control de caja
+  // (fase de consolidación, D3): si no, el arqueo no lo vería.
+  const errorCaja = await exigirCajaParaEfectivo(
+    tenantDb,
+    session.user.sedeActivaId,
+    parsed.data.metodoPago,
+    "Abre la caja antes de registrar el cobro",
+  );
+  if (errorCaja) return { error: errorCaja, success: false };
 
   try {
     await tenantDb.$transaction(async (tx) => {

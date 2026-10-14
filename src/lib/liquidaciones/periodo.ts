@@ -49,6 +49,16 @@ function medianocheUtc(dia: string): Date {
   return new Date(`${dia}T00:00:00.000Z`);
 }
 
+/**
+ * Medianoche de Bogotá (UTC-5 fijo, sin horario de verano). Los periodos cortan
+ * aquí: con la medianoche UTC, una orden entregada el último día del periodo
+ * después de las 7 p. m. caía en el siguiente (hallazgo B2). El resto de
+ * cálculos de calendario sigue en UTC: son días, no instantes.
+ */
+function medianocheBogota(dia: string): Date {
+  return new Date(`${dia}T00:00:00-05:00`);
+}
+
 function sumarDias(dia: string, dias: number): string {
   return aDiaIso(new Date(medianocheUtc(dia).getTime() + dias * UN_DIA_MS));
 }
@@ -110,21 +120,21 @@ export function periodoActual(frecuencia: FrecuenciaLiquidacion, ahora: Date): s
   return `${anioSemana}-W${pad2(semana)}`;
 }
 
-/** Ventana `{ gte, lt }` del periodo, para filtrar `entregadaAt` (medianoches UTC). */
+/** Ventana `{ gte, lt }` del periodo, para filtrar `entregadaAt` (medianoches de Bogotá). */
 export function rangoDelPeriodo(frecuencia: FrecuenciaLiquidacion, periodo: string): RangoPeriodo {
   if (frecuencia === "MENSUAL") {
     const [anio, mes] = partesMensual(periodo);
-    return { gte: medianocheUtc(`${anio}-${pad2(mes)}-01`), lt: medianocheUtc(primerDiaDelMesSiguiente(anio, mes)) };
+    return { gte: medianocheBogota(`${anio}-${pad2(mes)}-01`), lt: medianocheBogota(primerDiaDelMesSiguiente(anio, mes)) };
   }
   if (frecuencia === "QUINCENAL") {
     const [anio, mes, quincena] = partesQuincenal(periodo);
     const inicio = quincena === 1 ? `${anio}-${pad2(mes)}-01` : `${anio}-${pad2(mes)}-16`;
     const fin = quincena === 1 ? `${anio}-${pad2(mes)}-16` : primerDiaDelMesSiguiente(anio, mes);
-    return { gte: medianocheUtc(inicio), lt: medianocheUtc(fin) };
+    return { gte: medianocheBogota(inicio), lt: medianocheBogota(fin) };
   }
   const [anio, semana] = partesSemanal(periodo);
   const lunes = lunesDeSemanaIso(anio, semana);
-  return { gte: medianocheUtc(lunes), lt: medianocheUtc(sumarDias(lunes, 7)) };
+  return { gte: medianocheBogota(lunes), lt: medianocheBogota(sumarDias(lunes, 7)) };
 }
 
 export function periodoAnterior(frecuencia: FrecuenciaLiquidacion, periodo: string): string {

@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
 import type { FrecuenciaLiquidacion } from "@/generated/prisma-tenant";
 
-const initialState: FrecuenciaLiquidacionFormState = { error: null, success: false, advertencia: null };
+const initialState: FrecuenciaLiquidacionFormState = { error: null, success: false };
 
 const FRECUENCIAS = [
   { value: "SEMANAL", label: "Semanal (semanas ISO, de lunes a domingo)" },
@@ -21,9 +21,9 @@ const FRECUENCIAS = [
 ];
 
 /**
- * Cada cuánto liquida el taller (D5). Cambiarla no reinterpreta las
- * liquidaciones ya generadas -- cada una guarda su frecuencia --, pero si ya hay
- * del mes en curso la action devuelve una advertencia.
+ * Cada cuánto liquida el taller (D5). Cambiarla no reinterpreta lo ya pagado
+ * -- cada liquidación guarda su frecuencia -- y no permite pagar dos veces el
+ * mismo trabajo: un periodo cuya ventana ya se pagó en otro no se puede pagar.
  */
 export function FrecuenciaLiquidacionForm({ frecuencia }: { frecuencia: FrecuenciaLiquidacion }) {
   const [valor, setValor] = useState<FrecuenciaLiquidacion>(frecuencia);
@@ -65,11 +65,6 @@ export function FrecuenciaLiquidacionForm({ frecuencia }: { frecuencia: Frecuenc
       {state.error ? (
         <Alert variant="destructive">
           <AlertDescription>{state.error}</AlertDescription>
-        </Alert>
-      ) : null}
-      {state.advertencia ? (
-        <Alert>
-          <AlertDescription>{state.advertencia}</AlertDescription>
         </Alert>
       ) : null}
     </div>

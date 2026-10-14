@@ -25,7 +25,8 @@ const pedidoCompra = { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), u
 const entradaMercancia = { create: vi.fn(), findUniqueOrThrow: vi.fn() };
 const cuentaPorPagar = { create: vi.fn(), update: vi.fn() };
 const configuracionSmtp = { findUnique: vi.fn() };
-const tx = { repuesto, pedidoCompra, entradaMercancia, cuentaPorPagar };
+// `$queryRaw`: el sincronizador de la deuda bloquea la fila de la entrada (M3).
+const tx = { repuesto, pedidoCompra, entradaMercancia, cuentaPorPagar, $queryRaw: vi.fn().mockResolvedValue([]) };
 const $transaction = vi.fn((fn: (cliente: typeof tx) => unknown) => fn(tx));
 
 vi.mock("@/lib/db/tenant-client", () => ({

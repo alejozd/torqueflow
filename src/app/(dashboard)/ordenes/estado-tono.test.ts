@@ -5,7 +5,7 @@ describe("destinosArrastrables", () => {
   it("solo ofrece transiciones válidas y nunca Entregada ni Anular", () => {
     expect(destinosArrastrables("BORRADOR")).toEqual(["EN_PROCESO"]);
     expect(destinosArrastrables("EN_PROCESO")).toEqual(["TERMINADA"]);
-    // Terminada solo va a Entregada, que exige firmar el acta: no se arrastra.
+    // Terminada solo va a Entregada, que se hace desde el acta: no se arrastra.
     expect(destinosArrastrables("TERMINADA")).toEqual([]);
     expect(destinosArrastrables("ENTREGADA")).toEqual([]);
     expect(destinosArrastrables("ANULADA")).toEqual([]);
@@ -14,7 +14,7 @@ describe("destinosArrastrables", () => {
 
 describe("puedeEntregar, puedeAnular y ofreceMenu", () => {
   it("una orden terminada y editable puede entregarse aunque no haya nada que arrastrar", () => {
-    expect(puedeEntregar("TERMINADA", true)).toBe(true);
+    expect(puedeEntregar("TERMINADA")).toBe(true);
     expect(destinosArrastrables("TERMINADA")).toEqual([]);
     // Este es el caso que ocultaba el menú justo donde más falta hace.
     expect(ofreceMenu("TERMINADA", true)).toBe(true);
@@ -27,12 +27,19 @@ describe("puedeEntregar, puedeAnular y ofreceMenu", () => {
     expect(puedeAnular("ENTREGADA", true)).toBe(false);
   });
 
-  it("nada de esto se ofrece si la orden ya no es editable", () => {
-    for (const estado of ["BORRADOR", "EN_PROCESO", "TERMINADA", "ENTREGADA", "ANULADA"] as const) {
+  it("si la orden ya no es editable no se mueve ni se anula", () => {
+    for (const estado of ["BORRADOR", "EN_PROCESO", "ENTREGADA", "ANULADA"] as const) {
       expect(ofreceMenu(estado, false)).toBe(false);
-      expect(puedeEntregar(estado, false)).toBe(false);
+      expect(puedeEntregar(estado)).toBe(false);
       expect(puedeAnular(estado, false)).toBe(false);
     }
+  });
+
+  it("una orden terminada y ya facturada sigue ofreciendo entregar (la factura no bloquea la entrega)", () => {
+    // "No editable" en una TERMINADA solo puede ser por la factura.
+    expect(puedeEntregar("TERMINADA")).toBe(true);
+    expect(ofreceMenu("TERMINADA", false)).toBe(true);
+    expect(puedeAnular("TERMINADA", false)).toBe(false);
   });
 
   it("anular es el único movimiento que pide confirmación", () => {

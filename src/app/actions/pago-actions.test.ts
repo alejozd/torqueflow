@@ -1,5 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
+const opcionesTaller = { exigirActaFirmada: false, usarControlCaja: true };
+
 const mockRequireRole = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
   requireRole: (...args: unknown[]) => mockRequireRole(...args),
@@ -25,6 +27,8 @@ vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     factura: { findFirst: mockFacturaFindFirst },
     cajaSesion: { findFirst: mockCajaFindFirst },
+    // Control de caja encendido: la regla del efectivo aplica (fase de consolidación, D3).
+    configuracionTaller: { findUnique: async () => opcionesTaller },
     $transaction: mockTransaction,
   }),
 }));
@@ -46,6 +50,24 @@ describe("registrarPagoAction", () => {
     mockFacturaUpdate.mockReset();
     mockCajaFindFirst.mockReset().mockResolvedValue({ id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
     mockTransaction.mockClear();
+  });
+
+  it("con la caja cerrada sí cobra con tarjeta, y en efectivo si el taller no usa control de caja", async () => {
+    mockCajaFindFirst.mockResolvedValue(null);
+    const conTarjeta = new FormData();
+    conTarjeta.set("monto", "10000");
+    conTarjeta.set("metodoPago", "TARJETA");
+    expect(await registrarPagoAction("f1", initialState, conTarjeta)).toEqual({ error: null, success: true });
+
+    const enEfectivo = new FormData();
+    enEfectivo.set("monto", "10000");
+    enEfectivo.set("metodoPago", "EFECTIVO");
+    opcionesTaller.usarControlCaja = false;
+    try {
+      expect(await registrarPagoAction("f1", initialState, enEfectivo)).toEqual({ error: null, success: true });
+    } finally {
+      opcionesTaller.usarControlCaja = true;
+    }
   });
 
   it("no cobra con la caja cerrada (Fase 24: el arqueo no lo vería)", async () => {

@@ -45,8 +45,11 @@ export interface ActaVista {
  * foto del papel) y los tres desenlaces posibles:
  *
  * - `borrador`: guarda los datos sin firmar (la orden sigue abierta),
- * - `entregar`: firma y pasa la orden a ENTREGADA en una sola operación,
+ * - `entregar`: pasa la orden a ENTREGADA (con la firma, o sin ella si el taller
+ *   no la exige: fase de consolidación, D1),
  * - `firmar`: la orden ya se entregó y el cliente firma más tarde.
+ *
+ * Solo una orden TERMINADA ofrece entregar; antes, el formulario dice por qué no.
  *
  * Un único formulario con un despachador en el cliente: el botón que se pulsa
  * decide qué acción corre, y entregar pasa por una confirmación porque es
@@ -57,13 +60,16 @@ export function ActaEntregaForm({
   estado,
   acta,
   editable,
+  exigirFirma = false,
   puedeBorrar = false,
 }: {
   ordenId: string;
   estado: string;
   acta: ActaVista | null;
-  /** La orden sigue editable (`esOrdenMutable`): si no, el acta es solo lectura. */
+  /** Falso solo para una orden anulada: el acta queda de solo lectura. */
   editable: boolean;
+  /** Opción del taller "Exigir acta firmada al entregar". */
+  exigirFirma?: boolean;
   /** ADMIN/RECEPCION: puede borrar el borrador del acta. */
   puedeBorrar?: boolean;
 }) {
@@ -86,6 +92,7 @@ export function ActaEntregaForm({
   const firmada = Boolean(acta?.firmadaAt);
   const yaEntregada = estado === "ENTREGADA";
   const soloFirma = yaEntregada && !firmada;
+  const puedeEntregar = estado === "TERMINADA";
 
   // Cuál de las tres acciones corre lo decide el botón que se pulsa (su
   // `name="accion"` viaja en el FormData y también funciona sin JS): leerlo del
@@ -144,17 +151,18 @@ export function ActaEntregaForm({
             </div>
           </dl>
         ) : null}
-        <p className="text-xs text-muted-foreground">
-          {estado === "ENTREGADA"
-            ? "La orden ya está entregada y el acta quedó sin firma."
-            : "La orden está anulada: el acta de entrega no se puede modificar."}
-        </p>
+        <p className="text-xs text-muted-foreground">La orden está anulada: el acta de entrega no se puede modificar.</p>
       </div>
     );
   }
 
   return (
     <form action={formAction} onSubmit={alEnviar} className="flex flex-col gap-4">
+      {soloFirma ? (
+        <p className="text-xs text-muted-foreground">
+          La orden se entregó sin firma. Si quien recibió quiere firmar, puede hacerlo aquí.
+        </p>
+      ) : null}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="recibidoPor">Recibe (nombre)</Label>
@@ -216,7 +224,11 @@ export function ActaEntregaForm({
 
       {confirmando ? (
         <ConfirmacionEnLinea
-          pregunta="¿Entregar la orden y firmar el acta? La orden ya no se podrá editar."
+          pregunta={
+            exigirFirma
+              ? "¿Entregar la orden con el acta firmada? La orden ya no se podrá editar."
+              : "¿Entregar la orden? Si quien recibe no firmó, el acta queda sin firma y se puede firmar después. La orden ya no se podrá editar."
+          }
           etiquetaConfirmar="Sí, entregar"
           destructiva={false}
           enviaFormulario
@@ -236,14 +248,24 @@ export function ActaEntregaForm({
               <Button type="submit" name="accion" value="borrador" variant="outline" disabled={isPending}>
                 {isPending ? "Guardando..." : "Guardar sin firmar"}
               </Button>
-              <Button type="submit" name="accion" value="entregar" disabled={isPending}>
-                {isPending ? "Entregando..." : "Entregar y firmar"}
-              </Button>
+              {puedeEntregar ? (
+                <Button type="submit" name="accion" value="entregar" disabled={isPending}>
+                  {isPending ? "Entregando..." : exigirFirma ? "Entregar y firmar" : "Entregar"}
+                </Button>
+              ) : null}
               {acta && puedeBorrar ? <BorrarActa ordenId={ordenId} /> : null}
             </>
           )}
         </div>
       )}
+      {!soloFirma && !puedeEntregar ? (
+        <p className="text-xs text-muted-foreground">
+          La orden se entrega cuando esté Terminada: por ahora puedes ir dejando los datos del acta.
+        </p>
+      ) : null}
+      {!soloFirma && puedeEntregar && exigirFirma ? (
+        <p className="text-xs text-muted-foreground">Este taller exige la firma de quien recibe para entregar.</p>
+      ) : null}
 
       {state.error ? (
         <Alert variant="destructive">
@@ -252,7 +274,7 @@ export function ActaEntregaForm({
       ) : null}
       {state.success ? (
         <p role="status" className="text-xs text-muted-foreground">
-          {soloFirma ? "Acta firmada." : "Acta guardada. Si firmaste, usa «Entregar y firmar»."}
+          {soloFirma ? "Acta firmada." : "Acta guardada."}
         </p>
       ) : null}
     </form>

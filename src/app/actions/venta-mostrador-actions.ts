@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth/guards";
-import { sesionDeCajaAbierta } from "@/lib/caja/sesion";
+import { requireRole } from "@/lib/auth/guards";
+import { exigirCajaParaEfectivo, sesionDeCajaAbierta } from "@/lib/caja/sesion";
+import { leerOpcionesTaller } from "@/lib/configuracion/opciones-taller";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { inicioDiaBogota } from "@/lib/fecha-bogota";
@@ -17,14 +18,15 @@ import type { Role } from "@/generated/prisma-tenant";
  * con la sede de la sesión, cobro inmediato o a crédito si hay cliente, y el stock
  * descontado **con guarda y dentro de la misma transacción** que la venta.
  *
- * Cobrar (vender o abonar) exige caja abierta: es la única forma de que ningún
- * movimiento de dinero quede fuera del arqueo (D2).
+ * Cobrar en efectivo (al vender o al abonar) exige caja abierta si el taller usa
+ * el control de caja (fase de consolidación, D3): así ningún efectivo queda fuera
+ * del arqueo. Una venta a crédito no mueve dinero y no la exige.
  */
 
-const ROLES_VENTA: Role[] = ["ADMIN", "RECEPCION", "TECNICO"];
-const ROLES_COBRO: Role[] = ["ADMIN", "RECEPCION"];
+/** Vender es cobrar: el mostrador es de ADMIN y RECEPCION (fase de consolidación, D6). */
+const ROLES_MOSTRADOR: Role[] = ["ADMIN", "RECEPCION"];
 
-const SIN_CAJA = "Abre la caja antes de cobrar en el mostrador";
+const SIN_CAJA = "Abre la caja antes de cobrar en efectivo en el mostrador";
 const SALDO_INSUFICIENTE = "SALDO_INSUFICIENTE";
 const STOCK_INSUFICIENTE = "STOCK_INSUFICIENTE";
 
@@ -65,11 +67,14 @@ export async function crearVentaMostradorAction(
   if ("error" in leida) return { error: leida.error, success: false };
   const datos = leida.datos;
 
-  const session = await requireRole(ROLES_VENTA);
+  const session = await requireRole(ROLES_MOSTRADOR);
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
 
-  if (!(await sesionDeCajaAbierta(tenantDb, sedeId))) return { error: SIN_CAJA, success: false };
+  if (datos.cobrarTodo) {
+    const errorCaja = await exigirCajaParaEfectivo(tenantDb, sedeId, datos.metodoPago, SIN_CAJA);
+    if (errorCaja) return { error: errorCaja, success: false };
+  }
 
   if (datos.clienteId) {
     const cliente = await tenantDb.cliente.findFirst({ where: { id: datos.clienteId }, select: { id: true } });
@@ -79,28 +84,46 @@ export async function crearVentaMostradorAction(
     return { error: "Sin cliente identificado, la venta tiene que quedar pagada", success: false };
   }
 
-  const totales = calcularTotalesVenta(datos.lineas, datos.descuento);
+  // Los repuestos tienen que ser de la sede activa (el id llega del formulario), y
+  // su **precio y nombre salen de aquí**, nunca del navegador: si no, cualquiera
+  // podría vender una pieza a $1 con otro nombre (hallazgo M2). Las líneas libres
+  // (sin repuesto) sí conservan lo que se escribió.
+  const idsRepuesto = [...new Set(datos.lineas.flatMap((linea) => (linea.repuestoId ? [linea.repuestoId] : [])))];
+  const catalogo = new Map<string, { nombre: string; precioVenta: number }>();
+  if (idsRepuesto.length > 0) {
+    const propios = await tenantDb.repuesto.findMany({
+      where: { id: { in: idsRepuesto }, ...scopeRepuesto(sedeId) },
+      select: { id: true, nombre: true, precioVenta: true },
+    });
+    if (propios.length !== idsRepuesto.length) {
+      return { error: "Alguno de los repuestos no pertenece a tu sede activa", success: false };
+    }
+    for (const repuesto of propios) {
+      catalogo.set(repuesto.id, { nombre: repuesto.nombre, precioVenta: Number(repuesto.precioVenta) });
+    }
+  }
+  const lineas = datos.lineas.map((linea) => {
+    const repuesto = linea.repuestoId ? catalogo.get(linea.repuestoId) : undefined;
+    return repuesto
+      ? { ...linea, descripcion: repuesto.nombre, precioUnitario: repuesto.precioVenta }
+      : { ...linea, repuestoId: undefined };
+  });
+
+  // El esquema ya comparó el descuento con el subtotal del navegador; con los
+  // precios reales hay que volver a hacerlo (un total negativo sería un cobro negativo).
+  const subtotal = lineas.reduce((suma, linea) => suma + linea.cantidad * linea.precioUnitario, 0);
+  if (datos.descuento > subtotal) return { error: "El descuento no puede ser mayor que el subtotal", success: false };
+  const totales = calcularTotalesVenta(lineas, datos.descuento);
 
   // El stock se descuenta por repuesto, agregando las líneas repetidas (D8).
   const porRepuesto = new Map<string, { cantidad: number; descripcion: string }>();
-  for (const linea of datos.lineas) {
+  for (const linea of lineas) {
     if (!linea.repuestoId) continue;
     const acumulado = porRepuesto.get(linea.repuestoId);
     porRepuesto.set(linea.repuestoId, {
       cantidad: (acumulado?.cantidad ?? 0) + linea.cantidad,
       descripcion: linea.descripcion,
     });
-  }
-
-  // Los repuestos tienen que ser de la sede activa: el id llega del formulario.
-  if (porRepuesto.size > 0) {
-    const propios = await tenantDb.repuesto.findMany({
-      where: { id: { in: [...porRepuesto.keys()] }, ...scopeRepuesto(sedeId) },
-      select: { id: true },
-    });
-    if (propios.length !== porRepuesto.size) {
-      return { error: "Alguno de los repuestos no pertenece a tu sede activa", success: false };
-    }
   }
 
   let numero: number;
@@ -126,7 +149,7 @@ export async function crearVentaMostradorAction(
           estado: datos.cobrarTodo ? "PAGADA" : "PENDIENTE",
           creadoPorId: session.user.id,
           items: {
-            create: datos.lineas.map((linea) => ({
+            create: lineas.map((linea) => ({
               repuestoId: linea.repuestoId ?? null,
               descripcion: linea.descripcion,
               cantidad: linea.cantidad,
@@ -193,7 +216,8 @@ export interface VentaMostradorDia {
 }
 
 export interface MostradorDatos {
-  cajaAbierta: boolean;
+  /** El taller usa control de caja y la de la sede está cerrada: no se cobra en efectivo. */
+  efectivoBloqueado: boolean;
   repuestos: RepuestoMostrador[];
   clientes: { id: string; nombre: string }[];
   ventas: VentaMostradorDia[];
@@ -207,12 +231,13 @@ export interface MostradorDatos {
  * clientes para la venta a crédito y las ventas del día con lo ya devuelto.
  */
 export async function getMostradorDatos(): Promise<MostradorDatos> {
-  const session = await requireSession();
+  const session = await requireRole(ROLES_MOSTRADOR);
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
 
-  const [sesion, repuestos, clientes, ventas] = await Promise.all([
+  const [sesion, opciones, repuestos, clientes, ventas] = await Promise.all([
     sesionDeCajaAbierta(tenantDb, sedeId),
+    leerOpcionesTaller(tenantDb),
     tenantDb.repuesto.findMany({
       where: { ...scopeRepuesto(sedeId) },
       select: { id: true, codigo: true, nombre: true, precioVenta: true, stockActual: true },
@@ -238,7 +263,7 @@ export async function getMostradorDatos(): Promise<MostradorDatos> {
   const comprometido = await comprometidoPorRepuesto(tenantDb, sedeId);
 
   return {
-    cajaAbierta: sesion !== null,
+    efectivoBloqueado: opciones.usarControlCaja && sesion === null,
     repuestos: repuestos.map((repuesto) => {
       const tomado = comprometido.get(repuesto.id) ?? 0;
       return {
@@ -283,7 +308,7 @@ export async function cobrarVentaMostradorAction(
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
 
-  const session = await requireRole(ROLES_COBRO);
+  const session = await requireRole(ROLES_MOSTRADOR);
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
 
@@ -293,7 +318,8 @@ export async function cobrarVentaMostradorAction(
   });
   if (!venta) return { error: "Venta no encontrada", success: false };
   if (Number(venta.saldoPendiente) <= 0) return { error: "Esa venta ya está pagada", success: false };
-  if (!(await sesionDeCajaAbierta(tenantDb, sedeId))) return { error: SIN_CAJA, success: false };
+  const errorCaja = await exigirCajaParaEfectivo(tenantDb, sedeId, parsed.data.metodoPago, SIN_CAJA);
+  if (errorCaja) return { error: errorCaja, success: false };
 
   try {
     await tenantDb.$transaction(async (tx) => {

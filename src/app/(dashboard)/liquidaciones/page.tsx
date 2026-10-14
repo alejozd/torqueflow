@@ -66,7 +66,8 @@ export default async function LiquidacionesPage({
           <CardTitle>Producción y liquidación del periodo</CardTitle>
           <CardDescription>
             Órdenes entregadas dentro de la ventana del periodo, trabajos (líneas de mano de obra) y lo que le
-            corresponde a cada técnico según su esquema.
+            corresponde a cada técnico según su esquema. Se paga desde cada fila: el pago guarda el cálculo de ese
+            momento y entra como gasto de la sede.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">

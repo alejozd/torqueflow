@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const opcionesTaller = { exigirActaFirmada: false, usarControlCaja: true };
+
 const mockRequireRole = vi.fn();
 const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
@@ -14,6 +16,8 @@ const tx = {
 const db = {
   cuentaPorPagar: { findFirst: vi.fn(), findMany: vi.fn() },
   cajaSesion: { findFirst: vi.fn() },
+  // Control de caja encendido: la regla del efectivo aplica (fase de consolidación, D3).
+  configuracionTaller: { findUnique: async () => opcionesTaller },
   $transaction: (fn: (cliente: typeof tx) => unknown) => fn(tx),
 };
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
@@ -124,7 +128,15 @@ describe("abonarCuentaPorPagarAction", () => {
 describe("getCuentasPorPagar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireSession.mockResolvedValue(SESION);
+    mockRequireRole.mockResolvedValue(SESION);
+  });
+
+  it("solo ADMIN y RECEPCION ven lo que el taller debe (hallazgo B6)", async () => {
+    db.cuentaPorPagar.findMany.mockResolvedValue([]);
+
+    await getCuentasPorPagar();
+
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
   });
 
   it("agrupa por proveedor y calcula la antigüedad, solo lo pendiente y de la sede", async () => {
