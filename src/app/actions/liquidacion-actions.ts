@@ -238,6 +238,8 @@ export interface PagoLiquidacionFormState {
 
 const LIQUIDACION_NO_ENCONTRADA = "Liquidación no encontrada";
 const LIQUIDACION_YA_NO_PENDIENTE = "La liquidación ya no está pendiente";
+const LIQUIDACION_CAMBIO_AL_ANULAR =
+  "La liquidación cambió mientras la anulabas: revisa antes de volver a intentarlo";
 const CATEGORIA_FALTANTE = "Falta la categoría de gasto del sistema: aplica la migración de la fase 19";
 
 /**
@@ -762,9 +764,10 @@ export async function anularLiquidacionAction(liquidacionId: string, motivo: str
         await tx.gasto.deleteMany({ where: { id: documento.gastoId } });
       }
       const { count } = await tx.liquidacionMecanico.updateMany({
-        // Guardia de estado dentro de la transacción: no se anula lo que otro
-        // ADMIN acaba de pagar sin que el gasto se entere.
-        where: { id: liquidacionId, estado: { not: "ANULADA" } },
+        // Condicional al estado **y al gasto** leídos (hallazgo B1): si otro ADMIN
+        // la pagó entre la lectura y aquí, su gasto no es el que se borró arriba,
+        // así que no se anula (dejaría ese gasto suelto) y la transacción revierte.
+        where: { id: liquidacionId, estado: documento.estado, gastoId: documento.gastoId },
         data: {
           estado: "ANULADA",
           anuladaAt: new Date(),
@@ -773,7 +776,7 @@ export async function anularLiquidacionAction(liquidacionId: string, motivo: str
           gastoId: null,
         },
       });
-      if (count !== 1) throw new Error("La liquidación ya está anulada");
+      if (count !== 1) throw new Error(LIQUIDACION_CAMBIO_AL_ANULAR);
       await registrarEventoAuditoria(tx, {
         tipo: "LIQUIDACION_ANULAR",
         actorId: session.user.id,
@@ -783,7 +786,7 @@ export async function anularLiquidacionAction(liquidacionId: string, motivo: str
       });
     });
   } catch (err) {
-    if (err instanceof Error && err.message === "La liquidación ya está anulada") {
+    if (err instanceof Error && err.message === LIQUIDACION_CAMBIO_AL_ANULAR) {
       return { error: err.message };
     }
     return { error: friendlyPrismaErrorMessage(err, "No se pudo anular la liquidación") };

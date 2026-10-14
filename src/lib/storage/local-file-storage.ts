@@ -131,6 +131,11 @@ export async function borrarArchivoDeOrden(tenantSchema: string, url: string): P
 
   const segments = url.slice(PREFIJO_URL.length).split("/").filter(Boolean);
   if (segments[0] !== tenantSchema || segments[1] !== "ordenes") return false;
+  // Sin "..", "." ni separadores escondidos (hallazgo B7): "ordenes/../dvi/..."
+  // pasaba el chequeo de arriba y, ya resuelta, seguía dentro del tenant, así que
+  // podía borrar una foto del DVI. Hoy las URL las escribe el servidor; esto es
+  // defensa en profundidad para que este borrado nunca salga de `ordenes/`.
+  if (segments.some((segmento) => segmento === ".." || segmento === "." || /[\\:]/.test(segmento))) return false;
 
   const uploadsRoot = getUploadsRoot();
   const tenantRoot = path.join(uploadsRoot, tenantSchema);

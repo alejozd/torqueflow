@@ -36,6 +36,7 @@ export interface TecnicoOption {
 
 /** Error centinela: aborta la transacción y se traduce a un mensaje de usuario. */
 const PRIORIDAD_CAMBIADA = "__prioridad_cambiada__";
+const ESTADO_CAMBIADO = "__estado_cambiado__";
 
 const ORDEN_DETAIL_INCLUDE = {
   cliente: true,
@@ -359,13 +360,17 @@ export async function updateEstadoOrdenAction(
 
   try {
     await tenantDb.$transaction(async (tx) => {
-      await tx.ordenTrabajo.update({
-        where: { id },
+      // Condicional al estado leído (hallazgo B5): con el tablero dos personas
+      // pueden mover la misma tarjeta a la vez; la segunda no debe pisar a la
+      // primera con una transición que ya no es válida (TERMINADA → ANULADA).
+      const { count } = await tx.ordenTrabajo.updateMany({
+        where: { id, estado: orden.estado },
         data: {
           estado: parsedEstado.data,
-          anuladaAt: parsedEstado.data === "ANULADA" ? new Date() : undefined,
+          ...(parsedEstado.data === "ANULADA" ? { anuladaAt: new Date() } : {}),
         },
       });
+      if (count === 0) throw new Error(ESTADO_CAMBIADO);
       if (parsedEstado.data === "ANULADA") {
         await registrarEventoAuditoria(tx, {
           tipo: "ORDEN_ANULAR",
@@ -377,6 +382,9 @@ export async function updateEstadoOrdenAction(
       }
     });
   } catch (err) {
+    if (err instanceof Error && err.message === ESTADO_CAMBIADO) {
+      return { error: "Otra persona ya cambió el estado de la orden: recarga antes de moverla" };
+    }
     return { error: friendlyPrismaErrorMessage(err, "Error al actualizar el estado") };
   }
 

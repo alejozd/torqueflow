@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { requireRole } from "@/lib/auth/guards";
 import { exigirCajaParaEfectivo } from "@/lib/caja/sesion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb } from "@/lib/db/tenant-client";
@@ -101,7 +101,9 @@ export async function getCuentasPorPagar(): Promise<{
   proveedores: ReturnType<typeof agruparCuentasPorPagar>["proveedores"];
   totales: ReturnType<typeof agruparCuentasPorPagar>["totales"];
 }> {
-  const session = await requireSession();
+  // Lo que el taller debe es información financiera: la ven ADMIN y RECEPCION,
+  // igual que la caja y la cartera (hallazgo B6).
+  const session = await requireRole(ROLES_ABONO);
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const cuentas = await tenantDb.cuentaPorPagar.findMany({

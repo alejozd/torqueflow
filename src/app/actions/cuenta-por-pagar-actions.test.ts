@@ -128,7 +128,15 @@ describe("abonarCuentaPorPagarAction", () => {
 describe("getCuentasPorPagar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireSession.mockResolvedValue(SESION);
+    mockRequireRole.mockResolvedValue(SESION);
+  });
+
+  it("solo ADMIN y RECEPCION ven lo que el taller debe (hallazgo B6)", async () => {
+    db.cuentaPorPagar.findMany.mockResolvedValue([]);
+
+    await getCuentasPorPagar();
+
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
   });
 
   it("agrupa por proveedor y calcula la antigüedad, solo lo pendiente y de la sede", async () => {

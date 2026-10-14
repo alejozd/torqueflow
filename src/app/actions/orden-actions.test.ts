@@ -344,6 +344,7 @@ describe("updateEstadoOrdenAction", () => {
     mockRequireRole.mockReset().mockResolvedValue(SESSION);
     mockOrdenFindFirst.mockReset();
     mockUpdate.mockReset();
+    mockUpdateMany.mockReset().mockResolvedValue({ count: 1 });
     mockAuditLogCreate.mockReset();
     mockTransaction.mockClear();
     mockConfiguracionSmtpFindUnique.mockReset().mockResolvedValue(null);
@@ -366,7 +367,7 @@ describe("updateEstadoOrdenAction", () => {
     const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
 
     expect(result.error).toBe("Estado inválido");
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockUpdateMany).not.toHaveBeenCalled();
   });
 
   it("rejects a transition that skips states (BORRADOR straight to TERMINADA)", async () => {
@@ -377,7 +378,7 @@ describe("updateEstadoOrdenAction", () => {
     const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
 
     expect(result.error).toBe("No se puede cambiar de BORRADOR a TERMINADA");
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockUpdateMany).not.toHaveBeenCalled();
   });
 
   it("rechaza entregar por aquí: la orden se entrega firmando el acta (Fase 21)", async () => {
@@ -390,7 +391,7 @@ describe("updateEstadoOrdenAction", () => {
     const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
 
     expect(result.error).toBe("La orden se entrega desde el acta de entrega de su ficha, no desde el cambio de estado");
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockUpdateMany).not.toHaveBeenCalled();
     expect(mockAuditLogCreate).not.toHaveBeenCalled();
   });
 
@@ -543,9 +544,10 @@ describe("updateEstadoOrdenAction", () => {
 
     expect(result.error).toBeNull();
     expect(mockTransaction).toHaveBeenCalledTimes(1);
-    expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: "o1" },
-      data: { estado: "ANULADA", entregadaAt: undefined, anuladaAt: expect.any(Date) },
+    // Condicional al estado leído (hallazgo B5): no pisa un cambio simultáneo.
+    expect(mockUpdateMany).toHaveBeenCalledWith({
+      where: { id: "o1", estado: "BORRADOR" },
+      data: { estado: "ANULADA", anuladaAt: expect.any(Date) },
     });
     expect(mockAuditLogCreate).toHaveBeenCalledWith({
       data: {
@@ -556,6 +558,21 @@ describe("updateEstadoOrdenAction", () => {
         detalle: { estadoAnterior: "BORRADOR" },
       },
     });
+  });
+
+  it("si otra persona movió la orden entre la lectura y la escritura, no la pisa (hallazgo B5)", async () => {
+    // Leída EN_PROCESO; mientras tanto otro la pasó a TERMINADA. Anularla ahora
+    // sería TERMINADA → ANULADA, una transición que no existe.
+    mockOrdenFindFirst.mockResolvedValue({ ...ORDEN_BASE, estado: "EN_PROCESO" });
+    mockUpdateMany.mockResolvedValue({ count: 0 });
+    const formData = new FormData();
+    formData.set("estado", "ANULADA");
+
+    const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
+
+    expect(result.error).toBe("Otra persona ya cambió el estado de la orden: recarga antes de moverla");
+    expect(mockAuditLogCreate).not.toHaveBeenCalled();
+    expect(mockEnviarEmail).not.toHaveBeenCalled();
   });
 
   it("fails closed and does not report success when the audit write itself rejects", async () => {

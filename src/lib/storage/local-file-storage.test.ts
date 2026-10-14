@@ -141,6 +141,20 @@ describe("borrarArchivoDeOrden", () => {
     await expect(existe(victima)).resolves.toBe(true);
   });
 
+  it("no acepta '..' aunque la ruta empiece por ordenes/ (hallazgo B7)", async () => {
+    const fotoDvi = path.join(uploadsDir, "taller_perez", "dvi", "x", "foto.png");
+    await guardarArchivoDePrueba(fotoDvi);
+
+    for (const url of [
+      "/api/uploads/taller_perez/ordenes/../dvi/x/foto.png",
+      "/api/uploads/taller_perez/ordenes/o1/./../../dvi/x/foto.png",
+      String.raw`/api/uploads/taller_perez/ordenes/o1/firma\..\..\..\dvi\x\foto.png`,
+    ]) {
+      await expect(borrarArchivoDeOrden("taller_perez", url)).resolves.toBe(false);
+    }
+    await expect(existe(fotoDvi)).resolves.toBe(true);
+  });
+
   it("no borra archivos de la orden que no estén bajo ordenes/ (por ejemplo una foto del DVI)", async () => {
     const fotoDvi = path.join(uploadsDir, "taller_perez", "dvi", "foto.png");
     await guardarArchivoDePrueba(fotoDvi);

@@ -756,7 +756,8 @@ describe("anularLiquidacionAction", () => {
     expect(r).toEqual({ error: null });
     expect(tx.gasto.deleteMany).not.toHaveBeenCalled();
     expect(tx.liquidacionMecanico.updateMany).toHaveBeenCalledWith({
-      where: { id: "l1", estado: { not: "ANULADA" } },
+      // Condicional al estado y al gasto leídos (hallazgo B1).
+      where: { id: "l1", estado: "PENDIENTE", gastoId: null },
       data: expect.objectContaining({ estado: "ANULADA", motivoAnulacion: "Se pagó por fuera", anuladaPorId: "u1" }),
     });
     expect(tx.auditLog.create).toHaveBeenCalledWith({
@@ -782,8 +783,23 @@ describe("anularLiquidacionAction", () => {
 
     const r = await anularLiquidacionAction("l1", "Motivo");
 
-    expect(r.error).toBe("La liquidación ya está anulada");
+    expect(r.error).toBe("La liquidación cambió mientras la anulabas: revisa antes de volver a intentarlo");
     expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it("si la pagaron mientras se anulaba, no la anula dejando el gasto suelto (hallazgo B1)", async () => {
+    // Leída PENDIENTE sin gasto; mientras tanto otro ADMIN la pagó (gasto g9).
+    // Antes la condición era `estado != ANULADA`: anulaba la pagada sin borrar su
+    // gasto. Ahora la condición exige el estado y el gasto leídos.
+    db.liquidacionMecanico.findFirst.mockResolvedValue({ id: "l1", estado: "PENDIENTE", gastoId: null });
+    tx.liquidacionMecanico.updateMany.mockResolvedValue({ count: 0 });
+
+    const r = await anularLiquidacionAction("l1", "Motivo");
+
+    expect(r.error).toContain("cambió mientras la anulabas");
+    expect(tx.liquidacionMecanico.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "l1", estado: "PENDIENTE", gastoId: null } }),
+    );
   });
 
   it("exige el motivo", async () => {
