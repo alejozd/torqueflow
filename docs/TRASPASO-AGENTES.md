@@ -3,14 +3,14 @@
 > Documento de traspaso. Está escrito para que **otra IA o otro agente** entienda en poco tiempo qué se
 > hizo, cómo se hizo, qué no se puede romper y dónde está cada cosa. Si eres un agente recién llegado:
 > lee esto completo **antes** de tocar código, y después lee los documentos que se citan en §9.
-> Última actualización: 2026-10-13, con `main` en `b90c7e2`.
+> Última actualización: 2026-10-14, tras el merge de la fase de consolidación (`dedc201`).
 
 ---
 
 ## 1. Alcance: desde qué fase cubre este documento
 
 El trabajo descrito aquí va **desde la Fase 21 hasta la Fase 24**, más una fase que quedó **aplazada**
-(la 23). Nada anterior a la Fase 21 se detalla aquí: las fases 15 a 20 tienen su propio plan en
+(la 23) y la **fase de consolidación**, que corrigió lo que encontró la revisión de las fases 18–24. Nada anterior a la Fase 21 se detalla aquí: las fases 15 a 20 tienen su propio plan en
 `docs/superpowers/plans/` y su resumen en `PROJECT_BRIEF.md`.
 
 | Fase | Rama | Estado | Merge en `main` |
@@ -19,19 +19,20 @@ El trabajo descrito aquí va **desde la Fase 21 hasta la Fase 24**, más una fas
 | 22 — flujo de taller | `fase22-flujo-taller` | terminada | `06f4aae` |
 | 23 — portal del cliente | *(sin rama)* | **aplazada** (con DIAN) | — (documento `a9ea57f`) |
 | 24 — mostrador y compras | `fase24-mostrador-compras` | terminada | `62924f8` |
+| consolidación | `fase-consolidacion` | terminada | `dedc201` |
 
-El brief de la 24 se registró en `b90c7e2`, que es el último commit de `main` al escribir esto.
+El brief de la 24 se registró en `b90c7e2`; el de la consolidación, justo después de su merge.
 
 ## 2. Estado actual (verificado, no supuesto)
 
-- `main` en **`b90c7e2`**, árbol limpio.
-- **258 archivos de test / 2068 tests pasando**; `npx tsc --noEmit --incremental false` limpio; `eslint`
+- `main` con el merge de la consolidación (**`dedc201`**) y su brief encima, árbol limpio.
+- **266 archivos de test / 2123 tests pasando**; `npx tsc --noEmit --incremental false` limpio; `eslint`
   limpio; `npm run build` OK.
 - Base de datos (una sola, compartida entre el portátil de desarrollo y el servidor): `taller_dev` y
-  `taller_dev_reference` con **todas las migraciones aplicadas**, incluidas las de las fases 21, 22 y 24.
+  `taller_dev_reference` con **todas las migraciones aplicadas**, incluidas las de las fases 21, 22 y 24 y la de la consolidación (`20261018120000_consolidacion`).
   La prueba de que la base coincide con el esquema es
-  `npx prisma migrate diff --from-url "<url del schema>" --to-schema-datamodel prisma/tenant/schema.prisma --script`
-  respondiendo **"This is an empty migration"**.
+  `TENANT_DATABASE_URL="<url del schema>" npx prisma migrate diff --from-url "<url del schema>" --to-schema-datamodel prisma/tenant/schema.prisma --script`
+  respondiendo **"This is an empty migration"** (la variable hace falta: ver §7).
 - El roadmap completo (fases 15–25 con sus ítems) está en
   `docs/superpowers/plans/2026-10-10-roadmap-modulos-faltantes.md`. Estado: **15–22 y 24 hechas, 23 aplazada,
   25 pendiente** (solo quedan sus ítems sueltos 25–28 y DIAN).
@@ -111,12 +112,41 @@ de enum) aplicada a los dos schemas, con respaldo previo
 **Límite conocido de la fase 24**: la pantalla lista solo las ventas **de hoy**, así que una venta a crédito
 de ayer no se puede cobrar ni devolver desde la interfaz (las acciones sí lo permiten).
 
+### Fase de consolidación (`dedc201`, plan `docs/superpowers/plans/2026-10-13-fase-consolidacion.md`)
+La revisión de las fases 18–24 encontró 1 hallazgo alto, 4 medios y varios bajos, y el usuario pidió quitar
+fricción. Lo que cambió (los detalles y commits, en el §6 del plan):
+
+1. **Dos opciones del taller** en Configuración (`ConfiguracionTaller.exigirActaFirmada` y `usarControlCaja`,
+   las dos `false` por defecto; `src/lib/configuracion/opciones-taller.ts`).
+2. **Entrega**: una orden facturada se entrega (A1); sin firma, si el taller no la exige (audita
+   `ORDEN_ENTREGAR`), y el acta se puede firmar después.
+3. **Caja**: una sola regla, `exigirCajaParaEfectivo` (ver §5). Mostrador solo ADMIN/RECEPCION, con precio y
+   nombre del repuesto tomados del inventario (M2).
+4. **Cuentas por pagar** con bloqueo `FOR UPDATE` y saldo = total − Σ abonos (M3). **Importación** con tope
+   de 40 MB descomprimido, medido descomprimiendo de verdad (M4, `src/lib/importacion/zip-seguro.ts`).
+5. Menores: B1 (anular vs pagar liquidación), B5 (cambio de estado condicional), B6 (permisos por URL), B7
+   (borrado de archivos sin `..`).
+6. **Tarjeta "Alertas del taller"** del Inicio: contadores por motivo enlazados al filtro, máximo 5 filas.
+7. **Exportación** de ventas y arqueos con rango `?desde&hasta` (máx. 366 días, por defecto el mes en curso);
+   `ventas-hoy` pasó a `ventas`.
+8. **Liquidación simplificada** (diseño `2026-10-13-task10-liquidacion-simplificada.md`): la tabla es en vivo
+   y el documento nace **al pagar** (foto + gasto en una transacción, ajuste en el diálogo de pago); anular
+   borra el gasto y deja el periodo por pagar. Desaparecieron generar, reactivar, el ajuste aparte y el
+   estado pendiente en el flujo. Los periodos cortan a medianoche de Bogotá (B2).
+
+Verificación: 266 archivos / 2123 tests, `npm run build` OK, revisión del diff completo y fix round
+(`29ad45e`). Migración aplicada a los dos schemas con respaldo
+`~/backups/torqueflow_20261014_0002_pre_consolidacion.sql` (444 KB). La revisión final la hizo el mismo
+agente que implementó la fase, no otro modelo (§3, paso 7).
+
 ## 5. Invariantes que NO se pueden romper
 
-- **Todo movimiento de dinero exige caja abierta** (`src/lib/caja/sesion.ts`,
-  `sesionDeCajaAbierta(tenantDb, sedeId)`). Si agregas un camino nuevo que mueve dinero (efectivo o no),
-  decide explícitamente si toca el cajón y, si lo toca, exige sesión abierta **y** súmalo al arqueo
-  (`src/lib/caja/resumen.ts` + `cargarMovimientos` en `src/app/actions/caja-actions.ts`).
+- **El efectivo exige caja abierta cuando el taller usa el control de caja** (fase de consolidación, D3).
+  La regla vive en **un solo sitio**: `exigirCajaParaEfectivo(tenantDb, sedeId, metodoOEfectivo, mensaje)` en
+  `src/lib/caja/sesion.ts`; tarjeta, transferencia u otro nunca la exigen, y sin control de caja nada la
+  exige. Si agregas un camino nuevo que mueve dinero, llama a esa función (no repitas la regla) **y**, si
+  toca el cajón, súmalo al arqueo (`src/lib/caja/resumen.ts` + `cargarMovimientos` en
+  `src/app/actions/caja-actions.ts`). Con control de caja, un gasto ya registrado no se pasa a efectivo.
 - **El dinero se mueve con guardas atómicas dentro de una transacción**, nunca con un "leer y luego
   escribir": `stockActual: { gte: cantidad }`, `saldoPendiente: { gte: monto }`,
   `devueltoCantidad: { lte: vendida - cantidad }`. Los estados ("pagada") se **derivan** del saldo.
@@ -130,7 +160,11 @@ de ayer no se puede cobrar ni devolver desde la interfaz (las acciones sí lo pe
   páginas dentro de `(dashboard)` heredan el guard del layout, las de fuera (`/login`,
   `/seleccionar-sede`, las imprimibles) lo hacen por su cuenta.
 - **Inmutabilidad de la orden**: `esOrdenMutable` / `assertOrdenMutable` (ENTREGADA, ANULADA y facturada no
-  se tocan). Entregar es firmar el acta.
+  se tocan: ítems, mano de obra, cabecera). **El acta y la entrega no dependen de la factura**: una orden
+  TERMINADA y facturada se entrega; la firma es obligatoria solo si el taller la exige.
+- **Liquidaciones**: el documento nace al pagar y nunca se paga dos veces el mismo trabajo (bloqueo
+  `FOR UPDATE` del técnico, índice único por técnico y periodo, escritura condicional a "no pagada" y
+  guarda de solape entre frecuencias). El monto sale siempre del servidor.
 
 ## 6. Cómo se levanta y cómo se despliega
 
@@ -196,6 +230,14 @@ Después, la comprobación que vale: `migrate diff` respondiendo **"This is an e
 - **`Pago` y `PagoProveedor` no tienen `sedeId`**: la sede se deduce por la factura (→ orden) o por la
   cuenta (→ entrada → bodega). Cualquier reporte de dinero tiene que hacer ese join o mezclará sedes.
 - **`Factura.ordenId` es obligatorio y único**: una venta sin orden de trabajo no puede ser una factura.
+- **`migrate diff --to-schema-datamodel` lee el schema de `TENANT_DATABASE_URL`**: sin esa variable compara
+  contra `public` y escupe el script de creación completo, que parece un desfase y no lo es. Defínela con la
+  misma URL que `--from-url`.
+- **Mocks de `findMany` que ignoran el `where`**: si la acción confía en que la base filtra (por ejemplo
+  `estado: "PAGADA"`), el mock tiene que aplicar el mismo filtro o el test prueba otra cosa (pasó en la
+  liquidación simplificada).
+- **`$queryRaw` dentro de una transacción del taller** resuelve el schema por el `search_path` de su URL: los
+  nombres de tabla van sin calificar (`SELECT id FROM usuarios WHERE id = … FOR UPDATE`).
 - Pendiente conocido (reportado, no arreglado): el formulario de login sin hidratar cae en un GET nativo y
   deja las credenciales en la URL/registros. Está en el backlog; no se tocó.
 
@@ -219,11 +261,13 @@ Después, la comprobación que vale: `migrate diff` respondiendo **"This is an e
 | Reglas duras de trabajo | `RULES.md` |
 | Despliegue | `docs/DEPLOY.md` |
 | Roadmap y fases 15–25 | `docs/superpowers/plans/2026-10-10-roadmap-modulos-faltantes.md` |
-| Plan/medición de una fase | `docs/superpowers/plans/AAAA-MM-DD-faseN-<slug>.md` (21, 22, 23 y 24) |
+| Plan/medición de una fase | `docs/superpowers/plans/AAAA-MM-DD-faseN-<slug>.md` (21, 22, 23, 24 y `2026-10-13-fase-consolidacion.md`) |
 | Caja y arqueo | `src/lib/caja/{resumen,sesion}.ts`, `src/app/actions/caja-actions.ts` |
 | Mostrador | `src/app/(dashboard)/mostrador/*`, `src/app/actions/venta-mostrador-actions.ts`, `src/app/actions/devolucion-mostrador-actions.ts` |
 | Cuentas por pagar | `src/app/(dashboard)/cuentas-por-pagar/*`, `src/app/actions/cuenta-por-pagar-actions.ts`, `src/lib/proveedores/*` |
-| Exportación | `src/app/api/exportar/[reporte]/route.ts`, `src/lib/exportacion/reportes.ts` |
+| Exportación | `src/app/api/exportar/[reporte]/route.ts`, `src/lib/exportacion/{reportes,rango-fechas,consultas}.ts`, `src/components/{boton-exportar,exportar-con-rango}.tsx` |
+| Opciones del taller | `src/lib/configuracion/opciones-taller.ts`, `src/app/actions/configuracion-taller-actions.ts`, `src/app/(dashboard)/configuracion-smtp/opciones-taller-form.tsx` |
+| Liquidaciones | `src/app/actions/liquidacion-actions.ts`, `src/lib/liquidaciones/*`, `src/app/(dashboard)/liquidaciones/*` |
 | Excel (único punto) | `src/lib/importacion/xlsx.ts` |
 | Esquema del taller y migraciones | `prisma/tenant/schema.prisma`, `prisma/tenant/migrations/` |
 | Auditoría | `src/lib/auditoria/catalogo.ts` (+ el enum en el schema: hay que tocar los dos) |
