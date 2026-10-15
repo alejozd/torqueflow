@@ -22,18 +22,30 @@ describe("RecepcionForm", () => {
     mockGuardar.mockReset().mockResolvedValue({ error: null, success: true });
   });
 
-  it("guarda el kilometraje y el nivel elegido", async () => {
-    render(<RecepcionForm ordenId="o1" kilometrajeIngreso={null} nivelCombustible={null} soloLectura={false} />);
+  it("guarda solo al elegir el combustible, con el kilometraje que hay", async () => {
+    render(<RecepcionForm ordenId="o1" kilometrajeIngreso={185210} nivelCombustible={null} soloLectura={false} />);
 
-    await userEvent.type(screen.getByLabelText("Kilometraje"), "85000");
-    await userEvent.click(screen.getByLabelText("Combustible"));
-    await userEvent.click(await screen.findByRole("option", { name: "3/4" }));
-    await userEvent.click(screen.getByRole("button", { name: "Guardar recepción" }));
+    await userEvent.click(screen.getByRole("radio", { name: "1/2" }));
 
-    expect(mockGuardar).toHaveBeenCalledTimes(1);
-    const formData = mockGuardar.mock.calls[0]![2] as FormData;
-    expect(formData.get("kilometrajeIngreso")).toBe("85000");
-    expect(formData.get("nivelCombustible")).toBe("TRES_CUARTOS");
+    const datos = mockGuardar.mock.calls[0]![2] as FormData;
+    expect([datos.get("kilometrajeIngreso"), datos.get("nivelCombustible")]).toEqual(["185210", "MEDIO"]);
+    expect(await screen.findByRole("status")).toHaveTextContent("Guardado");
+  });
+
+  it("guarda el kilometraje al salir del campo, solo si cambió", async () => {
+    render(<RecepcionForm ordenId="o1" kilometrajeIngreso={185210} nivelCombustible="LLENO" soloLectura={false} />);
+    const km = screen.getByRole("spinbutton", { name: "Kilometraje" });
+
+    await userEvent.click(km);
+    await userEvent.tab();
+    expect(mockGuardar).not.toHaveBeenCalled();
+
+    await userEvent.clear(km);
+    await userEvent.type(km, "185300");
+    await userEvent.tab();
+
+    const datos = mockGuardar.mock.calls[0]![2] as FormData;
+    expect([datos.get("kilometrajeIngreso"), datos.get("nivelCombustible")]).toEqual(["185300", "LLENO"]);
   });
 
   it("en solo lectura muestra lo registrado y nada más", () => {
@@ -41,7 +53,7 @@ describe("RecepcionForm", () => {
 
     expect(screen.getByText("85000")).toBeInTheDocument();
     expect(screen.getByText("1/2")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Guardar recepción" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
   });
 
   it("avisa cuando no hay nada registrado", () => {
@@ -54,7 +66,7 @@ describe("RecepcionForm", () => {
     mockGuardar.mockResolvedValue({ error: "El kilometraje no puede ser negativo", success: false });
     render(<RecepcionForm ordenId="o1" kilometrajeIngreso={null} nivelCombustible={null} soloLectura={false} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Guardar recepción" }));
+    await userEvent.click(screen.getByRole("radio", { name: "Lleno" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("El kilometraje no puede ser negativo");
   });

@@ -1,12 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { guardarRecepcionAction, type RecepcionFormState } from "@/app/actions/recepcion-actions";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { EstadoGuardado } from "@/components/estado-guardado";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SelectField } from "@/components/ui/select-field";
+import { useAutoguardado } from "@/hooks/use-autoguardado";
+import { cn } from "@/lib/utils";
 import type { NivelCombustible } from "@/generated/prisma-tenant";
 
 const initialState: RecepcionFormState = { error: null, success: false };
@@ -24,7 +24,8 @@ export const etiquetaNivel = (nivel: NivelCombustible | null) =>
 
 /**
  * Recepción del vehículo: con qué kilometraje y con cuánto combustible entró. Se
- * imprime en el acta de entrega, así que se guarda desde el primer momento.
+ * imprime en el acta de entrega, así que se guarda desde el primer momento, y
+ * solo: el combustible al elegirlo y el kilometraje al salir del campo.
  */
 export function RecepcionForm({
   ordenId,
@@ -38,8 +39,17 @@ export function RecepcionForm({
   soloLectura: boolean;
 }) {
   const guardar = guardarRecepcionAction.bind(null, ordenId);
-  const [state, formAction, isPending] = useActionState(guardar, initialState);
+  const { guardar: autoguardar, fase, error } = useAutoguardado(guardar, initialState);
   const [nivel, setNivel] = useState<NivelCombustible | "">(nivelCombustible ?? "");
+  const [km, setKm] = useState(kilometrajeIngreso === null ? "" : String(kilometrajeIngreso));
+  const [kmGuardado, setKmGuardado] = useState(km);
+
+  function enviar(kilometraje: string, nivelElegido: NivelCombustible | "") {
+    const formData = new FormData();
+    formData.set("kilometrajeIngreso", kilometraje);
+    formData.set("nivelCombustible", nivelElegido);
+    autoguardar(formData);
+  }
 
   if (soloLectura) {
     return (
@@ -57,42 +67,57 @@ export function RecepcionForm({
   }
 
   return (
-    <form action={formAction} className="flex flex-wrap items-end gap-3">
-      <div className="flex w-40 flex-col gap-1.5">
+    <div className="flex flex-wrap items-end gap-x-6 gap-y-3 rounded-lg bg-muted/50 px-3.5 py-3">
+      <div className="flex w-36 flex-col gap-1.5">
         <Label htmlFor="kilometrajeIngreso">Kilometraje</Label>
         <Input
           id="kilometrajeIngreso"
-          name="kilometrajeIngreso"
           type="number"
           min={0}
-          defaultValue={kilometrajeIngreso ?? ""}
+          value={km}
           placeholder="85000"
+          className="bg-card font-mono"
+          onChange={(evento) => setKm(evento.target.value)}
+          onBlur={() => {
+            if (km === kmGuardado) return;
+            setKmGuardado(km);
+            enviar(km, nivel);
+          }}
         />
       </div>
-      <div className="flex w-32 flex-col gap-1.5">
-        <Label htmlFor="nivelCombustible">Combustible</Label>
-        <SelectField
-          id="nivelCombustible"
-          items={NIVELES}
-          value={nivel}
-          onValueChange={(valor) => setNivel(valor as NivelCombustible)}
-          placeholder="Sin dato"
-        />
-        <input type="hidden" name="nivelCombustible" value={nivel} />
+      <div className="flex flex-col gap-1.5">
+        <span id="combustible-etiqueta" className="text-sm font-medium">
+          Combustible
+        </span>
+        <div
+          role="radiogroup"
+          aria-labelledby="combustible-etiqueta"
+          className="inline-flex overflow-hidden rounded-lg border border-border bg-card"
+        >
+          {NIVELES.map((opcion) => (
+            <button
+              key={opcion.value}
+              type="button"
+              role="radio"
+              aria-checked={nivel === opcion.value}
+              onClick={() => {
+                setNivel(opcion.value);
+                enviar(km, opcion.value);
+              }}
+              className={cn(
+                "border-r border-border px-2.5 py-1 text-xs last:border-r-0",
+                nivel === opcion.value ? "bg-foreground text-background" : "hover:bg-muted",
+              )}
+            >
+              {opcion.label}
+            </button>
+          ))}
+        </div>
       </div>
-      <Button type="submit" size="sm" disabled={isPending}>
-        {isPending ? "Guardando..." : "Guardar recepción"}
-      </Button>
-      {state.error ? (
-        <Alert variant="destructive" className="w-full">
-          <AlertDescription>{state.error}</AlertDescription>
-        </Alert>
+      <EstadoGuardado fase={fase} error={error} className="pb-1.5" />
+      {fase === "inactivo" ? (
+        <span className="pb-1.5 text-xs text-muted-foreground">Se guarda solo al cambiar</span>
       ) : null}
-      {state.success ? (
-        <p role="status" className="w-full text-xs text-muted-foreground">
-          Recepción guardada.
-        </p>
-      ) : null}
-    </form>
+    </div>
   );
 }
