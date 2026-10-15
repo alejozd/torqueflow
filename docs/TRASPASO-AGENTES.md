@@ -355,7 +355,7 @@ Después, la comprobación que vale: `migrate diff` respondiendo **"This is an e
 ## 8. Pendientes y próximos pasos
 
 - **Rediseño de la cotización**: falta revisión visual del usuario, merge a `main` y despliegue. Su migración
-  está aplicada en `taller_dev`; **falta `taller_dev_reference`** y confirmar con `migrate diff` vacío.
+  está aplicada en `taller_dev` y `taller_dev_reference` (`migrate diff` sin diferencias en ambos).
 - **Fase 23**: aplazada junto con DIAN. Para retomarla, sus siete decisiones están en su documento (§4).
 - **Fase 25**: quedan los ítems sueltos del roadmap — 25 flotas/clientes empresa, 26 asistente IA,
   27 consulta RUNT, 28 exportación contable — y **la facturación electrónica DIAN**, que se planea aparte.
