@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { CircleCheck } from "lucide-react";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PestanaOrden } from "@/lib/orden/pestanas";
 
@@ -76,7 +76,7 @@ export function PestanasOrden({ pestanas, inicial }: { pestanas: Pestana[]; inic
                 {pestana.titulo}
                 {pestana.gestionada ? (
                   <>
-                    <CircleCheck className="size-3.5 text-[oklch(0.4_0.1_150)]" aria-hidden />
+                    <Check className="size-4 text-[oklch(0.6_0.17_150)]" strokeWidth={3.5} aria-hidden />
                     <span className="sr-only">(gestionada)</span>
                   </>
                 ) : null}
