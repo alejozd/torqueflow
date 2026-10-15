@@ -15,6 +15,8 @@ import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { SelectorFechaHora } from "@/components/selector-fecha-hora";
+import { momentoBogota, type OcupacionCita } from "@/lib/agenda-cita";
 
 const initialState: CitaFormState = { error: null, success: false };
 
@@ -23,9 +25,12 @@ type CitaFormOutput = z.output<typeof citaInputSchema>;
 
 export function NuevaCitaForm({
   vehiculos,
+  ocupacion,
   onCreated,
 }: {
   vehiculos: VehiculoOption[];
+  /** Citas ya agendadas de la sede, para mostrar qué días y horas están ocupados. */
+  ocupacion: OcupacionCita[];
   /**
    * Fired synchronously right after a successful create -- not driven by
    * useActionState + useEffect: createCitaAction's revalidatePath("/citas")
@@ -50,6 +55,10 @@ export function NuevaCitaForm({
     defaultValues: { vehiculoId: "", fechaHora: "", motivo: "", notas: "" },
   });
   const { field: vehiculoIdField } = useController({ name: "vehiculoId", control });
+  const { field: fechaHoraField } = useController({ name: "fechaHora", control });
+  // El formulario solo se monta al abrir la ventana (nunca en el servidor), así
+  // que "ahora" es el momento en que se abre, no el de cargar la página.
+  const [ahora] = useState(() => momentoBogota(new Date()));
 
   const vehiculoOptions: ComboboxOption[] = useMemo(
     () =>
@@ -85,38 +94,37 @@ export function NuevaCitaForm({
 
   return (
     <form noValidate ref={formRef} onSubmit={(evento) => handleSubmit(onValid)(evento)} className="flex flex-col gap-4">
-      <FormGroup label="Cuándo y quién">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="vehiculoId">Vehículo</Label>
-            <Combobox
-              id="vehiculoId"
-              required
-              items={vehiculoOptions}
-              value={vehiculoIdField.value}
-              onValueChange={vehiculoIdField.onChange}
-              placeholder="Buscar vehículo..."
-              emptyMessage="Ningún vehículo coincide"
-              aria-invalid={errors.vehiculoId ? true : undefined}
-              aria-describedby={errors.vehiculoId ? "vehiculoId-error" : undefined}
-            />
-            {errors.vehiculoId ? <p id="vehiculoId-error" className="text-xs text-destructive">{errors.vehiculoId.message}</p> : null}
-          </div>
+      <FormGroup label="Quién">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="vehiculoId">Vehículo</Label>
+          <Combobox
+            id="vehiculoId"
+            required
+            items={vehiculoOptions}
+            value={vehiculoIdField.value}
+            onValueChange={vehiculoIdField.onChange}
+            placeholder="Buscar vehículo..."
+            emptyMessage="Ningún vehículo coincide"
+            aria-invalid={errors.vehiculoId ? true : undefined}
+            aria-describedby={errors.vehiculoId ? "vehiculoId-error" : undefined}
+          />
+          {errors.vehiculoId ? <p id="vehiculoId-error" className="text-xs text-destructive">{errors.vehiculoId.message}</p> : null}
+        </div>
+      </FormGroup>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="fechaHora">Fecha y hora</Label>
-            <Input
-              id="fechaHora"
-              type="datetime-local"
-              required
-              className="font-mono"
-              aria-invalid={errors.fechaHora ? true : undefined}
-              aria-describedby={errors.fechaHora ? "fechaHora-error" : undefined}
-              {...register("fechaHora")}
-            />
-            <span className="text-[10px] text-muted-foreground">Zona horaria de la sede: America/Bogotá</span>
-            {errors.fechaHora ? <p id="fechaHora-error" className="text-xs text-destructive">{errors.fechaHora.message}</p> : null}
-          </div>
+      <FormGroup label="Cuándo">
+        <div className="flex flex-col gap-1.5">
+          <SelectorFechaHora
+            id="fechaHora"
+            name="fechaHora"
+            value={fechaHoraField.value}
+            onChange={fechaHoraField.onChange}
+            ahora={ahora}
+            ocupacion={ocupacion}
+            invalid={errors.fechaHora ? true : undefined}
+            describedBy={errors.fechaHora ? "fechaHora-error" : undefined}
+          />
+          {errors.fechaHora ? <p id="fechaHora-error" className="text-xs text-destructive">Elige el día y la hora de la cita.</p> : null}
         </div>
       </FormGroup>
 
