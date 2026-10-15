@@ -101,3 +101,18 @@ el indicador queda en error con el mensaje y el control vuelve a mostrar lo que 
 1. **Cabecera, banner y barra lateral** (D1–D3).
 2. **Croquis y tarjetas de daño** (D4–D6).
 3. **Autoguardado** (D7–D8).
+
+---
+
+# Entrega 4 — Pestañas (aprobada 2026-10-15 con el mockup `docs/superpowers/mockups/2026-10-15-ficha-orden-pestanas.html`)
+
+| # | Decisión |
+|---|---|
+| P1 | Las secciones plegables y la barra de secciones se reemplazan por **4 pestañas**: Recepción, Trabajo, Inspección y Entrega. La cabecera, el banner de síntomas y la barra lateral no cambian. |
+| P2 | Cada pestaña lleva un resumen con punto de color: Recepción «N daños» (rojo si hay); Trabajo el total (`$ 399.401`); Inspección «N de M revisados · X críticos · Y atención» (rojo si hay críticos, ámbar si atención, verde si no); Entrega «Pendiente» / «Lista para firmar» (TERMINADA) / «Firmada» (acta firmada) / «Entregada». |
+| P3 | Pestaña por defecto según el estado: BORRADOR → Recepción, EN_PROCESO → Trabajo, TERMINADA y ENTREGADA → Entrega, ANULADA → Trabajo. Un `?tab=` válido en la URL manda sobre el estado. |
+| P4 | Cambiar de pestaña no navega: actualiza `?tab=` con `history.replaceState`. Los paneles quedan montados y ocultos (`hidden`): un formulario a medio llenar no se pierde. Flechas izquierda/derecha cambian de pestaña (patrón `tablist`). |
+| P5 | Trabajo: tres totales en una fila (Repuestos, Mano de obra, Total del trabajo), un bloque «Agregar al trabajo» con tres botones (Aplicar servicio, Repuesto, Mano de obra) que despliegan el formulario que ya existe, y las dos tablas con su subtotal. |
+| P6 | Inspección: checklist y fotos como hoy. Entrega: acta, garantías y anticipos (los anticipos dejan de ser sección aparte). |
+| P7 | Tablet/celular (< `lg`): las pestañas se deslizan de lado; el botón de avance de la cabecera se oculta y aparece una **franja fija abajo** con saldo por cobrar, estado y el botón de avance; la barra lateral queda debajo del contenido. |
+| P8 | Los enlaces que iban a `#entrega` (botón «Ir a la entrega», menú del tablero) pasan a `?tab=entrega`. `secciones.ts`, `seccion-orden.tsx` y la barra de secciones de la ficha se borran (la barra sigue en el Inicio). |
