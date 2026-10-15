@@ -163,7 +163,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             repuestosStockBajo={repuestosStockBajo}
           />
           <SidebarInset>
-            <header className="flex flex-wrap items-center gap-3 border-b bg-background px-4 py-3">
+            <header className="flex flex-wrap items-center gap-3 border-b bg-card px-4 py-3">
               <div className="flex flex-1 flex-wrap items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
                   <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[oklch(0.62_0.19_45/0.14)] text-[10.5px] font-semibold text-[oklch(0.42_0.14_45)]">

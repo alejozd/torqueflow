@@ -174,8 +174,8 @@ export function TablaConceptos({
       <tr
         key={concepto.id}
         className={cn(
-          "border-b border-border transition-colors last:border-0",
-          dentroDeKit && "bg-muted/30",
+          "border-b border-border transition-colors last:border-0 hover:bg-muted/50",
+          dentroDeKit && "bg-primary/[0.03]",
           destello === concepto.id && "bg-primary/10",
         )}
       >
@@ -318,7 +318,7 @@ export function TablaConceptos({
             {puedeEditar ? <col className="w-10" /> : null}
           </colgroup>
           <thead>
-            <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+            <tr className="border-b border-border bg-muted text-left text-[11px] font-semibold tracking-wide text-foreground/60 uppercase">
               <th className="py-2 pr-2 pl-3 font-semibold">Concepto</th>
               <th className="py-2 pr-2 font-semibold" title="Existencia en bodega">
                 Stock
@@ -344,8 +344,8 @@ export function TablaConceptos({
               const abierto = abiertos.has(bloque.grupoKitId);
               return (
                 <Fragment key={bloque.grupoKitId}>
-                  <tr className="border-b border-border bg-muted/50">
-                    <td className="py-2 pr-2 pl-1 align-middle">
+                  <tr className="border-b border-border bg-primary/[0.07]">
+                    <td className="py-2 pr-2 pl-1 align-middle shadow-[inset_3px_0_0_var(--primary)]">
                       <button
                         type="button"
                         onClick={() => alternarKit(bloque.grupoKitId)}

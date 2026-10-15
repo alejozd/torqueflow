@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import { Calculator } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TituloSeccion } from "@/components/titulo-seccion";
 import { formatoPesos } from "./formato";
 
 /**
@@ -28,9 +30,9 @@ export function ResumenCotizacion({
 }) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-baseline justify-between">
-          Resumen económico
+      <CardHeader className="border-b">
+        <CardTitle className="flex items-center justify-between">
+          <TituloSeccion icono={Calculator}>Resumen económico</TituloSeccion>
           <span className="font-mono text-xs font-normal text-muted-foreground">COP</span>
         </CardTitle>
       </CardHeader>
@@ -68,9 +70,9 @@ export function ResumenCotizacion({
 
         <Fila etiqueta="IVA (19 %)" valor={formatoPesos(iva)} />
 
-        <div className="mt-2 flex flex-wrap items-end justify-between gap-x-3 gap-y-1 border-t-2 border-border pt-3">
+        <div className="mt-3 flex flex-wrap items-end justify-between gap-x-3 gap-y-1 rounded-lg bg-primary/10 px-3 py-3 ring-1 ring-primary/20">
           <div>
-            <p className="text-sm font-bold tracking-wide uppercase">Total cotizado</p>
+            <p className="text-xs font-bold tracking-wide text-primary uppercase">Total cotizado</p>
             <p className="text-xs text-muted-foreground">Incluye IVA</p>
           </div>
           <span className="font-mono text-xl font-bold whitespace-nowrap text-primary">{formatoPesos(total)}</span>

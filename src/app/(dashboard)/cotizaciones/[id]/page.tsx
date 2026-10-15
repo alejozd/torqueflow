@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Printer } from "lucide-react";
+import { CircleCheckBig, ClipboardList, History, Printer, Send } from "lucide-react";
+import { TituloSeccion } from "@/components/titulo-seccion";
 import { getCotizacion } from "@/app/actions/cotizacion-actions";
 import { conceptosDesdeItems, contarConceptos, importeConcepto } from "@/lib/cotizacion/agrupar-conceptos";
 import { esCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
@@ -108,15 +109,18 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="flex min-w-0 flex-col gap-4">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                Conceptos cotizados
-                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                  {conteo.total === 1 ? "1 ítem" : `${conteo.total} ítems`}
-                </span>
+            <CardHeader className="border-b">
+              <CardTitle>
+                <TituloSeccion
+                  icono={ClipboardList}
+                  tono="naranja"
+                  detalle={conteo.total === 1 ? "1 ítem" : `${conteo.total} ítems`}
+                >
+                  Conceptos cotizados
+                </TituloSeccion>
               </CardTitle>
               {puedeEditar ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="pl-[42px] text-sm text-muted-foreground">
                   Busca repuestos del inventario, servicios o kits; cada cambio se guarda solo.
                 </p>
               ) : null}
@@ -127,12 +131,15 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
           </Card>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="border-b">
               <CardTitle>
-                Historial de seguimiento{" "}
-                <span className="font-normal text-muted-foreground">
-                  · {cotizacion.seguimientos.length} {cotizacion.seguimientos.length === 1 ? "registro" : "registros"}
-                </span>
+                <TituloSeccion
+                  icono={History}
+                  tono="azul"
+                  detalle={cotizacion.seguimientos.length === 1 ? "1 registro" : `${cotizacion.seguimientos.length} registros`}
+                >
+                  Historial de seguimiento
+                </TituloSeccion>
               </CardTitle>
               <CardAction>
                 <RegistrarSeguimientoDialog cotizacionId={cotizacion.id} />
@@ -190,13 +197,12 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
           />
 
           {cotizacion.estado === "ENVIADA" ? (
-            <Card className="border-2 border-primary/40 bg-primary/[0.03]">
-              <CardHeader>
-                <CardTitle className="flex items-baseline justify-between gap-2">
-                  <span className="flex items-center gap-2 text-sm font-bold tracking-wide uppercase">
-                    <span className="size-2 rounded-full bg-primary" />
+            <Card className="pt-0 ring-2 ring-primary/40">
+              <CardHeader className="border-b border-primary/20 bg-primary/10 pt-3 [.border-b]:pb-3">
+                <CardTitle className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                  <TituloSeccion icono={CircleCheckBig} tono="naranja">
                     Decisión del cliente
-                  </span>
+                  </TituloSeccion>
                   {cotizacion.validaHasta ? (
                     <span className="text-xs font-normal text-muted-foreground">
                       Válida hasta {formatoFecha.format(cotizacion.validaHasta)}
@@ -245,7 +251,11 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
 
           <Card>
             <CardHeader>
-              <CardTitle>{cotizacion.estado === "BORRADOR" ? "Enviar al cliente" : "Reenviar y compartir"}</CardTitle>
+              <CardTitle>
+                <TituloSeccion icono={Send} tono="verde">
+                  {cotizacion.estado === "BORRADOR" ? "Enviar al cliente" : "Reenviar y compartir"}
+                </TituloSeccion>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <EnviarCotizacionForm

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { CalendarClock, MessageCircle, Phone } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { PlacaVehiculo } from "@/components/placa-vehiculo";
 import { avisoVencimiento } from "@/lib/cotizacion/vencimiento";
 import { urlWhatsapp } from "@/lib/whatsapp/url";
 import { cn } from "@/lib/utils";
@@ -114,7 +115,7 @@ export function CabeceraCotizacion({
     <Card className="grid grid-cols-1 gap-4 p-5 md:grid-cols-[minmax(0,1fr)_auto]">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-mono text-2xl font-semibold tracking-wide">{placa}</h1>
+          <PlacaVehiculo placa={placa} />
           <span className="text-base text-muted-foreground">{vehiculo}</span>
           <Badge
             variant={ESTADO_BADGE_VARIANT[datos.estado]}
