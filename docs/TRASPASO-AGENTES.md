@@ -204,6 +204,36 @@ delantero y trasero como zonas propias (migración `20261019120000_guardabarros_
   con el saldo y `AvanceFase`, y el avance de la cabecera se oculta. Los enlaces al acta usan `?tab=entrega`
   (antes `#entrega`).
 
+### Rediseño de la ficha de cotización (rama `cotizacion-rediseno`, diseño `docs/superpowers/specs/2026-10-15-cotizacion-rediseno-design.md`, plan `docs/superpowers/plans/2026-10-15-cotizacion-rediseno.md`)
+
+Propuesta de Stitch (`docs/Evidencias/stitch_inventory_alert_dashboard_redesign/`) adaptada con el usuario.
+
+- **Kits agrupados**: `ItemCotizacion`, `ItemOrden` y `ManoDeObra` tienen `grupoKitId` (uuid por cada
+  aplicación: el mismo kit dos veces son dos grupos), `grupoKitNombre` (copia, sobrevive a renombrar o borrar
+  el servicio) y `servicioId` (FK SetNull). Solo forma grupo un servicio con repuestos
+  (`src/lib/servicio/grupo-kit.ts`). Aplicar servicio (cotización y orden) los llena y aprobar los copia a la orden.
+- **Descuento % o $**: `Cotizacion.descuentoTipo` (`PORCENTAJE`/`MONTO`) + `descuentoMonto`; el monto se
+  limita al subtotal en `computeCotizacionTotales`. Cambiar de tipo conserva el valor del otro. Con monto, las
+  etiquetas dicen solo «Descuento» (`etiquetaDescuento`/`porcentajeVisible` en `totales.ts`), también en
+  WhatsApp, correo y PDF. Migración `20261020120000_cotizacion_kits_descuento_monto`.
+- **Tabla editable** (`cotizaciones/[id]/tabla-conceptos.tsx`): celdas que se guardan solas
+  (`celda-editable.tsx`: Enter guarda y vuelve al buscador, Esc deshace), − / + en la cantidad, marca de precio
+  modificado con vuelta al de catálogo, semáforo de existencia (`lib/cotizacion/disponibilidad.ts`), kits
+  plegables (`lib/cotizacion/agrupar-conceptos.ts`) y quitar fila o kit **siempre con confirmación** (decisión
+  del usuario). Descripción y tipo solo se editan en ítems libres (sin repuesto ni kit).
+- **Buscador** (`buscador-conceptos.tsx` + `buscarParaCotizacionAction`): kits activos, repuestos de la sede con
+  existencia, y «agregar lo escrito como ítem libre» (repuesto o mano de obra, precio 0). Un repuesto suelto ya
+  presente suma 1 en vez de duplicar (`agregarRepuestoACotizacionAction`). Acciones de la tabla en
+  `src/app/actions/cotizacion-items-actions.ts`; se borraron los formularios viejos y `agregarItemCotizacionAction`.
+- **Cabecera** (`cabecera-cotizacion.tsx`) con placa, WhatsApp wa.me y aviso de vencimiento
+  (`lib/cotizacion/vencimiento.ts`, días de Bogotá); **resumen** (`resumen-cotizacion.tsx`); decisión
+  «Aprobar y generar orden de trabajo» / «Marcar rechazada».
+- **PDF**: kit como título con subtotal y sus partes debajo; la existencia no se imprime.
+- **Orden**: no se fusionaron sus dos tablas; cada línea de kit lleva la etiqueta «Kit · nombre» y la pestaña
+  Trabajo muestra «Kits aplicados» (`lib/orden/kits-orden.ts`).
+- Descartado de Stitch: «Poner en espera», mecánico en la línea de la cotización, texto de reserva de repuestos,
+  enlace de aprobación interactiva.
+
 - Datos de demostración en `taller_dev` que el usuario quiere conservar: cliente "Andrea Valencia Ríos", placas
   JKT482, MRW615, HBL290 y DFN734, 8 facturas del 10 al 14 de octubre de 2026.
 
@@ -324,6 +354,8 @@ Después, la comprobación que vale: `migrate diff` respondiendo **"This is an e
 
 ## 8. Pendientes y próximos pasos
 
+- **Rediseño de la cotización**: falta revisión visual del usuario, merge a `main` y despliegue. Su migración
+  está aplicada en `taller_dev`; **falta `taller_dev_reference`** y confirmar con `migrate diff` vacío.
 - **Fase 23**: aplazada junto con DIAN. Para retomarla, sus siete decisiones están en su documento (§4).
 - **Fase 25**: quedan los ítems sueltos del roadmap — 25 flotas/clientes empresa, 26 asistente IA,
   27 consulta RUNT, 28 exportación contable — y **la facturación electrónica DIAN**, que se planea aparte.
