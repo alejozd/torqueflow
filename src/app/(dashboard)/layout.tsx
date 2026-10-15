@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { publicDb } from "@/lib/db/public-client";
 import { esCotizacionPendienteDeSeguimiento } from "@/lib/cotizacion/seguimiento-pendiente";
+import { prismaCotizacionesVencidasGateway } from "@/lib/cotizacion/marcar-vencidas-gateway-prisma";
 import { scopeCita, scopeCotizacion, scopeFactura, scopeOrden, scopeRepuesto } from "@/lib/sede/scope";
 import { comprometidoPorRepuesto, estaBajoMinimo } from "@/lib/inventario/comprometido";
 import { buildRangoFechas } from "@/lib/reportes/rango-fechas";
@@ -48,6 +49,9 @@ async function loadCotizacionesPendientesSeguimiento(
   session: Awaited<ReturnType<typeof requireSession>>,
 ): Promise<number> {
   const tenantDb = getTenantDb(session.user.tenantSchema);
+  // Corre en cada página del panel: las enviadas ya vencidas pasan a VENCIDA
+  // aunque el cron de /api/cron/cotizaciones-vencidas no esté programado.
+  await prismaCotizacionesVencidasGateway.marcarVencidas(session.user.tenantSchema, new Date());
   const cotizaciones = await tenantDb.cotizacion.findMany({
     where: { ...scopeCotizacion(session.user.sedeActivaId), estado: { in: ["BORRADOR", "ENVIADA"] } },
     select: {
@@ -163,7 +167,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             repuestosStockBajo={repuestosStockBajo}
           />
           <SidebarInset>
-            <header className="flex flex-wrap items-center gap-3 border-b bg-background px-4 py-3">
+            <header className="flex flex-wrap items-center gap-3 border-b bg-card px-4 py-3">
               <div className="flex flex-1 flex-wrap items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
                   <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[oklch(0.62_0.19_45/0.14)] text-[10.5px] font-semibold text-[oklch(0.42_0.14_45)]">

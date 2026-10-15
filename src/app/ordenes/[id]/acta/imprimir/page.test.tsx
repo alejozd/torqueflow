@@ -51,7 +51,7 @@ describe("ImprimirActaPage", () => {
   });
 
   it("imprime el acta con el estado de ingreso, los daños, los trabajos y la firma", async () => {
-    render(await ImprimirActaPage({ params: Promise.resolve({ id: "o1" }) }));
+    const { container } = render(await ImprimirActaPage({ params: Promise.resolve({ id: "o1" }) }));
 
     expect(screen.getByRole("heading", { name: "Sede principal" })).toBeInTheDocument();
     expect(screen.getByText(/Acta de entrega/)).toBeInTheDocument();
@@ -61,7 +61,11 @@ describe("ImprimirActaPage", () => {
     expect(screen.getByText("1/2")).toBeInTheDocument();
     expect(screen.getByText(/Ruido en el tren delantero/)).toBeInTheDocument();
     // El diagrama se reutiliza en modo lectura y las marcas se listan con su nota.
-    expect(screen.getByRole("button", { name: "Capó (con daño marcado)" })).toBeInTheDocument();
+    // Desde el croquis dibujado a mano (900085b) cada daño es un número en el dibujo con su tarjeta.
+    const marcas = within(screen.getByRole("list", { name: "Daños marcados" })).getAllByRole("listitem");
+    expect(marcas).toHaveLength(1);
+    expect(marcas[0]).toHaveTextContent("Capó");
+    expect(container.querySelectorAll("[data-marcador]")).toHaveLength(1);
     expect(screen.getByText(/Capó · Golpe · Leve/)).toBeInTheDocument();
     expect(screen.getByText(/Cambio de aceite \(mano de obra\)/)).toBeInTheDocument();
     expect(screen.getByText("Filtro")).toBeInTheDocument();

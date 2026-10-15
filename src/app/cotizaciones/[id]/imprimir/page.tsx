@@ -1,8 +1,11 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCotizacion } from "@/app/actions/cotizacion-actions";
 import type { EstadoCotizacion } from "@/generated/prisma-tenant";
 import { formatoFechaCorta } from "@/lib/fecha-bogota";
+import { agruparConceptos, conceptosDesdeItems, importeConcepto, type ConceptoVista } from "@/lib/cotizacion/agrupar-conceptos";
+import { etiquetaDescuento, porcentajeVisible } from "@/lib/cotizacion/totales";
 import { ImprimirButton } from "./imprimir-button";
 
 // Same BORRADOR/ENVIADA/APROBADA/RECHAZADA/VENCIDA convention as
@@ -22,6 +25,22 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", {
   maximumFractionDigits: 0,
 });
 
+const formatoCantidad = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 2 });
+
+function FilaConcepto({ concepto, dentroDeKit }: { concepto: ConceptoVista; dentroDeKit: boolean }) {
+  return (
+    <tr className="border-b border-black/10 break-inside-avoid">
+      <td className={dentroDeKit ? "py-1 pr-2 pl-5 text-black/80" : "py-1.5 pr-2"}>{concepto.descripcion}</td>
+      <td className="py-1.5 pr-2">{concepto.tipo === "REPUESTO" ? "Repuesto" : "Mano de obra"}</td>
+      <td className="py-1.5 pr-2 text-right">{formatoCantidad.format(concepto.cantidad)}</td>
+      <td className="py-1.5 pr-2 text-right">{formatoMoneda.format(concepto.precioUnitario)}</td>
+      <td className={dentroDeKit ? "py-1.5 text-right text-black/70" : "py-1.5 text-right"}>
+        {formatoMoneda.format(importeConcepto(concepto))}
+      </td>
+    </tr>
+  );
+}
+
 export default async function ImprimirCotizacionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const cotizacion = await getCotizacion(id);
@@ -29,6 +48,11 @@ export default async function ImprimirCotizacionPage({ params }: { params: Promi
   if (!cotizacion) {
     notFound();
   }
+
+  // Cada kit sale con su nombre y subtotal como título y sus partes debajo,
+  // para que el cliente vea el desglose sin perder que es un solo trabajo.
+  const bloques = agruparConceptos(conceptosDesdeItems(cotizacion.items));
+  const descuento = Number(cotizacion.descuento);
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-8 text-black">
@@ -76,24 +100,33 @@ export default async function ImprimirCotizacionPage({ params }: { params: Promi
             </tr>
           </thead>
           <tbody>
-            {cotizacion.items.length === 0 ? (
+            {bloques.length === 0 ? (
               <tr>
                 <td colSpan={5} className="py-3 text-center text-black/60">
                   Esta cotización no tiene conceptos agregados.
                 </td>
               </tr>
             ) : (
-              cotizacion.items.map((item) => (
-                <tr key={item.id} className="border-b border-black/10">
-                  <td className="py-1.5 pr-2">{item.descripcion}</td>
-                  <td className="py-1.5 pr-2">{item.tipo === "REPUESTO" ? "Repuesto" : "Mano de obra"}</td>
-                  <td className="py-1.5 pr-2 text-right">{item.cantidad.toString()}</td>
-                  <td className="py-1.5 pr-2 text-right">{formatoMoneda.format(Number(item.precioUnitario))}</td>
-                  <td className="py-1.5 text-right">
-                    {formatoMoneda.format(Number(item.cantidad) * Number(item.precioUnitario))}
-                  </td>
-                </tr>
-              ))
+              bloques.map((bloque) =>
+                bloque.clase === "suelto" ? (
+                  <FilaConcepto key={bloque.concepto.id} concepto={bloque.concepto} dentroDeKit={false} />
+                ) : (
+                  <Fragment key={bloque.grupoKitId}>
+                    <tr className="border-b border-black/20 bg-black/[0.04] break-after-avoid">
+                      <td colSpan={4} className="py-1.5 pr-2 font-semibold">
+                        {bloque.nombre}
+                        <span className="ml-2 text-xs font-normal text-black/60">
+                          {bloque.conceptos.length === 1 ? "1 concepto" : `${bloque.conceptos.length} conceptos`}
+                        </span>
+                      </td>
+                      <td className="py-1.5 text-right font-semibold">{formatoMoneda.format(bloque.subtotal)}</td>
+                    </tr>
+                    {bloque.conceptos.map((concepto) => (
+                      <FilaConcepto key={concepto.id} concepto={concepto} dentroDeKit />
+                    ))}
+                  </Fragment>
+                ),
+              )
             )}
           </tbody>
         </table>
@@ -104,10 +137,14 @@ export default async function ImprimirCotizacionPage({ params }: { params: Promi
           <span className="text-black/70">Subtotal</span>
           <span>{formatoMoneda.format(Number(cotizacion.subtotal))}</span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-black/70">Descuento ({Number(cotizacion.descuentoPct)}%)</span>
-          <span>−{formatoMoneda.format(Number(cotizacion.descuento))}</span>
-        </div>
+        {descuento > 0 ? (
+          <div className="flex justify-between">
+            <span className="text-black/70">
+              {etiquetaDescuento(porcentajeVisible(cotizacion.descuentoTipo, Number(cotizacion.descuentoPct)))}
+            </span>
+            <span>−{formatoMoneda.format(descuento)}</span>
+          </div>
+        ) : null}
         <div className="flex justify-between">
           <span className="text-black/70">IVA (19%)</span>
           <span>{formatoMoneda.format(Number(cotizacion.iva))}</span>

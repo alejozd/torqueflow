@@ -98,6 +98,10 @@ describe("construirMensajeCotizacion", () => {
     expect(conDescuento.texto).toContain("Descuento");
     expect(conDescuento.texto).toContain("10%");
     expect(conDescuento.texto).toContain(formatoMoneda.format(15000));
+
+    const montoFijo = construirMensajeCotizacion("ana@cliente.test", { ...base, descuento: 15000, descuentoPct: null });
+    expect(montoFijo.texto).toContain("Descuento:");
+    expect(montoFijo.texto).not.toContain("%");
   });
 
   it("renders subtotal and IVA lines in both bodies", () => {

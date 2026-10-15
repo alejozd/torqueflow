@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { etiquetaDescuento } from "@/lib/cotizacion/totales";
 
 const initialState: EnviarCotizacionFormState = { error: null, success: false };
 
@@ -49,7 +50,8 @@ export function EnviarCotizacionForm({
     items: { descripcion: string; importe: number }[];
     subtotal: number;
     descuento: number;
-    descuentoPct: number;
+    /** null cuando el descuento es un monto fijo. */
+    descuentoPct: number | null;
     iva: number;
     total: number;
   };
@@ -93,7 +95,7 @@ export function EnviarCotizacionForm({
         "",
         `*Subtotal:* ${formatoMoneda.format(resumen.subtotal)}`,
         ...(resumen.descuento > 0
-          ? [`*Descuento (${resumen.descuentoPct}%):* -${formatoMoneda.format(resumen.descuento)}`]
+          ? [`*${etiquetaDescuento(resumen.descuentoPct)}:* -${formatoMoneda.format(resumen.descuento)}`]
           : []),
         `*IVA:* ${formatoMoneda.format(resumen.iva)}`,
         `*Total:* ${formatoMoneda.format(resumen.total)}`,

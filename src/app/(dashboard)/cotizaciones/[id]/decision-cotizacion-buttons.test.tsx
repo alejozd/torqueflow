@@ -25,7 +25,7 @@ describe("DecisionCotizacionButtons", () => {
     mockAprobar.mockResolvedValue({ error: null, success: true, ordenId: "o9" });
     render(<DecisionCotizacionButtons cotizacionId="c1" />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Aprobar" }));
+    await userEvent.click(screen.getByRole("button", { name: "Aprobar y generar orden de trabajo" }));
     expect(mockAprobar).not.toHaveBeenCalled();
     expect(screen.getByText("¿Aprobar la cotización? Se creará una orden de trabajo con sus ítems.")).toBeInTheDocument();
 
@@ -37,7 +37,7 @@ describe("DecisionCotizacionButtons", () => {
     mockRechazar.mockResolvedValue({ error: null, success: true });
     render(<DecisionCotizacionButtons cotizacionId="c1" />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Rechazar" }));
+    await userEvent.click(screen.getByRole("button", { name: "Marcar rechazada" }));
     expect(mockRechazar).not.toHaveBeenCalled();
     expect(screen.getByText("¿Rechazar la cotización?")).toBeInTheDocument();
 
@@ -48,10 +48,10 @@ describe("DecisionCotizacionButtons", () => {
   it("'No' returns to both buttons without calling anything", async () => {
     render(<DecisionCotizacionButtons cotizacionId="c1" />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Aprobar" }));
+    await userEvent.click(screen.getByRole("button", { name: "Aprobar y generar orden de trabajo" }));
     await userEvent.click(screen.getByRole("button", { name: "No" }));
 
     expect(mockAprobar).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Rechazar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Marcar rechazada" })).toBeInTheDocument();
   });
 });

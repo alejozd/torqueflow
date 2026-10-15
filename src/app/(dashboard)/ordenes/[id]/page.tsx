@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Package } from "lucide-react";
 import { COLOR_TONO, pestanaInicial, pestanasGestionadas, resumenEntrega, resumenInspeccion } from "@/lib/orden/pestanas";
 import { PestanasOrden } from "./pestanas-orden";
 import { AgregarAlTrabajo } from "./agregar-al-trabajo";
@@ -38,6 +39,7 @@ import type { ResultadoAccion } from "@/lib/resultado-accion";
 import type { DviChecklist } from "@/lib/dvi/checklist-items";
 import { totalOrden } from "@/lib/dashboard/calculos";
 import { cn } from "@/lib/utils";
+import { resumirKitsDeOrden } from "@/lib/orden/kits-orden";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,10 +54,26 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", {
   maximumFractionDigits: 0,
 });
 
+/** Marca las líneas que salieron de un kit aplicado (en la cotización o aquí). */
+function EtiquetaKit({ nombre }: { nombre: string | null }) {
+  if (!nombre) return null;
+  return (
+    <span className="mt-0.5 flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+      <Package className="size-3" aria-hidden />
+      Kit · {nombre}
+    </span>
+  );
+}
+
 const ITEMS_COLUMNS: DataTableColumn<ItemRow>[] = [
   {
     header: "Concepto",
-    cell: (item) => <span className="text-sm">{item.descripcion}</span>,
+    cell: (item) => (
+      <div className="flex flex-col">
+        <span className="text-sm">{item.descripcion}</span>
+        <EtiquetaKit nombre={item.grupoKitNombre} />
+      </div>
+    ),
   },
   {
     header: "Tipo",
@@ -105,7 +123,12 @@ const ITEMS_COLUMNS: DataTableColumn<ItemRow>[] = [
 const MANO_OBRA_COLUMNS: DataTableColumn<ManoObraRow>[] = [
   {
     header: "Trabajo",
-    cell: (linea) => <span className="text-sm">{linea.descripcion}</span>,
+    cell: (linea) => (
+      <div className="flex flex-col">
+        <span className="text-sm">{linea.descripcion}</span>
+        <EtiquetaKit nombre={linea.grupoKitNombre} />
+      </div>
+    ),
   },
   {
     header: "Mecánico",
@@ -183,6 +206,10 @@ export default async function OrdenDetailPage({
 
   const repuestosTotal = orden.items.reduce((suma, item) => suma + item.cantidad * Number(item.precioUnitario), 0);
   const manoObraTotal = orden.manoDeObra.reduce((suma, linea) => suma + Number(linea.valor), 0);
+  const kits = resumirKitsDeOrden(
+    orden.items.map((item) => ({ ...item, precioUnitario: Number(item.precioUnitario) })),
+    orden.manoDeObra.map((linea) => ({ ...linea, valor: Number(linea.valor) })),
+  );
   const checklist = (orden.dvi?.checklist as DviChecklist | undefined) ?? null;
   // Solo cuentan los ítems activos: un ítem desactivado no se puede revisar.
   const itemsDviActivos = dviItems.filter((item) => item.activo);
@@ -313,6 +340,25 @@ export default async function OrdenDetailPage({
                       </Card>
                     ))}
                   </div>
+                  {kits.length > 0 ? (
+                    <Card className="gap-2 px-4 py-3">
+                      <span className="text-[11px] tracking-wide text-muted-foreground uppercase">Kits aplicados</span>
+                      <ul className="flex flex-col divide-y divide-border">
+                        {kits.map((kit) => (
+                          <li key={kit.grupoKitId} className="flex items-center justify-between gap-3 py-1.5 text-sm">
+                            <span className="flex items-center gap-2">
+                              <Package className="size-4 text-primary" aria-hidden />
+                              <span className="font-medium">{kit.nombre}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {kit.conceptos === 1 ? "1 concepto" : `${kit.conceptos} conceptos`}
+                              </span>
+                            </span>
+                            <span className="font-mono">{formatoMoneda.format(kit.subtotal)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </Card>
+                  ) : null}
                   {!orden.factura && (
                     <Card>
                       <CardHeader>

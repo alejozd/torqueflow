@@ -7,15 +7,16 @@ import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion"
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import {
   crearCotizacionInputSchema,
-  itemCotizacionInputSchema,
   descuentoCotizacionInputSchema,
   enviarCotizacionInputSchema,
 } from "@/lib/validation/cotizacion";
 import { isValidEstadoTransition } from "@/lib/cotizacion/estado-transitions";
 import { assertCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
 import { recomputeCotizacionTotales } from "@/lib/cotizacion/recompute-totales";
+import { prismaCotizacionesVencidasGateway } from "@/lib/cotizacion/marcar-vencidas-gateway-prisma";
+import { porcentajeVisible } from "@/lib/cotizacion/totales";
 import { construirMensajeCotizacion } from "@/lib/cotizacion/plantilla-envio";
-import { scopeCotizacion, scopeRepuesto } from "@/lib/sede/scope";
+import { scopeCotizacion } from "@/lib/sede/scope";
 import {
   CONFIGURACION_SMTP_ID,
   descifrarConfiguracionSmtp,
@@ -28,11 +29,6 @@ export interface CotizacionFormState {
   error: string | null;
   success: boolean;
   cotizacionId: string | null;
-}
-
-export interface ItemCotizacionFormState {
-  error: string | null;
-  success: boolean;
 }
 
 export interface DescuentoCotizacionFormState {
@@ -69,7 +65,11 @@ const COTIZACION_DETAIL_INCLUDE = {
   vehiculo: { select: { id: true, placa: true, marca: true, modelo: true, color: true, anio: true } },
   sede: { select: { id: true, nombre: true } },
   creadoPor: { select: { id: true, nombre: true } },
-  items: { orderBy: { createdAt: "asc" } },
+  // El repuesto aporta código, precio de catálogo y existencia a la tabla editable.
+  items: {
+    orderBy: { createdAt: "asc" },
+    include: { repuesto: { select: { codigo: true, precioVenta: true, stockActual: true } } },
+  },
   // Full history (no `take`) with the logger's name -- the list page's row
   // only needs the single latest seguimiento, but that is a distinct,
   // narrower include applied at listCotizaciones's own query.
@@ -107,9 +107,20 @@ function revalidarCotizaciones(id?: string): void {
   }
 }
 
+/**
+ * Pasa a VENCIDA las enviadas cuya vigencia ya pasó, antes de mostrarlas. El
+ * cron de /api/cron/cotizaciones-vencidas hace lo mismo, pero si nadie lo
+ * programa una cotización vencida seguiría «Enviada» y se podría aprobar; así
+ * el estado es correcto en cuanto alguien la mira. Es un updateMany idempotente.
+ */
+async function vencerCotizacionesPasadas(tenantSchema: string): Promise<void> {
+  await prismaCotizacionesVencidasGateway.marcarVencidas(tenantSchema, new Date());
+}
+
 export async function listCotizaciones(estado?: EstadoCotizacion): Promise<CotizacionListItem[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
+  await vencerCotizacionesPasadas(session.user.tenantSchema);
   return tenantDb.cotizacion.findMany({
     where: { ...scopeCotizacion(session.user.sedeActivaId), ...(estado ? { estado } : {}) },
     include: COTIZACION_LIST_INCLUDE,
@@ -120,6 +131,7 @@ export async function listCotizaciones(estado?: EstadoCotizacion): Promise<Cotiz
 export async function getCotizacion(id: string): Promise<CotizacionConDetalle | null> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
+  await vencerCotizacionesPasadas(session.user.tenantSchema);
   // findFirst, not findUnique: findUnique cannot carry the sede filter, so an id
   // from another sede would resolve. This is the IDOR boundary.
   return tenantDb.cotizacion.findFirst({
@@ -204,74 +216,6 @@ export async function crearCotizacionAction(
   }
 }
 
-export async function agregarItemCotizacionAction(
-  cotizacionId: string,
-  prevState: ItemCotizacionFormState,
-  formData: FormData,
-): Promise<ItemCotizacionFormState> {
-  const parsed = itemCotizacionInputSchema.safeParse({
-    tipo: formData.get("tipo"),
-    repuestoId: formData.get("repuestoId") ?? "",
-    descripcion: formData.get("descripcion") ?? "",
-    cantidad: formData.get("cantidad"),
-    precioUnitario: formData.get("precioUnitario") || undefined,
-  });
-
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
-  }
-
-  const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
-  const tenantDb = getTenantDb(session.user.tenantSchema);
-
-  const cotizacion = await tenantDb.cotizacion.findFirst({
-    where: { id: cotizacionId, ...scopeCotizacion(session.user.sedeActivaId) },
-    select: { estado: true },
-  });
-  if (!cotizacion) {
-    return { error: NO_ENCONTRADA, success: false };
-  }
-  try {
-    assertCotizacionMutable(cotizacion);
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : "Cotización no modificable", success: false };
-  }
-
-  let descripcion: string;
-  if (parsed.data.tipo === "REPUESTO") {
-    const repuesto = await tenantDb.repuesto.findFirst({
-      where: { id: parsed.data.repuestoId, ...scopeRepuesto(session.user.sedeActivaId) },
-    });
-    if (!repuesto) {
-      return { error: "Repuesto no encontrado", success: false };
-    }
-    descripcion = repuesto.nombre;
-  } else {
-    descripcion = parsed.data.descripcion as string;
-  }
-
-  try {
-    await tenantDb.$transaction(async (tx) => {
-      await tx.itemCotizacion.create({
-        data: {
-          cotizacionId,
-          tipo: parsed.data.tipo,
-          repuestoId: parsed.data.tipo === "REPUESTO" ? parsed.data.repuestoId || null : null,
-          descripcion,
-          cantidad: parsed.data.cantidad,
-          precioUnitario: parsed.data.precioUnitario,
-        },
-      });
-      await recomputeCotizacionTotales(tx, cotizacionId);
-    });
-  } catch (err) {
-    return { error: friendlyPrismaErrorMessage(err, "Error al agregar el ítem"), success: false };
-  }
-
-  revalidarCotizaciones(cotizacionId);
-  return { error: null, success: true };
-}
-
 export async function eliminarItemCotizacionAction(id: string, cotizacionId: string): Promise<void> {
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
@@ -312,7 +256,9 @@ export async function actualizarDescuentoCotizacionAction(
   formData: FormData,
 ): Promise<DescuentoCotizacionFormState> {
   const parsed = descuentoCotizacionInputSchema.safeParse({
+    descuentoTipo: formData.get("descuentoTipo") || "PORCENTAJE",
     descuentoPct: formData.get("descuentoPct"),
+    descuentoMonto: formData.get("descuentoMonto"),
   });
 
   if (!parsed.success) {
@@ -337,7 +283,13 @@ export async function actualizarDescuentoCotizacionAction(
 
   try {
     await tenantDb.$transaction(async (tx) => {
-      await tx.cotizacion.update({ where: { id: cotizacionId }, data: { descuentoPct: parsed.data.descuentoPct } });
+      // Solo se escribe el valor del tipo elegido: el otro se conserva por si
+      // el usuario vuelve a cambiar de tipo.
+      const data =
+        parsed.data.descuentoTipo === "PORCENTAJE"
+          ? { descuentoTipo: parsed.data.descuentoTipo, descuentoPct: parsed.data.descuentoPct }
+          : { descuentoTipo: parsed.data.descuentoTipo, descuentoMonto: parsed.data.descuentoMonto };
+      await tx.cotizacion.update({ where: { id: cotizacionId }, data });
       await recomputeCotizacionTotales(tx, cotizacionId);
     });
   } catch (err) {
@@ -415,7 +367,7 @@ export async function enviarCotizacionAction(
         })),
         subtotal: Number(cotizacion.subtotal),
         descuento: Number(cotizacion.descuento),
-        descuentoPct: Number(cotizacion.descuentoPct),
+        descuentoPct: porcentajeVisible(cotizacion.descuentoTipo, Number(cotizacion.descuentoPct)),
         iva: Number(cotizacion.iva),
         total: Number(cotizacion.total),
         validaHasta,
@@ -468,6 +420,8 @@ export async function aprobarCotizacionAction(
 ): Promise<AprobarCotizacionFormState> {
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
+  // Una pantalla abierta antes del vencimiento no debe poder aprobarla después.
+  await vencerCotizacionesPasadas(session.user.tenantSchema);
 
   const cotizacion = await tenantDb.cotizacion.findFirst({
     where: { id: cotizacionId, ...scopeCotizacion(session.user.sedeActivaId) },
@@ -475,6 +429,9 @@ export async function aprobarCotizacionAction(
   });
   if (!cotizacion) {
     return { error: NO_ENCONTRADA, success: false, ordenId: null };
+  }
+  if (cotizacion.estado === "VENCIDA") {
+    return { error: "La cotización ya venció; no se puede aprobar. Crea una nueva con precios al día.", success: false, ordenId: null };
   }
   if (!isValidEstadoTransition(cotizacion.estado, "APROBADA")) {
     return { error: `No se puede cambiar de ${cotizacion.estado} a APROBADA`, success: false, ordenId: null };
@@ -493,6 +450,12 @@ export async function aprobarCotizacionAction(
       });
 
       for (const item of cotizacion.items) {
+        // La orden recuerda de qué kit salió cada línea, igual que la cotización.
+        const grupo = {
+          grupoKitId: item.grupoKitId,
+          grupoKitNombre: item.grupoKitNombre,
+          servicioId: item.servicioId,
+        };
         if (item.tipo === "REPUESTO") {
           await tx.itemOrden.create({
             data: {
@@ -501,6 +464,7 @@ export async function aprobarCotizacionAction(
               descripcion: item.descripcion,
               cantidad: Math.round(Number(item.cantidad)),
               precioUnitario: item.precioUnitario,
+              ...grupo,
             },
           });
         } else {
@@ -509,6 +473,7 @@ export async function aprobarCotizacionAction(
               ordenId: creada.id,
               descripcion: item.descripcion,
               valor: Number(item.cantidad) * Number(item.precioUnitario),
+              ...grupo,
             },
           });
         }

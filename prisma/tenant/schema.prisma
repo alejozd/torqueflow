@@ -370,11 +370,17 @@ model ItemOrden {
   descripcion    String
   cantidad       Int
   precioUnitario Decimal      @map("precio_unitario") @db.Decimal(10, 2)
+  /// Mismo agrupado de kit que ItemCotizacion (se copia al aprobar).
+  grupoKitId     String?      @map("grupo_kit_id")
+  grupoKitNombre String?      @map("grupo_kit_nombre")
+  servicioId     String?      @map("servicio_id")
+  servicio       Servicio?    @relation(fields: [servicioId], references: [id], onDelete: SetNull)
   garantias      Garantia[]
   createdAt      DateTime     @default(now()) @map("created_at")
 
   @@index([ordenId])
   @@index([repuestoId])
+  @@index([servicioId])
   @@map("items_orden")
 }
 
@@ -389,11 +395,17 @@ model ManoDeObra {
   // cabecera (p.ej. pastillas vs. correa de repartición).
   mecanicoId  String?      @map("mecanico_id")
   mecanico    Usuario?     @relation("ManoDeObraMecanico", fields: [mecanicoId], references: [id], onDelete: SetNull)
+  /// Mismo agrupado de kit que ItemCotizacion (se copia al aprobar).
+  grupoKitId     String?      @map("grupo_kit_id")
+  grupoKitNombre String?      @map("grupo_kit_nombre")
+  servicioId     String?      @map("servicio_id")
+  servicio       Servicio?    @relation(fields: [servicioId], references: [id], onDelete: SetNull)
   garantias   Garantia[]
   createdAt   DateTime     @default(now()) @map("created_at")
 
   @@index([ordenId])
   @@index([mecanicoId])
+  @@index([servicioId])
   @@map("mano_de_obra")
 }
 
@@ -712,6 +724,13 @@ enum TipoItemCotizacion {
   MANO_OBRA
 }
 
+/// Cómo se expresa el descuento de una cotización: `PORCENTAJE` usa
+/// `descuentoPct`; `MONTO` usa `descuentoMonto` en pesos, limitado al subtotal.
+enum TipoDescuento {
+  PORCENTAJE
+  MONTO
+}
+
 /// A price quote given to a customer before work starts. Independent of
 /// OrdenTrabajo (unlike Factura, which always closes one out): a Cotizacion
 /// may never turn into an order, and ordenId is only set once staff approve it
@@ -728,7 +747,9 @@ model Cotizacion {
   sede         Sede                    @relation(fields: [sedeId], references: [id], onDelete: Restrict)
   motivo       String
   validaHasta  DateTime?               @map("valida_hasta")
+  descuentoTipo  TipoDescuento           @default(PORCENTAJE) @map("descuento_tipo")
   descuentoPct Decimal                 @default(0) @map("descuento_pct") @db.Decimal(5, 2)
+  descuentoMonto Decimal                 @default(0) @map("descuento_monto") @db.Decimal(10, 2)
   subtotal     Decimal                 @default(0) @db.Decimal(10, 2)
   descuento    Decimal                 @default(0) @db.Decimal(10, 2)
   iva          Decimal                 @default(0) @db.Decimal(10, 2)
@@ -760,10 +781,18 @@ model ItemCotizacion {
   descripcion    String
   cantidad       Decimal            @db.Decimal(6, 2)
   precioUnitario Decimal            @map("precio_unitario") @db.Decimal(10, 2)
+  /// Kit del que salió la fila: un id por cada vez que se aplica un servicio
+  /// (el mismo kit dos veces da dos grupos) y una copia del nombre, para que
+  /// renombrar o borrar el servicio no altere cotizaciones ya hechas.
+  grupoKitId     String?            @map("grupo_kit_id")
+  grupoKitNombre String?            @map("grupo_kit_nombre")
+  servicioId     String?            @map("servicio_id")
+  servicio       Servicio?          @relation(fields: [servicioId], references: [id], onDelete: SetNull)
   createdAt      DateTime           @default(now()) @map("created_at")
 
   @@index([cotizacionId])
   @@index([repuestoId])
+  @@index([servicioId])
   @@map("items_cotizacion")
 }
 
@@ -1027,6 +1056,9 @@ model Servicio {
   precioManoObra Decimal             @map("precio_mano_obra") @db.Decimal(10, 2)
   activo         Boolean             @default(true)
   repuestos      ServicioRepuesto[]
+  itemsCotizacion ItemCotizacion[]
+  itemsOrden      ItemOrden[]
+  manosDeObra     ManoDeObra[]
   createdAt      DateTime            @default(now()) @map("created_at")
   updatedAt      DateTime            @updatedAt @map("updated_at")
 

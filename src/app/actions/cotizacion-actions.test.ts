@@ -14,7 +14,7 @@ const mockCotizacionFindMany = vi.fn();
 const mockCotizacionFindFirst = vi.fn();
 const mockCotizacionCreate = vi.fn();
 const mockCotizacionUpdate = vi.fn();
-const mockRepuestoFindFirst = vi.fn();
+const mockCotizacionUpdateMany = vi.fn();
 const mockConfiguracionSmtpFindUnique = vi.fn();
 
 const mockCotizacionFindUniqueOrThrow = vi.fn();
@@ -43,8 +43,8 @@ vi.mock("@/lib/db/tenant-client", () => ({
       findFirst: mockCotizacionFindFirst,
       create: mockCotizacionCreate,
       update: mockCotizacionUpdate,
+      updateMany: mockCotizacionUpdateMany,
     },
-    repuesto: { findFirst: mockRepuestoFindFirst },
     configuracionSmtp: { findUnique: mockConfiguracionSmtpFindUnique },
     $transaction: mockTransaction,
   }),
@@ -59,7 +59,6 @@ vi.mock("@/lib/email/enviar-email", () => ({
 
 import {
   crearCotizacionAction,
-  agregarItemCotizacionAction,
   eliminarItemCotizacionAction,
   actualizarDescuentoCotizacionAction,
   enviarCotizacionAction,
@@ -68,7 +67,6 @@ import {
   listCotizaciones,
   getCotizacion,
   type CotizacionFormState,
-  type ItemCotizacionFormState,
   type DescuentoCotizacionFormState,
   type EnviarCotizacionFormState,
   type AprobarCotizacionFormState,
@@ -79,7 +77,6 @@ const SESSION_ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_p
 const SESSION_TECNICO = { user: { id: "u2", role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 const cotizacionInitial: CotizacionFormState = { error: null, success: false, cotizacionId: null };
-const itemInitial: ItemCotizacionFormState = { error: null, success: false };
 const descuentoInitial: DescuentoCotizacionFormState = { error: null, success: false };
 const enviarInitial: EnviarCotizacionFormState = { error: null, success: false };
 const aprobarInitial: AprobarCotizacionFormState = { error: null, success: false, ordenId: null };
@@ -132,7 +129,7 @@ beforeEach(() => {
   mockCotizacionFindFirst.mockReset();
   mockCotizacionCreate.mockReset();
   mockCotizacionUpdate.mockReset().mockResolvedValue({});
-  mockRepuestoFindFirst.mockReset();
+  mockCotizacionUpdateMany.mockReset().mockResolvedValue({ count: 0 });
   mockConfiguracionSmtpFindUnique.mockReset();
   mockEnviarEmail.mockReset().mockResolvedValue(undefined);
   mockCotizacionFindUniqueOrThrow.mockReset().mockResolvedValue({ descuentoPct: "0", items: [] });
@@ -200,106 +197,6 @@ describe("crearCotizacionAction", () => {
   });
 });
 
-describe("agregarItemCotizacionAction", () => {
-  it("returns an error when the cotización does not exist", async () => {
-    mockCotizacionFindFirst.mockResolvedValue(null);
-    const formData = new FormData();
-    formData.set("tipo", "MANO_OBRA");
-    formData.set("descripcion", "Cambio de pastillas");
-    formData.set("cantidad", "1");
-    formData.set("precioUnitario", "50");
-
-    const result = await agregarItemCotizacionAction("q1", itemInitial, formData);
-
-    expect(result).toEqual({ error: "Cotización no encontrada", success: false });
-    expect(mockTransaction).not.toHaveBeenCalled();
-  });
-
-  it("allows adding an item to an ENVIADA cotización -- still mutable before a final decision", async () => {
-    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ estado: "ENVIADA" }));
-    const formData = new FormData();
-    formData.set("tipo", "MANO_OBRA");
-    formData.set("descripcion", "Cambio de pastillas");
-    formData.set("cantidad", "1");
-    formData.set("precioUnitario", "50");
-
-    const result = await agregarItemCotizacionAction("q1", itemInitial, formData);
-
-    expect(result.success).toBe(true);
-    expect(mockTransaction).toHaveBeenCalledTimes(1);
-  });
-
-  it("refuses to add an item once the cotización has a final decision (APROBADA)", async () => {
-    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ estado: "APROBADA" }));
-    const formData = new FormData();
-    formData.set("tipo", "MANO_OBRA");
-    formData.set("descripcion", "Cambio de pastillas");
-    formData.set("cantidad", "1");
-    formData.set("precioUnitario", "50");
-
-    const result = await agregarItemCotizacionAction("q1", itemInitial, formData);
-
-    expect(result.success).toBe(false);
-    expect(result.error).toMatch(/No se puede modificar/);
-    expect(mockTransaction).not.toHaveBeenCalled();
-  });
-
-  it("returns an error when a REPUESTO item references a repuesto outside the sede", async () => {
-    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion());
-    mockRepuestoFindFirst.mockResolvedValue(null);
-    const formData = new FormData();
-    formData.set("tipo", "REPUESTO");
-    formData.set("repuestoId", "r1");
-    formData.set("cantidad", "2");
-    formData.set("precioUnitario", "18.9");
-
-    const result = await agregarItemCotizacionAction("q1", itemInitial, formData);
-
-    expect(result).toEqual({ error: "Repuesto no encontrado", success: false });
-  });
-
-  it("creates a REPUESTO item using the catalog nombre as descripción, then recomputes totals", async () => {
-    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion());
-    mockRepuestoFindFirst.mockResolvedValue({ id: "r1", nombre: "Pastillas de freno" });
-    mockCotizacionFindUniqueOrThrow.mockResolvedValue({
-      descuentoPct: "0",
-      items: [{ tipo: "REPUESTO", cantidad: "2", precioUnitario: "18.9" }],
-    });
-    const formData = new FormData();
-    formData.set("tipo", "REPUESTO");
-    formData.set("repuestoId", "r1");
-    formData.set("cantidad", "2");
-    formData.set("precioUnitario", "18.9");
-
-    const result = await agregarItemCotizacionAction("q1", itemInitial, formData);
-
-    expect(result).toEqual({ error: null, success: true });
-    expect(mockItemCotizacionCreate).toHaveBeenCalledWith({
-      data: { cotizacionId: "q1", tipo: "REPUESTO", repuestoId: "r1", descripcion: "Pastillas de freno", cantidad: 2, precioUnitario: 18.9 },
-    });
-    expect(mockCotizacionUpdateTx).toHaveBeenCalledWith({
-      where: { id: "q1" },
-      data: { subtotal: 37.8, descuento: 0, iva: 7.18, total: 44.98 },
-    });
-  });
-
-  it("creates a MANO_OBRA item from the free-text descripción with no repuestoId", async () => {
-    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion());
-    const formData = new FormData();
-    formData.set("tipo", "MANO_OBRA");
-    formData.set("descripcion", "Cambio de pastillas");
-    formData.set("cantidad", "1");
-    formData.set("precioUnitario", "50");
-
-    const result = await agregarItemCotizacionAction("q1", itemInitial, formData);
-
-    expect(result).toEqual({ error: null, success: true });
-    expect(mockItemCotizacionCreate).toHaveBeenCalledWith({
-      data: { cotizacionId: "q1", tipo: "MANO_OBRA", repuestoId: null, descripcion: "Cambio de pastillas", cantidad: 1, precioUnitario: 50 },
-    });
-  });
-});
-
 describe("eliminarItemCotizacionAction", () => {
   it("throws when the cotización does not exist", async () => {
     mockCotizacionFindFirst.mockResolvedValue(null);
@@ -360,7 +257,36 @@ describe("actualizarDescuentoCotizacionAction", () => {
     const result = await actualizarDescuentoCotizacionAction("q1", descuentoInitial, formData);
 
     expect(result).toEqual({ error: null, success: true });
-    expect(mockCotizacionUpdateTx).toHaveBeenCalledWith({ where: { id: "q1" }, data: { descuentoPct: 10 } });
+    expect(mockCotizacionUpdateTx).toHaveBeenCalledWith({
+      where: { id: "q1" },
+      data: { descuentoTipo: "PORCENTAJE", descuentoPct: 10 },
+    });
+  });
+
+  it("guarda un descuento por monto fijo sin tocar el porcentaje", async () => {
+    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion());
+    const formData = new FormData();
+    formData.set("descuentoTipo", "MONTO");
+    formData.set("descuentoMonto", "25000");
+
+    const result = await actualizarDescuentoCotizacionAction("q1", descuentoInitial, formData);
+
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockCotizacionUpdateTx).toHaveBeenCalledWith({
+      where: { id: "q1" },
+      data: { descuentoTipo: "MONTO", descuentoMonto: 25000 },
+    });
+  });
+
+  it("rechaza un monto fijo negativo", async () => {
+    const formData = new FormData();
+    formData.set("descuentoTipo", "MONTO");
+    formData.set("descuentoMonto", "-5");
+
+    const result = await actualizarDescuentoCotizacionAction("q1", descuentoInitial, formData);
+
+    expect(result.success).toBe(false);
+    expect(mockRequireRole).not.toHaveBeenCalled();
   });
 });
 
@@ -544,7 +470,38 @@ describe("enviarCotizacionAction", () => {
   });
 });
 
+describe("vencimiento al consultar", () => {
+  it("antes de listar pasa a VENCIDA las enviadas cuya vigencia ya pasó", async () => {
+    mockCotizacionFindMany.mockResolvedValue([]);
+
+    await listCotizaciones();
+
+    expect(mockCotizacionUpdateMany).toHaveBeenCalledWith({
+      where: { estado: "ENVIADA", validaHasta: { lt: expect.any(Date) } },
+      data: { estado: "VENCIDA" },
+    });
+  });
+
+  it("también al abrir el detalle", async () => {
+    mockCotizacionFindFirst.mockResolvedValue(null);
+
+    await getCotizacion("q1");
+
+    expect(mockCotizacionUpdateMany).toHaveBeenCalled();
+  });
+});
+
 describe("aprobarCotizacionAction", () => {
+  it("no aprueba una cotización que ya venció", async () => {
+    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ estado: "VENCIDA" }));
+
+    const result = await aprobarCotizacionAction("q1", aprobarInitial, new FormData());
+
+    expect(mockCotizacionUpdateMany).toHaveBeenCalled();
+    expect(result.error).toMatch(/ya venció/);
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
   it("rejects an invalid transition (still BORRADOR)", async () => {
     mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ estado: "BORRADOR" }));
 
@@ -581,6 +538,24 @@ describe("aprobarCotizacionAction", () => {
       where: { id: "q1" },
       data: { estado: "APROBADA", ordenId: "o1" },
     });
+  });
+
+  it("copia a la orden el kit del que salió cada línea", async () => {
+    const grupo = { grupoKitId: "g1", grupoKitNombre: "Cambio de aceite", servicioId: "s1" };
+    mockCotizacionFindFirst.mockResolvedValue(
+      baseCotizacion({
+        estado: "ENVIADA",
+        items: [
+          { tipo: "REPUESTO", repuestoId: "r1", descripcion: "Aceite", cantidad: "4", precioUnitario: "38000", ...grupo },
+          { tipo: "MANO_OBRA", repuestoId: null, descripcion: "Cambio de aceite", cantidad: "1", precioUnitario: "98000", ...grupo },
+        ],
+      }),
+    );
+
+    await aprobarCotizacionAction("q1", aprobarInitial, new FormData());
+
+    expect(mockItemOrdenCreateTx).toHaveBeenCalledWith({ data: expect.objectContaining(grupo) });
+    expect(mockManoDeObraCreateTx).toHaveBeenCalledWith({ data: expect.objectContaining(grupo) });
   });
 });
 
