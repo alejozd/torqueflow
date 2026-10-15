@@ -13,6 +13,7 @@ import {
 import { isValidEstadoTransition } from "@/lib/cotizacion/estado-transitions";
 import { assertCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
 import { recomputeCotizacionTotales } from "@/lib/cotizacion/recompute-totales";
+import { prismaCotizacionesVencidasGateway } from "@/lib/cotizacion/marcar-vencidas-gateway-prisma";
 import { porcentajeVisible } from "@/lib/cotizacion/totales";
 import { construirMensajeCotizacion } from "@/lib/cotizacion/plantilla-envio";
 import { scopeCotizacion } from "@/lib/sede/scope";
@@ -106,9 +107,20 @@ function revalidarCotizaciones(id?: string): void {
   }
 }
 
+/**
+ * Pasa a VENCIDA las enviadas cuya vigencia ya pasó, antes de mostrarlas. El
+ * cron de /api/cron/cotizaciones-vencidas hace lo mismo, pero si nadie lo
+ * programa una cotización vencida seguiría «Enviada» y se podría aprobar; así
+ * el estado es correcto en cuanto alguien la mira. Es un updateMany idempotente.
+ */
+async function vencerCotizacionesPasadas(tenantSchema: string): Promise<void> {
+  await prismaCotizacionesVencidasGateway.marcarVencidas(tenantSchema, new Date());
+}
+
 export async function listCotizaciones(estado?: EstadoCotizacion): Promise<CotizacionListItem[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
+  await vencerCotizacionesPasadas(session.user.tenantSchema);
   return tenantDb.cotizacion.findMany({
     where: { ...scopeCotizacion(session.user.sedeActivaId), ...(estado ? { estado } : {}) },
     include: COTIZACION_LIST_INCLUDE,
@@ -119,6 +131,7 @@ export async function listCotizaciones(estado?: EstadoCotizacion): Promise<Cotiz
 export async function getCotizacion(id: string): Promise<CotizacionConDetalle | null> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
+  await vencerCotizacionesPasadas(session.user.tenantSchema);
   // findFirst, not findUnique: findUnique cannot carry the sede filter, so an id
   // from another sede would resolve. This is the IDOR boundary.
   return tenantDb.cotizacion.findFirst({
@@ -407,6 +420,8 @@ export async function aprobarCotizacionAction(
 ): Promise<AprobarCotizacionFormState> {
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
+  // Una pantalla abierta antes del vencimiento no debe poder aprobarla después.
+  await vencerCotizacionesPasadas(session.user.tenantSchema);
 
   const cotizacion = await tenantDb.cotizacion.findFirst({
     where: { id: cotizacionId, ...scopeCotizacion(session.user.sedeActivaId) },
@@ -414,6 +429,9 @@ export async function aprobarCotizacionAction(
   });
   if (!cotizacion) {
     return { error: NO_ENCONTRADA, success: false, ordenId: null };
+  }
+  if (cotizacion.estado === "VENCIDA") {
+    return { error: "La cotización ya venció; no se puede aprobar. Crea una nueva con precios al día.", success: false, ordenId: null };
   }
   if (!isValidEstadoTransition(cotizacion.estado, "APROBADA")) {
     return { error: `No se puede cambiar de ${cotizacion.estado} a APROBADA`, success: false, ordenId: null };

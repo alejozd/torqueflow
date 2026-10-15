@@ -14,6 +14,7 @@ const mockCotizacionFindMany = vi.fn();
 const mockCotizacionFindFirst = vi.fn();
 const mockCotizacionCreate = vi.fn();
 const mockCotizacionUpdate = vi.fn();
+const mockCotizacionUpdateMany = vi.fn();
 const mockConfiguracionSmtpFindUnique = vi.fn();
 
 const mockCotizacionFindUniqueOrThrow = vi.fn();
@@ -42,6 +43,7 @@ vi.mock("@/lib/db/tenant-client", () => ({
       findFirst: mockCotizacionFindFirst,
       create: mockCotizacionCreate,
       update: mockCotizacionUpdate,
+      updateMany: mockCotizacionUpdateMany,
     },
     configuracionSmtp: { findUnique: mockConfiguracionSmtpFindUnique },
     $transaction: mockTransaction,
@@ -127,6 +129,7 @@ beforeEach(() => {
   mockCotizacionFindFirst.mockReset();
   mockCotizacionCreate.mockReset();
   mockCotizacionUpdate.mockReset().mockResolvedValue({});
+  mockCotizacionUpdateMany.mockReset().mockResolvedValue({ count: 0 });
   mockConfiguracionSmtpFindUnique.mockReset();
   mockEnviarEmail.mockReset().mockResolvedValue(undefined);
   mockCotizacionFindUniqueOrThrow.mockReset().mockResolvedValue({ descuentoPct: "0", items: [] });
@@ -467,7 +470,38 @@ describe("enviarCotizacionAction", () => {
   });
 });
 
+describe("vencimiento al consultar", () => {
+  it("antes de listar pasa a VENCIDA las enviadas cuya vigencia ya pasó", async () => {
+    mockCotizacionFindMany.mockResolvedValue([]);
+
+    await listCotizaciones();
+
+    expect(mockCotizacionUpdateMany).toHaveBeenCalledWith({
+      where: { estado: "ENVIADA", validaHasta: { lt: expect.any(Date) } },
+      data: { estado: "VENCIDA" },
+    });
+  });
+
+  it("también al abrir el detalle", async () => {
+    mockCotizacionFindFirst.mockResolvedValue(null);
+
+    await getCotizacion("q1");
+
+    expect(mockCotizacionUpdateMany).toHaveBeenCalled();
+  });
+});
+
 describe("aprobarCotizacionAction", () => {
+  it("no aprueba una cotización que ya venció", async () => {
+    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ estado: "VENCIDA" }));
+
+    const result = await aprobarCotizacionAction("q1", aprobarInitial, new FormData());
+
+    expect(mockCotizacionUpdateMany).toHaveBeenCalled();
+    expect(result.error).toMatch(/ya venció/);
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
   it("rejects an invalid transition (still BORRADOR)", async () => {
     mockCotizacionFindFirst.mockResolvedValue(baseCotizacion({ estado: "BORRADOR" }));
 

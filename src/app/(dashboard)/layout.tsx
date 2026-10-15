@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { publicDb } from "@/lib/db/public-client";
 import { esCotizacionPendienteDeSeguimiento } from "@/lib/cotizacion/seguimiento-pendiente";
+import { prismaCotizacionesVencidasGateway } from "@/lib/cotizacion/marcar-vencidas-gateway-prisma";
 import { scopeCita, scopeCotizacion, scopeFactura, scopeOrden, scopeRepuesto } from "@/lib/sede/scope";
 import { comprometidoPorRepuesto, estaBajoMinimo } from "@/lib/inventario/comprometido";
 import { buildRangoFechas } from "@/lib/reportes/rango-fechas";
@@ -48,6 +49,9 @@ async function loadCotizacionesPendientesSeguimiento(
   session: Awaited<ReturnType<typeof requireSession>>,
 ): Promise<number> {
   const tenantDb = getTenantDb(session.user.tenantSchema);
+  // Corre en cada página del panel: las enviadas ya vencidas pasan a VENCIDA
+  // aunque el cron de /api/cron/cotizaciones-vencidas no esté programado.
+  await prismaCotizacionesVencidasGateway.marcarVencidas(session.user.tenantSchema, new Date());
   const cotizaciones = await tenantDb.cotizacion.findMany({
     where: { ...scopeCotizacion(session.user.sedeActivaId), estado: { in: ["BORRADOR", "ENVIADA"] } },
     select: {
