@@ -69,7 +69,11 @@ const COTIZACION_DETAIL_INCLUDE = {
   vehiculo: { select: { id: true, placa: true, marca: true, modelo: true, color: true, anio: true } },
   sede: { select: { id: true, nombre: true } },
   creadoPor: { select: { id: true, nombre: true } },
-  items: { orderBy: { createdAt: "asc" } },
+  // El repuesto aporta código, precio de catálogo y existencia a la tabla editable.
+  items: {
+    orderBy: { createdAt: "asc" },
+    include: { repuesto: { select: { codigo: true, precioVenta: true, stockActual: true } } },
+  },
   // Full history (no `take`) with the logger's name -- the list page's row
   // only needs the single latest seguimiento, but that is a distinct,
   // narrower include applied at listCotizaciones's own query.

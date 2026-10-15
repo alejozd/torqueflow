@@ -2,18 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Car, MapPin, Phone, Tag, User, UserCheck } from "lucide-react";
 import { getCotizacion } from "@/app/actions/cotizacion-actions";
-import { listRepuestoOptions } from "@/app/actions/repuesto-actions";
-import { listServicios } from "@/app/actions/servicio-actions";
-import { AgregarItemCotizacionForm } from "./agregar-item-cotizacion-form";
-import { AplicarServicioCotizacionForm } from "./aplicar-servicio-cotizacion-form";
-import { EliminarItemCotizacionButton } from "./eliminar-item-cotizacion-button";
+import type { ConceptoVista } from "@/lib/cotizacion/agrupar-conceptos";
+import { TablaConceptos } from "./tabla-conceptos";
 import { DescuentoCotizacionForm } from "./descuento-cotizacion-form";
 import { EnviarCotizacionForm } from "./enviar-cotizacion-form";
 import { DecisionCotizacionButtons } from "./decision-cotizacion-buttons";
 import { RegistrarSeguimientoDialog } from "./registrar-seguimiento-dialog";
 import { esCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
 import type { EstadoCotizacion, TipoSeguimiento } from "@/generated/prisma-tenant";
-import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +17,23 @@ import { formatoFechaCorta } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
 
 type Cotizacion = NonNullable<Awaited<ReturnType<typeof getCotizacion>>>;
-type ItemRow = Cotizacion["items"][number];
+
+/** Las filas viajan al componente cliente como números planos (sin Decimal). */
+function conceptosVista(items: Cotizacion["items"]): ConceptoVista[] {
+  return items.map((item) => ({
+    id: item.id,
+    tipo: item.tipo,
+    descripcion: item.descripcion,
+    repuestoId: item.repuestoId,
+    codigo: item.repuesto?.codigo ?? null,
+    cantidad: Number(item.cantidad),
+    precioUnitario: Number(item.precioUnitario),
+    precioCatalogo: item.repuesto ? Number(item.repuesto.precioVenta) : null,
+    stockActual: item.repuesto ? item.repuesto.stockActual : null,
+    grupoKitId: item.grupoKitId,
+    grupoKitNombre: item.grupoKitNombre,
+  }));
+}
 
 // Same BORRADOR/ENVIADA/APROBADA/RECHAZADA/VENCIDA convention as
 // cotizaciones/page.tsx -- kept local here too rather than extracted to a
@@ -90,70 +102,9 @@ const formatoHoraSeguimiento = new Intl.DateTimeFormat("es-CO", {
   timeZone: "America/Bogota",
 });
 
-function buildItemColumns(cotizacionId: string, puedeEditar: boolean): DataTableColumn<ItemRow>[] {
-  const columns: DataTableColumn<ItemRow>[] = [
-    {
-      header: "Código",
-      cell: (item) => (
-        <span className="font-mono text-xs text-muted-foreground">{item.repuestoId ? item.repuestoId.slice(-6).toUpperCase() : "—"}</span>
-      ),
-    },
-    {
-      header: "Concepto",
-      cell: (item) => <span className="text-sm">{item.descripcion}</span>,
-    },
-    {
-      header: "Tipo",
-      cell: (item) => (
-        <Badge
-          variant="outline"
-          className={
-            item.tipo === "REPUESTO"
-              ? "border-transparent bg-[oklch(0.7_0.15_60/0.15)] text-[10px] text-[oklch(0.55_0.15_60)]"
-              : "border-transparent bg-[oklch(0.44_0.12_250/0.1)] text-[10px] text-[oklch(0.44_0.12_250)]"
-          }
-        >
-          {item.tipo === "REPUESTO" ? "Repuesto" : "Mano de obra"}
-        </Badge>
-      ),
-    },
-    {
-      header: "Cant.",
-      className: "text-right",
-      cell: (item) => <span className="font-mono text-sm">{item.cantidad.toString()}</span>,
-    },
-    {
-      header: "Precio unit.",
-      className: "text-right",
-      cell: (item) => <span className="font-mono text-sm text-muted-foreground">{formatoMoneda.format(Number(item.precioUnitario))}</span>,
-    },
-    {
-      header: "Importe",
-      className: "text-right",
-      cell: (item) => (
-        <span className="font-mono text-sm font-medium">{formatoMoneda.format(Number(item.cantidad) * Number(item.precioUnitario))}</span>
-      ),
-    },
-  ];
-
-  if (puedeEditar) {
-    columns.push({
-      header: "",
-      className: "text-right",
-      cell: (item) => <EliminarItemCotizacionButton itemId={item.id} cotizacionId={cotizacionId} />,
-    });
-  }
-
-  return columns;
-}
-
 export default async function CotizacionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [cotizacion, repuestos, servicios] = await Promise.all([
-    getCotizacion(id),
-    listRepuestoOptions(),
-    listServicios({ soloActivos: true }),
-  ]);
+  const cotizacion = await getCotizacion(id);
 
   if (!cotizacion) {
     notFound();
@@ -274,18 +225,11 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <DataTable
-                columns={buildItemColumns(cotizacion.id, puedeEditar)}
-                rows={cotizacion.items}
-                getRowKey={(item) => item.id}
-                emptyMessage="Esta cotización no tiene conceptos agregados."
+              <TablaConceptos
+                cotizacionId={cotizacion.id}
+                conceptos={conceptosVista(cotizacion.items)}
+                puedeEditar={puedeEditar}
               />
-              {puedeEditar ? (
-                <>
-                  <AgregarItemCotizacionForm cotizacionId={cotizacion.id} repuestos={repuestos} />
-                  <AplicarServicioCotizacionForm cotizacionId={cotizacion.id} servicios={servicios} />
-                </>
-              ) : null}
             </CardContent>
           </Card>
 
