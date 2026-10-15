@@ -44,3 +44,13 @@ export function computeCotizacionTotales({
   const total = roundMoney(base + iva);
   return { subtotalRepuestos, subtotalManoObra, subtotal, descuento, iva, total };
 }
+
+/** "Descuento (10%)" o, si es un monto fijo, solo "Descuento". */
+export function etiquetaDescuento(descuentoPct: number | null): string {
+  return descuentoPct === null ? "Descuento" : `Descuento (${descuentoPct}%)`;
+}
+
+/** El porcentaje que se muestra junto al descuento; null cuando es un monto fijo. */
+export function porcentajeVisible(descuentoTipo: TipoDescuentoCotizacion, descuentoPct: number): number | null {
+  return descuentoTipo === "MONTO" ? null : descuentoPct;
+}

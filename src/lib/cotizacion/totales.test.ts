@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeCotizacionTotales } from "./totales";
+import { computeCotizacionTotales, etiquetaDescuento, porcentajeVisible } from "./totales";
 
 const items = [
   { tipo: "REPUESTO" as const, cantidad: 2, precioUnitario: 50_000 },
@@ -43,5 +43,12 @@ describe("computeCotizacionTotales", () => {
 
   it("sin ítems todo queda en cero", () => {
     expect(computeCotizacionTotales({ items: [], descuentoPct: 0, descuentoTipo: "MONTO", descuentoMonto: 10_000 }).total).toBe(0);
+  });
+});
+
+describe("etiquetaDescuento y porcentajeVisible", () => {
+  it("el porcentaje se muestra solo cuando el descuento es por porcentaje", () => {
+    expect(etiquetaDescuento(porcentajeVisible("PORCENTAJE", 10))).toBe("Descuento (10%)");
+    expect(etiquetaDescuento(porcentajeVisible("MONTO", 10))).toBe("Descuento");
   });
 });

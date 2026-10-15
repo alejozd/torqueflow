@@ -7,15 +7,15 @@ import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion"
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import {
   crearCotizacionInputSchema,
-  itemCotizacionInputSchema,
   descuentoCotizacionInputSchema,
   enviarCotizacionInputSchema,
 } from "@/lib/validation/cotizacion";
 import { isValidEstadoTransition } from "@/lib/cotizacion/estado-transitions";
 import { assertCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
 import { recomputeCotizacionTotales } from "@/lib/cotizacion/recompute-totales";
+import { porcentajeVisible } from "@/lib/cotizacion/totales";
 import { construirMensajeCotizacion } from "@/lib/cotizacion/plantilla-envio";
-import { scopeCotizacion, scopeRepuesto } from "@/lib/sede/scope";
+import { scopeCotizacion } from "@/lib/sede/scope";
 import {
   CONFIGURACION_SMTP_ID,
   descifrarConfiguracionSmtp,
@@ -28,11 +28,6 @@ export interface CotizacionFormState {
   error: string | null;
   success: boolean;
   cotizacionId: string | null;
-}
-
-export interface ItemCotizacionFormState {
-  error: string | null;
-  success: boolean;
 }
 
 export interface DescuentoCotizacionFormState {
@@ -208,74 +203,6 @@ export async function crearCotizacionAction(
   }
 }
 
-export async function agregarItemCotizacionAction(
-  cotizacionId: string,
-  prevState: ItemCotizacionFormState,
-  formData: FormData,
-): Promise<ItemCotizacionFormState> {
-  const parsed = itemCotizacionInputSchema.safeParse({
-    tipo: formData.get("tipo"),
-    repuestoId: formData.get("repuestoId") ?? "",
-    descripcion: formData.get("descripcion") ?? "",
-    cantidad: formData.get("cantidad"),
-    precioUnitario: formData.get("precioUnitario") || undefined,
-  });
-
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
-  }
-
-  const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
-  const tenantDb = getTenantDb(session.user.tenantSchema);
-
-  const cotizacion = await tenantDb.cotizacion.findFirst({
-    where: { id: cotizacionId, ...scopeCotizacion(session.user.sedeActivaId) },
-    select: { estado: true },
-  });
-  if (!cotizacion) {
-    return { error: NO_ENCONTRADA, success: false };
-  }
-  try {
-    assertCotizacionMutable(cotizacion);
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : "Cotización no modificable", success: false };
-  }
-
-  let descripcion: string;
-  if (parsed.data.tipo === "REPUESTO") {
-    const repuesto = await tenantDb.repuesto.findFirst({
-      where: { id: parsed.data.repuestoId, ...scopeRepuesto(session.user.sedeActivaId) },
-    });
-    if (!repuesto) {
-      return { error: "Repuesto no encontrado", success: false };
-    }
-    descripcion = repuesto.nombre;
-  } else {
-    descripcion = parsed.data.descripcion as string;
-  }
-
-  try {
-    await tenantDb.$transaction(async (tx) => {
-      await tx.itemCotizacion.create({
-        data: {
-          cotizacionId,
-          tipo: parsed.data.tipo,
-          repuestoId: parsed.data.tipo === "REPUESTO" ? parsed.data.repuestoId || null : null,
-          descripcion,
-          cantidad: parsed.data.cantidad,
-          precioUnitario: parsed.data.precioUnitario,
-        },
-      });
-      await recomputeCotizacionTotales(tx, cotizacionId);
-    });
-  } catch (err) {
-    return { error: friendlyPrismaErrorMessage(err, "Error al agregar el ítem"), success: false };
-  }
-
-  revalidarCotizaciones(cotizacionId);
-  return { error: null, success: true };
-}
-
 export async function eliminarItemCotizacionAction(id: string, cotizacionId: string): Promise<void> {
   const session = await requireRole(["ADMIN", "RECEPCION"]);
   const tenantDb = getTenantDb(session.user.tenantSchema);
@@ -427,7 +354,7 @@ export async function enviarCotizacionAction(
         })),
         subtotal: Number(cotizacion.subtotal),
         descuento: Number(cotizacion.descuento),
-        descuentoPct: Number(cotizacion.descuentoPct),
+        descuentoPct: porcentajeVisible(cotizacion.descuentoTipo, Number(cotizacion.descuentoPct)),
         iva: Number(cotizacion.iva),
         total: Number(cotizacion.total),
         validaHasta,

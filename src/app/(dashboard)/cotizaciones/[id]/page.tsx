@@ -1,20 +1,23 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Car, MapPin, Phone, Tag, User, UserCheck } from "lucide-react";
+import { Printer } from "lucide-react";
 import { getCotizacion } from "@/app/actions/cotizacion-actions";
 import type { ConceptoVista } from "@/lib/cotizacion/agrupar-conceptos";
-import { TablaConceptos } from "./tabla-conceptos";
-import { DescuentoCotizacionForm } from "./descuento-cotizacion-form";
-import { EnviarCotizacionForm } from "./enviar-cotizacion-form";
-import { DecisionCotizacionButtons } from "./decision-cotizacion-buttons";
-import { RegistrarSeguimientoDialog } from "./registrar-seguimiento-dialog";
+import { contarConceptos, importeConcepto } from "@/lib/cotizacion/agrupar-conceptos";
 import { esCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
-import type { EstadoCotizacion, TipoSeguimiento } from "@/generated/prisma-tenant";
+import { etiquetaDescuento, porcentajeVisible } from "@/lib/cotizacion/totales";
+import type { TipoSeguimiento } from "@/generated/prisma-tenant";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatoFechaCorta } from "@/lib/fecha-bogota";
-import { cn } from "@/lib/utils";
+import { CabeceraCotizacion, ESTADO_LABELS } from "./cabecera-cotizacion";
+import { TablaConceptos } from "./tabla-conceptos";
+import { ResumenCotizacion } from "./resumen-cotizacion";
+import { DescuentoCotizacionForm } from "./descuento-cotizacion-form";
+import { EnviarCotizacionForm } from "./enviar-cotizacion-form";
+import { DecisionCotizacionButtons } from "./decision-cotizacion-buttons";
+import { RegistrarSeguimientoDialog } from "./registrar-seguimiento-dialog";
 
 type Cotizacion = NonNullable<Awaited<ReturnType<typeof getCotizacion>>>;
 
@@ -35,47 +38,7 @@ function conceptosVista(items: Cotizacion["items"]): ConceptoVista[] {
   }));
 }
 
-// Same BORRADOR/ENVIADA/APROBADA/RECHAZADA/VENCIDA convention as
-// cotizaciones/page.tsx -- kept local here too rather than extracted to a
-// shared module neither page asked for.
-const ESTADO_LABELS: Record<EstadoCotizacion, string> = {
-  BORRADOR: "Borrador",
-  ENVIADA: "Enviada",
-  APROBADA: "Aprobada",
-  RECHAZADA: "Rechazada",
-  VENCIDA: "Vencida",
-};
-
-const ESTADO_BADGE_VARIANT: Partial<Record<EstadoCotizacion, "outline" | "destructive" | "default">> = {
-  BORRADOR: "outline",
-  RECHAZADA: "destructive",
-  VENCIDA: "default",
-};
-
-const ESTADO_BADGE_CLASSNAME: Record<EstadoCotizacion, string> = {
-  BORRADOR: "",
-  ENVIADA: "border-transparent bg-[oklch(0.44_0.12_250/0.1)] text-[oklch(0.44_0.12_250)]",
-  APROBADA: "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]",
-  RECHAZADA: "",
-  VENCIDA: "",
-};
-
-// Same dot-in-pill standard as cotizaciones/page.tsx's ESTADO_DOT_COLOR.
-const ESTADO_DOT_COLOR: Record<EstadoCotizacion, string> = {
-  BORRADOR: "oklch(0.7 0 0)",
-  ENVIADA: "oklch(0.44 0.12 250)",
-  APROBADA: "oklch(0.4 0.1 150)",
-  RECHAZADA: "var(--destructive)",
-  VENCIDA: "var(--primary-foreground)",
-};
-
-const formatoMoneda = new Intl.NumberFormat("es-CO", {
-  style: "currency",
-  currency: "COP",
-  maximumFractionDigits: 0,
-});
-
-const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" });
+const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeZone: "America/Bogota" });
 
 const TIPO_SEGUIMIENTO_LABELS: Record<TipoSeguimiento, string> = {
   LLAMADA: "Llamada",
@@ -110,13 +73,17 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
     notFound();
   }
 
+  const ahora = new Date();
   const puedeEditar = esCotizacionMutable(cotizacion.estado);
-  const subtotalRepuestos = cotizacion.items
-    .filter((item) => item.tipo === "REPUESTO")
-    .reduce((suma, item) => suma + Number(item.cantidad) * Number(item.precioUnitario), 0);
-  const subtotalManoObra = cotizacion.items
-    .filter((item) => item.tipo === "MANO_OBRA")
-    .reduce((suma, item) => suma + Number(item.cantidad) * Number(item.precioUnitario), 0);
+  const conceptos = conceptosVista(cotizacion.items);
+  const conteo = contarConceptos(conceptos);
+  const subtotalRepuestos = conceptos
+    .filter((concepto) => concepto.tipo === "REPUESTO")
+    .reduce((suma, concepto) => suma + importeConcepto(concepto), 0);
+  const subtotalManoObra = conceptos
+    .filter((concepto) => concepto.tipo === "MANO_OBRA")
+    .reduce((suma, concepto) => suma + importeConcepto(concepto), 0);
+  const descuentoPctVisible = porcentajeVisible(cotizacion.descuentoTipo, Number(cotizacion.descuentoPct));
 
   return (
     <main className="flex flex-col gap-4">
@@ -127,109 +94,55 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
         ← Cotizaciones
       </Link>
 
-      <div>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-xl font-semibold tracking-tight">Cotización #{cotizacion.numero}</h1>
-            <Badge
-              variant={ESTADO_BADGE_VARIANT[cotizacion.estado]}
-              className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[cotizacion.estado])}
-            >
-              <span
-                className="size-1.5 shrink-0 rounded-full"
-                style={{ background: ESTADO_DOT_COLOR[cotizacion.estado] }}
-              />
-              {ESTADO_LABELS[cotizacion.estado]}
-            </Badge>
-          </div>
+      <CabeceraCotizacion
+        ahora={ahora}
+        datos={{
+          numero: cotizacion.numero,
+          estado: cotizacion.estado,
+          creada: cotizacion.createdAt,
+          creadoPor: cotizacion.creadoPor.nombre,
+          validaHasta: cotizacion.validaHasta,
+          sede: cotizacion.sede.nombre,
+          motivo: cotizacion.motivo,
+          placa: cotizacion.vehiculo.placa,
+          marca: cotizacion.vehiculo.marca,
+          modelo: cotizacion.vehiculo.modelo,
+          anio: cotizacion.vehiculo.anio,
+          color: cotizacion.vehiculo.color,
+          cliente: cotizacion.cliente.nombre,
+          telefono: cotizacion.cliente.telefono,
+          email: cotizacion.cliente.email,
+        }}
+        acciones={
           <Link
             href={`/cotizaciones/${cotizacion.id}/imprimir`}
             target="_blank"
             className={buttonVariants({ variant: "outline", size: "sm" })}
           >
-            Imprimir / Descargar PDF
+            <Printer className="size-4" aria-hidden />
+            Imprimir / PDF
           </Link>
-        </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {cotizacion.vehiculo.placa} · {cotizacion.vehiculo.marca} {cotizacion.vehiculo.modelo} · {cotizacion.cliente.nombre} ·{" "}
-          {cotizacion.motivo}
-        </p>
-      </div>
+        }
+      />
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="flex min-w-0 flex-col gap-4">
           <Card>
             <CardHeader>
-              <CardTitle>Cliente y vehículo</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <User className="size-3.5" />
-                    Cliente
-                  </p>
-                  <p className="text-sm">{cotizacion.cliente.nombre}</p>
-                </div>
-                <div>
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Phone className="size-3.5" />
-                    Teléfono
-                  </p>
-                  <p className="text-sm">{cotizacion.cliente.telefono ?? "—"}</p>
-                </div>
-                <div>
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Car className="size-3.5" />
-                    Vehículo
-                  </p>
-                  <p className="font-mono text-sm">{cotizacion.vehiculo.placa}</p>
-                </div>
-                <div>
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Tag className="size-3.5" />
-                    Modelo
-                  </p>
-                  <p className="text-sm">
-                    {cotizacion.vehiculo.marca} {cotizacion.vehiculo.modelo}
-                    {cotizacion.vehiculo.anio ? ` ${cotizacion.vehiculo.anio}` : ""}
-                  </p>
-                </div>
-                <div>
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <MapPin className="size-3.5" />
-                    Sede
-                  </p>
-                  <p className="text-sm">{cotizacion.sede.nombre}</p>
-                </div>
-                <div>
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <UserCheck className="size-3.5" />
-                    Creada por
-                  </p>
-                  <p className="text-sm">
-                    {cotizacion.creadoPor.nombre} · {formatoFecha.format(cotizacion.createdAt)}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                Conceptos cotizados{" "}
-                <span className="font-normal text-muted-foreground">
-                  · {cotizacion.items.length} {cotizacion.items.length === 1 ? "ítem" : "ítems"}
+              <CardTitle className="flex items-center gap-2">
+                Conceptos cotizados
+                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  {conteo.total === 1 ? "1 ítem" : `${conteo.total} ítems`}
                 </span>
               </CardTitle>
+              {puedeEditar ? (
+                <p className="text-sm text-muted-foreground">
+                  Busca repuestos del inventario, servicios o kits; cada cambio se guarda solo.
+                </p>
+              ) : null}
             </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <TablaConceptos
-                cotizacionId={cotizacion.id}
-                conceptos={conceptosVista(cotizacion.items)}
-                puedeEditar={puedeEditar}
-              />
+            <CardContent>
+              <TablaConceptos cotizacionId={cotizacion.id} conceptos={conceptos} puedeEditar={puedeEditar} />
             </CardContent>
           </Card>
 
@@ -275,80 +188,47 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
           </Card>
         </div>
 
-        <div className="sticky top-4 flex flex-col gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Resumen</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-0">
-              <div className="flex items-center justify-between py-1.5 text-sm">
-                <span className="text-muted-foreground">Repuestos</span>
-                <span className="font-mono">{formatoMoneda.format(subtotalRepuestos)}</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 text-sm">
-                <span className="text-muted-foreground">Mano de obra</span>
-                <span className="font-mono">{formatoMoneda.format(subtotalManoObra)}</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 text-sm">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span className="font-mono">{formatoMoneda.format(Number(cotizacion.subtotal))}</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 text-sm">
-                <span className="text-muted-foreground">Descuento ({Number(cotizacion.descuentoPct)}%)</span>
-                <span className="font-mono">−{formatoMoneda.format(Number(cotizacion.descuento))}</span>
-              </div>
-              {puedeEditar ? (
-                <div className="py-1.5">
-                  <DescuentoCotizacionForm cotizacionId={cotizacion.id} descuentoPct={Number(cotizacion.descuentoPct)} />
-                </div>
-              ) : null}
-              <div className="flex items-center justify-between py-1.5 text-sm">
-                <span className="text-muted-foreground">IVA (19%)</span>
-                <span className="font-mono">{formatoMoneda.format(Number(cotizacion.iva))}</span>
-              </div>
-              <div className="mt-1 flex items-baseline justify-between border-t border-border pt-2.5">
-                <span className="text-sm font-semibold">Total</span>
-                <span className="font-mono text-lg font-semibold">{formatoMoneda.format(Number(cotizacion.total))}</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>{cotizacion.estado === "BORRADOR" ? "Envío y vigencia" : "Reenviar cotización"}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <EnviarCotizacionForm
-                cotizacionId={cotizacion.id}
-                cliente={{ nombre: cotizacion.cliente.nombre, telefono: cotizacion.cliente.telefono }}
-                resumen={{
-                  numero: cotizacion.numero,
-                  placa: cotizacion.vehiculo.placa,
-                  items: cotizacion.items.map((item) => ({
-                    descripcion: item.descripcion,
-                    importe: Number(item.cantidad) * Number(item.precioUnitario),
-                  })),
-                  subtotal: Number(cotizacion.subtotal),
-                  descuento: Number(cotizacion.descuento),
-                  descuentoPct: Number(cotizacion.descuentoPct),
-                  iva: Number(cotizacion.iva),
-                  total: Number(cotizacion.total),
-                }}
-                esReenvio={cotizacion.estado !== "BORRADOR"}
-              />
-            </CardContent>
-          </Card>
+        <div className="flex flex-col gap-4 lg:sticky lg:top-4">
+          <ResumenCotizacion
+            subtotalRepuestos={subtotalRepuestos}
+            subtotalManoObra={subtotalManoObra}
+            subtotal={Number(cotizacion.subtotal)}
+            descuento={Number(cotizacion.descuento)}
+            etiquetaDescuento={etiquetaDescuento(descuentoPctVisible)}
+            iva={Number(cotizacion.iva)}
+            total={Number(cotizacion.total)}
+            editorDescuento={
+              puedeEditar ? (
+                <DescuentoCotizacionForm
+                  cotizacionId={cotizacion.id}
+                  descuentoTipo={cotizacion.descuentoTipo}
+                  descuentoPct={Number(cotizacion.descuentoPct)}
+                  descuentoMonto={Number(cotizacion.descuentoMonto)}
+                />
+              ) : undefined
+            }
+          />
 
           {cotizacion.estado === "ENVIADA" ? (
-            <Card>
+            <Card className="border-2 border-primary/40 bg-primary/[0.03]">
               <CardHeader>
-                <CardTitle>Decisión del cliente</CardTitle>
+                <CardTitle className="flex items-baseline justify-between gap-2">
+                  <span className="flex items-center gap-2 text-sm font-bold tracking-wide uppercase">
+                    <span className="size-2 rounded-full bg-primary" />
+                    Decisión del cliente
+                  </span>
+                  {cotizacion.validaHasta ? (
+                    <span className="text-xs font-normal text-muted-foreground">
+                      Válida hasta {formatoFecha.format(cotizacion.validaHasta)}
+                    </span>
+                  ) : null}
+                </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
-                {cotizacion.validaHasta ? (
-                  <p className="text-sm text-muted-foreground">Válida hasta {formatoFecha.format(cotizacion.validaHasta)}</p>
-                ) : null}
                 <DecisionCotizacionButtons cotizacionId={cotizacion.id} />
+                <p className="text-center text-xs text-muted-foreground">
+                  Al aprobar se crea la orden de trabajo con estos conceptos, agrupados igual que aquí.
+                </p>
               </CardContent>
             </Card>
           ) : null}
@@ -376,12 +256,38 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
                 <CardTitle>Estado final</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className={cn("text-sm text-muted-foreground")}>
+                <p className="text-sm text-muted-foreground">
                   Esta cotización quedó {ESTADO_LABELS[cotizacion.estado].toLowerCase()} y ya no admite cambios.
                 </p>
               </CardContent>
             </Card>
           ) : null}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{cotizacion.estado === "BORRADOR" ? "Enviar al cliente" : "Reenviar y compartir"}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <EnviarCotizacionForm
+                cotizacionId={cotizacion.id}
+                cliente={{ nombre: cotizacion.cliente.nombre, telefono: cotizacion.cliente.telefono }}
+                resumen={{
+                  numero: cotizacion.numero,
+                  placa: cotizacion.vehiculo.placa,
+                  items: conceptos.map((concepto) => ({
+                    descripcion: concepto.descripcion,
+                    importe: importeConcepto(concepto),
+                  })),
+                  subtotal: Number(cotizacion.subtotal),
+                  descuento: Number(cotizacion.descuento),
+                  descuentoPct: descuentoPctVisible,
+                  iva: Number(cotizacion.iva),
+                  total: Number(cotizacion.total),
+                }}
+                esReenvio={cotizacion.estado !== "BORRADOR"}
+              />
+            </CardContent>
+          </Card>
         </div>
       </div>
     </main>

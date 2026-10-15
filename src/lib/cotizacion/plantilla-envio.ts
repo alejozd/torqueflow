@@ -1,5 +1,6 @@
 import type { MensajeEmail } from "@/lib/email/enviar-email";
 import { formatoFechaCorta } from "@/lib/fecha-bogota";
+import { etiquetaDescuento } from "@/lib/cotizacion/totales";
 
 /**
  * Plain text plus deliberately basic HTML -- same convention as
@@ -29,7 +30,8 @@ export interface DatosMensajeCotizacion {
   items: ItemMensajeCotizacion[];
   subtotal: number;
   descuento: number;
-  descuentoPct: number;
+  /** null cuando el descuento es un monto fijo: la etiqueta no lleva porcentaje. */
+  descuentoPct: number | null;
   iva: number;
   total: number;
   validaHasta: Date;
@@ -66,7 +68,7 @@ export function construirMensajeCotizacion(para: string, datos: DatosMensajeCoti
 
   const lineasTotalesTexto = [
     `Subtotal: ${formatoMoneda.format(datos.subtotal)}`,
-    ...(datos.descuento > 0 ? [`Descuento (${datos.descuentoPct}%): -${formatoMoneda.format(datos.descuento)}`] : []),
+    ...(datos.descuento > 0 ? [`${etiquetaDescuento(datos.descuentoPct)}: -${formatoMoneda.format(datos.descuento)}`] : []),
     `IVA: ${formatoMoneda.format(datos.iva)}`,
     `Total: ${totalTexto}`,
   ];
@@ -126,7 +128,7 @@ export function construirMensajeCotizacion(para: string, datos: DatosMensajeCoti
     `<tbody>` +
     filaTotal("Subtotal", escaparHtml(formatoMoneda.format(datos.subtotal))) +
     (datos.descuento > 0
-      ? filaTotal(`Descuento (${datos.descuentoPct}%)`, `-${escaparHtml(formatoMoneda.format(datos.descuento))}`)
+      ? filaTotal(etiquetaDescuento(datos.descuentoPct), `-${escaparHtml(formatoMoneda.format(datos.descuento))}`)
       : "") +
     filaTotal("IVA", escaparHtml(formatoMoneda.format(datos.iva))) +
     filaTotal("Total", escaparHtml(totalTexto), true) +

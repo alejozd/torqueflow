@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Check } from "lucide-react";
 import { toast } from "sonner";
 import {
   aprobarCotizacionAction,
@@ -79,18 +80,25 @@ export function DecisionCotizacionButtons({ cotizacionId }: { cotizacionId: stri
           />
         </form>
       ) : (
-        <div className="flex gap-2">
-          <Button type="button" onClick={() => setConfirmando("aprobar")} disabled={isAprobando || isRechazando} className="flex-1">
-            Aprobar
+        <div className="flex flex-col gap-2">
+          <Button
+            type="button"
+            size="lg"
+            onClick={() => setConfirmando("aprobar")}
+            disabled={isAprobando || isRechazando}
+            className="h-auto min-h-11 w-full py-2.5 text-[15px] font-semibold whitespace-normal"
+          >
+            <Check className="size-4" aria-hidden />
+            Aprobar y generar orden de trabajo
           </Button>
           <Button
             type="button"
             variant="outline"
             onClick={() => setConfirmando("rechazar")}
             disabled={isAprobando || isRechazando}
-            className="flex-1"
+            className="w-full"
           >
-            Rechazar
+            Marcar rechazada
           </Button>
         </div>
       )}
