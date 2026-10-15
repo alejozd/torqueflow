@@ -30,7 +30,7 @@ describe("DecisionCotizacionButtons", () => {
     expect(screen.getByText("¿Aprobar la cotización? Se creará una orden de trabajo con sus ítems.")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Sí, aprobar" }));
-    await vi.waitFor(() => expect(mockPush).toHaveBeenCalledWith("/ordenes/o9"));
+    await vi.waitFor(() => expect(mockPush).toHaveBeenCalledWith("/ordenes/o9?tab=recepcion"));
   });
 
   it("asks before rejecting, then rejects", async () => {

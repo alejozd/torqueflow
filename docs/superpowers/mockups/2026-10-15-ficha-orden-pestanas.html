@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup pestañas de la orden</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: oklch(0.985 0 0); --fg: oklch(0.145 0 0); --card: #fff; --muted: oklch(0.97 0 0);
+    --muted-fg: oklch(0.52 0 0); --border: oklch(0.922 0 0); --primary: oklch(0.62 0.19 45);
+    --primary-fg: oklch(0.99 0.01 90); --destructive: oklch(0.577 0.245 27.325);
+    --ok: oklch(0.4 0.1 150); --warn: oklch(0.55 0.15 60); --alta: oklch(0.7 0.15 60);
+    --blue: oklch(0.44 0.12 250); --borrador: oklch(0.7 0 0); --crit: oklch(0.5 0.2 27);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Geist, system-ui, sans-serif; color: var(--fg); background: oklch(0.93 0 0); font-size: 14px; }
+  .mono { font-family: "Geist Mono", ui-monospace, monospace; }
+  button { font: inherit; cursor: pointer; color: inherit; }
+  .muted { color: var(--muted-fg); }
+  .label { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted-fg); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; display: inline-block; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 500; background: #fff; white-space: nowrap; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: #fff; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 500; }
+  .btn:hover { background: var(--muted); }
+  .btn.sm { padding: 4px 9px; font-size: 12px; }
+  .btn.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-fg); font-weight: 600; padding: 8px 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; }
+
+  /* Barra de control del mockup */
+  .ctrl { position: sticky; top: 0; z-index: 30; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 8px 16px; background: oklch(0.95 0.05 250); color: var(--blue); border-bottom: 1px dashed var(--blue); font-size: 12px; }
+  .ctrl .seg { display: inline-flex; border: 1px solid var(--blue); border-radius: 8px; overflow: hidden; }
+  .ctrl .seg button { border: 0; background: #fff; padding: 4px 10px; font-size: 12px; border-right: 1px solid var(--blue); color: var(--blue); }
+  .ctrl .seg button:last-child { border-right: 0; }
+  .ctrl .seg button.on { background: var(--blue); color: #fff; }
+
+  /* Marco: escritorio o tablet */
+  .frame { margin: 0 auto; background: var(--bg); }
+  body.tablet .frame { width: 820px; height: calc(100vh - 60px); margin-top: 12px; overflow: auto; border: 10px solid oklch(0.25 0 0); border-radius: 26px; position: relative; }
+  .app { display: grid; grid-template-columns: 210px 1fr; min-height: 100vh; }
+  body.tablet .app { grid-template-columns: 1fr; min-height: 0; }
+  .side { background: oklch(0.2 0 0); color: oklch(0.92 0 0); padding: 16px 10px; font-size: 13px; }
+  body.tablet .side { display: none; }
+  .side .brand { display: flex; gap: 8px; align-items: center; font-weight: 600; margin-bottom: 18px; }
+  .side .logo { width: 26px; height: 26px; border-radius: 8px; background: var(--primary); }
+  .side a { display: block; padding: 7px 10px; border-radius: 8px; color: inherit; text-decoration: none; opacity: .85; }
+  .side a.on { background: oklch(0.3 0 0); opacity: 1; }
+  .topbar-t { display: none; align-items: center; gap: 10px; padding: 10px 16px; background: oklch(0.2 0 0); color: #fff; font-weight: 600; }
+  body.tablet .topbar-t { display: flex; }
+  main { padding: 16px 22px 40px; min-width: 0; }
+  body.tablet main { padding: 14px 16px 0; }
+
+  /* Cabecera (igual a la aprobada) */
+  .hdr { padding: 18px 20px; display: grid; grid-template-columns: 1fr auto; gap: 16px; }
+  body.tablet .hdr { grid-template-columns: 1fr; }
+  .placa { font-family: "Geist Mono", monospace; font-size: 26px; font-weight: 600; letter-spacing: .02em; }
+  .row-wrap { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .meta { display: flex; gap: 6px 18px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 13px; }
+  .acciones { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  body.tablet .acciones { display: none; }
+  .sintomas { margin-top: 12px; display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-left: 4px solid var(--warn); background: color-mix(in oklch, var(--warn) 7%, #fff); }
+  .sintomas .ico { width: 30px; height: 30px; border-radius: 8px; background: var(--warn); color: #fff; display: grid; place-items: center; flex: none; }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; margin-top: 16px; align-items: start; }
+  body.tablet .grid { grid-template-columns: 1fr; }
+
+  /* Pestañas */
+  .tabs { position: sticky; top: 38px; z-index: 10; display: flex; gap: 4px; padding: 5px; background: var(--muted); border: 1px solid var(--border); border-radius: 12px; overflow-x: auto; scrollbar-width: none; }
+  body.tablet .tabs { top: 0; }
+  .tab { flex: 1 0 auto; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; border: 0; background: transparent; padding: 8px 14px; border-radius: 9px; text-align: left; white-space: nowrap; }
+  .tab:hover { background: oklch(0.94 0 0); }
+  .tab .t { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 7px; }
+  .tab .b { font-size: 12px; color: var(--muted-fg); display: inline-flex; align-items: center; gap: 5px; }
+  .tab[aria-selected="true"] { background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / .08), 0 0 0 1px var(--border); }
+  .tab[aria-selected="true"] .t { color: var(--fg); }
+  .tab .cifra { font-family: "Geist Mono", monospace; }
+  .panel { margin-top: 14px; display: flex; flex-direction: column; gap: 16px; }
+  .panel[hidden] { display: none; }
+  .blk { padding: 18px 20px; }
+  .blk h3 { margin: 0 0 12px; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .blk h3 .sub { font-weight: 400; font-size: 13px; }
+
+  /* Recepción */
+  .recep { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-end; padding: 12px 14px; background: color-mix(in oklch, var(--muted) 70%, white); border-radius: 10px; margin-bottom: 16px; }
+  .recep input { font: inherit; font-family: "Geist Mono", monospace; width: 110px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 7px; }
+  .segc { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #fff; }
+  .segc button { border: 0; background: none; padding: 5px 10px; font-size: 12px; border-right: 1px solid var(--border); }
+  .segc button:last-child { border-right: 0; }
+  .segc button.on { background: var(--fg); color: #fff; }
+  .danos { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 20px; }
+  body.tablet .danos { grid-template-columns: 260px minmax(0, 1fr); }
+  .lienzo { background: oklch(0.985 0.003 250); border: 1px solid var(--border); border-radius: 12px; padding: 10px; text-align: center; }
+  svg.carro { width: 100%; max-width: 260px; display: block; margin: 0 auto; }
+  .zona { fill: transparent; stroke: oklch(0.7 0.02 250 / .35); stroke-dasharray: 3 3; cursor: pointer; }
+  .zona:hover { fill: color-mix(in oklch, var(--primary) 16%, transparent); stroke: var(--primary); stroke-dasharray: none; }
+  .dcard { display: flex; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px; background: #fff; }
+  .dcard.act { border-color: var(--destructive); box-shadow: 0 0 0 3px color-mix(in oklch, var(--destructive) 12%, transparent); }
+  .num { width: 24px; height: 24px; border-radius: 50%; background: color-mix(in oklch, var(--destructive) 14%, transparent); color: var(--destructive); font-weight: 600; font-size: 12px; display: grid; place-items: center; flex: none; }
+  .dcard.viejo .num { background: oklch(0.55 0.02 250 / .15); color: oklch(0.45 0.02 250); }
+  .aviso { margin-top: 6px; font-size: 12px; color: var(--muted-fg); background: var(--muted); border-radius: 6px; padding: 4px 8px; display: inline-block; }
+  .x { margin-left: auto; border: 0; background: none; color: var(--muted-fg); font-size: 18px; line-height: 1; height: 24px; }
+
+  /* Trabajo */
+  .acciones-trabajo { display: flex; gap: 8px; flex-wrap: wrap; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-weight: 500; color: var(--muted-fg); font-size: 12px; padding: 8px 6px; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 6px; border-bottom: 1px solid var(--border); }
+  .r { text-align: right; }
+  tfoot td { border-bottom: 0; font-weight: 600; }
+  .twocol { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  .resumen-trabajo { display: flex; gap: 10px; flex-wrap: wrap; }
+  .kpi { flex: 1 1 140px; border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; background: #fff; }
+  .kpi .v { font-family: "Geist Mono", monospace; font-size: 18px; font-weight: 600; margin-top: 2px; }
+
+  /* Inspección */
+  .chk { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 6px; background: #fff; }
+  .chk .lbl { flex: 1; min-width: 0; font-size: 13px; }
+  .seg4 { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+  .seg4 button { border: 0; background: #fff; padding: 3px 9px; font-size: 12px; border-right: 1px solid var(--border); }
+  .seg4 button:last-child { border-right: 0; }
+  .seg4 button.on.OK { background: color-mix(in oklch, var(--ok) 14%, #fff); color: var(--ok); font-weight: 600; }
+  .seg4 button.on.ATENCION { background: color-mix(in oklch, var(--warn) 16%, #fff); color: var(--warn); font-weight: 600; }
+  .seg4 button.on.CRITICO { background: color-mix(in oklch, var(--crit) 12%, #fff); color: var(--crit); font-weight: 600; }
+  .seg4 button.on.NO_APLICA { background: var(--muted); color: var(--muted-fg); font-weight: 600; }
+  .fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+  .foto-vacia { border: 1px dashed var(--border); border-radius: 10px; aspect-ratio: 4/3; display: grid; place-items: center; color: var(--muted-fg); font-size: 12px; text-align: center; padding: 8px; }
+
+  /* Entrega */
+  .acta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .campo label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; }
+  .campo input, .campo textarea { width: 100%; font: inherit; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; background: #fff; }
+  .firma { border: 1px dashed var(--border); border-radius: 10px; height: 110px; display: grid; place-items: center; color: var(--muted-fg); font-size: 12px; background: #fff; }
+  .bloqueado { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: var(--muted); color: var(--muted-fg); font-size: 13px; }
+
+  /* Barra lateral */
+  .aside { position: sticky; top: 52px; display: flex; flex-direction: column; gap: 14px; }
+  body.tablet .aside { position: static; }
+  .aside .card { padding: 16px; border-top-width: 4px; }
+  .aside h4 { margin: 0 0 12px; font-size: 15px; font-weight: 600; }
+  .prio { display: flex; gap: 12px; align-items: center; border: 1px solid color-mix(in oklch, var(--alta) 30%, transparent); background: color-mix(in oklch, var(--alta) 8%, transparent); border-radius: 10px; padding: 12px; }
+  .prio .ic { width: 36px; height: 36px; border-radius: 9px; background: var(--alta); color: #fff; display: grid; place-items: center; flex: none; }
+  .steps { list-style: none; margin: 0; padding: 0; }
+  .steps li { display: flex; gap: 10px; position: relative; padding-bottom: 14px; }
+  .steps li:last-child { padding-bottom: 0; }
+  .steps li::before { content: ""; position: absolute; left: 6px; top: 16px; bottom: 0; width: 2px; background: var(--border); }
+  .steps li:last-child::before { display: none; }
+  .steps .p { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border); background: #fff; flex: none; margin-top: 2px; z-index: 1; }
+  .steps li.done .p { background: var(--ok); border-color: var(--ok); }
+  .steps .sub { font-size: 12px; color: var(--muted-fg); }
+  .rowv { display: flex; justify-content: space-between; padding: 5px 0; }
+  .rowv .v { font-family: "Geist Mono", monospace; }
+  .saldo { margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: baseline; }
+  .saldo .v { font-family: "Geist Mono", monospace; font-size: 22px; font-weight: 600; }
+
+  /* Franja fija de tablet */
+  .franja { display: none; }
+  body.tablet .franja { display: flex; position: sticky; bottom: 0; z-index: 20; margin: 16px -16px 0; padding: 10px 16px; gap: 12px; align-items: center; background: #fff; border-top: 1px solid var(--border); box-shadow: 0 -6px 16px rgb(0 0 0 / .06); }
+  .franja .s { display: flex; flex-direction: column; }
+  .franja .s .v { font-family: "Geist Mono", monospace; font-size: 18px; font-weight: 600; }
+  .note-pill { position: fixed; right: 16px; bottom: 16px; background: var(--fg); color: #fff; padding: 8px 12px; border-radius: 10px; font-size: 12px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 50; }
+  .note-pill.show { opacity: .92; }
+</style>
+</head>
+<body>
+<div class="ctrl">
+  <b>MOCKUP entrega 4 · orden #UI7ITHG3 (datos reales)</b>
+  <span>Estado de la orden:
+    <span class="seg" id="ctrlEstado">
+      <button data-e="BORRADOR" class="on">Borrador</button><button data-e="EN_PROCESO">En proceso</button><button data-e="TERMINADA">Terminada</button>
+    </span>
+  </span>
+  <span>Vista:
+    <span class="seg" id="ctrlVista">
+      <button data-v="escritorio" class="on">Escritorio</button><button data-v="tablet">Tablet (820 px)</button>
+    </span>
+  </span>
+  <span class="muted" style="color:var(--blue)">La pestaña abierta queda en la URL (?tab=…)</span>
+</div>
+
+<div class="frame">
+<div class="app">
+  <nav class="side">
+    <div class="brand"><span class="logo"></span>TorqueFlow</div>
+    <a href="#">Inicio</a><a href="#">Clientes</a><a href="#">Cotizaciones</a><a href="#" class="on">Órdenes</a><a href="#">Citas</a><a href="#">Facturas</a>
+  </nav>
+  <div>
+    <div class="topbar-t">☰ <span>TorqueFlow</span></div>
+    <main>
+      <a class="muted" style="font-size:13px;text-decoration:none" href="#">← Órdenes</a>
+
+      <section class="card hdr" style="margin-top:10px">
+        <div>
+          <div class="row-wrap">
+            <span class="placa">YOR558</span>
+            <span class="muted" style="font-size:16px">BMW X3 2009 · Gris · Camioneta</span>
+            <span class="chip" id="chipEstado"><span class="dot" style="background:var(--borrador)"></span>Borrador</span>
+          </div>
+          <div class="row-wrap" style="margin-top:8px;gap:18px">
+            <b style="font-size:15px">Camila Sánchez Rojas</b>
+            <span class="mono" style="font-size:13px">☎ 310 000 0259</span>
+            <span style="font-size:13px;color:oklch(0.5 0.15 150)">● WhatsApp</span>
+          </div>
+          <div class="meta">
+            <span><span class="muted">Ingresó</span> <b style="font-weight:500">14/10/2026, 3:23 p. m.</b></span>
+            <span><span class="muted">Recibió</span> <b style="font-weight:500">Admin Dev</b></span>
+            <span><span class="muted">Sede</span> <b style="font-weight:500">Sede principal</b></span>
+            <span><span class="muted">Mecánico</span> <b style="font-weight:500">Luis Torres</b> <button class="btn sm">Cambiar ▾</button></span>
+          </div>
+        </div>
+        <div class="acciones">
+          <span class="mono muted" style="font-size:12px">Orden #UI7ITHG3</span>
+          <div style="display:flex;gap:6px"><button class="btn" style="border-color:transparent">⋯</button><button class="btn primary avanzar">Pasar a En proceso →</button></div>
+          <span class="muted avanzarSub" style="font-size:12px">Siguiente paso: empezar el trabajo</span>
+        </div>
+      </section>
+
+      <section class="card sintomas">
+        <span class="ico">⚠</span>
+        <div><span class="label">El cliente reporta</span><div style="font-size:15px;margin-top:2px">ruido en la rueda trasera izquierda</div></div>
+      </section>
+
+      <div class="grid">
+        <div style="min-width:0">
+          <div class="tabs" role="tablist" aria-label="Partes de la orden">
+            <button class="tab" role="tab" data-tab="recepcion"><span class="t">Recepción</span><span class="b"><span class="dot" style="background:var(--destructive)"></span><span class="cifra">3</span> daños</span></button>
+            <button class="tab" role="tab" data-tab="trabajo"><span class="t">Trabajo</span><span class="b"><span class="dot" style="background:var(--warn)"></span><span class="cifra">$ 399.401</span></span></button>
+            <button class="tab" role="tab" data-tab="inspeccion"><span class="t">Inspección</span><span class="b" id="badgeDvi"><span class="dot" style="background:var(--ok)"></span>1 de 8 revisados</span></button>
+            <button class="tab" role="tab" data-tab="entrega"><span class="t">Entrega</span><span class="b" id="badgeEntrega"><span class="dot" style="background:var(--borrador)"></span>Pendiente</span></button>
+          </div>
+
+          <!-- RECEPCIÓN -->
+          <section class="panel" data-panel="recepcion" role="tabpanel">
+            <div class="card blk">
+              <h3>Recepción del vehículo</h3>
+              <div class="recep">
+                <label><div style="font-size:13px;font-weight:500;margin-bottom:4px">Kilometraje</div><input value="185210" /></label>
+                <div><div style="font-size:13px;font-weight:500;margin-bottom:4px">Combustible</div>
+                  <div class="segc"><button>Vacío</button><button>1/4</button><button>1/2</button><button>3/4</button><button>Lleno</button></div></div>
+                <span class="muted" style="font-size:12px">Se guarda solo al cambiar</span>
+              </div>
+              <div class="danos">
+                <div class="lienzo">
+                  <svg class="carro" viewBox="0 0 260 440" id="svgCarro"></svg>
+                  <div class="muted" style="font-size:12px;margin-top:4px">Toca una zona del dibujo para marcar un daño.</div>
+                  <button class="btn sm" style="border-color:transparent;margin-top:4px">Otra zona (no está en el dibujo)</button>
+                </div>
+                <div>
+                  <div class="label">Daños al recibir</div>
+                  <div class="muted" style="font-size:12px;margin-bottom:10px">Pasa el mouse por un daño para ubicarlo.</div>
+                  <div id="lista"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- TRABAJO -->
+          <section class="panel" data-panel="trabajo" role="tabpanel" hidden>
+            <div class="resumen-trabajo">
+              <div class="kpi"><div class="label">Repuestos</div><div class="v">$ 149.401</div></div>
+              <div class="kpi"><div class="label">Mano de obra</div><div class="v">$ 250.000</div></div>
+              <div class="kpi"><div class="label">Total del trabajo</div><div class="v">$ 399.401</div></div>
+            </div>
+            <div class="card blk">
+              <h3>Agregar al trabajo</h3>
+              <div class="acciones-trabajo">
+                <button class="btn">＋ Aplicar servicio <span class="muted" style="font-size:12px">(repuestos + mano de obra)</span></button>
+                <button class="btn">＋ Repuesto</button>
+                <button class="btn">＋ Mano de obra</button>
+              </div>
+            </div>
+            <div class="card blk">
+              <h3>Repuestos <span class="sub muted">1 ítem</span></h3>
+              <table>
+                <thead><tr><th>Concepto</th><th>Tipo</th><th class="r">Cant.</th><th class="r">Unitario</th><th class="r">Importe</th><th></th></tr></thead>
+                <tbody><tr><td>Bomba de dirección hidráulica NGK</td><td><span class="chip" style="font-size:11px"><span class="dot" style="background:var(--warn)"></span>Repuesto</span></td><td class="r mono">1</td><td class="r mono muted">$ 149.401</td><td class="r mono">$ 149.401</td><td class="r"><button class="x" style="font-size:15px">×</button></td></tr></tbody>
+                <tfoot><tr><td colspan="4">Subtotal repuestos</td><td class="r mono">$ 149.401</td><td></td></tr></tfoot>
+              </table>
+            </div>
+            <div class="card blk">
+              <h3>Mano de obra <span class="sub muted">1 línea</span></h3>
+              <table>
+                <thead><tr><th>Trabajo</th><th>Mecánico</th><th class="r">Valor</th><th></th></tr></thead>
+                <tbody><tr><td>Cambio bomba</td><td class="muted">Luis Torres</td><td class="r mono">$ 250.000</td><td class="r"><button class="x" style="font-size:15px">×</button></td></tr></tbody>
+                <tfoot><tr><td colspan="2">Subtotal mano de obra</td><td class="r mono">$ 250.000</td><td></td></tr></tfoot>
+              </table>
+            </div>
+          </section>
+
+          <!-- INSPECCIÓN -->
+          <section class="panel" data-panel="inspeccion" role="tabpanel" hidden>
+            <div class="card blk">
+              <h3>Checklist</h3>
+              <div style="display:flex;gap:12px;align-items:center;margin-bottom:10px;font-size:12px">
+                <span class="muted" id="chkCuenta">1 de 8 revisados</span>
+                <button class="btn sm" id="restoOk">Marcar el resto OK</button>
+                <span id="chkSt"></span>
+              </div>
+              <div id="chk"></div>
+            </div>
+            <div class="card blk">
+              <h3>Fotos de la inspección <span class="sub muted">sin fotos todavía</span></h3>
+              <div class="fotos">
+                <div class="foto-vacia">＋ Foto de antes</div>
+                <div class="foto-vacia">＋ Foto de después</div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ENTREGA -->
+          <section class="panel" data-panel="entrega" role="tabpanel" hidden>
+            <div class="card blk">
+              <h3>Acta de entrega <span class="chip" id="chipActa"><span class="dot" style="background:var(--borrador)"></span>Pendiente</span></h3>
+              <div class="bloqueado" id="actaBloqueo">🔒 El acta se llena cuando la orden esté <b>Terminada</b>. Puedes revisarla, pero no firmarla todavía.</div>
+              <div class="acta-grid" style="margin-top:12px">
+                <div class="campo"><label>Recibe</label><input placeholder="Nombre de quien recibe" value="Camila Sánchez Rojas" /></div>
+                <div class="campo"><label>Documento</label><input placeholder="Cédula" /></div>
+                <div class="campo" style="grid-column:1/-1"><label>Observaciones</label><textarea rows="2" placeholder="Estado en que se entrega, recomendaciones…"></textarea></div>
+                <div class="campo" style="grid-column:1/-1"><label>Firma del cliente</label><div class="firma">Firma aquí con el dedo o el mouse</div></div>
+              </div>
+              <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+                <button class="btn">Imprimir acta</button><button class="btn">Guardar borrador</button><button class="btn primary">Firmar y entregar</button>
+              </div>
+            </div>
+            <div class="card blk">
+              <h3>Garantías del trabajo <span class="sub muted">ninguna</span></h3>
+              <div class="muted" style="font-size:13px;margin-bottom:10px">Ej.: 3 meses o 5.000 km sobre "Cambio bomba".</div>
+              <button class="btn sm">＋ Agregar garantía</button>
+            </div>
+            <div class="card blk">
+              <h3>Anticipos <span class="sub muted">ninguno</span></h3>
+              <div class="muted" style="font-size:13px;margin-bottom:10px">El saldo por cobrar ya descuenta los anticipos (barra lateral).</div>
+              <button class="btn sm">＋ Registrar anticipo</button>
+            </div>
+          </section>
+        </div>
+
+        <aside class="aside">
+          <div class="card" style="border-top-color:var(--alta)">
+            <h4>Prioridad</h4>
+            <div class="prio"><span class="ic">⏫</span><div style="flex:1"><b>Prioridad Alta</b> <span class="dot" style="background:var(--alta)"></span><div class="muted" style="font-size:12px">Pasa adelante de las normales.</div></div><button class="btn sm">Cambiar ▾</button></div>
+          </div>
+          <div class="card" id="cardCiclo" style="border-top-color:var(--borrador)">
+            <h4>Ciclo de la orden</h4>
+            <ol class="steps" id="steps"></ol>
+          </div>
+          <div class="card" style="border-top-color:var(--ok)">
+            <h4>Cuenta</h4>
+            <div class="rowv"><span class="muted">Repuestos</span><span class="v">$ 149.401</span></div>
+            <div class="rowv"><span class="muted">Mano de obra</span><span class="v">$ 250.000</span></div>
+            <div class="rowv" style="border-top:1px dashed var(--border);margin-top:4px;padding-top:8px"><span>Total</span><span class="v">$ 399.401</span></div>
+            <div class="rowv"><span class="muted">Anticipos</span><span class="v">− $ 0</span></div>
+            <div class="saldo"><b>Saldo por cobrar</b><span class="v">$ 399.401</span></div>
+            <div class="muted" style="font-size:12px;margin-top:10px" id="facturaTxt">Factura: al terminar</div>
+          </div>
+        </aside>
+      </div>
+
+      <div class="franja">
+        <div class="s"><span class="label">Saldo por cobrar</span><span class="v">$ 399.401</span></div>
+        <span class="chip" id="chipEstadoF"><span class="dot" style="background:var(--borrador)"></span>Borrador</span>
+        <div style="margin-left:auto;display:flex;gap:6px;align-items:center"><button class="btn" style="border-color:transparent">⋯</button><button class="btn primary avanzar">Pasar a En proceso →</button></div>
+      </div>
+    </main>
+  </div>
+</div>
+</div>
+<div class="note-pill" id="nota"></div>
+
+<script>
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (n, a, txt) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; return e; };
+  const contorno = (x, y, w, h, r) => `M ${x + r} ${y} H ${x + w - r} A ${r} ${r} 0 0 1 ${x + w} ${y + r} V ${y + h - r} A ${r} ${r} 0 0 1 ${x + w - r} ${y + h} H ${x + r} A ${r} ${r} 0 0 1 ${x} ${y + h - r} V ${y + r} A ${r} ${r} 0 0 1 ${x + r} ${y} Z`;
+  const ESTILO = { carroceria: ["#fff", "oklch(0.62 0.03 250)", 2.2], vidrio: ["oklch(0.93 0.02 240)", "oklch(0.7 0.03 250)", 1.6], llanta: ["oklch(0.32 0.01 250)", "none", 0], espejo: ["oklch(0.85 0.02 250)", "oklch(0.62 0.03 250)", 1.4], linea: ["none", "oklch(0.82 0.02 250)", 1.3], farola: ["none", "oklch(0.75 0.12 85)", 4], stop: ["none", "oklch(0.6 0.18 25)", 4] };
+  const SILUETA = [
+    ["llanta", contorno(28, 70, 18, 58, 6)], ["llanta", contorno(214, 70, 18, 58, 6)], ["llanta", contorno(28, 306, 18, 60, 6)], ["llanta", contorno(214, 306, 18, 60, 6)],
+    ["carroceria", "M 130 26 C 178 26 212 40 214 82 L 216 150 C 217 170 212 180 212 200 L 212 300 C 212 320 217 330 216 350 L 214 384 C 212 410 182 416 130 416 C 78 416 48 410 46 384 L 44 350 C 43 330 48 320 48 300 L 48 200 C 48 180 43 170 44 150 L 46 82 C 48 40 82 26 130 26 Z"],
+    ["linea", "M 92 50 Q 130 42 168 50"], ["linea", "M 100 66 L 100 128 M 160 66 L 160 128"],
+    ["vidrio", "M 76 138 Q 130 126 184 138 L 172 172 Q 130 166 88 172 Z"], ["vidrio", contorno(90, 178, 80, 112, 10)], ["vidrio", "M 88 296 Q 130 302 172 296 L 180 322 Q 130 332 80 322 Z"],
+    ["linea", "M 50 210 L 86 210 M 174 210 L 210 210"],
+    ["espejo", "M 44 146 C 30 144 22 148 22 154 C 22 158 32 160 44 158 Z"], ["espejo", "M 216 146 C 230 144 238 148 238 154 C 238 158 228 160 216 158 Z"],
+    ["farola", "M 60 40 Q 70 32 84 30 M 200 40 Q 190 32 176 30"], ["stop", "M 60 404 Q 70 412 86 413 M 200 404 Q 190 412 174 413"],
+  ];
+  const ZONAS = [["Frente",[84,28,92,18]],["Capó",[84,48,92,84]],["Parabrisas",[88,134,84,36]],["Techo",[88,172,84,120]],["Baúl",[84,294,92,112]],["Puerta izquierda",[48,136,36,152]],["Puerta derecha",[176,136,36,152]],["Guardabarros delantero izquierdo",[48,60,36,74]],["Guardabarros trasero izquierdo",[48,290,36,100]],["Guardabarros delantero derecho",[176,60,36,74]],["Guardabarros trasero derecho",[176,290,36,100]],["Espejo izquierdo",[16,140,30,22]],["Espejo derecho",[214,140,30,22]]];
+  // Daños reales de la orden #UI7ITHG3, en orden de registro
+  const DANOS = [
+    { zona: "Lateral izquierdo", tipo: "Golpe", color: "var(--destructive)", nota: "hundimiento en trasero", x: 14, y: 262, viejo: true },
+    { zona: "Guardabarros trasero derecho", tipo: "Rayón", color: "var(--alta)", nota: "5cm", x: 194, y: 340 },
+    { zona: "Capó", tipo: "Rayón", color: "var(--alta)", nota: null, x: 130, y: 90 },
+  ];
+  function pintarCarro() {
+    const s = document.getElementById("svgCarro");
+    for (const [t, d] of SILUETA) { const [f, st, w] = ESTILO[t]; s.appendChild(el("path", { d, fill: f, stroke: st, "stroke-width": w, "stroke-linecap": "round" })); }
+    for (const [n, [x, y, w, h]] of ZONAS) { const r = el("rect", { x, y, width: w, height: h, rx: 6, class: "zona" }); r.appendChild(el("title", {}, n)); s.appendChild(r); }
+    DANOS.forEach((d, i) => {
+      const g = el("g", { transform: `translate(${d.x} ${d.y})`, "data-i": i });
+      g.appendChild(el("circle", { r: 14, fill: d.viejo ? "oklch(0.55 0.02 250 / .2)" : "color-mix(in oklch, var(--destructive) 22%, transparent)" }));
+      g.appendChild(el("circle", { r: 10, fill: d.viejo ? "oklch(0.55 0.02 250)" : "var(--destructive)" }));
+      g.appendChild(el("text", { "text-anchor": "middle", "dominant-baseline": "central", fill: "#fff", "font-size": 11, "font-weight": 600 }, i + 1));
+      g.addEventListener("mouseenter", () => activar(i, true)); g.addEventListener("mouseleave", () => activar(i, false));
+      s.appendChild(g);
+    });
+    for (const [t, x, y, a] of [["▲ Adelante", 130, 15, "middle"], ["Atrás", 130, 433, "middle"], ["Izq.", 4, 230, "start"], ["Der.", 256, 230, "end"]])
+      s.appendChild(el("text", { x, y, "text-anchor": a, "font-size": 11, "font-weight": 600, fill: "oklch(0.52 0 0)" }, t));
+  }
+  function pintarLista() {
+    document.getElementById("lista").innerHTML = DANOS.map((d, i) => `<div class="dcard ${d.viejo ? "viejo" : ""}" data-i="${i}"><span class="num">${i + 1}</span><div style="flex:1;min-width:0"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>${d.zona}</b><span class="chip"><span class="dot" style="background:${d.color}"></span>${d.tipo}</span></div>${d.nota ? `<div class="muted" style="margin-top:3px">${d.nota}</div>` : ""}${d.viejo ? `<div class="aviso">Marcado antes de separar los guardabarros: no dice si es delantero o trasero.</div>` : ""}</div><button class="x">×</button></div>`).join("");
+    document.querySelectorAll(".dcard").forEach((c) => { c.addEventListener("mouseenter", () => activar(+c.dataset.i, true)); c.addEventListener("mouseleave", () => activar(+c.dataset.i, false)); });
+  }
+  function activar(i, on) {
+    document.querySelector(`.dcard[data-i="${i}"]`)?.classList.toggle("act", on);
+    const g = document.querySelector(`#svgCarro g[data-i="${i}"] circle`); if (g) g.setAttribute("r", on ? 17 : 14);
+  }
+
+  // Checklist real: solo Frenos revisado (OK)
+  const CHK = [["luces", "Luces (altas, bajas, direccionales)"], ["frenos", "Frenos"], ["llantas", "Llantas y presión"], ["niveles_fluidos", "Niveles de fluidos (aceite, refrigerante, frenos)"], ["bateria", "Batería"], ["suspension", "Suspensión"], ["correas_mangueras", "Correas y mangueras"], ["limpiaparabrisas", "Limpiaparabrisas"]];
+  const VAL = { frenos: "OK" };
+  const DOT = { OK: "var(--ok)", ATENCION: "var(--warn)", CRITICO: "var(--crit)", NO_APLICA: "var(--muted-fg)" };
+  function pintarChk() {
+    document.getElementById("chk").innerHTML = CHK.map(([k, l]) => `<div class="chk"><span class="dot" style="background:${VAL[k] ? DOT[VAL[k]] : "var(--border)"}"></span><span class="lbl">${l}</span><span class="seg4">${[["OK", "OK"], ["ATENCION", "Atención"], ["CRITICO", "Crítico"], ["NO_APLICA", "No aplica"]].map(([v, t]) => `<button class="${v} ${VAL[k] === v ? "on" : ""}" onclick="setChk('${k}','${v}')">${t}</button>`).join("")}</span></div>`).join("");
+    const vals = Object.values(VAL), crit = vals.filter((v) => v === "CRITICO").length, at = vals.filter((v) => v === "ATENCION").length;
+    const txt = `${vals.length} de ${CHK.length} revisados${crit ? ` · ${crit} crítico${crit > 1 ? "s" : ""}` : ""}${at ? ` · ${at} atención` : ""}`;
+    document.getElementById("chkCuenta").textContent = `${vals.length} de ${CHK.length} revisados`;
+    document.getElementById("badgeDvi").innerHTML = `<span class="dot" style="background:${crit ? "var(--crit)" : at ? "var(--warn)" : "var(--ok)"}"></span>${txt}`;
+    document.getElementById("restoOk").style.display = vals.length && vals.length < CHK.length ? "" : "none";
+  }
+  function setChk(k, v) { VAL[k] = v; pintarChk(); guardado(); }
+  document.getElementById("restoOk").onclick = () => { for (const [k] of CHK) if (!VAL[k]) VAL[k] = "OK"; pintarChk(); guardado(); };
+  function guardado() { const s = document.getElementById("chkSt"); s.style.color = "var(--muted-fg)"; s.textContent = "Guardando…"; setTimeout(() => { s.style.color = "var(--ok)"; s.textContent = "✓ Guardado"; }, 600); }
+
+  // Pestañas
+  function abrir(tab, empujar = true) {
+    document.querySelectorAll(".tab").forEach((t) => t.setAttribute("aria-selected", t.dataset.tab === tab));
+    document.querySelectorAll(".panel").forEach((p) => (p.hidden = p.dataset.panel !== tab));
+    if (empujar) { const u = new URL(location); u.searchParams.set("tab", tab); history.replaceState(null, "", u); }
+    document.querySelector(`.tab[data-tab="${tab}"]`).scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+  document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => abrir(t.dataset.tab)));
+  document.querySelector(".tabs").addEventListener("keydown", (e) => {
+    const tabs = [...document.querySelectorAll(".tab")]; const i = tabs.findIndex((t) => t.getAttribute("aria-selected") === "true");
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") { const n = tabs[(i + (e.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length]; abrir(n.dataset.tab); n.focus(); }
+  });
+
+  // Estado de la orden (para ver la pestaña por defecto)
+  const ESTADOS = {
+    BORRADOR: { n: "Borrador", c: "var(--borrador)", tab: "recepcion", btn: "Pasar a En proceso →", sub: "Siguiente paso: empezar el trabajo", paso: 0 },
+    EN_PROCESO: { n: "En proceso", c: "var(--warn)", tab: "trabajo", btn: "Marcar como terminada →", sub: "Siguiente paso: dejarla lista para entregar", paso: 1 },
+    TERMINADA: { n: "Terminada", c: "var(--blue)", tab: "entrega", btn: "Ir a la entrega →", sub: "Falta el acta firmada", paso: 2 },
+  };
+  const PASOS = [["Borrador", "Recepción, daños y cotización"], ["En proceso", "El mecánico trabaja"], ["Terminada", "Lista para entregar"], ["Entregada", "Acta firmada"]];
+  function ponerEstado(e) {
+    const s = ESTADOS[e];
+    for (const id of ["chipEstado", "chipEstadoF"]) document.getElementById(id).innerHTML = `<span class="dot" style="background:${s.c}"></span>${s.n}`;
+    document.querySelectorAll(".avanzar").forEach((b) => (b.textContent = s.btn));
+    document.querySelectorAll(".avanzarSub").forEach((b) => (b.textContent = s.sub));
+    document.getElementById("cardCiclo").style.borderTopColor = s.c;
+    document.getElementById("steps").innerHTML = PASOS.map(([t, d], i) => `<li class="${i < s.paso ? "done" : ""}"><span class="p" style="${i === s.paso ? `background:${s.c};border-color:${s.c};box-shadow:0 0 0 4px color-mix(in oklch, ${s.c} 22%, transparent)` : ""}"></span><div><div style="${i === s.paso ? "font-weight:600" : i > s.paso ? "color:var(--muted-fg)" : ""}">${t}</div><div class="sub">${d}</div></div></li>`).join("");
+    const terminada = e === "TERMINADA";
+    document.getElementById("actaBloqueo").style.display = terminada ? "none" : "";
+    document.getElementById("badgeEntrega").innerHTML = `<span class="dot" style="background:${terminada ? "var(--blue)" : "var(--borrador)"}"></span>${terminada ? "Lista para firmar" : "Pendiente"}`;
+    document.getElementById("chipActa").innerHTML = document.getElementById("badgeEntrega").innerHTML;
+    document.getElementById("facturaTxt").innerHTML = terminada ? '<button class="btn sm">Generar factura</button>' : "Factura: al terminar";
+    document.querySelectorAll("#ctrlEstado button").forEach((b) => b.classList.toggle("on", b.dataset.e === e));
+    abrir(s.tab);
+    nota(`${s.n}: abre en la pestaña ${document.querySelector(`.tab[data-tab="${s.tab}"] .t`).textContent}`);
+  }
+  document.querySelectorAll("#ctrlEstado button").forEach((b) => b.addEventListener("click", () => ponerEstado(b.dataset.e)));
+  document.querySelectorAll("#ctrlVista button").forEach((b) => b.addEventListener("click", () => {
+    document.body.classList.toggle("tablet", b.dataset.v === "tablet");
+    document.querySelectorAll("#ctrlVista button").forEach((x) => x.classList.toggle("on", x === b));
+  }));
+  let tN; function nota(t) { const n = document.getElementById("nota"); n.textContent = t; n.classList.add("show"); clearTimeout(tN); tN = setTimeout(() => n.classList.remove("show"), 1800); }
+
+  pintarCarro(); pintarLista(); pintarChk(); ponerEstado("BORRADOR");
+  const pedida = new URL(location).searchParams.get("tab"); if (pedida) abrir(pedida, false);
+</script>
+</body>
+</html>

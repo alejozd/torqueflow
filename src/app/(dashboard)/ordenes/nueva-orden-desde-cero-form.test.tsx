@@ -192,7 +192,7 @@ describe("NuevaOrdenDesdeCeroForm", () => {
     await selectCombobox("Vehículo", "ABC123 · Toyota Corolla");
     await userEvent.click(screen.getByRole("button", { name: "Crear orden" }));
 
-    await vi.waitFor(() => expect(mockPush).toHaveBeenCalledWith("/ordenes/o9"));
+    await vi.waitFor(() => expect(mockPush).toHaveBeenCalledWith("/ordenes/o9?tab=recepcion"));
     expect(onCreated).toHaveBeenCalledTimes(1);
   });
 

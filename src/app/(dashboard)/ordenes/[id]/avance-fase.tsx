@@ -71,7 +71,7 @@ export function AvanceFase({ ordenId, estado }: { ordenId: string; estado: Estad
             <ArrowRight className="size-4" />
           </Button>
         ) : estado === "TERMINADA" ? (
-          <a href="#entrega" className={buttonVariants()}>
+          <a href="?tab=entrega" className={buttonVariants()}>
             Ir a la entrega
             <ArrowRight className="size-4" />
           </a>
