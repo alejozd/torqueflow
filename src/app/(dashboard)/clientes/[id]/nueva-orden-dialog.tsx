@@ -58,7 +58,7 @@ export function NuevaOrdenDialog({
             // have to go find it in /ordenes' list before they could add
             // repuestos, mano de obra, or fotos to it.
             setOpen(false);
-            router.push(`/ordenes/${ordenId}`);
+            router.push(`/ordenes/${ordenId}?tab=recepcion`);
           }}
         />
       </DialogContent>

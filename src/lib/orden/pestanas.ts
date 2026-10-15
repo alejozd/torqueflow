@@ -5,20 +5,45 @@ export type PestanaOrden = "recepcion" | "trabajo" | "inspeccion" | "entrega";
 
 export const PESTANAS_ORDEN: readonly PestanaOrden[] = ["recepcion", "trabajo", "inspeccion", "entrega"];
 
+// Los mecánicos no usan la app: la recepción carga repuestos y mano de obra, así
+// que al volver a una orden lo importante es Trabajo. Solo una terminada abre en la
+// entrega (falta firmar). Recepción se abre una vez, al crear la orden (?tab=recepcion).
 const POR_ESTADO: Record<EstadoOrden, PestanaOrden> = {
-  BORRADOR: "recepcion",
+  BORRADOR: "trabajo",
   EN_PROCESO: "trabajo",
   TERMINADA: "entrega",
-  ENTREGADA: "entrega",
+  ENTREGADA: "trabajo",
   ANULADA: "trabajo",
 };
 
 /**
- * Dónde abre la ficha: donde está el trabajo según el momento de la orden, salvo
- * que la URL pida otra pestaña válida (un enlace «Ir a la entrega», por ejemplo).
+ * Dónde abre la ficha según el momento de la orden, salvo que la URL pida otra
+ * pestaña válida (la orden recién creada, o un enlace «Ir a la entrega»).
  */
 export function pestanaInicial(estado: EstadoOrden, pedida?: string | null): PestanaOrden {
   return PESTANAS_ORDEN.find((pestana) => pestana === pedida) ?? POR_ESTADO[estado];
+}
+
+/**
+ * Qué pestañas ya se gestionaron (llevan visto verde): recepción con km y
+ * combustible, trabajo con al menos una línea, inspección con todo revisado y
+ * entrega con acta firmada u orden entregada.
+ */
+export function pestanasGestionadas(datos: {
+  estado: EstadoOrden;
+  kilometraje: number | null;
+  combustible: string | null;
+  lineasTrabajo: number;
+  revisados: number;
+  totalChecklist: number;
+  actaFirmada: boolean;
+}): Record<PestanaOrden, boolean> {
+  return {
+    recepcion: datos.kilometraje !== null && datos.combustible !== null,
+    trabajo: datos.lineasTrabajo > 0,
+    inspeccion: datos.totalChecklist > 0 && datos.revisados >= datos.totalChecklist,
+    entrega: datos.actaFirmada || datos.estado === "ENTREGADA",
+  };
 }
 
 export type TonoResumen = "rojo" | "ambar" | "verde" | "azul" | "gris";

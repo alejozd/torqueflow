@@ -1,19 +1,46 @@
 import { describe, expect, it } from "vitest";
-import { pestanaInicial, resumenEntrega, resumenInspeccion } from "./pestanas";
+import { pestanaInicial, pestanasGestionadas, resumenEntrega, resumenInspeccion } from "./pestanas";
 
 describe("pestanaInicial", () => {
-  it("abre donde está el trabajo según el estado", () => {
-    expect(pestanaInicial("BORRADOR")).toBe("recepcion");
+  it("al volver a una orden entra por Trabajo (lo que más se consulta); terminada, por la entrega", () => {
+    expect(pestanaInicial("BORRADOR")).toBe("trabajo");
     expect(pestanaInicial("EN_PROCESO")).toBe("trabajo");
     expect(pestanaInicial("TERMINADA")).toBe("entrega");
-    expect(pestanaInicial("ENTREGADA")).toBe("entrega");
+    expect(pestanaInicial("ENTREGADA")).toBe("trabajo");
     expect(pestanaInicial("ANULADA")).toBe("trabajo");
   });
 
-  it("una pestaña válida en la URL manda; una inválida se ignora", () => {
-    expect(pestanaInicial("BORRADOR", "inspeccion")).toBe("inspeccion");
-    expect(pestanaInicial("BORRADOR", "informacion")).toBe("recepcion");
-    expect(pestanaInicial("BORRADOR", null)).toBe("recepcion");
+  it("una pestaña válida en la URL manda (recién creada llega con ?tab=recepcion); una inválida se ignora", () => {
+    expect(pestanaInicial("BORRADOR", "recepcion")).toBe("recepcion");
+    expect(pestanaInicial("BORRADOR", "informacion")).toBe("trabajo");
+    expect(pestanaInicial("BORRADOR", null)).toBe("trabajo");
+  });
+});
+
+describe("pestanasGestionadas", () => {
+  it("marca lo que ya se hizo en cada pestaña", () => {
+    expect(
+      pestanasGestionadas({
+        estado: "BORRADOR",
+        kilometraje: 185210,
+        combustible: null,
+        lineasTrabajo: 2,
+        revisados: 8,
+        totalChecklist: 8,
+        actaFirmada: false,
+      }),
+    ).toEqual({ recepcion: false, trabajo: true, inspeccion: true, entrega: false });
+    expect(
+      pestanasGestionadas({
+        estado: "ENTREGADA",
+        kilometraje: 185210,
+        combustible: "MEDIO",
+        lineasTrabajo: 0,
+        revisados: 0,
+        totalChecklist: 0,
+        actaFirmada: false,
+      }),
+    ).toEqual({ recepcion: true, trabajo: false, inspeccion: false, entrega: true });
   });
 });
 

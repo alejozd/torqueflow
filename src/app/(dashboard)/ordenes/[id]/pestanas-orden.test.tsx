@@ -37,6 +37,17 @@ describe("PestanasOrden", () => {
     expect(screen.getByLabelText("A medio llenar")).toHaveValue("bomba");
   });
 
+  it("una pestaña ya gestionada lleva un visto verde", () => {
+    render(
+      <PestanasOrden
+        pestanas={PESTANAS.map((pestana) => ({ ...pestana, gestionada: pestana.id === "trabajo" }))}
+        inicial="trabajo"
+      />,
+    );
+    expect(screen.getByRole("tab", { name: /Trabajo/ })).toHaveAccessibleName(/gestionada/);
+    expect(screen.getByRole("tab", { name: /Recepción/ })).not.toHaveAccessibleName(/gestionada/);
+  });
+
   it("con las flechas se pasa a la pestaña de al lado", async () => {
     render(<PestanasOrden pestanas={PESTANAS} inicial="entrega" />);
     screen.getByRole("tab", { name: /Entrega/ }).focus();

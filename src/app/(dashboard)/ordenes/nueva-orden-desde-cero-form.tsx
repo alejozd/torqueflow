@@ -111,7 +111,7 @@ export function NuevaOrdenDesdeCeroForm({
         else setState(result);
         // La orden recién creada sigue en su ficha (recepción, ítems, mano de
         // obra, DVI…): llevar allí, no dejar al usuario en el listado buscándola.
-        if (result.ordenId) router.push(`/ordenes/${result.ordenId}`);
+        if (result.ordenId) router.push(`/ordenes/${result.ordenId}?tab=recepcion`);
       } else {
         toast.error(result.error ?? "No se pudo crear la orden");
         setState(result);

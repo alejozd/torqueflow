@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { CircleCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PestanaOrden } from "@/lib/orden/pestanas";
 
@@ -10,6 +11,8 @@ export interface Pestana {
   resumen: string;
   color: string;
   panel: ReactNode;
+  /** Ya se hizo lo de esta pestaña: lleva visto verde junto al título. */
+  gestionada?: boolean;
 }
 
 /**
@@ -60,11 +63,24 @@ export function PestanasOrden({ pestanas, inicial }: { pestanas: Pestana[]; inic
               onClick={() => abrir(pestana.id)}
               onKeyDown={(evento) => moverCon(evento, indice)}
               className={cn(
-                "flex flex-1 shrink-0 flex-col items-start gap-0.5 rounded-lg px-3.5 py-2 text-left whitespace-nowrap transition-colors",
-                elegida ? "bg-card shadow-sm ring-1 ring-border" : "hover:bg-card/60",
+                "group flex flex-1 shrink-0 cursor-pointer flex-col items-start gap-0.5 rounded-lg px-3.5 py-2 text-left whitespace-nowrap transition-colors",
+                elegida ? "bg-card shadow-sm ring-1 ring-border" : "hover:bg-card/70 hover:ring-1 hover:ring-border",
               )}
             >
-              <span className="text-sm font-semibold">{pestana.titulo}</span>
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 text-sm font-semibold",
+                  !elegida && "group-hover:text-primary",
+                )}
+              >
+                {pestana.titulo}
+                {pestana.gestionada ? (
+                  <>
+                    <CircleCheck className="size-3.5 text-[oklch(0.4_0.1_150)]" aria-hidden />
+                    <span className="sr-only">(gestionada)</span>
+                  </>
+                ) : null}
+              </span>
               <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="size-1.5 shrink-0 rounded-full" style={{ background: pestana.color }} />
                 {pestana.resumen}

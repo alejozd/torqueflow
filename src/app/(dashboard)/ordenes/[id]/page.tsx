@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { COLOR_TONO, pestanaInicial, resumenEntrega, resumenInspeccion } from "@/lib/orden/pestanas";
+import { COLOR_TONO, pestanaInicial, pestanasGestionadas, resumenEntrega, resumenInspeccion } from "@/lib/orden/pestanas";
 import { PestanasOrden } from "./pestanas-orden";
 import { AgregarAlTrabajo } from "./agregar-al-trabajo";
 import { notFound } from "next/navigation";
@@ -191,6 +191,15 @@ export default async function OrdenDetailPage({
     itemsDviActivos.length,
   );
   const entrega = resumenEntrega(orden.estado, Boolean(orden.acta?.firmadaAt));
+  const gestionadas = pestanasGestionadas({
+    estado: orden.estado,
+    kilometraje: orden.kilometrajeIngreso,
+    combustible: orden.nivelCombustible,
+    lineasTrabajo: orden.items.length + orden.manoDeObra.length,
+    revisados: itemsDviActivos.filter((item) => checklist?.[item.key]).length,
+    totalChecklist: itemsDviActivos.length,
+    actaFirmada: Boolean(orden.acta?.firmadaAt),
+  });
   const anticiposVigentes = anticipos
     .filter((a) => a.estado !== "DEVUELTO")
     .reduce((suma, a) => suma + a.monto, 0);
@@ -252,6 +261,7 @@ export default async function OrdenDetailPage({
           pestanas={[
             {
               id: "recepcion",
+              gestionada: gestionadas.recepcion,
               titulo: "Recepción",
               resumen: `${orden.danios.length} ${orden.danios.length === 1 ? "daño" : "daños"}`,
               color: COLOR_TONO[orden.danios.length > 0 ? "rojo" : "gris"],
@@ -285,6 +295,7 @@ export default async function OrdenDetailPage({
             },
             {
               id: "trabajo",
+              gestionada: gestionadas.trabajo,
               titulo: "Trabajo",
               resumen: formatoMoneda.format(total),
               color: COLOR_TONO.ambar,
@@ -390,6 +401,7 @@ export default async function OrdenDetailPage({
             },
             {
               id: "inspeccion",
+              gestionada: gestionadas.inspeccion,
               titulo: "Inspección",
               resumen: inspeccion.texto,
               color: COLOR_TONO[inspeccion.tono],
@@ -415,6 +427,7 @@ export default async function OrdenDetailPage({
             },
             {
               id: "entrega",
+              gestionada: gestionadas.entrega,
               titulo: "Entrega",
               resumen: entrega.texto,
               color: COLOR_TONO[entrega.tono],
