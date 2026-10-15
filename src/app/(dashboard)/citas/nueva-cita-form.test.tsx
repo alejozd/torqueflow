@@ -23,7 +23,7 @@ const vehiculos = [
 
 describe("NuevaCitaForm", () => {
   it("renders one option per vehículo, labelled with placa and cliente", async () => {
-    renderInDialog(<NuevaCitaForm vehiculos={vehiculos} />);
+    renderInDialog(<NuevaCitaForm vehiculos={vehiculos} ocupacion={[]} />);
 
     // Vehículo is a Combobox now (search-as-you-type), not a native <select>
     // -- options only mount in the DOM once the popup is open.
@@ -34,16 +34,19 @@ describe("NuevaCitaForm", () => {
   });
 
   it("renders the fecha, motivo and notas fields", () => {
-    renderInDialog(<NuevaCitaForm vehiculos={vehiculos} />);
+    renderInDialog(<NuevaCitaForm vehiculos={vehiculos} ocupacion={[]} />);
 
-    expect(screen.getByLabelText("Fecha y hora")).toHaveAttribute("type", "datetime-local");
+    // Fecha y hora es el SelectorFechaHora: días y horas como botones tipo radio.
+    expect(screen.getByRole("radiogroup", { name: "Día" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /^Hoy, / })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByLabelText("¿Otra hora?")).toBeInTheDocument();
     expect(screen.getByLabelText("Motivo")).toBeInTheDocument();
     expect(screen.getByLabelText("Notas")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Agendar cita" })).toBeInTheDocument();
   });
 
   it("explains the empty state instead of rendering a useless empty select", () => {
-    render(<NuevaCitaForm vehiculos={[]} />);
+    render(<NuevaCitaForm vehiculos={[]} ocupacion={[]} />);
 
     expect(screen.getByText("Registra un cliente y su vehículo antes de agendar una cita.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Agendar cita" })).not.toBeInTheDocument();

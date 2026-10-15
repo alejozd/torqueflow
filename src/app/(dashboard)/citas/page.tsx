@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { inferirColorVehiculo } from "@/lib/color-vehiculo";
 import { cn } from "@/lib/utils";
+import { momentoBogota, ocupacionDeCitas } from "@/lib/agenda-cita";
 
 const ESTADOS_VALIDOS: EstadoCita[] = [
   "PROGRAMADA",
@@ -309,6 +310,8 @@ export default async function CitasPage({
     );
 
   const ahora = new Date();
+  // Lo que el selector de la nueva cita muestra como ocupado: de hoy en adelante.
+  const ocupacion = ocupacionDeCitas(citas, { desde: momentoBogota(ahora).fecha });
   const inicioHoy = inicioDiaBogota(ahora);
   const finHoy = new Date(inicioHoy.getTime() + 24 * 60 * 60 * 1000);
   const { inicio: inicioSemana, fin: finSemana } = rangoSemanaBogota(ahora);
@@ -361,7 +364,7 @@ export default async function CitasPage({
             {rangoSemanaTexto}
           </p>
         </div>
-        <NuevaCitaDialog vehiculos={vehiculos} />
+        <NuevaCitaDialog vehiculos={vehiculos} ocupacion={ocupacion} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">

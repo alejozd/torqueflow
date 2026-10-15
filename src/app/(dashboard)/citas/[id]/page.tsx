@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { momentoBogota, ocupacionDeCitas } from "@/lib/agenda-cita";
 
 // Mirrors citas/page.tsx's own copy -- this codebase keeps estado
 // label/badge maps local to each page rather than sharing a module (see
@@ -76,6 +77,15 @@ export default async function CitaDetallePage({ params }: { params: Promise<{ id
     notFound();
   }
 
+  // Lo que el selector muestra como ocupado: sin esta cita, desde hoy o desde
+  // su día si ya pasó (para que se vea su agenda al abrirla).
+  const ahora = momentoBogota(new Date());
+  const diaCita = momentoBogota(cita.fechaHora).fecha;
+  const ocupacion = ocupacionDeCitas(citas, {
+    desde: diaCita < ahora.fecha ? diaCita : ahora.fecha,
+    excluirId: cita.id,
+  });
+
   const otrasDelDia = citas
     .filter((c) => c.id !== cita.id && formatoDiaBogota.format(c.fechaHora) === formatoDiaBogota.format(cita.fechaHora))
     .sort((a, b) => a.fechaHora.getTime() - b.fechaHora.getTime());
@@ -118,7 +128,7 @@ export default async function CitaDetallePage({ params }: { params: Promise<{ id
               <span className="text-xs text-muted-foreground">Los cambios reagendan y notifican al cliente</span>
             </CardHeader>
             <CardContent>
-              <EditarCitaForm cita={cita} vehiculos={vehiculos} />
+              <EditarCitaForm cita={cita} vehiculos={vehiculos} ocupacion={ocupacion} ahora={ahora} />
             </CardContent>
           </Card>
 
