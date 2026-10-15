@@ -193,7 +193,16 @@ delantero y trasero como zonas propias (migración `20261019120000_guardabarros_
   clave; `updateDviChecklistAction` ya mezcla con lo guardado). El DVI ya **no muestra «OK» por defecto**: lo
   no revisado queda sin marcar, «N de M revisados» y «Marcar el resto OK» (solo tras revisar uno). Va en una
   columna: en dos, los cuatro botones cortaban el nombre del ítem a una letra.
-- Lo que sigue: **entrega 4 (pestañas)** se decide con el usuario viendo esto en la app.
+- **Entrega 4, pestañas** (rama `ficha-pestanas`, plan `docs/superpowers/plans/2026-10-15-ficha-orden-pestanas.md`,
+  mockup `docs/superpowers/mockups/2026-10-15-ficha-orden-pestanas.html`): la ficha ya no tiene secciones
+  plegables ni barra de secciones (se borraron `secciones.ts` y `seccion-orden.tsx`; `NavSecciones` sigue en el
+  Inicio). Cuatro pestañas en `pestanas-orden.tsx` (Recepción, Trabajo, Inspección, Entrega) con resumen y punto
+  de color calculados en `src/lib/orden/pestanas.ts`; la inicial sale del estado (`pestanaInicial`) salvo que
+  `?tab=` pida otra. Cambiar de pestaña **no navega**: solo `history.replaceState` y los paneles quedan montados
+  con `hidden`. Trabajo junta totales, «Agregar al trabajo» (`agregar-al-trabajo.tsx`, despliega los formularios
+  de siempre) y las dos tablas; Entrega junta acta, garantías y anticipos. Bajo `lg` hay una **franja fija abajo**
+  con el saldo y `AvanceFase`, y el avance de la cabecera se oculta. Los enlaces al acta usan `?tab=entrega`
+  (antes `#entrega`).
 
 - Datos de demostración en `taller_dev` que el usuario quiere conservar: cliente "Andrea Valencia Ríos", placas
   JKT482, MRW615, HBL290 y DFN734, 8 facturas del 10 al 14 de octubre de 2026.
