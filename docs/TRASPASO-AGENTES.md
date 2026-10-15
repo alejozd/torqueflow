@@ -355,6 +355,7 @@ Después, la comprobación que vale: `migrate diff` respondiendo **"This is an e
 
 ## 8. Pendientes y próximos pasos
 
+- **Crons sin programar en el servidor** (verificado 2026-10-15: el crontab de `alejo` no los llama, aunque `CRON_SECRET` está en el `.env`): `/api/cron/recordatorios` (los recordatorios automáticos no salen) y `/api/cron/cotizaciones-vencidas` (ya no hace falta: las cotizaciones se vencen al consultarlas). Programarlos requiere el visto bueno del usuario.
 - **Rediseño de la cotización**: falta revisión visual del usuario, merge a `main` y despliegue. Su migración
   está aplicada en `taller_dev` y `taller_dev_reference` (`migrate diff` sin diferencias en ambos).
 - **Fase 23**: aplazada junto con DIAN. Para retomarla, sus siete decisiones están en su documento (§4).
