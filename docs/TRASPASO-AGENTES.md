@@ -239,6 +239,7 @@ Propuesta de Stitch (`docs/Evidencias/stitch_inventory_alert_dashboard_redesign/
 
 ## 5. Invariantes que NO se pueden romper
 
+- **Superficies de la interfaz (regla del usuario, 2026-10-15)**: la página va en gris cálido muy claro (`--background` en `globals.css`) y las tarjetas en blanco con sombra suave (`ui/card.tsx`); nunca el mismo blanco para los dos. Las secciones llevan `TituloSeccion` (`src/components/titulo-seccion.tsx`: ícono en cuadrito de color) y las cabeceras de orden/cotización la placa `PlacaVehiculo` (`src/components/placa-vehiculo.tsx`). Pantallas nuevas siguen este patrón.
 - **El efectivo exige caja abierta cuando el taller usa el control de caja** (fase de consolidación, D3).
   La regla vive en **un solo sitio**: `exigirCajaParaEfectivo(tenantDb, sedeId, metodoOEfectivo, mensaje)` en
   `src/lib/caja/sesion.ts`; tarjeta, transferencia u otro nunca la exigen, y sin control de caja nada la
