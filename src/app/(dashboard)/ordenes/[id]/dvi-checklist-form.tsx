@@ -120,7 +120,8 @@ export function DviChecklistForm({
           ) : null}
           <EstadoGuardado fase={fase} error={error} />
         </div>
-        <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+        {/* Una columna: con los cuatro botones, dos columnas cortaban el nombre del ítem a una letra. */}
+        <div className="grid grid-cols-1 gap-2">
           {itemsActivos.map((item) => {
             const valor = valores[item.key] as DviChecklistStatus | undefined;
             return (
