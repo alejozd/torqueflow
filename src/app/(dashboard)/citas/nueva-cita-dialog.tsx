@@ -24,7 +24,7 @@ export function NuevaCitaDialog({ vehiculos, ocupacion }: { vehiculos: VehiculoO
         <Plus />
         Nueva cita
       </DialogTrigger>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Nueva cita</DialogTitle>
           <DialogDescription>Vehículo, fecha y motivo del servicio.</DialogDescription>

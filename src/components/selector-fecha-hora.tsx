@@ -212,13 +212,13 @@ export function SelectorFechaHora({
         <span id={idDia} className="text-sm font-medium">
           Día
         </span>
-        <div className="flex min-w-0 items-stretch gap-2">
+        <div className="flex min-w-0 items-start gap-2">
           <div
             ref={tiraRef}
             role="radiogroup"
             aria-labelledby={idDia}
             aria-invalid={invalid || undefined}
-            className="flex min-w-0 flex-1 snap-x gap-1.5 overflow-x-auto pb-1.5"
+            className="flex min-w-0 flex-1 snap-x gap-1.5 overflow-x-auto pb-1.5 [scrollbar-width:thin]"
           >
             {dias.map((dia, indice) => {
               const n = citasDe(dia).length;
@@ -235,7 +235,7 @@ export function SelectorFechaHora({
                   onClick={() => elegirFecha(dia)}
                   onKeyDown={(evento) => teclaEnTira(evento, indice)}
                   className={cn(
-                    "flex w-16 shrink-0 snap-start flex-col items-center rounded-lg border px-1 pt-1.5 pb-1 transition-colors",
+                    "flex h-20 w-16 shrink-0 snap-start flex-col items-center rounded-lg border px-1 pt-1.5 pb-1 transition-colors",
                     "focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
                     seleccionado
                       ? "border-primary bg-primary text-primary-foreground"
@@ -277,7 +277,7 @@ export function SelectorFechaHora({
                 fechaEnTira ? "Elegir otra fecha en el calendario" : `Fecha elegida: ${formatoDiaLargo(fecha)}. Cambiar en el calendario`
               }
               className={cn(
-                "flex w-20 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border px-1 py-1.5 text-center text-xs transition-colors",
+                "flex h-20 w-20 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border px-1 py-1.5 text-center text-xs transition-colors",
                 "focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
                 fechaEnTira
                   ? "border-dashed border-border bg-card text-muted-foreground hover:border-muted-foreground/60"
@@ -413,7 +413,8 @@ export function SelectorFechaHora({
               {relativo ? `${relativo}, ` : ""}
               {formatoDiaLargo(fecha)}
             </strong>{" "}
-            a las <strong>{formatoHora12(hora)}</strong>.
+            {/* La hora ya termina en "a. m." / "p. m.": sin punto final extra. */}
+            a las <strong>{formatoHora12(hora)}</strong>
           </span>
         ) : (
           <span>Elegiste {formatoDiaLargo(fecha)}. Falta la hora.</span>

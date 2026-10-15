@@ -93,7 +93,7 @@ export function NuevaCitaForm({
   }
 
   return (
-    <form noValidate ref={formRef} onSubmit={(evento) => handleSubmit(onValid)(evento)} className="flex flex-col gap-4">
+    <form noValidate ref={formRef} onSubmit={(evento) => handleSubmit(onValid)(evento)} className="flex min-w-0 flex-col gap-4">
       <FormGroup label="Quién">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="vehiculoId">Vehículo</Label>
@@ -129,7 +129,7 @@ export function NuevaCitaForm({
       </FormGroup>
 
       <FormGroup label="Detalles">
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="motivo">Motivo</Label>
             <Input
