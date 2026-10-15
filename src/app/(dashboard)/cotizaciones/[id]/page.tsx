@@ -2,8 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Printer } from "lucide-react";
 import { getCotizacion } from "@/app/actions/cotizacion-actions";
-import type { ConceptoVista } from "@/lib/cotizacion/agrupar-conceptos";
-import { contarConceptos, importeConcepto } from "@/lib/cotizacion/agrupar-conceptos";
+import { conceptosDesdeItems, contarConceptos, importeConcepto } from "@/lib/cotizacion/agrupar-conceptos";
 import { esCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
 import { etiquetaDescuento, porcentajeVisible } from "@/lib/cotizacion/totales";
 import type { TipoSeguimiento } from "@/generated/prisma-tenant";
@@ -18,25 +17,6 @@ import { DescuentoCotizacionForm } from "./descuento-cotizacion-form";
 import { EnviarCotizacionForm } from "./enviar-cotizacion-form";
 import { DecisionCotizacionButtons } from "./decision-cotizacion-buttons";
 import { RegistrarSeguimientoDialog } from "./registrar-seguimiento-dialog";
-
-type Cotizacion = NonNullable<Awaited<ReturnType<typeof getCotizacion>>>;
-
-/** Las filas viajan al componente cliente como números planos (sin Decimal). */
-function conceptosVista(items: Cotizacion["items"]): ConceptoVista[] {
-  return items.map((item) => ({
-    id: item.id,
-    tipo: item.tipo,
-    descripcion: item.descripcion,
-    repuestoId: item.repuestoId,
-    codigo: item.repuesto?.codigo ?? null,
-    cantidad: Number(item.cantidad),
-    precioUnitario: Number(item.precioUnitario),
-    precioCatalogo: item.repuesto ? Number(item.repuesto.precioVenta) : null,
-    stockActual: item.repuesto ? item.repuesto.stockActual : null,
-    grupoKitId: item.grupoKitId,
-    grupoKitNombre: item.grupoKitNombre,
-  }));
-}
 
 const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeZone: "America/Bogota" });
 
@@ -75,7 +55,7 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
 
   const ahora = new Date();
   const puedeEditar = esCotizacionMutable(cotizacion.estado);
-  const conceptos = conceptosVista(cotizacion.items);
+  const conceptos = conceptosDesdeItems(cotizacion.items);
   const conteo = contarConceptos(conceptos);
   const subtotalRepuestos = conceptos
     .filter((concepto) => concepto.tipo === "REPUESTO")

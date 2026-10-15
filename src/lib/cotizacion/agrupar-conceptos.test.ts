@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agruparConceptos, contarConceptos, esConceptoLibre, type ConceptoVista } from "./agrupar-conceptos";
+import { agruparConceptos, conceptosDesdeItems, contarConceptos, esConceptoLibre, type ConceptoVista } from "./agrupar-conceptos";
 
 function concepto(overrides: Partial<ConceptoVista>): ConceptoVista {
   return {
@@ -75,5 +75,37 @@ describe("esConceptoLibre", () => {
     expect(esConceptoLibre({ repuestoId: null, grupoKitId: null })).toBe(true);
     expect(esConceptoLibre({ repuestoId: "r1", grupoKitId: null })).toBe(false);
     expect(esConceptoLibre({ repuestoId: null, grupoKitId: "g1" })).toBe(false);
+  });
+});
+
+describe("conceptosDesdeItems", () => {
+  it("convierte los Decimal a números y toma código, precio y existencia del repuesto", () => {
+    const [desdeInventario, libre] = conceptosDesdeItems([
+      {
+        id: "i1",
+        tipo: "REPUESTO",
+        descripcion: "Filtro",
+        repuestoId: "r1",
+        cantidad: "2.5",
+        precioUnitario: "1000",
+        grupoKitId: "g1",
+        grupoKitNombre: "Kit",
+        repuesto: { codigo: "F-1", precioVenta: "1200", stockActual: 3 },
+      },
+      {
+        id: "i2",
+        tipo: "MANO_OBRA",
+        descripcion: "Lavado",
+        repuestoId: null,
+        cantidad: "1",
+        precioUnitario: "5000",
+        grupoKitId: null,
+        grupoKitNombre: null,
+        repuesto: null,
+      },
+    ]);
+
+    expect(desdeInventario).toMatchObject({ cantidad: 2.5, precioUnitario: 1000, codigo: "F-1", precioCatalogo: 1200, stockActual: 3 });
+    expect(libre).toMatchObject({ codigo: null, precioCatalogo: null, stockActual: null });
   });
 });
