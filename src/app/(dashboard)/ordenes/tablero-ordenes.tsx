@@ -265,7 +265,7 @@ function Tarjeta({
                 {entregable ? (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem render={<Link href={`/ordenes/${tarjeta.id}#entrega`} />}>
+                    <DropdownMenuItem render={<Link href={`/ordenes/${tarjeta.id}?tab=entrega`} />}>
                       <Truck className="size-3.5" />
                       Entregar (ir al acta)
                     </DropdownMenuItem>

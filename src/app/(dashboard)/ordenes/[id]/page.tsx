@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { NavSecciones } from "@/components/nav-secciones";
-import { seccionesAbiertas } from "@/lib/orden/secciones";
-import { SeccionOrden } from "./seccion-orden";
+import { COLOR_TONO, pestanaInicial, resumenEntrega, resumenInspeccion } from "@/lib/orden/pestanas";
+import { PestanasOrden } from "./pestanas-orden";
+import { AgregarAlTrabajo } from "./agregar-al-trabajo";
 import { notFound } from "next/navigation";
 import { getOrden, listTecnicos } from "@/app/actions/orden-actions";
 import { requireSession } from "@/lib/auth/guards";
@@ -38,22 +38,9 @@ import type { ResultadoAccion } from "@/lib/resultado-accion";
 import type { DviChecklist } from "@/lib/dvi/checklist-items";
 import { totalOrden } from "@/lib/dashboard/calculos";
 import { cn } from "@/lib/utils";
-import { FormGroup } from "@/components/form-group";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-// Anchor nav for the sections stacked in the left column (same idea as the
-// Inicio dashboard's own pill nav) -- the right column is its own sticky
-// sidebar already, so it doesn't need an anchor.
-const SECCIONES_ORDEN = [
-  { id: "recepcion", label: "Recepción", dot: "bg-orange-500" },
-  { id: "items", label: "Ítems", dot: "bg-amber-500" },
-  { id: "mano-obra", label: "Mano de obra", dot: "bg-purple-500" },
-  { id: "dvi", label: "DVI", dot: "bg-red-500" },
-  { id: "entrega", label: "Acta y garantías", dot: "bg-teal-500" },
-  { id: "anticipos", label: "Anticipos", dot: "bg-green-500" },
-] as const;
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type Orden = NonNullable<Awaited<ReturnType<typeof getOrden>>>;
 type ItemRow = Orden["items"][number];
@@ -155,8 +142,15 @@ function conColumnaQuitar<T extends { id: string }>(
   ];
 }
 
-export default async function OrdenDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function OrdenDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { id } = await params;
+  const { tab } = await searchParams;
   const [session, orden, repuestos, tecnicos, bodegas, proveedores, dviItems, anticipos, servicios, opcionesTaller] = await Promise.all([
     requireSession(),
     getOrden(id),
@@ -190,25 +184,18 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
   const repuestosTotal = orden.items.reduce((suma, item) => suma + item.cantidad * Number(item.precioUnitario), 0);
   const manoObraTotal = orden.manoDeObra.reduce((suma, linea) => suma + Number(linea.valor), 0);
   const checklist = (orden.dvi?.checklist as DviChecklist | undefined) ?? null;
-  const checklistValores = checklist ? Object.values(checklist) : [];
-  const atencionCount = checklistValores.filter((v) => v === "ATENCION").length;
-  const criticoCount = checklistValores.filter((v) => v === "CRITICO").length;
+  // Solo cuentan los ítems activos: un ítem desactivado no se puede revisar.
+  const itemsDviActivos = dviItems.filter((item) => item.activo);
+  const inspeccion = resumenInspeccion(
+    itemsDviActivos.flatMap((item) => checklist?.[item.key] ?? []),
+    itemsDviActivos.length,
+  );
+  const entrega = resumenEntrega(orden.estado, Boolean(orden.acta?.firmadaAt));
   const anticiposVigentes = anticipos
     .filter((a) => a.estado !== "DEVUELTO")
     .reduce((suma, a) => suma + a.monto, 0);
   const mostrarAnticipos = !orden.factura || anticipos.length > 0;
   const puedeGestionarAnticipos = session.user.role !== "TECNICO";
-  // Qué secciones van abiertas según el momento de la orden (el acta, plegada
-  // mientras se arma: se usa al entregar).
-  const abiertas = seccionesAbiertas(orden.estado);
-  const resumenEntrega =
-    orden.estado === "ENTREGADA"
-      ? orden.acta?.firmadaAt
-        ? "entregada con acta firmada"
-        : "entregada"
-      : orden.estado === "TERMINADA"
-        ? "lista para entregar"
-        : "se usa al entregar, cuando la orden esté Terminada";
   const total = totalOrden({
     items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
     manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor) })),
@@ -250,201 +237,279 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
             }
           />
         }
-        acciones={<AvanceFase ordenId={orden.id} estado={orden.estado} />}
+        acciones={
+          // En pantallas angostas el avance va en la franja fija de abajo.
+          <div className="hidden lg:block">
+            <AvanceFase ordenId={orden.id} estado={orden.estado} />
+          </div>
+        }
       />
       <BannerSintomas sintomas={orden.sintomas} />
 
-      {/* Fija arriba al hacer scroll, como en el Inicio. */}
-      <NavSecciones etiqueta="Secciones de la orden" secciones={SECCIONES_ORDEN} className="-mt-2" />
-
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="flex flex-col gap-4">
-          <SeccionOrden
-            id="recepcion"
-            titulo="Recepción y daños"
-            resumen={`${orden.danios.length} ${orden.danios.length === 1 ? "marca" : "marcas"}`}
-            abiertaInicial={abiertas.has("recepcion")}
-            contenidoClassName="gap-5"
-          >
-            <RecepcionForm
-              ordenId={orden.id}
-              kilometrajeIngreso={orden.kilometrajeIngreso}
-              nivelCombustible={orden.nivelCombustible}
-              soloLectura={!esOrdenMutable(orden)}
-            />
-            <DiagramaDanios
-              ordenId={orden.id}
-              tipoVehiculo={orden.vehiculo.tipo}
-              danios={orden.danios.map((danio) => ({
-                id: danio.id,
-                zona: danio.zona,
-                tipo: danio.tipo,
-                nota: danio.nota,
-              }))}
-              soloLectura={!esOrdenMutable(orden)}
-              puedeQuitar={puedeQuitar}
-            />
-          </SeccionOrden>
-
-          <SeccionOrden
-            id="items"
-            titulo="Ítems (repuestos)"
-            resumen={`${orden.items.length} ${orden.items.length === 1 ? "ítem" : "ítems"}`}
-            accion={
-              <span className="font-mono text-sm text-muted-foreground">{formatoMoneda.format(repuestosTotal)}</span>
-            }
-            abiertaInicial={abiertas.has("items")}
-          >
-            {!orden.factura && (
-              <>
-                <AgregarItemForm
-                  ordenId={orden.id}
-                  repuestos={repuestos}
-                  bodegas={bodegas}
-                  proveedores={proveedores}
-                  puedeCrearRepuesto={session.user.role !== "TECNICO"}
-                />
-                {/* Una sola instancia: el servicio escribe en Ítems y en Mano de obra. */}
-                <AplicarServicioForm ordenId={orden.id} servicios={servicios} />
-              </>
-            )}
-            <DataTable
-              columns={itemsColumns}
-              rows={orden.items}
-              getRowKey={(item) => item.id}
-              emptyMessage="Esta orden no tiene ítems agregados."
-            />
-          </SeccionOrden>
-
-          <SeccionOrden
-            id="mano-obra"
-            titulo="Mano de obra"
-            resumen={`${orden.manoDeObra.length} ${orden.manoDeObra.length === 1 ? "línea" : "líneas"}`}
-            accion={
-              <span className="font-mono text-sm text-muted-foreground">{formatoMoneda.format(manoObraTotal)}</span>
-            }
-            abiertaInicial={abiertas.has("mano-obra")}
-          >
-            {!orden.factura && (
-              <AgregarManoObraForm ordenId={orden.id} tecnicos={tecnicos} mecanicoIdHeader={orden.mecanicoId} />
-            )}
-            <DataTable
-              columns={manoObraColumns}
-              rows={orden.manoDeObra}
-              getRowKey={(linea) => linea.id}
-              emptyMessage="Esta orden no tiene mano de obra registrada."
-            />
-          </SeccionOrden>
-
-          <SeccionOrden
-            id="dvi"
-            titulo="Inspección vehicular digital (DVI)"
-            accion={
-              atencionCount + criticoCount > 0 ? (
-                  <span className="text-xs text-muted-foreground">
-                    {atencionCount > 0
-                      ? `${atencionCount} ${atencionCount === 1 ? "punto requiere" : "puntos requieren"} atención`
-                      : null}
-                    {atencionCount > 0 && criticoCount > 0 ? " · " : null}
-                    {criticoCount > 0 ? `${criticoCount} crítico${criticoCount > 1 ? "s" : ""}` : null}
-                  </span>
-              ) : undefined
-            }
-            abiertaInicial={abiertas.has("dvi")}
-          >
-            <DviChecklistForm
-              ordenId={orden.id}
-              checklist={checklist}
-              items={dviItems}
-              esAdmin={esAdmin}
-              soloLectura={!esOrdenMutable(orden)}
-            />
-            <DviFotoForm ordenId={orden.id} fotos={orden.dvi?.fotos ?? []} soloLectura={!esOrdenMutable(orden)} puedeEliminar={puedeQuitar} />
-          </SeccionOrden>
-
-          <SeccionOrden
-            id="entrega"
-            titulo="Acta de entrega y garantías"
-            resumen={resumenEntrega}
-            // Se puede imprimir antes de firmar: firmar en papel y subir la foto es una de las dos formas.
-            accion={
-              orden.estado === "TERMINADA" || orden.estado === "ENTREGADA" ? (
-                <Link href={`/ordenes/${orden.id}/acta/imprimir`} className="text-sm underline underline-offset-4">
-                  Imprimir acta
-                </Link>
-              ) : undefined
-            }
-            abiertaInicial={abiertas.has("entrega")}
-            destacada={orden.estado === "TERMINADA"}
-            contenidoClassName="gap-5"
-          >
-            {/* Dos recuadros con título, como el resto de la ficha: antes las garantías
-                quedaban pegadas al acta sin ningún título y no se encontraban. */}
-            <FormGroup label="Acta de entrega">
-              <ActaEntregaForm
-                ordenId={orden.id}
-                estado={orden.estado}
-                // El acta no depende de la factura (fase de consolidación, D2): solo una
-                // orden anulada la deja de solo lectura; una entregada sin firma se firma.
-                editable={orden.estado !== "ANULADA"}
-                exigirFirma={opcionesTaller.exigirActaFirmada}
-                puedeBorrar={
-                  orden.estado !== "ENTREGADA" && orden.estado !== "ANULADA" && session.user.role !== "TECNICO"
-                }
-                acta={
-                  orden.acta
-                    ? {
-                        recibidoPor: orden.acta.recibidoPor,
-                        documentoRecibe: orden.acta.documentoRecibe,
-                        observaciones: orden.acta.observaciones,
-                        firmaUrl: orden.acta.firmaUrl,
-                        firmaFotoUrl: orden.acta.firmaFotoUrl,
-                        firmadaAt: orden.acta.firmadaAt,
-                      }
-                    : null
-                }
-              />
-            </FormGroup>
-            <FormGroup label="Garantías del trabajo">
-              <GarantiasSection
-                ordenId={orden.id}
-                garantias={orden.garantias.map((garantia) => ({
-                  id: garantia.id,
-                  tipo: garantia.tipo,
-                  descripcion: garantia.descripcion,
-                  linea: garantia.manoDeObra?.descripcion ?? garantia.itemOrden?.descripcion ?? null,
-                  cubreHasta: garantia.cubreHasta,
-                  cubreHastaKm: garantia.cubreHastaKm,
-                  nota: garantia.nota,
-                }))}
-                lineasTrabajo={orden.manoDeObra.map((linea) => ({ id: linea.id, descripcion: linea.descripcion }))}
-                lineasRepuesto={orden.items.map((item) => ({
-                  id: item.id,
-                  descripcion: `${item.descripcion} ×${item.cantidad}`,
-                }))}
-                soloLectura={orden.estado === "ENTREGADA" || orden.estado === "ANULADA"}
-                puedeQuitar={puedeQuitar}
-              />
-            </FormGroup>
-          </SeccionOrden>
-
-          {mostrarAnticipos ? (
-            <SeccionOrden
-              id="anticipos"
-              titulo="Anticipos"
-              resumen={`${anticipos.length} ${anticipos.length === 1 ? "registro" : "registros"}`}
-              abiertaInicial={abiertas.has("anticipos")}
-            >
-              <AnticiposSection
-                ordenId={orden.id}
-                anticipos={anticipos}
-                puedeRegistrar={puedeGestionarAnticipos && !orden.factura && orden.estado !== "ANULADA"}
-                puedeDevolver={esAdmin}
-                ordenAnulada={orden.estado === "ANULADA"}
-              />
-            </SeccionOrden>
-          ) : null}
-        </div>
+        <PestanasOrden
+          inicial={pestanaInicial(orden.estado, tab)}
+          pestanas={[
+            {
+              id: "recepcion",
+              titulo: "Recepción",
+              resumen: `${orden.danios.length} ${orden.danios.length === 1 ? "daño" : "daños"}`,
+              color: COLOR_TONO[orden.danios.length > 0 ? "rojo" : "gris"],
+              panel: (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Recepción del vehículo</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-5">
+                    <RecepcionForm
+                      ordenId={orden.id}
+                      kilometrajeIngreso={orden.kilometrajeIngreso}
+                      nivelCombustible={orden.nivelCombustible}
+                      soloLectura={!esOrdenMutable(orden)}
+                    />
+                    <DiagramaDanios
+                      ordenId={orden.id}
+                      tipoVehiculo={orden.vehiculo.tipo}
+                      danios={orden.danios.map((danio) => ({
+                        id: danio.id,
+                        zona: danio.zona,
+                        tipo: danio.tipo,
+                        nota: danio.nota,
+                      }))}
+                      soloLectura={!esOrdenMutable(orden)}
+                      puedeQuitar={puedeQuitar}
+                    />
+                  </CardContent>
+                </Card>
+              ),
+            },
+            {
+              id: "trabajo",
+              titulo: "Trabajo",
+              resumen: formatoMoneda.format(total),
+              color: COLOR_TONO.ambar,
+              panel: (
+                <>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {[
+                      { etiqueta: "Repuestos", valor: repuestosTotal },
+                      { etiqueta: "Mano de obra", valor: manoObraTotal },
+                      { etiqueta: "Total del trabajo", valor: total },
+                    ].map((cifra) => (
+                      <Card key={cifra.etiqueta} className="gap-1 px-4 py-3">
+                        <span className="text-[11px] tracking-wide text-muted-foreground uppercase">{cifra.etiqueta}</span>
+                        <span className="font-mono text-lg font-semibold">{formatoMoneda.format(cifra.valor)}</span>
+                      </Card>
+                    ))}
+                  </div>
+                  {!orden.factura && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Agregar al trabajo</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <AgregarAlTrabajo
+                          opciones={[
+                            {
+                              id: "servicio",
+                              etiqueta: "Aplicar servicio",
+                              detalle: "repuestos + mano de obra",
+                              contenido: <AplicarServicioForm ordenId={orden.id} servicios={servicios} />,
+                            },
+                            {
+                              id: "repuesto",
+                              etiqueta: "Repuesto",
+                              contenido: (
+                                <AgregarItemForm
+                                  ordenId={orden.id}
+                                  repuestos={repuestos}
+                                  bodegas={bodegas}
+                                  proveedores={proveedores}
+                                  puedeCrearRepuesto={session.user.role !== "TECNICO"}
+                                />
+                              ),
+                            },
+                            {
+                              id: "mano-obra",
+                              etiqueta: "Mano de obra",
+                              contenido: (
+                                <AgregarManoObraForm
+                                  ordenId={orden.id}
+                                  tecnicos={tecnicos}
+                                  mecanicoIdHeader={orden.mecanicoId}
+                                />
+                              ),
+                            },
+                          ]}
+                        />
+                      </CardContent>
+                    </Card>
+                  )}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Repuestos</CardTitle>
+                      <CardAction className="text-sm text-muted-foreground">
+                        {orden.items.length} {orden.items.length === 1 ? "ítem" : "ítems"}
+                      </CardAction>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-2">
+                      <DataTable
+                        columns={itemsColumns}
+                        rows={orden.items}
+                        getRowKey={(item) => item.id}
+                        emptyMessage="Esta orden no tiene repuestos agregados."
+                      />
+                      <div className="flex justify-between px-2 text-sm font-semibold">
+                        <span>Subtotal repuestos</span>
+                        <span className="font-mono">{formatoMoneda.format(repuestosTotal)}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Mano de obra</CardTitle>
+                      <CardAction className="text-sm text-muted-foreground">
+                        {orden.manoDeObra.length} {orden.manoDeObra.length === 1 ? "línea" : "líneas"}
+                      </CardAction>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-2">
+                      <DataTable
+                        columns={manoObraColumns}
+                        rows={orden.manoDeObra}
+                        getRowKey={(linea) => linea.id}
+                        emptyMessage="Esta orden no tiene mano de obra registrada."
+                      />
+                      <div className="flex justify-between px-2 text-sm font-semibold">
+                        <span>Subtotal mano de obra</span>
+                        <span className="font-mono">{formatoMoneda.format(manoObraTotal)}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              ),
+            },
+            {
+              id: "inspeccion",
+              titulo: "Inspección",
+              resumen: inspeccion.texto,
+              color: COLOR_TONO[inspeccion.tono],
+              panel: (
+                <Card>
+                  <CardContent className="flex flex-col gap-5">
+                    <DviChecklistForm
+                      ordenId={orden.id}
+                      checklist={checklist}
+                      items={dviItems}
+                      esAdmin={esAdmin}
+                      soloLectura={!esOrdenMutable(orden)}
+                    />
+                    <DviFotoForm
+                      ordenId={orden.id}
+                      fotos={orden.dvi?.fotos ?? []}
+                      soloLectura={!esOrdenMutable(orden)}
+                      puedeEliminar={puedeQuitar}
+                    />
+                  </CardContent>
+                </Card>
+              ),
+            },
+            {
+              id: "entrega",
+              titulo: "Entrega",
+              resumen: entrega.texto,
+              color: COLOR_TONO[entrega.tono],
+              panel: (
+                <>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Acta de entrega</CardTitle>
+                      {/* Se puede imprimir antes de firmar: firmar en papel y subir la foto es una de las dos formas. */}
+                      {orden.estado === "TERMINADA" || orden.estado === "ENTREGADA" ? (
+                        <CardAction>
+                          <Link
+                            href={`/ordenes/${orden.id}/acta/imprimir`}
+                            className="text-sm underline underline-offset-4"
+                          >
+                            Imprimir acta
+                          </Link>
+                        </CardAction>
+                      ) : null}
+                    </CardHeader>
+                    <CardContent>
+                      <ActaEntregaForm
+                        ordenId={orden.id}
+                        estado={orden.estado}
+                        // El acta no depende de la factura (fase de consolidación, D2): solo una
+                        // orden anulada la deja de solo lectura; una entregada sin firma se firma.
+                        editable={orden.estado !== "ANULADA"}
+                        exigirFirma={opcionesTaller.exigirActaFirmada}
+                        puedeBorrar={
+                          orden.estado !== "ENTREGADA" &&
+                          orden.estado !== "ANULADA" &&
+                          session.user.role !== "TECNICO"
+                        }
+                        acta={
+                          orden.acta
+                            ? {
+                                recibidoPor: orden.acta.recibidoPor,
+                                documentoRecibe: orden.acta.documentoRecibe,
+                                observaciones: orden.acta.observaciones,
+                                firmaUrl: orden.acta.firmaUrl,
+                                firmaFotoUrl: orden.acta.firmaFotoUrl,
+                                firmadaAt: orden.acta.firmadaAt,
+                              }
+                            : null
+                        }
+                      />
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Garantías del trabajo</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <GarantiasSection
+                        ordenId={orden.id}
+                        garantias={orden.garantias.map((garantia) => ({
+                          id: garantia.id,
+                          tipo: garantia.tipo,
+                          descripcion: garantia.descripcion,
+                          linea: garantia.manoDeObra?.descripcion ?? garantia.itemOrden?.descripcion ?? null,
+                          cubreHasta: garantia.cubreHasta,
+                          cubreHastaKm: garantia.cubreHastaKm,
+                          nota: garantia.nota,
+                        }))}
+                        lineasTrabajo={orden.manoDeObra.map((linea) => ({ id: linea.id, descripcion: linea.descripcion }))}
+                        lineasRepuesto={orden.items.map((item) => ({
+                          id: item.id,
+                          descripcion: `${item.descripcion} ×${item.cantidad}`,
+                        }))}
+                        soloLectura={orden.estado === "ENTREGADA" || orden.estado === "ANULADA"}
+                        puedeQuitar={puedeQuitar}
+                      />
+                    </CardContent>
+                  </Card>
+                  {mostrarAnticipos ? (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Anticipos</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <AnticiposSection
+                          ordenId={orden.id}
+                          anticipos={anticipos}
+                          puedeRegistrar={puedeGestionarAnticipos && !orden.factura && orden.estado !== "ANULADA"}
+                          puedeDevolver={esAdmin}
+                          ordenAnulada={orden.estado === "ANULADA"}
+                        />
+                      </CardContent>
+                    </Card>
+                  ) : null}
+                </>
+              ),
+            },
+          ]}
+        />
 
         {/* Franja de color arriba de cada tarjeta lateral: se distinguen sin
             meterles un recuadro gris (cada una muestra una sola cosa). */}
@@ -484,6 +549,19 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
               />
             </CardContent>
           </Card>
+        </div>
+      </div>
+
+      {/* En pantallas angostas la barra lateral queda abajo: el saldo y el siguiente paso siguen a mano. */}
+      <div className="sticky bottom-0 z-20 -mx-6 -mb-6 flex items-center gap-3 border-t border-border bg-card px-6 py-2.5 shadow-[0_-6px_16px_rgb(0_0_0/0.06)] lg:hidden">
+        <div className="flex flex-col">
+          <span className="text-[11px] tracking-wide text-muted-foreground uppercase">Saldo por cobrar</span>
+          <span className="font-mono text-lg font-semibold">
+            {formatoMoneda.format(Math.max(total - anticiposVigentes, 0))}
+          </span>
+        </div>
+        <div className="ml-auto">
+          <AvanceFase ordenId={orden.id} estado={orden.estado} />
         </div>
       </div>
     </main>

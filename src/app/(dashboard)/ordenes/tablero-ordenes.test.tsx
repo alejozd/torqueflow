@@ -132,7 +132,7 @@ describe("TableroOrdenes", () => {
     const menu = await screen.findByRole("menu");
     expect(within(menu).getByRole("menuitem", { name: /Entregar \(ir al acta\)/ })).toHaveAttribute(
       "href",
-      "/ordenes/o1#entrega",
+      "/ordenes/o1?tab=entrega",
     );
   });
 

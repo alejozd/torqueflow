@@ -32,7 +32,7 @@ describe("AvanceFase", () => {
 
   it("terminada lleva al acta en vez de entregar directo", () => {
     render(<AvanceFase ordenId="o1" estado="TERMINADA" />);
-    expect(screen.getByRole("link", { name: /Ir a la entrega/ })).toHaveAttribute("href", "#entrega");
+    expect(screen.getByRole("link", { name: /Ir a la entrega/ })).toHaveAttribute("href", "?tab=entrega");
     expect(screen.getByText("Falta el acta firmada")).toBeInTheDocument();
   });
 
