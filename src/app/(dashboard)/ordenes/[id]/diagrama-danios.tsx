@@ -1,23 +1,40 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState, type KeyboardEvent } from "react";
+import { X } from "lucide-react";
 import { agregarDanioAction, quitarDanioAction, type RecepcionFormState } from "@/app/actions/recepcion-actions";
 import { QuitarConConfirmacion } from "@/components/quitar-con-confirmacion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { SelectField } from "@/components/ui/select-field";
 import { cn } from "@/lib/utils";
-import { ETIQUETA_DANIO, FIGURAS, centroDe, etiquetaZona, figuraDe } from "@/lib/danos/figuras";
+import {
+  COLOR_DANIO,
+  ETIQUETA_DANIO,
+  FIGURAS,
+  centroDe,
+  etiquetaZona,
+  figuraDe,
+  type TipoTrazo,
+} from "@/lib/danos/figuras";
 import type { TipoDanio, ZonaVehiculo } from "@/generated/prisma-tenant";
 
 const initialState: RecepcionFormState = { error: null, success: false };
 
-const TIPOS: { value: TipoDanio; label: string }[] = (Object.keys(ETIQUETA_DANIO) as TipoDanio[]).map((tipo) => ({
-  value: tipo,
-  label: ETIQUETA_DANIO[tipo],
-}));
+const TIPOS = Object.keys(ETIQUETA_DANIO) as TipoDanio[];
+
+/** Color de cada trazo del dibujo (decorado: no se toca ni lo lee el lector de pantalla). */
+const ESTILO_TRAZO: Record<TipoTrazo, { className: string; ancho: number }> = {
+  carroceria: { className: "fill-card stroke-[oklch(0.62_0.03_250)]", ancho: 2.2 },
+  vidrio: { className: "fill-[oklch(0.93_0.02_240)] stroke-[oklch(0.7_0.03_250)]", ancho: 1.6 },
+  llanta: { className: "fill-[oklch(0.32_0.01_250)] stroke-none", ancho: 0 },
+  rin: { className: "fill-[oklch(0.85_0.02_250)] stroke-[oklch(0.62_0.03_250)]", ancho: 1.4 },
+  espejo: { className: "fill-[oklch(0.85_0.02_250)] stroke-[oklch(0.62_0.03_250)]", ancho: 1.4 },
+  linea: { className: "fill-none stroke-[oklch(0.82_0.02_250)]", ancho: 1.3 },
+  farola: { className: "fill-none stroke-[oklch(0.75_0.12_85)] [stroke-linecap:round]", ancho: 4 },
+  stop: { className: "fill-none stroke-[oklch(0.6_0.18_25)] [stroke-linecap:round]", ancho: 4 },
+};
 
 export interface DanioVista {
   id: string;
@@ -27,10 +44,9 @@ export interface DanioVista {
 }
 
 /**
- * Diagrama de daños (D2): se toca la zona en la silueta (o se elige en la lista),
- * se marca qué tiene y, si hace falta, una nota. La figura muestra la silueta del
- * vehículo, hacia dónde mira, el nombre de las zonas grandes y cuántos daños
- * tiene cada una; las marcas se listan al lado con su opción de quitar.
+ * Croquis de daños: el dibujo del vehículo con sus zonas encima (datos de
+ * `figuras.ts`) y un número por cada daño, el mismo de su tarjeta. Nada viene
+ * elegido: tocar una zona abre el formulario, así no se marca «Frente» por descuido.
  */
 export function DiagramaDanios({
   ordenId,
@@ -48,101 +64,149 @@ export function DiagramaDanios({
   const agregar = agregarDanioAction.bind(null, ordenId);
   const [state, formAction, isPending] = useActionState(agregar, initialState);
   const figura = FIGURAS[figuraDe(tipoVehiculo)];
-  const [zona, setZona] = useState<ZonaVehiculo>(figura.zonas[0]!.zona);
+  const [zona, setZona] = useState<ZonaVehiculo | null>(null);
   const [tipo, setTipo] = useState<TipoDanio>("GOLPE");
   const [nota, setNota] = useState("");
+  const [activo, setActivo] = useState<string | null>(null);
+  const zonasRef = useRef<(SVGPathElement | null)[]>([]);
 
-  const marcadas = new Map<ZonaVehiculo, DanioVista[]>();
-  for (const danio of danios) {
-    marcadas.set(danio.zona, [...(marcadas.get(danio.zona) ?? []), danio]);
+  // Tras marcar con éxito se cierra el formulario (ajuste de estado durante el render).
+  const [ultimoEstado, setUltimoEstado] = useState(state);
+  if (state !== ultimoEstado) {
+    setUltimoEstado(state);
+    if (state.success) {
+      setZona(null);
+      setNota("");
+    }
   }
 
-  const opcionesZona = [
-    ...figura.zonas.map((zonaFigura) => ({ value: zonaFigura.zona, label: zonaFigura.etiqueta })),
-    { value: "OTRO", label: "Otra zona" },
-  ];
+  const zonasDibujadas = new Map(figura.zonas.map((zonaFigura) => [zonaFigura.zona, zonaFigura]));
+  const vistosPorZona = new Map<ZonaVehiculo, number>();
+  const marcadores = danios.flatMap((danio, indice) => {
+    const enDibujo = zonasDibujadas.get(danio.zona);
+    const posicion = enDibujo ? centroDe(enDibujo) : figura.fueraDelDibujo?.[danio.zona];
+    if (!posicion) return [];
+    const repetido = vistosPorZona.get(danio.zona) ?? 0;
+    vistosPorZona.set(danio.zona, repetido + 1);
+    return [
+      {
+        danio,
+        numero: indice + 1,
+        x: posicion.x + repetido * 14,
+        y: posicion.y - repetido * 10,
+        viejo: !enDibujo,
+      },
+    ];
+  });
+
+  function moverCon(evento: KeyboardEvent<SVGPathElement>, indice: number) {
+    const total = figura.zonas.length;
+    const paso =
+      evento.key === "ArrowRight" || evento.key === "ArrowDown"
+        ? 1
+        : evento.key === "ArrowLeft" || evento.key === "ArrowUp"
+          ? -1
+          : 0;
+    if (paso !== 0) {
+      evento.preventDefault();
+      const siguiente = (indice + paso + total) % total;
+      setZona(figura.zonas[siguiente]!.zona);
+      zonasRef.current[siguiente]?.focus();
+    } else if (evento.key === "Enter" || evento.key === " ") {
+      evento.preventDefault();
+      setZona(figura.zonas[indice]!.zona);
+    }
+  }
+
+  const indiceConFoco = Math.max(
+    0,
+    figura.zonas.findIndex((zonaFigura) => zonaFigura.zona === zona),
+  );
 
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
-      <div className="flex flex-col gap-2">
-        <svg
-          viewBox={`0 0 ${figura.lienzo.ancho} ${figura.lienzo.alto}`}
-          role="group"
-          aria-label={`Diagrama de daños del vehículo: ${figura.titulo}`}
-          className="mx-auto w-full max-w-[300px] rounded-lg border border-border bg-muted/30 p-2"
-        >
-          {figura.silueta.map((trazo, indice) => (
-            <path key={indice} d={trazo} aria-hidden className="fill-muted stroke-muted-foreground/40" strokeWidth={1.5} />
-          ))}
-
-          {figura.zonas.map((zonaFigura) => {
-            const seleccionada = !soloLectura && zona === zonaFigura.zona;
-            const cantidad = marcadas.get(zonaFigura.zona)?.length ?? 0;
-            return (
+      <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-muted/30 p-3">
+        <svg viewBox={`0 0 ${figura.lienzo.ancho} ${figura.lienzo.alto}`} className="w-full max-w-[280px]">
+          <g aria-hidden className="pointer-events-none">
+            {figura.silueta.map((trazo, indice) => (
               <path
-                key={zonaFigura.zona}
-                d={zonaFigura.d}
-                role="button"
-                tabIndex={soloLectura ? -1 : 0}
-                aria-label={`${zonaFigura.etiqueta}${cantidad > 0 ? " (con daño marcado)" : ""}`}
-                aria-pressed={seleccionada}
-                strokeWidth={seleccionada ? 2 : 1}
-                className={cn(
-                  "transition-colors outline-none focus-visible:stroke-ring",
-                  cantidad > 0 ? "fill-destructive/20 stroke-destructive" : "fill-card stroke-muted-foreground/50",
-                  !soloLectura && cantidad === 0 && "hover:fill-primary/15",
-                  seleccionada && "fill-primary/25 stroke-primary",
-                  soloLectura ? "cursor-default" : "cursor-pointer",
-                )}
-                onClick={() => {
-                  if (!soloLectura) setZona(zonaFigura.zona);
-                }}
-                onKeyDown={(evento) => {
-                  if (soloLectura) return;
-                  if (evento.key === "Enter" || evento.key === " ") {
-                    evento.preventDefault();
-                    setZona(zonaFigura.zona);
-                  }
-                }}
-              >
-                <title>{zonaFigura.detalle ? `${zonaFigura.etiqueta} (${zonaFigura.detalle})` : zonaFigura.etiqueta}</title>
-              </path>
-            );
-          })}
+                key={indice}
+                d={trazo.d}
+                className={ESTILO_TRAZO[trazo.tipo].className}
+                strokeWidth={ESTILO_TRAZO[trazo.tipo].ancho}
+              />
+            ))}
+          </g>
 
-          {/* Rótulos y contadores encima de las zonas, sin capturar el clic. */}
-          <g aria-hidden className="pointer-events-none select-none">
-            {figura.zonas.map((zonaFigura) => {
-              const { x, y } = centroDe(zonaFigura);
-              const cantidad = marcadas.get(zonaFigura.zona)?.length ?? 0;
-              const [, , ancho, alto] = zonaFigura.cajas[0]!;
-              const vertical = alto > ancho * 2;
+          <g role="radiogroup" aria-label={`Zonas del vehículo: ${figura.titulo}`}>
+            {figura.zonas.map((zonaFigura, indice) => {
+              const elegida = zona === zonaFigura.zona;
               return (
-                <g key={zonaFigura.zona}>
-                  {zonaFigura.rotulo ? (
-                    <text
-                      x={x}
-                      y={y}
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      fontSize={10}
-                      transform={vertical ? `rotate(-90 ${x} ${y})` : undefined}
-                      className="fill-muted-foreground font-medium"
-                    >
-                      {zonaFigura.rotulo}
-                    </text>
-                  ) : null}
-                  {cantidad > 0 ? (
-                    <g transform={`translate(${x} ${zonaFigura.rotulo && !vertical ? y - 16 : y})`}>
-                      <circle r={8} className="fill-destructive" />
-                      <text textAnchor="middle" dominantBaseline="central" fontSize={10} className="fill-white font-semibold">
-                        {cantidad}
-                      </text>
-                    </g>
-                  ) : null}
-                </g>
+                <path
+                  key={zonaFigura.zona}
+                  ref={(nodo) => {
+                    zonasRef.current[indice] = nodo;
+                  }}
+                  d={zonaFigura.d}
+                  role="radio"
+                  aria-checked={elegida}
+                  aria-disabled={soloLectura || undefined}
+                  aria-label={
+                    zonaFigura.detalle ? `${zonaFigura.etiqueta} (${zonaFigura.detalle})` : zonaFigura.etiqueta
+                  }
+                  tabIndex={!soloLectura && indice === indiceConFoco ? 0 : -1}
+                  strokeWidth={elegida ? 2 : 1}
+                  className={cn(
+                    "outline-none transition-colors",
+                    elegida
+                      ? "fill-primary/25 stroke-primary"
+                      : "fill-transparent stroke-[oklch(0.7_0.02_250/0.35)] [stroke-dasharray:3_3]",
+                    !soloLectura &&
+                      !elegida &&
+                      "cursor-pointer hover:fill-primary/15 hover:stroke-primary hover:[stroke-dasharray:none] focus-visible:fill-primary/15 focus-visible:stroke-primary",
+                  )}
+                  onClick={() => {
+                    if (!soloLectura) setZona(zonaFigura.zona);
+                  }}
+                  onKeyDown={(evento) => {
+                    if (!soloLectura) moverCon(evento, indice);
+                  }}
+                >
+                  <title>{zonaFigura.etiqueta}</title>
+                </path>
               );
             })}
+          </g>
+
+          <g aria-hidden>
+            {marcadores.map((marcador) => (
+              <g
+                key={marcador.danio.id}
+                data-marcador={marcador.numero}
+                data-activo={activo === marcador.danio.id ? "true" : undefined}
+                transform={`translate(${marcador.x} ${marcador.y})`}
+                className="cursor-default"
+                onMouseEnter={() => setActivo(marcador.danio.id)}
+                onMouseLeave={() => setActivo(null)}
+              >
+                <circle
+                  r={activo === marcador.danio.id ? 17 : 14}
+                  className={marcador.viejo ? "fill-muted-foreground/20" : "fill-destructive/20"}
+                />
+                <circle r={10} className={marcador.viejo ? "fill-muted-foreground" : "fill-destructive"} />
+                <text
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontSize={11}
+                  className="pointer-events-none fill-white font-semibold"
+                >
+                  {marcador.numero}
+                </text>
+              </g>
+            ))}
+          </g>
+
+          <g aria-hidden className="pointer-events-none select-none">
             {figura.orientacion.map((rotulo) => (
               <text
                 key={rotulo.texto}
@@ -157,66 +221,71 @@ export function DiagramaDanios({
             ))}
           </g>
         </svg>
-
-        <ul aria-label="Leyenda del diagrama" className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          {soloLectura ? null : (
-            <li className="flex items-center gap-1.5">
-              <span aria-hidden className="size-3 rounded-sm border-2 border-primary bg-primary/25" /> Zona elegida
-            </li>
-          )}
-          <li className="flex items-center gap-1.5">
-            <span aria-hidden className="size-3 rounded-sm border border-destructive bg-destructive/20" /> Con daño (el número es cuántos)
-          </li>
-        </ul>
         {soloLectura ? null : (
-          <p className="text-center text-xs text-muted-foreground">Toca una zona del dibujo para elegirla.</p>
+          <>
+            <p className="text-center text-xs text-muted-foreground">Toca una zona del dibujo para marcar un daño.</p>
+            <Button type="button" variant="ghost" size="xs" onClick={() => setZona("OTRO")}>
+              Otra zona (no está en el dibujo)
+            </Button>
+          </>
         )}
       </div>
 
-      <div className="flex flex-col gap-4">
-        {soloLectura ? null : (
-          <form action={formAction} className="flex flex-col gap-3 rounded-lg border border-border p-3">
-            <p className="text-sm">
-              Zona elegida: <span className="font-semibold">{etiquetaZona(zona)}</span>
-            </p>
+      <div className="flex flex-col gap-3">
+        <div>
+          <p className="text-[11px] tracking-wide text-muted-foreground uppercase">Daños al recibir</p>
+          {danios.length > 0 ? (
+            <p className="text-xs text-muted-foreground">Pasa el mouse por un daño para ubicarlo.</p>
+          ) : null}
+        </div>
+
+        {zona && !soloLectura ? (
+          <form
+            action={formAction}
+            aria-label={`Nuevo daño en ${etiquetaZona(zona).toLowerCase()}`}
+            className="flex flex-col gap-2.5 rounded-xl border border-primary/40 bg-primary/5 p-3"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold">Nuevo daño en {etiquetaZona(zona).toLowerCase()}</p>
+              <Button type="button" variant="ghost" size="icon-xs" aria-label="Cancelar" onClick={() => setZona(null)}>
+                <X />
+              </Button>
+            </div>
             <input type="hidden" name="zona" value={zona} />
             <input type="hidden" name="tipo" value={tipo} />
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="danio-zona">Zona</Label>
-                <SelectField
-                  id="danio-zona"
-                  items={opcionesZona}
-                  value={zona}
-                  onValueChange={(valor) => setZona(valor as ZonaVehiculo)}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="danio-tipo">Qué tiene</Label>
-                <SelectField
-                  id="danio-tipo"
-                  items={TIPOS}
-                  value={tipo}
-                  onValueChange={(valor) => setTipo(valor as TipoDanio)}
-                />
-              </div>
+            <div role="radiogroup" aria-label="Qué tiene" className="flex flex-wrap gap-1.5">
+              {TIPOS.map((opcion) => (
+                <button
+                  key={opcion}
+                  type="button"
+                  role="radio"
+                  aria-checked={tipo === opcion}
+                  onClick={() => setTipo(opcion)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs transition-colors",
+                    tipo === opcion
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border bg-card hover:bg-muted",
+                  )}
+                >
+                  <span className="size-1.5 shrink-0 rounded-full" style={{ background: COLOR_DANIO[opcion] }} />
+                  {ETIQUETA_DANIO[opcion]}
+                </button>
+              ))}
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="danio-nota">Nota (opcional)</Label>
-              <Input
-                id="danio-nota"
-                name="nota"
-                value={nota}
-                maxLength={200}
-                placeholder="Ej.: rayón de 10 cm cerca de la manija"
-                onChange={(evento) => setNota(evento.target.value)}
-              />
-            </div>
-            <Button type="submit" size="sm" disabled={isPending} className="self-start">
+            <Input
+              name="nota"
+              aria-label="Nota (opcional)"
+              value={nota}
+              maxLength={200}
+              placeholder="Nota (opcional): tamaño, ubicación exacta…"
+              onChange={(evento) => setNota(evento.target.value)}
+            />
+            <Button type="submit" size="sm" disabled={isPending} className="self-end">
               {isPending ? "Marcando..." : "Marcar daño"}
             </Button>
           </form>
-        )}
+        ) : null}
 
         {state.error ? (
           <Alert variant="destructive">
@@ -227,25 +296,57 @@ export function DiagramaDanios({
         {danios.length === 0 ? (
           <p className="text-sm text-muted-foreground">Sin daños marcados.</p>
         ) : (
-          <ul aria-label="Daños marcados" className="flex flex-col gap-1.5">
-            {danios.map((danio) => (
-              <li key={danio.id} className="flex flex-wrap items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
-                <span aria-hidden className="size-2 shrink-0 rounded-full bg-destructive" />
-                <span className="font-medium">{etiquetaZona(danio.zona)}</span>
-                <span className="text-muted-foreground">{ETIQUETA_DANIO[danio.tipo]}</span>
-                {danio.nota ? <span className="text-xs text-muted-foreground">· {danio.nota}</span> : null}
-                {puedeQuitar && !soloLectura ? (
-                  <span className="ml-auto">
+          <ol aria-label="Daños marcados" className="flex flex-col gap-2">
+            {danios.map((danio, indice) => {
+              const viejo = zonasDibujadas.has(danio.zona) ? undefined : figura.fueraDelDibujo?.[danio.zona];
+              return (
+                <li
+                  key={danio.id}
+                  onMouseEnter={() => setActivo(danio.id)}
+                  onMouseLeave={() => setActivo(null)}
+                  className={cn(
+                    "flex gap-3 rounded-xl border bg-card p-3 transition-shadow",
+                    activo === danio.id ? "border-destructive ring-3 ring-destructive/15" : "border-border",
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold",
+                      viejo ? "bg-muted text-muted-foreground" : "bg-destructive/15 text-destructive",
+                    )}
+                  >
+                    {indice + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold">{etiquetaZona(danio.zona)}</span>
+                      <Badge variant="outline" className="gap-1.5">
+                        <span
+                          className="size-1.5 shrink-0 rounded-full"
+                          style={{ background: COLOR_DANIO[danio.tipo] }}
+                        />
+                        {ETIQUETA_DANIO[danio.tipo]}
+                      </Badge>
+                    </div>
+                    {danio.nota ? <p className="mt-1 text-sm text-muted-foreground">{danio.nota}</p> : null}
+                    {viejo ? (
+                      <p className="mt-1.5 inline-block rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
+                        {viejo.aviso}
+                      </p>
+                    ) : null}
+                  </div>
+                  {puedeQuitar && !soloLectura ? (
                     <QuitarConConfirmacion
                       etiqueta={`Quitar ${etiquetaZona(danio.zona)}`}
                       pregunta={`¿Quitar la marca de ${etiquetaZona(danio.zona)}?`}
                       accion={quitarDanioAction.bind(null, danio.id)}
                     />
-                  </span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
         )}
       </div>
     </div>
