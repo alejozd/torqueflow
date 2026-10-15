@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup ficha de orden</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: oklch(0.985 0 0);
+    --fg: oklch(0.145 0 0);
+    --card: #fff;
+    --muted: oklch(0.97 0 0);
+    --muted-fg: oklch(0.52 0 0);
+    --border: oklch(0.922 0 0);
+    --primary: oklch(0.62 0.19 45);
+    --primary-fg: oklch(0.99 0.01 90);
+    --destructive: oklch(0.577 0.245 27.325);
+    --ok: oklch(0.4 0.1 150);
+    --warn: oklch(0.55 0.15 60);
+    --alta: oklch(0.7 0.15 60);
+    --blue: oklch(0.44 0.12 250);
+    --borrador: oklch(0.7 0 0);
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Geist, system-ui, sans-serif; color: var(--fg); background: var(--bg); font-size: 14px; }
+  .mono { font-family: "Geist Mono", ui-monospace, monospace; }
+  button { font: inherit; cursor: pointer; }
+  .app { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+  .side { background: oklch(0.2 0 0); color: oklch(0.92 0 0); padding: 16px 10px; font-size: 13px; }
+  .side .brand { display: flex; gap: 8px; align-items: center; font-weight: 600; margin-bottom: 20px; }
+  .side .logo { width: 28px; height: 28px; border-radius: 8px; background: var(--primary); }
+  .side a { display: block; padding: 7px 10px; border-radius: 8px; color: inherit; text-decoration: none; opacity: .85; }
+  .side a.on { background: oklch(0.3 0 0); opacity: 1; }
+  .side .grp { font-size: 11px; letter-spacing: .06em; opacity: .5; margin: 14px 10px 4px; }
+  main { padding: 18px 24px 60px; min-width: 0; }
+  .banner-mock { background: oklch(0.95 0.05 250); color: var(--blue); border: 1px dashed var(--blue); border-radius: 8px; padding: 8px 12px; font-size: 12px; margin-bottom: 14px; }
+  .back { color: var(--muted-fg); font-size: 13px; text-decoration: none; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 500; background: #fff; white-space: nowrap; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: #fff; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 500; color: var(--fg); }
+  .btn:hover { background: var(--muted); }
+  .btn.sm { padding: 4px 9px; font-size: 12px; }
+  .btn.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-fg); padding: 9px 16px; font-weight: 600; }
+  .btn.primary:hover { filter: brightness(.95); }
+  .btn.ghost { border-color: transparent; background: transparent; }
+  .muted { color: var(--muted-fg); }
+  .label { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted-fg); }
+
+  /* Cabecera operativa */
+  .hdr { padding: 18px 20px; display: grid; grid-template-columns: 1fr auto; gap: 16px; margin-top: 10px; }
+  .hdr .placa { font-family: "Geist Mono", monospace; font-size: 28px; font-weight: 600; letter-spacing: .02em; }
+  .hdr .line1 { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .hdr .veh { font-size: 16px; color: var(--muted-fg); }
+  .hdr .line2 { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-top: 8px; }
+  .hdr .cli { font-weight: 600; font-size: 15px; }
+  .hdr a.link { color: var(--fg); text-decoration: none; display: inline-flex; gap: 5px; align-items: center; font-size: 13px; }
+  .hdr a.link:hover { text-decoration: underline; }
+  .hdr .meta { display: flex; gap: 6px 18px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 13px; }
+  .hdr .meta b { font-weight: 500; }
+  .hdr .acciones { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .hdr .orden-id { font-size: 12px; color: var(--muted-fg); }
+  .menu { position: relative; }
+  .menu-pop { position: absolute; right: 0; top: calc(100% + 4px); background: #fff; border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgb(0 0 0 / .08); padding: 4px; min-width: 190px; z-index: 5; display: none; }
+  .menu-pop.open { display: block; }
+  .menu-pop .it { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; padding: 7px 9px; border: 0; background: none; border-radius: 6px; font-size: 13px; }
+  .menu-pop .it:hover { background: var(--muted); }
+  .menu-pop .lbl { font-size: 11px; color: var(--muted-fg); padding: 6px 9px 2px; }
+  .mec { display: inline-flex; align-items: center; gap: 8px; }
+  .saved { font-size: 11px; color: var(--ok); display: inline-flex; align-items: center; gap: 4px; }
+  .saving { font-size: 11px; color: var(--muted-fg); }
+
+  /* Síntomas */
+  .sintomas { margin-top: 14px; display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-left: 4px solid var(--warn); background: color-mix(in oklch, var(--warn) 7%, #fff); }
+  .sintomas .ico { width: 30px; height: 30px; border-radius: 8px; background: var(--warn); color: #fff; display: grid; place-items: center; flex: none; }
+  .sintomas p { margin: 2px 0 0; font-size: 15px; }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; margin-top: 18px; align-items: start; }
+  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .sec { padding: 0; }
+  .sec > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 16px 20px; }
+  .sec > summary::-webkit-details-marker { display: none; }
+  .sec > summary .t { font-size: 16px; font-weight: 600; }
+  .sec > summary .chev { transition: transform .15s; color: var(--muted-fg); }
+  .sec[open] > summary .chev { transform: rotate(90deg); }
+  .sec .body { padding: 0 20px 20px; }
+
+  /* Recepción */
+  .recep-datos { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-end; padding: 12px 14px; background: var(--muted); border-radius: 10px; margin-bottom: 16px; }
+  .km input { font: inherit; font-family: "Geist Mono", monospace; width: 110px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 7px; background: #fff; }
+  .fuel { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #fff; }
+  .fuel button { border: 0; background: none; padding: 5px 10px; font-size: 12px; border-right: 1px solid var(--border); }
+  .fuel button:last-child { border-right: 0; }
+  .fuel button.on { background: var(--fg); color: #fff; }
+
+  .danos { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; }
+  .lienzo { background: oklch(0.985 0.003 250); border: 1px solid var(--border); border-radius: 12px; padding: 10px 6px 12px; text-align: center; }
+  .lienzo .ori { font-size: 11px; letter-spacing: .08em; color: var(--muted-fg); font-weight: 600; }
+  svg.carro { width: 100%; max-width: 260px; height: auto; display: block; margin: 4px auto; }
+  .zona { fill: transparent; stroke: oklch(0.7 0.02 250 / .35); stroke-dasharray: 3 3; stroke-width: 1; cursor: pointer; transition: fill .12s; }
+  .zona:hover, .zona:focus-visible { fill: color-mix(in oklch, var(--primary) 16%, transparent); stroke: var(--primary); stroke-dasharray: none; outline: none; }
+  .zona.sel { fill: color-mix(in oklch, var(--primary) 26%, transparent); stroke: var(--primary); stroke-width: 2; stroke-dasharray: none; }
+  .marker circle.halo { fill: color-mix(in oklch, var(--destructive) 22%, transparent); }
+  .marker circle.n { fill: var(--destructive); }
+  .marker text { fill: #fff; font: 600 11px Geist, sans-serif; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  .marker { cursor: pointer; transition: transform .12s; transform-box: fill-box; transform-origin: center; }
+  .marker.act { transform: scale(1.25); }
+  .marker.viejo circle.n { fill: oklch(0.55 0.02 250); }
+  .marker.viejo circle.halo { fill: oklch(0.55 0.02 250 / .2); }
+  .zlabel { font: 500 9px Geist, sans-serif; fill: oklch(0.55 0.02 250); text-anchor: middle; pointer-events: none; }
+
+  .dhead { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+  .nuevo { border: 1px solid color-mix(in oklch, var(--primary) 40%, transparent); background: color-mix(in oklch, var(--primary) 5%, #fff); border-radius: 12px; padding: 12px; margin-bottom: 10px; display: none; }
+  .nuevo.open { display: block; }
+  .tipos { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+  .tipos button { border: 1px solid var(--border); background: #fff; border-radius: 999px; padding: 3px 10px; font-size: 12px; display: inline-flex; gap: 6px; align-items: center; }
+  .tipos button.on { border-color: var(--fg); background: var(--fg); color: #fff; }
+  .nuevo input { width: 100%; font: inherit; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; }
+  .dcard { display: flex; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px; background: #fff; transition: border-color .12s, box-shadow .12s; }
+  .dcard.act { border-color: var(--destructive); box-shadow: 0 0 0 3px color-mix(in oklch, var(--destructive) 12%, transparent); }
+  .num { width: 24px; height: 24px; border-radius: 50%; background: color-mix(in oklch, var(--destructive) 14%, transparent); color: var(--destructive); font-weight: 600; font-size: 12px; display: grid; place-items: center; flex: none; }
+  .dcard.viejo .num { background: oklch(0.55 0.02 250 / .15); color: oklch(0.45 0.02 250); }
+  .dcard .z { font-weight: 600; }
+  .dcard .nota { margin: 3px 0 0; color: var(--muted-fg); }
+  .dcard .aviso { margin-top: 6px; font-size: 12px; color: oklch(0.45 0.02 250); background: var(--muted); border-radius: 6px; padding: 4px 8px; display: inline-block; }
+  .x { margin-left: auto; border: 0; background: none; color: var(--muted-fg); font-size: 18px; line-height: 1; height: 24px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-weight: 500; color: var(--muted-fg); font-size: 12px; padding: 8px 6px; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 6px; border-bottom: 1px solid var(--border); }
+  td.r, th.r { text-align: right; }
+  .addrow { display: flex; gap: 8px; margin-top: 12px; }
+
+  .chk { display: grid; grid-template-columns: 1fr auto 70px; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; background: #fff; padding: 4px 10px; font-size: 12px; border-right: 1px solid var(--border); display: inline-flex; gap: 5px; align-items: center; }
+  .seg button:last-child { border-right: 0; }
+  .seg button.on.OK { background: color-mix(in oklch, var(--ok) 14%, #fff); color: var(--ok); font-weight: 600; }
+  .seg button.on.ATENCION { background: color-mix(in oklch, var(--warn) 16%, #fff); color: var(--warn); font-weight: 600; }
+  .seg button.on.CRITICO { background: color-mix(in oklch, var(--destructive) 12%, #fff); color: var(--destructive); font-weight: 600; }
+  .st { font-size: 11px; text-align: right; }
+
+  /* Barra lateral */
+  .aside { position: sticky; top: 14px; display: flex; flex-direction: column; gap: 14px; }
+  .aside .card { padding: 16px; border-top-width: 4px; }
+  .aside h3 { margin: 0 0 12px; font-size: 15px; font-weight: 600; }
+  .prio { display: flex; gap: 12px; align-items: center; border: 1px solid color-mix(in oklch, var(--alta) 30%, transparent); background: color-mix(in oklch, var(--alta) 8%, transparent); border-radius: 10px; padding: 12px; }
+  .prio .ic { width: 36px; height: 36px; border-radius: 9px; background: var(--alta); color: #fff; display: grid; place-items: center; flex: none; }
+  .steps { list-style: none; margin: 0; padding: 0; }
+  .steps li { display: flex; gap: 10px; align-items: flex-start; position: relative; padding-bottom: 14px; }
+  .steps li:last-child { padding-bottom: 0; }
+  .steps li::before { content: ""; position: absolute; left: 6px; top: 16px; bottom: 0; width: 2px; background: var(--border); }
+  .steps li:last-child::before { display: none; }
+  .steps .p { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border); background: #fff; flex: none; margin-top: 2px; z-index: 1; }
+  .steps li.done .p { background: var(--ok); border-color: var(--ok); }
+  .steps li.cur .p { border-color: var(--borrador); box-shadow: 0 0 0 4px oklch(0.7 0 0 / .2); background: var(--borrador); }
+  .steps .sub { font-size: 12px; color: var(--muted-fg); }
+  .steps li.todo { color: var(--muted-fg); }
+  .row { display: flex; justify-content: space-between; padding: 5px 0; }
+  .row .v { font-family: "Geist Mono", monospace; }
+  .saldo { margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: baseline; }
+  .saldo .v { font-family: "Geist Mono", monospace; font-size: 22px; font-weight: 600; }
+  .note-pill { position: fixed; right: 16px; bottom: 16px; background: var(--fg); color: #fff; padding: 8px 12px; border-radius: 10px; font-size: 12px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .note-pill.show { opacity: .92; }
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="side">
+    <div class="brand"><span class="logo"></span>TorqueFlow</div>
+    <a href="#">Inicio</a>
+    <div class="grp">OPERACIÓN</div>
+    <a href="#">Clientes</a><a href="#">Cotizaciones</a><a href="#" class="on">Órdenes</a><a href="#">Citas</a><a href="#">Facturas</a><a href="#">Caja</a>
+  </nav>
+
+  <main>
+    <div class="banner-mock">MOCKUP con datos reales de la orden #UI7ITHG3: entregas 1 (cabecera y barra lateral), 2 (croquis y daños) y 3 (autoguardado simulado). Los botones responden, pero nada se guarda en la base.</div>
+    <a class="back" href="#">← Órdenes</a>
+
+    <!-- ENTREGA 1: cabecera operativa -->
+    <section class="card hdr">
+      <div>
+        <div class="line1">
+          <span class="placa">YOR558</span>
+          <span class="veh">BMW X3 2009 · Gris · Camioneta</span>
+          <span class="chip"><span class="dot" style="background:var(--borrador)"></span>Borrador</span>
+        </div>
+        <div class="line2">
+          <span class="cli">Camila Sánchez Rojas</span>
+          <a class="link mono" href="tel:3100000259">☎ 310 000 0259</a>
+          <a class="link" href="#" onclick="nota('Abriría wa.me con el mensaje listo');return false;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="oklch(0.55 0.15 150)"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.3-.7-2.8-1.1-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.3 0 .5l-.4.6-.4.4c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.5.1.6-.1l.9-1c.2-.3.4-.2.6-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.2 1.4Z"/></svg>
+            WhatsApp
+          </a>
+        </div>
+        <div class="meta">
+          <span><span class="muted">Ingresó</span> <b>14/10/2026, 3:23 p. m.</b></span>
+          <span><span class="muted">Recibió</span> <b>Admin Dev</b></span>
+          <span><span class="muted">Sede</span> <b>Sede principal</b></span>
+          <span class="mec"><span class="muted">Mecánico</span> <b id="mecNombre">Luis Torres</b>
+            <span class="menu">
+              <button class="btn sm" onclick="toggleMenu('mecMenu', event)">Cambiar ▾</button>
+              <div class="menu-pop" id="mecMenu">
+                <div class="lbl">Asignar a…</div>
+                <button class="it" onclick="setMec('Carlos Ruiz')">Carlos Ruiz</button>
+                <button class="it" onclick="setMec('Luis Torres')">Luis Torres ✓</button>
+                <button class="it" onclick="setMec('Pedro Martínez')">Pedro Martínez</button>
+                <button class="it" onclick="setMec('Andrés Silva')">Andrés Silva</button>
+                <button class="it" onclick="setMec('Javier Ramírez')">Javier Ramírez</button>
+              </div>
+            </span>
+            <span id="mecSt"></span>
+          </span>
+        </div>
+      </div>
+      <div class="acciones">
+        <span class="orden-id mono">Orden #UI7ITHG3</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span class="menu">
+            <button class="btn ghost" aria-label="Más acciones" onclick="toggleMenu('masMenu', event)">⋯</button>
+            <div class="menu-pop" id="masMenu">
+              <button class="it" onclick="nota('Imprimir orden')">🖨 Imprimir orden</button>
+              <button class="it" style="color:var(--destructive)" onclick="nota('Anular pediría confirmación en línea')">⊘ Anular orden…</button>
+            </div>
+          </span>
+          <button class="btn primary" id="avanzar" onclick="avanzar()">Pasar a En proceso →</button>
+        </div>
+        <span class="muted" style="font-size:12px" id="avanzarSub">Siguiente paso: empezar el trabajo</span>
+      </div>
+    </section>
+
+    <!-- Síntomas -->
+    <section class="card sintomas">
+      <span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></span>
+      <div><span class="label">El cliente reporta</span><p>Ruido en la rueda trasera izquierda</p></div>
+    </section>
+
+    <div class="grid">
+      <div class="col">
+
+        <!-- ENTREGA 2: recepción y croquis -->
+        <details class="card sec" open>
+          <summary><span class="chev">›</span><span class="t">Recepción y daños</span><span class="chip" id="cuentaDanos"><span class="dot" style="background:var(--destructive)"></span>2 daños</span></summary>
+          <div class="body">
+            <div class="recep-datos">
+              <label class="km"><div class="label" style="margin-bottom:4px">Km de ingreso</div><input value="185.210" onchange="autosave('recSt')" /></label>
+              <div><div class="label" style="margin-bottom:4px">Combustible</div>
+                <div class="fuel" id="fuel">
+                  <button>Vacío</button><button>1/4</button><button>1/2</button><button>3/4</button><button>Lleno</button>
+                </div>
+              </div>
+              <span id="recSt" class="muted" style="font-size:11px">Se guarda solo al cambiar</span>
+            </div>
+
+            <div class="danos">
+              <div class="lienzo">
+                <div class="ori">▲ ADELANTE</div>
+                <svg class="carro" viewBox="0 0 260 440" role="radiogroup" aria-label="Zonas del vehículo">
+                  <!-- Capa 1: silueta decorativa -->
+                  <g aria-hidden="true" pointer-events="none">
+                    <!-- llantas -->
+                    <rect x="28" y="70" width="18" height="58" rx="6" fill="oklch(0.32 0.01 250)"/>
+                    <rect x="214" y="70" width="18" height="58" rx="6" fill="oklch(0.32 0.01 250)"/>
+                    <rect x="28" y="306" width="18" height="60" rx="6" fill="oklch(0.32 0.01 250)"/>
+                    <rect x="214" y="306" width="18" height="60" rx="6" fill="oklch(0.32 0.01 250)"/>
+                    <!-- carrocería con cintura -->
+                    <path d="M130 26 C 178 26 212 40 214 82 L 216 150 C 217 170 212 180 212 200 L 212 300 C 212 320 217 330 216 350 L 214 384 C 212 410 182 416 130 416 C 78 416 48 410 46 384 L 44 350 C 43 330 48 320 48 300 L 48 200 C 48 180 43 170 44 150 L 46 82 C 48 40 82 26 130 26 Z"
+                      fill="#fff" stroke="oklch(0.62 0.03 250)" stroke-width="2.2"/>
+                    <!-- líneas del capó -->
+                    <path d="M92 50 Q 130 42 168 50" fill="none" stroke="oklch(0.8 0.02 250)" stroke-width="1.4"/>
+                    <path d="M100 66 L 100 128 M160 66 L 160 128" stroke="oklch(0.86 0.02 250)" stroke-width="1.2"/>
+                    <!-- parabrisas -->
+                    <path d="M76 138 Q 130 126 184 138 L 172 172 Q 130 166 88 172 Z" fill="oklch(0.93 0.02 240)" stroke="oklch(0.7 0.03 250)" stroke-width="1.6"/>
+                    <!-- techo -->
+                    <rect x="90" y="178" width="80" height="112" rx="10" fill="oklch(0.975 0.005 250)" stroke="oklch(0.7 0.03 250)" stroke-width="1.6"/>
+                    <!-- vidrio trasero -->
+                    <path d="M88 296 Q 130 302 172 296 L 180 322 Q 130 332 80 322 Z" fill="oklch(0.93 0.02 240)" stroke="oklch(0.7 0.03 250)" stroke-width="1.6"/>
+                    <!-- líneas de puertas -->
+                    <path d="M50 210 L 86 210 M174 210 L 210 210" stroke="oklch(0.8 0.02 250)" stroke-width="1.2"/>
+                    <!-- espejos -->
+                    <path d="M44 146 C 30 144 22 148 22 154 C 22 158 32 160 44 158 Z" fill="oklch(0.85 0.02 250)" stroke="oklch(0.62 0.03 250)" stroke-width="1.4"/>
+                    <path d="M216 146 C 230 144 238 148 238 154 C 238 158 228 160 216 158 Z" fill="oklch(0.85 0.02 250)" stroke="oklch(0.62 0.03 250)" stroke-width="1.4"/>
+                    <!-- farolas y stops -->
+                    <path d="M60 40 Q 70 32 84 30" stroke="oklch(0.75 0.12 85)" stroke-width="4" stroke-linecap="round" fill="none"/>
+                    <path d="M200 40 Q 190 32 176 30" stroke="oklch(0.75 0.12 85)" stroke-width="4" stroke-linecap="round" fill="none"/>
+                    <path d="M60 404 Q 70 412 86 413" stroke="oklch(0.6 0.18 25)" stroke-width="4" stroke-linecap="round" fill="none"/>
+                    <path d="M200 404 Q 190 412 174 413" stroke="oklch(0.6 0.18 25)" stroke-width="4" stroke-linecap="round" fill="none"/>
+                  </g>
+                  <!-- Capa 2: zonas (mismas cajas de figuras.ts) -->
+                  <g id="zonas"></g>
+                  <!-- Capa 3: marcadores por daño -->
+                  <g id="markers"></g>
+                </svg>
+                <div class="ori">▼ ATRÁS</div>
+                <div class="muted" style="font-size:12px;margin-top:6px">Toca una zona del dibujo para marcar un daño</div>
+              </div>
+
+              <div>
+                <div class="dhead">
+                  <span class="label">Daños al recibir</span>
+                  <span class="muted" style="font-size:12px">Pasa el mouse por un daño para ubicarlo</span>
+                </div>
+                <div class="nuevo" id="nuevo">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <b>Nuevo daño en <span id="nuevoZona"></span></b>
+                    <button class="x" onclick="cerrarNuevo()" aria-label="Cancelar">×</button>
+                  </div>
+                  <div class="tipos" id="tipos"></div>
+                  <input id="nuevoNota" placeholder="Nota (opcional): tamaño, ubicación exacta…" />
+                  <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn primary" style="padding:6px 14px" onclick="marcar()">Marcar daño</button></div>
+                </div>
+                <div id="lista"></div>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <details class="card sec" open>
+          <summary><span class="chev">›</span><span class="t">Ítems (repuestos)</span><span class="chip"><span class="dot" style="background:oklch(0.55 0.15 60)"></span>1 · $ 149.401</span></summary>
+          <div class="body">
+            <table>
+              <thead><tr><th>Descripción</th><th class="r">Cant.</th><th class="r">Precio</th><th class="r">Subtotal</th><th></th></tr></thead>
+              <tbody><tr><td>Bomba de dirección hidráulica NGK</td><td class="r mono">1</td><td class="r mono">$ 149.401</td><td class="r mono">$ 149.401</td><td class="r"><button class="x" style="font-size:15px">×</button></td></tr></tbody>
+            </table>
+            <div class="addrow"><button class="btn sm">+ Agregar repuesto</button><button class="btn sm">+ Aplicar servicio</button></div>
+          </div>
+        </details>
+
+        <details class="card sec" open>
+          <summary><span class="chev">›</span><span class="t">Mano de obra</span><span class="chip"><span class="dot" style="background:oklch(0.55 0.2 300)"></span>1 · $ 250.000</span></summary>
+          <div class="body">
+            <table>
+              <thead><tr><th>Trabajo</th><th>Mecánico</th><th class="r">Valor</th><th></th></tr></thead>
+              <tbody><tr><td>Cambio bomba</td><td>Luis Torres</td><td class="r mono">$ 250.000</td><td class="r"><button class="x" style="font-size:15px">×</button></td></tr></tbody>
+            </table>
+            <div class="addrow"><button class="btn sm">+ Agregar mano de obra</button></div>
+          </div>
+        </details>
+
+        <!-- ENTREGA 3: autoguardado DVI -->
+        <details class="card sec" open>
+          <summary><span class="chev">›</span><span class="t">Inspección vehicular (DVI)</span><span class="chip" id="dviChip"><span class="dot" style="background:var(--borrador)"></span>Sin revisar</span></summary>
+          <div class="body">
+            <div class="muted" style="font-size:12px;margin-bottom:6px">Cada ítem se guarda solo al marcarlo; ya no hay botón "Guardar checklist".</div>
+            <div id="chk"></div>
+            <div class="addrow"><button class="btn sm">📷 Subir fotos (antes / después)</button></div>
+          </div>
+        </details>
+
+        <details class="card sec">
+          <summary><span class="chev">›</span><span class="t">Acta de entrega y garantías</span><span class="muted" style="font-size:12px">Se usa al entregar</span></summary>
+          <div class="body muted">(Plegada mientras se arma la orden; sin cambios en estas entregas.)</div>
+        </details>
+      </div>
+
+      <!-- ENTREGA 1: barra lateral -->
+      <aside class="aside">
+        <div class="card" style="border-top-color:var(--alta)">
+          <h3>Prioridad</h3>
+          <div class="prio">
+            <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m17 11-5-5-5 5M17 18l-5-5-5 5"/></svg></span>
+            <div style="flex:1;min-width:0"><div style="font-weight:600;display:flex;gap:6px;align-items:center">Prioridad Alta <span class="dot" style="background:var(--alta)"></span></div><div class="muted" style="font-size:12px">Pasa adelante de las normales.</div></div>
+            <button class="btn sm">Cambiar ▾</button>
+          </div>
+        </div>
+
+        <div class="card" style="border-top-color:var(--borrador)">
+          <h3>Ciclo de la orden</h3>
+          <ol class="steps" id="steps">
+            <li class="cur"><span class="p"></span><div><div style="font-weight:600">Borrador</div><div class="sub">Recepción, daños y cotización</div></div></li>
+            <li class="todo"><span class="p"></span><div><div>En proceso</div><div class="sub">El mecánico trabaja</div></div></li>
+            <li class="todo"><span class="p"></span><div><div>Terminada</div><div class="sub">Lista para entregar</div></div></li>
+            <li class="todo"><span class="p"></span><div><div>Entregada</div><div class="sub">Acta firmada</div></div></li>
+          </ol>
+        </div>
+
+        <div class="card" style="border-top-color:var(--ok)">
+          <h3>Cuenta</h3>
+          <div class="row"><span class="muted">Repuestos</span><span class="v">$ 149.401</span></div>
+          <div class="row"><span class="muted">Mano de obra</span><span class="v">$ 250.000</span></div>
+          <div class="row" style="border-top:1px dashed var(--border);margin-top:4px;padding-top:8px"><span>Total</span><span class="v">$ 399.401</span></div>
+          <div class="row"><span class="muted">Anticipos</span><span class="v">− $ 0</span></div>
+          <div class="saldo"><span style="font-weight:600">Saldo por cobrar</span><span class="v">$ 399.401</span></div>
+          <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+            <button class="btn sm">+ Registrar anticipo</button>
+            <span class="muted" style="font-size:12px">Factura: al terminar</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+<div class="note-pill" id="nota"></div>
+
+<script>
+  const ZONAS = [
+    ["FRENTE", "Frente", [[84, 28, 92, 18]]],
+    ["CAPO", "Capó", [[84, 48, 92, 84]]],
+    ["PARABRISAS", "Parabrisas", [[88, 134, 84, 36]]],
+    ["TECHO", "Techo", [[88, 172, 84, 120]]],
+    ["COMPUERTA", "Baúl", [[84, 294, 92, 112]]],
+    ["PUERTA_IZQUIERDA", "Puerta izquierda", [[48, 136, 36, 152]]],
+    ["PUERTA_DERECHA", "Puerta derecha", [[176, 136, 36, 152]]],
+    ["GUARDABARROS_DELANTERO_IZQUIERDO", "Guardabarros delantero izquierdo", [[48, 60, 36, 74]]],
+    ["GUARDABARROS_TRASERO_IZQUIERDO", "Guardabarros trasero izquierdo", [[48, 290, 36, 100]]],
+    ["GUARDABARROS_DELANTERO_DERECHO", "Guardabarros delantero derecho", [[176, 60, 36, 74]]],
+    ["GUARDABARROS_TRASERO_DERECHO", "Guardabarros trasero derecho", [[176, 290, 36, 100]]],
+    ["ESPEJO_IZQUIERDO", "Espejo izquierdo", [[16, 140, 30, 22]]],
+    ["ESPEJO_DERECHO", "Espejo derecho", [[214, 140, 30, 22]]],
+    ["RINES", "Rines", [[26, 70, 20, 58], [214, 70, 20, 58], [26, 306, 20, 60], [214, 306, 20, 60]]],
+  ];
+  const TIPOS = { GOLPE: ["Golpe", "oklch(0.577 0.245 27.325)"], RAYON: ["Rayón", "oklch(0.7 0.15 60)"], ROTURA: ["Rotura", "oklch(0.5 0.2 300)"], FALTANTE: ["Faltante", "oklch(0.44 0.12 250)"], OXIDO: ["Óxido", "oklch(0.5 0.1 50)"] };
+  const etiqueta = Object.fromEntries(ZONAS.map(([z, e]) => [z, e]));
+  etiqueta.LATERAL_IZQUIERDO = "Lateral izquierdo";
+
+  // Datos reales de la orden #UI7ITHG3
+  let danos = [
+    { zona: "LATERAL_IZQUIERDO", tipo: "GOLPE", nota: "hundimiento en trasero", viejo: true },
+    { zona: "GUARDABARROS_TRASERO_DERECHO", tipo: "RAYON", nota: "5cm" },
+  ];
+  let zonaSel = null, tipoSel = "GOLPE";
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (n, a) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
+
+  function pintarZonas() {
+    const g = document.getElementById("zonas"); g.innerHTML = "";
+    for (const [z, e, cajas] of ZONAS) {
+      for (const [x, y, w, h] of cajas) {
+        const r = el("rect", { x, y, width: w, height: h, rx: 6, class: "zona" + (z === zonaSel ? " sel" : ""), tabindex: 0, role: "radio", "aria-label": e, "data-z": z });
+        const t = el("title", {}); t.textContent = e; r.appendChild(t);
+        r.addEventListener("click", () => elegirZona(z));
+        r.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); elegirZona(z); } });
+        g.appendChild(r);
+      }
+    }
+  }
+  function centro(z) {
+    if (z === "LATERAL_IZQUIERDO") return { x: 14, y: 236 }; // zona antigua: fuera del dibujo
+    const [x, y, w, h] = ZONAS.find(([k]) => k === z)[2][0];
+    return { x: x + w / 2, y: y + h / 2 };
+  }
+  function pintarMarcadores() {
+    const g = document.getElementById("markers"); g.innerHTML = "";
+    const porZona = {};
+    danos.forEach((d, i) => {
+      const n = (porZona[d.zona] = (porZona[d.zona] || 0) + 1) - 1;
+      const c = centro(d.zona);
+      const m = el("g", { class: "marker" + (d.viejo ? " viejo" : ""), "data-i": i, transform: `translate(${c.x + n * 14},${c.y - n * 10})` });
+      m.appendChild(el("circle", { r: 15, class: "halo" }));
+      m.appendChild(el("circle", { r: 10, class: "n" }));
+      const t = el("text", {}); t.textContent = i + 1; m.appendChild(t);
+      m.addEventListener("mouseenter", () => activar(i, true)); m.addEventListener("mouseleave", () => activar(i, false));
+      g.appendChild(m);
+    });
+  }
+  function pintarLista() {
+    const l = document.getElementById("lista"); l.innerHTML = "";
+    if (!danos.length) l.innerHTML = '<div class="muted" style="padding:12px">Sin daños marcados.</div>';
+    danos.forEach((d, i) => {
+      const [tl, tc] = TIPOS[d.tipo];
+      const c = document.createElement("div");
+      c.className = "dcard" + (d.viejo ? " viejo" : ""); c.dataset.i = i;
+      c.innerHTML = `<span class="num">${i + 1}</span><div style="min-width:0;flex:1">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="z">${etiqueta[d.zona]}</span><span class="chip"><span class="dot" style="background:${tc}"></span>${tl}</span></div>
+        ${d.nota ? `<p class="nota">${d.nota}</p>` : ""}
+        ${d.viejo ? `<span class="aviso">Marcado antes de separar los guardabarros: no dice si es delantero o trasero</span>` : ""}
+      </div><button class="x" title="Quitar (pediría confirmación)" onclick="quitar(${i})">×</button>`;
+      c.addEventListener("mouseenter", () => activar(i, true)); c.addEventListener("mouseleave", () => activar(i, false));
+      l.appendChild(c);
+    });
+    document.getElementById("cuentaDanos").innerHTML = `<span class="dot" style="background:var(--destructive)"></span>${danos.length} ${danos.length === 1 ? "daño" : "daños"}`;
+  }
+  function activar(i, on) {
+    document.querySelectorAll(`.marker[data-i="${i}"], .dcard[data-i="${i}"]`).forEach((e) => e.classList.toggle("act", on));
+  }
+  function elegirZona(z) {
+    zonaSel = z; pintarZonas();
+    document.getElementById("nuevoZona").textContent = etiqueta[z].toLowerCase();
+    document.getElementById("nuevo").classList.add("open");
+    document.getElementById("nuevoNota").focus();
+  }
+  function cerrarNuevo() { zonaSel = null; pintarZonas(); document.getElementById("nuevo").classList.remove("open"); }
+  function pintarTipos() {
+    document.getElementById("tipos").innerHTML = Object.entries(TIPOS).map(([k, [l, c]]) =>
+      `<button class="${k === tipoSel ? "on" : ""}" onclick="tipoSel='${k}';pintarTipos()"><span class="dot" style="background:${c}"></span>${l}</button>`).join("");
+  }
+  function marcar() {
+    danos.push({ zona: zonaSel, tipo: tipoSel, nota: document.getElementById("nuevoNota").value.trim() });
+    document.getElementById("nuevoNota").value = ""; cerrarNuevo(); render(); nota("Daño marcado");
+  }
+  function quitar(i) { danos.splice(i, 1); render(); nota("Quitaría el daño tras confirmar"); }
+  function render() { pintarZonas(); pintarMarcadores(); pintarLista(); }
+
+  // Combustible: autoguardado
+  document.querySelectorAll("#fuel button").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("#fuel button").forEach((x) => x.classList.remove("on")); b.classList.add("on"); autosave("recSt");
+  }));
+  function autosave(id) {
+    const s = document.getElementById(id);
+    s.className = "saving"; s.textContent = "Guardando…";
+    setTimeout(() => { s.className = "saved"; s.textContent = "✓ Guardado"; }, 650);
+  }
+
+  // DVI
+  const CHK = [["luces", "Luces (altas, bajas, direccionales)"], ["frenos", "Frenos"], ["llantas", "Llantas y presión"], ["niveles_fluidos", "Niveles de fluidos (aceite, refrigerante, frenos)"], ["bateria", "Batería"], ["suspension", "Suspensión"], ["correas_mangueras", "Correas y mangueras"], ["limpiaparabrisas", "Limpiaparabrisas"]];
+  const dvi = {};
+  function pintarChk() {
+    document.getElementById("chk").innerHTML = CHK.map(([k, l]) => `<div class="chk"><span>${l}</span><span class="seg">
+      ${[["OK", "OK"], ["ATENCION", "Atención"], ["CRITICO", "Crítico"]].map(([v, t]) => `<button class="${v} ${dvi[k] === v ? "on" : ""}" onclick="setChk('${k}','${v}')">${t}</button>`).join("")}
+      </span><span class="st" id="st-${k}"></span></div>`).join("");
+  }
+  function setChk(k, v) {
+    dvi[k] = v; pintarChk(); autosave("st-" + k);
+    const vals = Object.values(dvi), crit = vals.filter((x) => x === "CRITICO").length, at = vals.filter((x) => x === "ATENCION").length;
+    const color = crit ? "var(--destructive)" : at ? "var(--warn)" : "var(--ok)";
+    document.getElementById("dviChip").innerHTML = `<span class="dot" style="background:${color}"></span>${vals.length} de ${CHK.length} revisados${crit ? ` · ${crit} crítico${crit > 1 ? "s" : ""}` : ""}${at ? ` · ${at} atención` : ""}`;
+  }
+
+  // Mecánico
+  function setMec(n) { document.getElementById("mecNombre").textContent = n; cerrarMenus(); autosave("mecSt"); }
+
+  // Avance de fase
+  const FASES = [
+    ["Borrador", "Pasar a En proceso →", "Siguiente paso: empezar el trabajo", "oklch(0.7 0 0)"],
+    ["En proceso", "Marcar como terminada →", "Siguiente paso: dejarla lista para entregar", "oklch(0.55 0.15 60)"],
+    ["Terminada", "Ir a la entrega →", "Falta el acta firmada", "oklch(0.44 0.12 250)"],
+    ["Entregada", "Entregada ✓", "", "oklch(0.4 0.1 150)"],
+  ];
+  let fase = 0;
+  function avanzar() {
+    if (fase >= 3) return;
+    fase++;
+    const [n, b, s, c] = FASES[fase];
+    document.getElementById("avanzar").textContent = b;
+    document.getElementById("avanzarSub").textContent = s;
+    document.querySelector(".hdr .chip").innerHTML = `<span class="dot" style="background:${c}"></span>${n}`;
+    document.querySelectorAll("#steps li").forEach((li, i) => {
+      li.className = i < fase ? "done" : i === fase ? "cur" : "todo";
+      li.querySelector(".p").style.cssText = i === fase ? `background:${c};border-color:${c};box-shadow:0 0 0 4px color-mix(in oklch, ${c} 22%, transparent)` : "";
+    });
+    document.querySelectorAll("#steps li").forEach((li, i) => (li.querySelector("div div").style.fontWeight = i === fase ? "600" : ""));
+    document.querySelectorAll(".aside .card")[1].style.borderTopColor = c;
+    nota(fase === 3 ? "En la app, entregar exige el acta firmada" : `Orden en: ${n}`);
+  }
+
+  function toggleMenu(id, ev) { ev.stopPropagation(); const m = document.getElementById(id); const o = m.classList.contains("open"); cerrarMenus(); if (!o) m.classList.add("open"); }
+  function cerrarMenus() { document.querySelectorAll(".menu-pop").forEach((m) => m.classList.remove("open")); }
+  document.addEventListener("click", cerrarMenus);
+  let tNota;
+  function nota(t) { const n = document.getElementById("nota"); n.textContent = t; n.classList.add("show"); clearTimeout(tNota); tNota = setTimeout(() => n.classList.remove("show"), 1800); }
+
+  pintarTipos(); render(); pintarChk();
+</script>
+</body>
+</html>
