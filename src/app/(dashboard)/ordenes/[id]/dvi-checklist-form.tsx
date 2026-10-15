@@ -1,20 +1,19 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp, Eye, EyeOff, Plus } from "lucide-react";
 import { updateDviChecklistAction, type DviFormState } from "@/app/actions/dvi-actions";
+import { EstadoGuardado } from "@/components/estado-guardado";
+import { useAutoguardado } from "@/hooks/use-autoguardado";
 import { toggleDviChecklistItemActivoAction } from "@/app/actions/dvi-checklist-item-actions";
 import { DVI_CHECKLIST_STATUSES, type DviChecklist, type DviChecklistStatus } from "@/lib/dvi/checklist-items";
 import type { DviChecklistItem } from "@/generated/prisma-tenant";
 import { NuevoDviChecklistItemDialog } from "./nuevo-dvi-checklist-item-dialog";
 import { FormGroup } from "@/components/form-group";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { SelectField } from "@/components/ui/select-field";
 import { cn } from "@/lib/utils";
 
 const initialState: DviFormState = { error: null, success: false };
@@ -35,6 +34,19 @@ const ESTADO_DOT_COLOR: Record<DviChecklistStatus, string> = {
   NO_APLICA: "bg-muted-foreground",
 };
 
+// El botón elegido de cada ítem, con el mismo tono que su punto.
+const SEGMENTO_ELEGIDO: Record<DviChecklistStatus, string> = {
+  OK: "bg-[oklch(0.4_0.1_150/0.14)] font-semibold text-[oklch(0.4_0.1_150)]",
+  ATENCION: "bg-[oklch(0.55_0.15_60/0.16)] font-semibold text-[oklch(0.55_0.15_60)]",
+  CRITICO: "bg-[oklch(0.5_0.2_27/0.12)] font-semibold text-[oklch(0.5_0.2_27)]",
+  NO_APLICA: "bg-muted font-semibold text-muted-foreground",
+};
+
+/**
+ * Checklist DVI que se guarda solo: cada ítem se marca con un toque y se envía
+ * solo esa clave (la acción la mezcla con lo guardado). Lo que nadie ha revisado
+ * queda sin marcar en vez de salir «OK» por defecto.
+ */
 export function DviChecklistForm({
   ordenId,
   checklist,
@@ -49,20 +61,31 @@ export function DviChecklistForm({
   /** Invoiced/closed orden: show the saved values, offer no edit controls (the actions would refuse them). */
   soloLectura?: boolean;
 }) {
-  const current = checklist ?? {};
   const [items, setItems] = useState(initialItems);
   const [nuevoItemOpen, setNuevoItemOpen] = useState(false);
   const [mostrarInactivos, setMostrarInactivos] = useState(false);
   const router = useRouter();
   const [isTogglePending, startToggleTransition] = useTransition();
-  const saveChecklist = updateDviChecklistAction.bind(null, ordenId);
-  const [state, formAction, isPending] = useActionState(saveChecklist, initialState);
+  const guardarChecklist = updateDviChecklistAction.bind(null, ordenId);
+  const { guardar, fase, error } = useAutoguardado(guardarChecklist, initialState);
+  const [valores, setValores] = useState<DviChecklist>(checklist ?? {});
+
+  function marcar(cambios: DviChecklist) {
+    setValores((previos) => ({ ...previos, ...cambios }));
+    const formData = new FormData();
+    for (const [clave, valor] of Object.entries(cambios)) {
+      if (valor) formData.set(clave, valor);
+    }
+    guardar(formData);
+  }
 
   const itemsActivos = items.filter((item) => item.activo);
   // Every deactivated item -- archived with a saved value or never given
   // one -- is hidden by default and only reachable by an ADMIN through the
   // "Ver ítems desactivados" toggle below, where it can also be reactivated.
   const itemsInactivos = items.filter((item) => !item.activo);
+  const revisados = itemsActivos.filter((item) => valores[item.key]).length;
+  const faltantes = itemsActivos.filter((item) => !valores[item.key]);
 
   function toggleActivo(itemId: string) {
     startToggleTransition(async () => {
@@ -79,36 +102,65 @@ export function DviChecklistForm({
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <FormGroup label="Checklist">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <span className="text-muted-foreground">
+            {revisados} de {itemsActivos.length} revisados
+          </span>
+          {!soloLectura && faltantes.length > 0 && revisados > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={() => marcar(Object.fromEntries(faltantes.map((item) => [item.key, "OK"])))}
+            >
+              Marcar el resto OK
+            </Button>
+          ) : null}
+          <EstadoGuardado fase={fase} error={error} />
+        </div>
+        {/* Una columna: con los cuatro botones, dos columnas cortaban el nombre del ítem a una letra. */}
+        <div className="grid grid-cols-1 gap-2">
           {itemsActivos.map((item) => {
-            const valor = current[item.key] ?? "OK";
+            const valor = valores[item.key] as DviChecklistStatus | undefined;
             return (
               <div
                 key={item.key}
-                className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5"
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5"
               >
-                <span className={cn("size-1.5 shrink-0 rounded-full", ESTADO_DOT_COLOR[valor])} />
-                <Label
-                  htmlFor={item.key}
+                <span
+                  className={cn("size-1.5 shrink-0 rounded-full", valor ? ESTADO_DOT_COLOR[valor] : "bg-border")}
+                />
+                <span
+                  id={`dvi-${item.key}`}
                   title={item.label}
-                  className="min-w-0 flex-1 truncate text-xs leading-tight font-normal"
+                  className="min-w-0 flex-1 truncate text-xs leading-tight"
                 >
                   {item.label}
-                </Label>
-                <SelectField
-                  id={item.key}
-                  name={item.key}
-                  defaultValue={valor}
-                  disabled={soloLectura}
-                  size="sm"
-                  className="h-7 w-[90px] shrink-0 px-1.5 text-xs"
-                  items={DVI_CHECKLIST_STATUSES.map((estado) => ({
-                    value: estado,
-                    label: ESTADO_LABELS[estado],
-                  }))}
-                />
+                </span>
+                <div
+                  role="radiogroup"
+                  aria-labelledby={`dvi-${item.key}`}
+                  className="inline-flex shrink-0 overflow-hidden rounded-md border border-border"
+                >
+                  {DVI_CHECKLIST_STATUSES.map((estado) => (
+                    <button
+                      key={estado}
+                      type="button"
+                      role="radio"
+                      aria-checked={valor === estado}
+                      disabled={soloLectura}
+                      onClick={() => marcar({ [item.key]: estado })}
+                      className={cn(
+                        "border-r border-border px-2 py-0.5 text-[11px] last:border-r-0 disabled:cursor-default",
+                        valor === estado ? SEGMENTO_ELEGIDO[estado] : "bg-card hover:bg-muted disabled:hover:bg-card",
+                      )}
+                    >
+                      {ESTADO_LABELS[estado]}
+                    </button>
+                  ))}
+                </div>
                 {esAdmin && !soloLectura ? (
                   <Button
                     type="button"
@@ -152,7 +204,7 @@ export function DviChecklistForm({
             {mostrarInactivos ? (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {itemsInactivos.map((item) => {
-                  const valor = current[item.key] as DviChecklistStatus | undefined;
+                  const valor = valores[item.key] as DviChecklistStatus | undefined;
                   return (
                     <div
                       key={item.key}
@@ -198,19 +250,7 @@ export function DviChecklistForm({
 
       {soloLectura ? (
         <p className="text-xs text-muted-foreground">La orden ya está facturada o cerrada: el checklist queda solo de consulta.</p>
-      ) : (
-        <Button type="submit" disabled={isPending} className="self-end">
-          {isPending ? "Guardando..." : "Guardar checklist"}
-        </Button>
-      )}
-
-      {state.error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{state.error}</AlertDescription>
-        </Alert>
       ) : null}
-      {/* Alert hardcodes role="alert"; a status message must keep role="status" natively. */}
-      {state.success ? <p role="status">Checklist guardado</p> : null}
 
       {esAdmin ? (
         <NuevoDviChecklistItemDialog
@@ -222,6 +262,6 @@ export function DviChecklistForm({
           }}
         />
       ) : null}
-    </form>
+    </div>
   );
 }

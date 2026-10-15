@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 import { NavSecciones } from "@/components/nav-secciones";
 import { seccionesAbiertas } from "@/lib/orden/secciones";
@@ -14,10 +13,14 @@ import { listAnticiposDeOrden } from "@/app/actions/anticipo-actions";
 import { listServicios } from "@/app/actions/servicio-actions";
 import { getOpcionesTaller } from "@/app/actions/configuracion-taller-actions";
 import { AnticiposSection } from "./anticipos-section";
-import { AsignarMecanicoForm } from "./asignar-mecanico-form";
-import { CambiarEstadoForm } from "./cambiar-estado-form";
+import { AvanceFase } from "./avance-fase";
+import { BannerSintomas, CabeceraOrden } from "./cabecera-orden";
+import { CicloOrden } from "./ciclo-orden";
+import { CuentaOrden } from "./cuenta-orden";
+import { MecanicoMenu } from "./mecanico-menu";
 import { PrioridadBloque } from "../prioridad-bloque";
 import { PRIORIDAD_COLOR } from "../prioridad-tono";
+import { ESTADO_DOT_COLOR } from "../estado-tono";
 import { DiagramaDanios } from "./diagrama-danios";
 import { GarantiasSection } from "./garantias-section";
 import { RecepcionForm } from "./recepcion-form";
@@ -28,13 +31,11 @@ import { AgregarManoObraForm } from "./agregar-mano-obra-form";
 import { DviChecklistForm } from "./dvi-checklist-form";
 import { DviFotoForm } from "./dvi-foto-form";
 import { esOrdenMutable } from "@/lib/orden/mutable-guard";
-import { GenerarFacturaForm } from "./generar-factura-form";
 import { QuitarConConfirmacion } from "@/components/quitar-con-confirmacion";
 import { deleteItemOrdenFormAction } from "@/app/actions/item-orden-actions";
 import { deleteManoDeObraFormAction } from "@/app/actions/mano-de-obra-actions";
 import type { ResultadoAccion } from "@/lib/resultado-accion";
 import type { DviChecklist } from "@/lib/dvi/checklist-items";
-import type { EstadoOrden } from "@/generated/prisma-tenant";
 import { totalOrden } from "@/lib/dashboard/calculos";
 import { cn } from "@/lib/utils";
 import { FormGroup } from "@/components/form-group";
@@ -46,7 +47,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 // Inicio dashboard's own pill nav) -- the right column is its own sticky
 // sidebar already, so it doesn't need an anchor.
 const SECCIONES_ORDEN = [
-  { id: "informacion", label: "Información", dot: "bg-blue-500" },
   { id: "recepcion", label: "Recepción", dot: "bg-orange-500" },
   { id: "items", label: "Ítems", dot: "bg-amber-500" },
   { id: "mano-obra", label: "Mano de obra", dot: "bg-purple-500" },
@@ -58,40 +58,6 @@ const SECCIONES_ORDEN = [
 type Orden = NonNullable<Awaited<ReturnType<typeof getOrden>>>;
 type ItemRow = Orden["items"][number];
 type ManoObraRow = Orden["manoDeObra"][number];
-
-// Same estado label/badge convention as /ordenes' list page (see ordenes/page.tsx) --
-// kept local here too rather than extracted to a shared module neither page asked for.
-const ESTADO_LABELS: Record<EstadoOrden, string> = {
-  BORRADOR: "Borrador",
-  EN_PROCESO: "En proceso",
-  TERMINADA: "Terminada",
-  ENTREGADA: "Entregada",
-  ANULADA: "Anulada",
-};
-
-const ESTADO_BADGE_CLASSNAME: Record<EstadoOrden, string> = {
-  BORRADOR: "",
-  EN_PROCESO: "border-transparent bg-[oklch(0.7_0.15_60/0.15)] text-[oklch(0.55_0.15_60)]",
-  TERMINADA: "border-transparent bg-[oklch(0.44_0.12_250/0.1)] text-[oklch(0.44_0.12_250)]",
-  ENTREGADA: "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]",
-  ANULADA: "",
-};
-
-// Same dot-in-pill standard as ordenes/page.tsx's ESTADO_DOT_COLOR.
-const ESTADO_DOT_COLOR: Record<EstadoOrden, string> = {
-  BORRADOR: "oklch(0.7 0 0)",
-  EN_PROCESO: "oklch(0.55 0.15 60)",
-  TERMINADA: "oklch(0.44 0.12 250)",
-  ENTREGADA: "oklch(0.4 0.1 150)",
-  ANULADA: "oklch(0.5 0.2 27)",
-};
-
-const ESTADO_BADGE_VARIANT: Partial<Record<EstadoOrden, "outline" | "destructive">> = {
-  BORRADOR: "outline",
-  ANULADA: "destructive",
-};
-
-const formatoFechaHora = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" });
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", {
   style: "currency",
@@ -189,15 +155,6 @@ function conColumnaQuitar<T extends { id: string }>(
   ];
 }
 
-function InfoField({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div>
-      <div className="text-[10px] tracking-wide text-muted-foreground uppercase">{label}</div>
-      <div className="mt-0.5 text-sm">{value}</div>
-    </div>
-  );
-}
-
 export default async function OrdenDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [session, orden, repuestos, tecnicos, bodegas, proveedores, dviItems, anticipos, servicios, opcionesTaller] = await Promise.all([
@@ -266,78 +223,42 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
         ← Órdenes
       </Link>
 
-      <div>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-xl font-semibold tracking-tight">Orden — #{orden.id.slice(-8).toUpperCase()}</h1>
-            <Badge
-              variant={ESTADO_BADGE_VARIANT[orden.estado]}
-              className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[orden.estado])}
-            >
-              <span className="size-1.5 shrink-0 rounded-full" style={{ background: ESTADO_DOT_COLOR[orden.estado] }} />
-              {ESTADO_LABELS[orden.estado]}
-            </Badge>
-          </div>
-        </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {orden.vehiculo.placa} · {orden.vehiculo.marca} {orden.vehiculo.modelo}
-          {orden.vehiculo.anio ? ` ${orden.vehiculo.anio}` : ""} · {orden.cliente.nombre}
-        </p>
-      </div>
+      <CabeceraOrden
+        datos={{
+          id: orden.id,
+          estado: orden.estado,
+          ingreso: orden.createdAt,
+          sede: orden.sede.nombre,
+          recibio: orden.creadoPor.nombre,
+          placa: orden.vehiculo.placa,
+          marca: orden.vehiculo.marca,
+          modelo: orden.vehiculo.modelo,
+          anio: orden.vehiculo.anio,
+          color: orden.vehiculo.color,
+          tipo: orden.vehiculo.tipo,
+          cliente: orden.cliente.nombre,
+          telefono: orden.cliente.telefono,
+        }}
+        mecanico={
+          <MecanicoMenu
+            ordenId={orden.id}
+            mecanico={orden.mecanico}
+            tecnicos={tecnicos}
+            editable={
+              esOrdenMutable(orden) &&
+              (session.user.role === "ADMIN" || (session.user.role === "RECEPCION" && !orden.mecanico))
+            }
+          />
+        }
+        acciones={<AvanceFase ordenId={orden.id} estado={orden.estado} />}
+      />
+      <BannerSintomas sintomas={orden.sintomas} />
 
       {/* Fija arriba al hacer scroll, como en el Inicio. */}
       <NavSecciones etiqueta="Secciones de la orden" secciones={SECCIONES_ORDEN} className="-mt-2" />
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex flex-col gap-4">
-          <SeccionOrden
-            id="informacion"
-            titulo="Información de la orden"
-            resumen={orden.mecanico?.nombre ?? "sin mecánico asignado"}
-            abiertaInicial={abiertas.has("informacion")}
-          >
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              <FormGroup label="Recepción">
-                <div className="grid grid-cols-2 gap-3">
-                  <InfoField label="Sede" value={orden.sede.nombre} />
-                  <InfoField label="Ingresó" value={formatoFechaHora.format(orden.createdAt)} />
-                  <InfoField label="Km de ingreso" value={orden.kilometrajeIngreso ?? "—"} />
-                  <InfoField label="Recibió" value={orden.creadoPor.nombre} />
-                </div>
-              </FormGroup>
-
-              <FormGroup label="Vehículo y cliente">
-                <div className="grid grid-cols-2 gap-3">
-                  <InfoField label="Placa" value={<span className="font-mono">{orden.vehiculo.placa}</span>} />
-                  <InfoField label="Vehículo" value={`${orden.vehiculo.marca} ${orden.vehiculo.modelo}`} />
-                  <InfoField label="Cliente" value={orden.cliente.nombre} />
-                  <InfoField label="Teléfono" value={orden.cliente.telefono ?? "—"} />
-                </div>
-              </FormGroup>
-
-              <FormGroup label="Asignación">
-                <div className="grid grid-cols-1 gap-3">
-                  <InfoField
-                    label="Mecánico"
-                    value={
-                      <AsignarMecanicoForm
-                        ordenId={orden.id}
-                        mecanico={orden.mecanico}
-                        tecnicos={tecnicos}
-                        puedeReasignar={session.user.role === "ADMIN"}
-                      />
-                    }
-                  />
-                  <InfoField label="Mano de obra" value={formatoMoneda.format(manoObraTotal)} />
-                </div>
-              </FormGroup>
-            </div>
-
-            <FormGroup label="Síntomas reportados">
-              <p className="max-w-[78ch] text-sm leading-relaxed">{orden.sintomas ?? "—"}</p>
-            </FormGroup>
-          </SeccionOrden>
-
           <SeccionOrden
             id="recepcion"
             titulo="Recepción y daños"
@@ -538,63 +459,29 @@ export default async function OrdenDetailPage({ params }: { params: Promise<{ id
             </CardContent>
           </Card>
 
-          <Card className="border-t-4 border-t-[oklch(0.4_0.1_150)]">
-            <CardHeader>
-              <CardTitle>Totales</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-0">
-              <div className="flex items-center justify-between py-1.5 text-sm">
-                <span className="text-muted-foreground">Repuestos</span>
-                <span className="font-mono">{formatoMoneda.format(repuestosTotal)}</span>
-              </div>
-              <div className="flex items-center justify-between py-1.5 text-sm">
-                <span className="text-muted-foreground">Mano de obra</span>
-                <span className="font-mono">{formatoMoneda.format(manoObraTotal)}</span>
-              </div>
-              <div className="mt-1 flex items-baseline justify-between border-t border-border pt-2.5">
-                <span className="text-sm font-semibold">Total estimado</span>
-                <span className="font-mono text-lg font-semibold">{formatoMoneda.format(total)}</span>
-              </div>
-              {anticiposVigentes > 0 ? (
-                <div className="flex items-center justify-between py-1.5 text-sm">
-                  <span className="text-muted-foreground">Anticipos</span>
-                  <span className="font-mono">{formatoMoneda.format(anticiposVigentes)}</span>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
-
           <Card className="border-t-4" style={{ borderTopColor: ESTADO_DOT_COLOR[orden.estado] }}>
             <CardHeader>
-              <CardTitle>Estado: {ESTADO_LABELS[orden.estado]}</CardTitle>
+              <CardTitle>Ciclo de la orden</CardTitle>
             </CardHeader>
             <CardContent>
-              {orden.estado === "TERMINADA" ? (
-                <p className="text-sm text-muted-foreground">
-                  La orden está terminada: entrégala desde la sección «Acta de entrega y garantías».
-                </p>
-              ) : (
-                <CambiarEstadoForm ordenId={orden.id} estadoActual={orden.estado} />
-              )}
+              <CicloOrden estado={orden.estado} />
             </CardContent>
           </Card>
 
-          <Card className="border-t-4 border-t-blue-500">
+          <Card className="border-t-4 border-t-[oklch(0.4_0.1_150)]">
             <CardHeader>
-              <CardTitle>Facturación</CardTitle>
+              <CardTitle>Cuenta</CardTitle>
             </CardHeader>
             <CardContent>
-              {orden.factura ? (
-                <p>
-                  <Link href={`/facturas/${orden.factura.id}`}>Ver factura #{orden.factura.numero}</Link>
-                </p>
-              ) : orden.estado === "TERMINADA" || orden.estado === "ENTREGADA" ? (
-                <GenerarFacturaForm ordenId={orden.id} />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  La orden debe estar Terminada o Entregada para poder facturarse.
-                </p>
-              )}
+              <CuentaOrden
+                ordenId={orden.id}
+                estado={orden.estado}
+                repuestos={repuestosTotal}
+                manoDeObra={manoObraTotal}
+                total={total}
+                anticipos={anticiposVigentes}
+                factura={orden.factura ? { id: orden.factura.id, numero: orden.factura.numero } : null}
+              />
             </CardContent>
           </Card>
         </div>

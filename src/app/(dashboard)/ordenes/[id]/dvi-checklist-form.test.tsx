@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockUpdateDviChecklistAction = vi.fn();
@@ -39,42 +39,49 @@ describe("DviChecklistForm", () => {
     mockRefresh.mockReset();
   });
 
-  it("renders one select per active checklist item, defaulting to the saved status", () => {
+  it("cada ítem activo se marca con botones y muestra lo guardado", () => {
     render(<DviChecklistForm ordenId="o1" checklist={{ frenos: "CRITICO" }} items={ITEMS} />);
 
-    expect(screen.getByLabelText("Frenos")).toHaveTextContent("Crítico");
-    expect(screen.getByLabelText("Luces (altas, bajas, direccionales)")).toHaveTextContent("OK");
+    const frenos = screen.getByRole("radiogroup", { name: "Frenos" });
+    expect(within(frenos).getByRole("radio", { name: "Crítico" })).toHaveAttribute("aria-checked", "true");
+    const luces = screen.getByRole("radiogroup", { name: "Luces (altas, bajas, direccionales)" });
+    expect(within(luces).getAllByRole("radio").every((opcion) => opcion.getAttribute("aria-checked") === "false")).toBe(true);
+    expect(screen.getByText("1 de 2 revisados")).toBeInTheDocument();
   });
 
   it("in soloLectura shows the saved values without any edit control", () => {
     render(<DviChecklistForm ordenId="o1" checklist={{ frenos: "CRITICO" }} items={ITEMS} esAdmin soloLectura />);
 
-    expect(screen.getByLabelText("Frenos")).toHaveTextContent("Crítico");
-    expect(screen.getByLabelText("Frenos")).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "Guardar checklist" })).not.toBeInTheDocument();
+    const frenos = screen.getByRole("radiogroup", { name: "Frenos" });
+    expect(within(frenos).getByRole("radio", { name: "Crítico" })).toHaveAttribute("aria-checked", "true");
+    for (const opcion of within(frenos).getAllByRole("radio")) expect(opcion).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Marcar el resto OK" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Agregar ítem/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Desactivar/ })).not.toBeInTheDocument();
     expect(screen.getByText(/solo de consulta/)).toBeInTheDocument();
   });
 
-  it("submits the status the user actually picked for a given item, not just its default", async () => {
-    render(<DviChecklistForm ordenId="o1" checklist={{ frenos: "OK" }} items={ITEMS} />);
-
-    await userEvent.click(screen.getByLabelText("Frenos"));
-    await userEvent.click(await screen.findByRole("option", { name: "Atención" }));
-    await userEvent.click(screen.getByRole("button", { name: "Guardar checklist" }));
-
-    expect(mockUpdateDviChecklistAction).toHaveBeenCalled();
-    const formData = mockUpdateDviChecklistAction.mock.calls[0][2] as FormData;
-    expect(formData.get("frenos")).toBe("ATENCION");
-  });
-
-  it("shows a success message after a successful submit", async () => {
+  it("al marcar un ítem se guarda solo esa clave", async () => {
     render(<DviChecklistForm ordenId="o1" checklist={null} items={ITEMS} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Guardar checklist" }));
+    await userEvent.click(within(screen.getByRole("radiogroup", { name: "Frenos" })).getByRole("radio", { name: "Atención" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent("Checklist guardado");
+    const formData = mockUpdateDviChecklistAction.mock.calls[0]![2] as FormData;
+    expect([...formData.keys()]).toEqual(["frenos"]);
+    expect(formData.get("frenos")).toBe("ATENCION");
+    expect(await screen.findByRole("status")).toHaveTextContent("Guardado");
+  });
+
+  it("«Marcar el resto OK» marca de una vez los que faltan, y solo aparece si ya se revisó alguno", async () => {
+    const { rerender } = render(<DviChecklistForm ordenId="o1" checklist={null} items={ITEMS} />);
+    expect(screen.queryByRole("button", { name: "Marcar el resto OK" })).not.toBeInTheDocument();
+
+    rerender(<DviChecklistForm ordenId="o1" checklist={{ frenos: "CRITICO" }} items={ITEMS} key="revisado" />);
+    await userEvent.click(screen.getByRole("button", { name: "Marcar el resto OK" }));
+
+    const formData = mockUpdateDviChecklistAction.mock.calls[0]![2] as FormData;
+    expect([...formData.keys()]).toEqual(["luces"]);
+    expect(formData.get("luces")).toBe("OK");
   });
 
   it("keeps an inactive item with a saved status out of the active selects, not shown to a non-ADMIN at all", () => {
@@ -195,8 +202,8 @@ describe("DviChecklistForm", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Ver ítems desactivados (2)" }));
 
-    expect(screen.getByText("Archivado")).toBeInTheDocument();
-    expect(screen.getByText("Crítico")).toBeInTheDocument();
+    // La fila archivada dice su valor guardado (los ítems activos también tienen un botón «Crítico»).
+    expect(screen.getByText("Archivado").parentElement).toHaveTextContent("Crítico");
     expect(screen.getByRole("button", { name: "Reactivar Aceite" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reactivar Batería" })).toBeInTheDocument();
   });
@@ -230,6 +237,7 @@ describe("DviChecklistForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Ver ítems desactivados (1)" }));
     await userEvent.click(screen.getByRole("button", { name: "Reactivar Batería" }));
 
-    expect(screen.getByLabelText("Batería")).toHaveTextContent("Crítico");
+    const bateria = screen.getByRole("radiogroup", { name: "Batería" });
+    expect(within(bateria).getByRole("radio", { name: "Crítico" })).toHaveAttribute("aria-checked", "true");
   });
 });

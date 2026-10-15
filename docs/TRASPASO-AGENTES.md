@@ -169,6 +169,32 @@ el usuario en pantalla:
   se calcula; silueta, orientación, rótulos, contador por zona; "Compuerta" se muestra como "Baúl").
 - **Garantías**: se registran y quitan hasta entregar o anular, aunque la orden ya esté facturada (misma regla
   que el acta).
+**Rediseño de la ficha de la orden, entregas 1–3** (rama `ficha-orden`, spec
+`docs/superpowers/specs/2026-10-14-ficha-orden-rediseno-design.md`, plan
+`docs/superpowers/plans/2026-10-14-ficha-orden-rediseno.md`, sin migración). Antes, en `main`: guardabarros
+delantero y trasero como zonas propias (migración `20261019120000_guardabarros_independientes`, aplicada en
+`taller_dev` y `taller_dev_reference`) y prioridad con color, ícono y menú «Cambiar» (`prioridad-bloque.tsx`).
+
+- **Cabecera operativa** (`cabecera-orden.tsx`): placa, vehículo, cliente con `tel:` y WhatsApp (`wa.me`),
+  ingreso, recibió, sede y mecánico (`mecanico-menu.tsx`, guarda al elegir; misma regla que
+  `asignarMecanicoAction`: RECEPCION asigna una vez, ADMIN reasigna). **Banner de síntomas** debajo.
+- **Avance de fase** (`avance-fase.tsx`): un botón según el estado; TERMINADA lleva a `#entrega` (entregar
+  exige el acta); **Anular** en «⋯» con `ConfirmacionEnLinea`. Se borraron `cambiar-estado-form` y
+  `asignar-mecanico-form`; la sección «Información» ya no existe (`secciones.ts` sin `informacion`).
+- **Barra lateral**: Prioridad, **Ciclo de la orden** (`ciclo-orden.tsx`) y **Cuenta** (`cuenta-orden.tsx`:
+  total − anticipos vigentes = **saldo por cobrar**, y la factura).
+- **Croquis** (`diagrama-danios.tsx` + `figuras.ts`): silueta dibujada a mano por trazos con tipo
+  (`Figura.silueta: Trazo[]`), zonas como `radio` en un `radiogroup` (flechas), **ninguna zona elegida al
+  entrar**, formulario en línea con tipos en chips, un número por daño igual al de su tarjeta. Los
+  `LATERAL_*` viejos de un carro van en gris fuera del dibujo con aviso (`Figura.fueraDelDibujo`).
+- **Autoguardado** (`src/hooks/use-autoguardado.ts` + `src/components/estado-guardado.tsx`): cola que llama
+  a la server action de a una dentro de `startTransition`; aviso **por bloque**, nunca global. Lo usan la
+  recepción (km al salir del campo, combustible al elegir) y el **checklist DVI** (cada ítem envía solo su
+  clave; `updateDviChecklistAction` ya mezcla con lo guardado). El DVI ya **no muestra «OK» por defecto**: lo
+  no revisado queda sin marcar, «N de M revisados» y «Marcar el resto OK» (solo tras revisar uno). Va en una
+  columna: en dos, los cuatro botones cortaban el nombre del ítem a una letra.
+- Lo que sigue: **entrega 4 (pestañas)** se decide con el usuario viendo esto en la app.
+
 - Datos de demostración en `taller_dev` que el usuario quiere conservar: cliente "Andrea Valencia Ríos", placas
   JKT482, MRW615, HBL290 y DFN734, 8 facturas del 10 al 14 de octubre de 2026.
 

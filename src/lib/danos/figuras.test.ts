@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { zonaVehiculoSchema } from "@/lib/validation/recepcion";
-import { FIGURAS, etiquetaZona, figuraDe, zonasDe } from "./figuras";
+import { COLOR_DANIO, FIGURAS, etiquetaZona, figuraDe, zonasDe } from "./figuras";
 
 const TODAS = zonaVehiculoSchema.options;
 
@@ -99,6 +99,28 @@ describe("figuras del diagrama", () => {
     expect(y("CAPO")).toBeLessThan(y("PARABRISAS"));
     expect(y("PARABRISAS")).toBeLessThan(y("TECHO"));
     expect(y("TECHO")).toBeLessThan(y("COMPUERTA"));
+  });
+
+  it("la silueta trae carrocería, vidrios y llantas para que se entienda el dibujo", () => {
+    for (const figura of Object.values(FIGURAS)) {
+      const tipos = new Set(figura.silueta.map((trazo) => trazo.tipo));
+      expect(tipos.has("carroceria")).toBe(true);
+      expect(tipos.has("llanta")).toBe(true);
+      for (const trazo of figura.silueta) expect(trazo.d.startsWith("M ")).toBe(true);
+    }
+    expect(new Set(FIGURAS.CARRO.silueta.map((trazo) => trazo.tipo)).has("vidrio")).toBe(true);
+  });
+
+  it("los laterales viejos del carro tienen un sitio fuera del dibujo y un aviso", () => {
+    const fuera = FIGURAS.CARRO.fueraDelDibujo!;
+    for (const zona of ["LATERAL_IZQUIERDO", "LATERAL_DERECHO"] as const) {
+      expect(fuera[zona]!.aviso).toMatch(/guardabarros/);
+      expect(FIGURAS.CARRO.zonas.some((candidata) => candidata.zona === zona)).toBe(false);
+    }
+  });
+
+  it("cada tipo de daño tiene su color", () => {
+    expect(Object.keys(COLOR_DANIO).sort()).toEqual(["FALTANTE", "GOLPE", "OXIDO", "RAYON", "ROTURA"]);
   });
 
   it("la parte trasera del carro se llama Baúl, como se dice en Colombia", () => {
