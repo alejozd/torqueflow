@@ -360,7 +360,36 @@ describe("actualizarDescuentoCotizacionAction", () => {
     const result = await actualizarDescuentoCotizacionAction("q1", descuentoInitial, formData);
 
     expect(result).toEqual({ error: null, success: true });
-    expect(mockCotizacionUpdateTx).toHaveBeenCalledWith({ where: { id: "q1" }, data: { descuentoPct: 10 } });
+    expect(mockCotizacionUpdateTx).toHaveBeenCalledWith({
+      where: { id: "q1" },
+      data: { descuentoTipo: "PORCENTAJE", descuentoPct: 10 },
+    });
+  });
+
+  it("guarda un descuento por monto fijo sin tocar el porcentaje", async () => {
+    mockCotizacionFindFirst.mockResolvedValue(baseCotizacion());
+    const formData = new FormData();
+    formData.set("descuentoTipo", "MONTO");
+    formData.set("descuentoMonto", "25000");
+
+    const result = await actualizarDescuentoCotizacionAction("q1", descuentoInitial, formData);
+
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockCotizacionUpdateTx).toHaveBeenCalledWith({
+      where: { id: "q1" },
+      data: { descuentoTipo: "MONTO", descuentoMonto: 25000 },
+    });
+  });
+
+  it("rechaza un monto fijo negativo", async () => {
+    const formData = new FormData();
+    formData.set("descuentoTipo", "MONTO");
+    formData.set("descuentoMonto", "-5");
+
+    const result = await actualizarDescuentoCotizacionAction("q1", descuentoInitial, formData);
+
+    expect(result.success).toBe(false);
+    expect(mockRequireRole).not.toHaveBeenCalled();
   });
 });
 
@@ -581,6 +610,24 @@ describe("aprobarCotizacionAction", () => {
       where: { id: "q1" },
       data: { estado: "APROBADA", ordenId: "o1" },
     });
+  });
+
+  it("copia a la orden el kit del que salió cada línea", async () => {
+    const grupo = { grupoKitId: "g1", grupoKitNombre: "Cambio de aceite", servicioId: "s1" };
+    mockCotizacionFindFirst.mockResolvedValue(
+      baseCotizacion({
+        estado: "ENVIADA",
+        items: [
+          { tipo: "REPUESTO", repuestoId: "r1", descripcion: "Aceite", cantidad: "4", precioUnitario: "38000", ...grupo },
+          { tipo: "MANO_OBRA", repuestoId: null, descripcion: "Cambio de aceite", cantidad: "1", precioUnitario: "98000", ...grupo },
+        ],
+      }),
+    );
+
+    await aprobarCotizacionAction("q1", aprobarInitial, new FormData());
+
+    expect(mockItemOrdenCreateTx).toHaveBeenCalledWith({ data: expect.objectContaining(grupo) });
+    expect(mockManoDeObraCreateTx).toHaveBeenCalledWith({ data: expect.objectContaining(grupo) });
   });
 });
 

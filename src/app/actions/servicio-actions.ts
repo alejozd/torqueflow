@@ -8,6 +8,7 @@ import { roundMoney } from "@/lib/money/round";
 import { assertCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
 import { recomputeCotizacionTotales } from "@/lib/cotizacion/recompute-totales";
 import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
+import { grupoKitParaServicio } from "@/lib/servicio/grupo-kit";
 import { scopeCotizacion, scopeOrden, scopeRepuesto } from "@/lib/sede/scope";
 import {
   CANTIDAD_MAXIMA_KIT,
@@ -89,6 +90,7 @@ function revalidar() {
  * documento destino (orden o cotización).
  */
 type ServicioAplicable = {
+  id: string;
   nombre: string;
   repuestos: { cantidad: number; repuesto: { id: string; nombre: string; precioVenta: Prisma.Decimal } }[];
 };
@@ -105,6 +107,7 @@ async function cargarServicioAplicable(
   const servicio = await tenantDb.servicio.findFirst({
     where: { id: servicioId },
     select: {
+      id: true,
       activo: true,
       nombre: true,
       precioManoObra: true,
@@ -417,10 +420,11 @@ export async function aplicarServicioAOrdenAction(
   const mecanicoId = conManoDeObra ? await mecanicoDeLaSede(tenantDb, orden.mecanicoId, session.user.sedeActivaId) : null;
 
   try {
+    const grupo = grupoKitParaServicio(servicio);
     await tenantDb.$transaction(async (tx) => {
       if (conManoDeObra) {
         await tx.manoDeObra.create({
-          data: { ordenId, descripcion: servicio.nombre, valor, mecanicoId },
+          data: { ordenId, descripcion: servicio.nombre, valor, mecanicoId, ...grupo },
         });
       }
       for (const linea of servicio.repuestos) {
@@ -431,6 +435,7 @@ export async function aplicarServicioAOrdenAction(
             descripcion: linea.repuesto.nombre,
             cantidad: linea.cantidad,
             precioUnitario: linea.repuesto.precioVenta,
+            ...grupo,
           },
         });
       }
@@ -491,6 +496,7 @@ export async function aplicarServicioACotizacionAction(
   const { servicio, valor, conManoDeObra } = cargado;
 
   try {
+    const grupo = grupoKitParaServicio(servicio);
     await tenantDb.$transaction(async (tx) => {
       if (conManoDeObra) {
         await tx.itemCotizacion.create({
@@ -501,6 +507,7 @@ export async function aplicarServicioACotizacionAction(
             descripcion: servicio.nombre,
             cantidad: 1,
             precioUnitario: valor,
+            ...grupo,
           },
         });
       }
@@ -513,6 +520,7 @@ export async function aplicarServicioACotizacionAction(
             descripcion: linea.repuesto.nombre,
             cantidad: linea.cantidad,
             precioUnitario: linea.repuesto.precioVenta,
+            ...grupo,
           },
         });
       }

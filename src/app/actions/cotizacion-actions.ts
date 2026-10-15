@@ -312,7 +312,9 @@ export async function actualizarDescuentoCotizacionAction(
   formData: FormData,
 ): Promise<DescuentoCotizacionFormState> {
   const parsed = descuentoCotizacionInputSchema.safeParse({
+    descuentoTipo: formData.get("descuentoTipo") || "PORCENTAJE",
     descuentoPct: formData.get("descuentoPct"),
+    descuentoMonto: formData.get("descuentoMonto"),
   });
 
   if (!parsed.success) {
@@ -337,7 +339,13 @@ export async function actualizarDescuentoCotizacionAction(
 
   try {
     await tenantDb.$transaction(async (tx) => {
-      await tx.cotizacion.update({ where: { id: cotizacionId }, data: { descuentoPct: parsed.data.descuentoPct } });
+      // Solo se escribe el valor del tipo elegido: el otro se conserva por si
+      // el usuario vuelve a cambiar de tipo.
+      const data =
+        parsed.data.descuentoTipo === "PORCENTAJE"
+          ? { descuentoTipo: parsed.data.descuentoTipo, descuentoPct: parsed.data.descuentoPct }
+          : { descuentoTipo: parsed.data.descuentoTipo, descuentoMonto: parsed.data.descuentoMonto };
+      await tx.cotizacion.update({ where: { id: cotizacionId }, data });
       await recomputeCotizacionTotales(tx, cotizacionId);
     });
   } catch (err) {
@@ -493,6 +501,12 @@ export async function aprobarCotizacionAction(
       });
 
       for (const item of cotizacion.items) {
+        // La orden recuerda de qué kit salió cada línea, igual que la cotización.
+        const grupo = {
+          grupoKitId: item.grupoKitId,
+          grupoKitNombre: item.grupoKitNombre,
+          servicioId: item.servicioId,
+        };
         if (item.tipo === "REPUESTO") {
           await tx.itemOrden.create({
             data: {
@@ -501,6 +515,7 @@ export async function aprobarCotizacionAction(
               descripcion: item.descripcion,
               cantidad: Math.round(Number(item.cantidad)),
               precioUnitario: item.precioUnitario,
+              ...grupo,
             },
           });
         } else {
@@ -509,6 +524,7 @@ export async function aprobarCotizacionAction(
               ordenId: creada.id,
               descripcion: item.descripcion,
               valor: Number(item.cantidad) * Number(item.precioUnitario),
+              ...grupo,
             },
           });
         }

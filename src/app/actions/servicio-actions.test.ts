@@ -331,6 +331,7 @@ describe("cantidad y quitar repuesto del kit", () => {
 describe("aplicarServicioAOrdenAction", () => {
   function kit(repuestos: { cantidad: number; repuesto: { id: string; nombre: string; precioVenta: number } }[]) {
     db.servicio.findFirst.mockResolvedValue({
+      id: "s1",
       activo: true,
       nombre: "Cambio de aceite",
       precioManoObra: 45000,
@@ -360,7 +361,7 @@ describe("aplicarServicioAOrdenAction", () => {
       }),
     );
     expect(tx.manoDeObra.create).toHaveBeenCalledWith({
-      data: { ordenId: "o1", descripcion: "Cambio de aceite", valor: 45000, mecanicoId: "m1" },
+      data: { ordenId: "o1", descripcion: "Cambio de aceite", valor: 45000, mecanicoId: "m1", grupoKitId: expect.any(String), grupoKitNombre: "Cambio de aceite", servicioId: "s1" },
     });
     // El mecánico heredado se revalida contra la sede activa, como en addManoDeObraAction.
     expect(db.usuario.findFirst).toHaveBeenCalledWith(
@@ -368,10 +369,10 @@ describe("aplicarServicioAOrdenAction", () => {
     );
     // El precio sale del precioVenta actual de cada repuesto, no del kit.
     expect(tx.itemOrden.create).toHaveBeenNthCalledWith(1, {
-      data: { ordenId: "o1", repuestoId: "r1", descripcion: "Filtro de aceite", cantidad: 1, precioUnitario: 25000 },
+      data: { ordenId: "o1", repuestoId: "r1", descripcion: "Filtro de aceite", cantidad: 1, precioUnitario: 25000, grupoKitId: expect.any(String), grupoKitNombre: "Cambio de aceite", servicioId: "s1" },
     });
     expect(tx.itemOrden.create).toHaveBeenNthCalledWith(2, {
-      data: { ordenId: "o1", repuestoId: "r2", descripcion: "Aceite 5W30", cantidad: 2, precioUnitario: 40000 },
+      data: { ordenId: "o1", repuestoId: "r2", descripcion: "Aceite 5W30", cantidad: 2, precioUnitario: 40000, grupoKitId: expect.any(String), grupoKitNombre: "Cambio de aceite", servicioId: "s1" },
     });
     expect(r).toEqual({ error: null, success: true, agregados: { manoDeObra: true, repuestos: 2 } });
   });
@@ -408,7 +409,7 @@ describe("aplicarServicioAOrdenAction", () => {
     await aplicarServicioAOrdenAction("o1", inicialAplicar, fd({ servicioId: "s1" }));
 
     expect(tx.manoDeObra.create).toHaveBeenCalledWith({
-      data: { ordenId: "o1", descripcion: "Cambio de aceite", valor: 45000, mecanicoId: null },
+      data: { ordenId: "o1", descripcion: "Cambio de aceite", valor: 45000, mecanicoId: null, grupoKitId: expect.any(String), grupoKitNombre: "Cambio de aceite", servicioId: "s1" },
     });
   });
 
@@ -511,6 +512,7 @@ describe("aplicarServicioACotizacionAction", () => {
       ],
     });
     db.servicio.findFirst.mockResolvedValue({
+      id: "s1",
       activo: true,
       nombre: "Cambio de aceite",
       precioManoObra: 45000,
@@ -533,6 +535,7 @@ describe("aplicarServicioACotizacionAction", () => {
         descripcion: "Cambio de aceite",
         cantidad: 1,
         precioUnitario: 45000,
+        grupoKitId: expect.any(String), grupoKitNombre: "Cambio de aceite", servicioId: "s1",
       },
     });
     expect(tx.itemCotizacion.create).toHaveBeenNthCalledWith(2, {
@@ -543,6 +546,7 @@ describe("aplicarServicioACotizacionAction", () => {
         descripcion: "Aceite 5W30",
         cantidad: 2,
         precioUnitario: 40000,
+        grupoKitId: expect.any(String), grupoKitNombre: "Cambio de aceite", servicioId: "s1",
       },
     });
     // 45000 + 2 x 40000 = 125000; IVA 19% = 23750; total 148750.
@@ -555,6 +559,7 @@ describe("aplicarServicioACotizacionAction", () => {
 
   it("un kit sin mano de obra propia solo agrega la línea de repuesto", async () => {
     db.servicio.findFirst.mockResolvedValue({
+      id: "s1",
       activo: true,
       nombre: "Kit pastillas",
       precioManoObra: 0,
@@ -572,6 +577,7 @@ describe("aplicarServicioACotizacionAction", () => {
         descripcion: "Pastillas",
         cantidad: 1,
         precioUnitario: 90000,
+        grupoKitId: expect.any(String), grupoKitNombre: "Kit pastillas", servicioId: "s1",
       },
     });
     expect(r.agregados).toEqual({ manoDeObra: false, repuestos: 1 });
