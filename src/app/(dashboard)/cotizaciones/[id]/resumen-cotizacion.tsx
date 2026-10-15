@@ -68,12 +68,12 @@ export function ResumenCotizacion({
 
         <Fila etiqueta="IVA (19 %)" valor={formatoPesos(iva)} />
 
-        <div className="mt-2 flex items-end justify-between gap-3 border-t-2 border-border pt-3">
+        <div className="mt-2 flex flex-wrap items-end justify-between gap-x-3 gap-y-1 border-t-2 border-border pt-3">
           <div>
             <p className="text-sm font-bold tracking-wide uppercase">Total cotizado</p>
             <p className="text-xs text-muted-foreground">Incluye IVA</p>
           </div>
-          <span className="font-mono text-2xl font-bold text-primary">{formatoPesos(total)}</span>
+          <span className="font-mono text-xl font-bold whitespace-nowrap text-primary">{formatoPesos(total)}</span>
         </div>
       </CardContent>
     </Card>

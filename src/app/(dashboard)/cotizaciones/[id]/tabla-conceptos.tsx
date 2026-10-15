@@ -179,23 +179,7 @@ export function TablaConceptos({
           destello === concepto.id && "bg-primary/10",
         )}
       >
-        <td className={cn("py-2 pr-2 pl-3 align-middle", dentroDeKit && "border-l-2 border-l-primary/40 pl-6")}>
-          {puedeEditar && libre ? (
-            <button
-              type="button"
-              onClick={() => void guardar(concepto, { tipo: concepto.tipo === "REPUESTO" ? "MANO_OBRA" : "REPUESTO" })}
-              title="Cambiar entre repuesto y mano de obra"
-              className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap", CLASE_TIPO[concepto.tipo])}
-            >
-              {concepto.tipo === "REPUESTO" ? "Repuesto" : "Mano de obra"} ⇄
-            </button>
-          ) : (
-            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap", CLASE_TIPO[concepto.tipo])}>
-              {concepto.tipo === "REPUESTO" ? "Repuesto" : "Mano de obra"}
-            </span>
-          )}
-        </td>
-        <td className="min-w-48 py-2 pr-2 align-middle">
+        <td className={cn("py-2 pr-2 pl-3 align-middle", dentroDeKit && "border-l-2 border-l-primary/40 pl-7")}>
           {puedeEditar && libre ? (
             <CeldaEditable
               celda={`${concepto.id}:descripcion`}
@@ -208,17 +192,34 @@ export function TablaConceptos({
               className="-ml-2"
             />
           ) : (
-            <p className="text-sm">{concepto.descripcion}</p>
+            <p className="text-sm break-words">{concepto.descripcion}</p>
           )}
-          {concepto.codigo ? <p className="font-mono text-[11px] text-muted-foreground">{concepto.codigo}</p> : null}
-          {libre ? <p className="text-[11px] text-muted-foreground">Fuera del catálogo</p> : null}
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            {puedeEditar && libre ? (
+              <button
+                type="button"
+                onClick={() => void guardar(concepto, { tipo: concepto.tipo === "REPUESTO" ? "MANO_OBRA" : "REPUESTO" })}
+                title="Cambiar entre repuesto y mano de obra"
+                className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap", CLASE_TIPO[concepto.tipo])}
+              >
+                {concepto.tipo === "REPUESTO" ? "Repuesto" : "Mano de obra"} ⇄
+              </button>
+            ) : (
+              <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap", CLASE_TIPO[concepto.tipo])}>
+                {concepto.tipo === "REPUESTO" ? "Repuesto" : "Mano de obra"}
+              </span>
+            )}
+            {concepto.codigo ? <span className="font-mono text-[11px] text-muted-foreground">{concepto.codigo}</span> : null}
+            {libre ? <span className="text-[11px] text-muted-foreground">Fuera del catálogo</span> : null}
+          </div>
         </td>
         <td className="py-2 pr-2 align-middle">
           <Disponibilidad concepto={concepto} />
         </td>
-        <td className="py-2 pr-2 align-middle">
+        <td className="py-2 pr-1 align-middle">
           {puedeEditar ? (
-            <div className="ml-auto flex w-32 items-center gap-0.5">
+            <div className="flex items-center gap-0.5">
+              {/* Con mouse la cantidad se escribe; los botones solo se muestran en pantallas táctiles. */}
               <Button
                 type="button"
                 variant="ghost"
@@ -226,6 +227,7 @@ export function TablaConceptos({
                 aria-label={`Restar 1 a ${concepto.descripcion}`}
                 disabled={concepto.cantidad <= 1}
                 onClick={() => void guardar(concepto, { cantidad: Math.max(1, concepto.cantidad - 1) })}
+                className="hidden shrink-0 pointer-coarse:inline-flex"
               >
                 <Minus className="size-3.5" />
               </Button>
@@ -245,6 +247,7 @@ export function TablaConceptos({
                 size="icon-sm"
                 aria-label={`Sumar 1 a ${concepto.descripcion}`}
                 onClick={() => void guardar(concepto, { cantidad: concepto.cantidad + 1 })}
+                className="hidden shrink-0 pointer-coarse:inline-flex"
               >
                 <Plus className="size-3.5" />
               </Button>
@@ -255,18 +258,18 @@ export function TablaConceptos({
         </td>
         <td className="py-2 pr-2 align-middle">
           {puedeEditar ? (
-            <div className="flex items-center justify-end gap-1">
+            <div className="flex items-center justify-end gap-0.5">
               {precioModificado && concepto.precioCatalogo !== null ? (
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon-sm"
+                  size="icon-xs"
                   title={`Precio modificado. Volver al de catálogo (${formatoPesos(concepto.precioCatalogo)})`}
                   aria-label={`Volver al precio de catálogo de ${concepto.descripcion}`}
                   onClick={() => void guardar(concepto, { precioUnitario: concepto.precioCatalogo ?? 0 })}
-                  className="text-[oklch(0.55_0.15_60)]"
+                  className="shrink-0 text-[oklch(0.55_0.15_60)]"
                 >
-                  <RotateCcw className="size-3.5" />
+                  <RotateCcw className="size-3" />
                 </Button>
               ) : null}
               <CeldaEditable
@@ -277,18 +280,18 @@ export function TablaConceptos({
                 interpretar={interpretarPrecio}
                 onGuardar={(nuevo) => guardar(concepto, { precioUnitario: Number(nuevo) })}
                 onEnter={volverAlBuscador}
-                className="w-32"
+                className="px-1"
               />
             </div>
           ) : (
             <p className="text-right font-mono text-sm text-muted-foreground">{formatoPesos(concepto.precioUnitario)}</p>
           )}
         </td>
-        <td className="py-2 pr-3 text-right align-middle font-mono text-sm font-medium whitespace-nowrap">
+        <td className="py-2 pr-2 text-right align-middle font-mono text-sm font-medium whitespace-nowrap">
           {formatoPesos(importeConcepto(concepto))}
         </td>
         {puedeEditar ? (
-          <td className="py-2 pr-2 text-right align-middle">
+          <td className="py-2 pr-1 text-right align-middle">
             <QuitarConConfirmacion
               etiqueta={`Quitar ${concepto.descripcion}`}
               pregunta="¿Quitar este concepto?"
@@ -304,22 +307,32 @@ export function TablaConceptos({
   return (
     <div className="flex flex-col gap-3">
       <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full min-w-[760px] border-collapse text-sm">
+        {/* Anchos fijos para que el importe nunca se salga: el concepto toma lo que sobre. */}
+        <table className="w-full min-w-[540px] table-fixed border-collapse text-sm">
+          <colgroup>
+            <col />
+            <col className="w-[88px]" />
+            <col className="w-[72px] pointer-coarse:w-[124px]" />
+            <col className="w-[120px]" />
+            <col className="w-[108px]" />
+            {puedeEditar ? <col className="w-10" /> : null}
+          </colgroup>
           <thead>
             <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-              <th className="py-2 pr-2 pl-3 font-semibold">Tipo</th>
-              <th className="py-2 pr-2 font-semibold">Concepto</th>
-              <th className="py-2 pr-2 font-semibold">Disponibilidad</th>
-              <th className="py-2 pr-2 text-center font-semibold">Cant.</th>
+              <th className="py-2 pr-2 pl-3 font-semibold">Concepto</th>
+              <th className="py-2 pr-2 font-semibold" title="Existencia en bodega">
+                Stock
+              </th>
+              <th className="py-2 pr-1 text-center font-semibold">Cant.</th>
               <th className="py-2 pr-2 text-right font-semibold">Precio unit.</th>
-              <th className="py-2 pr-3 text-right font-semibold">Importe</th>
-              {puedeEditar ? <th className="w-10" aria-label="Acciones" /> : null}
+              <th className="py-2 pr-2 text-right font-semibold">Importe</th>
+              {puedeEditar ? <th aria-label="Acciones" /> : null}
             </tr>
           </thead>
           <tbody>
             {bloques.length === 0 ? (
               <tr>
-                <td colSpan={puedeEditar ? 7 : 6} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                <td colSpan={puedeEditar ? 6 : 5} className="px-3 py-8 text-center text-sm text-muted-foreground">
                   {puedeEditar
                     ? "Aún no hay conceptos. Búscalos abajo por nombre o código."
                     : "Esta cotización no tiene conceptos."}
@@ -338,35 +351,37 @@ export function TablaConceptos({
                         onClick={() => alternarKit(bloque.grupoKitId)}
                         aria-expanded={abierto}
                         aria-label={`${abierto ? "Cerrar" : "Abrir"} el kit ${bloque.nombre}`}
-                        className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-semibold tracking-wide text-primary uppercase hover:bg-muted"
+                        className="flex w-full items-start gap-1.5 rounded-md px-1.5 py-1 text-left hover:bg-muted"
                       >
-                        <ChevronRight className={cn("size-3.5 transition-transform", abierto && "rotate-90")} />
-                        Kit
+                        <ChevronRight
+                          className={cn("mt-0.5 size-4 shrink-0 text-primary transition-transform", abierto && "rotate-90")}
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold break-words">{bloque.nombre}</span>
+                          <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                            <span className="rounded-full bg-primary/10 px-1.5 py-px text-[10px] font-semibold tracking-wide text-primary uppercase">
+                              Kit
+                            </span>
+                            {bloque.conceptos.length === 1 ? "1 concepto" : `${bloque.conceptos.length} conceptos`}
+                          </span>
+                        </span>
                       </button>
                     </td>
-                    <td className="py-2 pr-2 align-middle">
-                      <p className="text-sm font-semibold">{bloque.nombre}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {bloque.conceptos.length === 1 ? "1 concepto" : `${bloque.conceptos.length} conceptos`}
-                      </p>
-                    </td>
-                    <td className="py-2 pr-2 align-middle">
+                    <td colSpan={3} className="py-2 pr-2 align-middle">
                       {bloque.sinExistencia > 0 ? (
-                        <span className="flex items-center gap-1.5 text-xs text-[oklch(0.55_0.15_60)]">
-                          <span className="size-1.5 rounded-full bg-[oklch(0.7_0.15_60)]" />
+                        <span className="flex items-center gap-1.5 text-xs leading-tight text-[oklch(0.55_0.15_60)]">
+                          <span className="size-1.5 shrink-0 rounded-full bg-[oklch(0.7_0.15_60)]" />
                           {bloque.sinExistencia === 1
                             ? "Falta existencia de 1 repuesto"
                             : `Falta existencia de ${bloque.sinExistencia} repuestos`}
                         </span>
                       ) : null}
                     </td>
-                    <td />
-                    <td />
-                    <td className="py-2 pr-3 text-right align-middle font-mono text-sm font-semibold whitespace-nowrap">
+                    <td className="py-2 pr-2 text-right align-middle font-mono text-sm font-semibold whitespace-nowrap">
                       {formatoPesos(bloque.subtotal)}
                     </td>
                     {puedeEditar ? (
-                      <td className="py-2 pr-2 text-right align-middle">
+                      <td className="py-2 pr-1 text-right align-middle">
                         <QuitarConConfirmacion
                           etiqueta={`Quitar el kit ${bloque.nombre}`}
                           pregunta={`¿Quitar el kit completo (${bloque.conceptos.length} conceptos)?`}
@@ -423,8 +438,8 @@ function Disponibilidad({ concepto }: { concepto: ConceptoVista }) {
     agotado: { texto: "text-destructive", punto: "bg-destructive" },
   }[estado];
   return (
-    <span className={cn("flex items-center gap-1.5 text-xs whitespace-nowrap", color.texto)}>
-      <span className={cn("size-1.5 shrink-0 rounded-full", color.punto)} />
+    <span className={cn("flex items-start gap-1.5 text-xs leading-tight", color.texto)}>
+      <span className={cn("mt-1 size-1.5 shrink-0 rounded-full", color.punto)} />
       {texto}
     </span>
   );

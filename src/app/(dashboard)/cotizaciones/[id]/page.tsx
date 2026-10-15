@@ -105,7 +105,7 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
         }
       />
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="flex min-w-0 flex-col gap-4">
           <Card>
             <CardHeader>

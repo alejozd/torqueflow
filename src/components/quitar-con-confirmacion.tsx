@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import type { ResultadoAccion } from "@/lib/resultado-accion";
 import { ConfirmacionEnLinea } from "@/components/confirmacion-en-linea";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 /**
  * Row-sized remove control (✕, then "¿Quitar …? Sí / No") for table rows
@@ -57,9 +58,17 @@ export function QuitarConConfirmacion({
     );
   }
 
+  // Un ✕ solo no dice qué quita: el tooltip lo nombra al pasar el mouse o al llegar con Tab.
   return (
-    <Button type="button" variant="ghost" size="sm" aria-label={etiqueta} onClick={() => setConfirmando(true)}>
-      <X className="size-4" />
-    </Button>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button type="button" variant="ghost" size="sm" aria-label={etiqueta} onClick={() => setConfirmando(true)}>
+            <X className="size-4" />
+          </Button>
+        }
+      />
+      <TooltipContent>{etiqueta}</TooltipContent>
+    </Tooltip>
   );
 }

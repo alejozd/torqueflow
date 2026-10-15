@@ -90,7 +90,7 @@ describe("TablaConceptos", () => {
   it("muestra el kit cerrado como una fila con su subtotal y el aviso de existencia", async () => {
     render(<TablaConceptos cotizacionId="q1" conceptos={conceptosConKit} puedeEditar />);
 
-    expect(screen.getByText("Cambio de aceite", { selector: "p" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Abrir el kit Cambio de aceite" })).toHaveTextContent("Cambio de aceite");
     expect(screen.getByText("Falta existencia de 1 repuesto")).toBeInTheDocument();
     expect(screen.getByText(/250\.000/)).toBeInTheDocument();
     expect(screen.queryByLabelText("Cantidad de Aceite 20W50")).not.toBeInTheDocument();
