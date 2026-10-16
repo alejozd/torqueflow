@@ -51,6 +51,11 @@ export const ventaMostradorInputSchema = z
     /** Pagos mixtos; vacío = todo a crédito (solo con cliente, lo valida la acción). */
     pagos: z.array(pagoVentaSchema).max(10, "Demasiados pagos").default([]),
     /** Efectivo que entregó el cliente, para calcular las vueltas. */
+    /** Total que el cajero vio en pantalla: si los precios cambiaron, el servidor lo rechaza. */
+    totalEsperado: z.coerce
+      .number({ error: "Falta el total de la venta" })
+      .min(0, "El total no es válido")
+      .refine(dosDecimales, "El total no puede tener más de 2 decimales"),
     recibidoEfectivo: z.preprocess(vacioComoUndefined, z.coerce.number().min(0).max(MONTO_MAXIMO_VENTA).refine(dosDecimales, "Lo recibido no puede tener más de 2 decimales").optional()),
   })
   .refine(
@@ -67,6 +72,7 @@ export const ventaMostradorInputSchema = z
 export const cobroVentaSchema = z.object({
   monto: requiredMoney("El monto es obligatorio")
     .refine((valor) => valor > 0, "El monto debe ser mayor que cero")
+    .refine(dosDecimales, "El monto no puede tener más de 2 decimales")
     .refine((valor) => valor <= MONTO_MAXIMO_VENTA, "El monto es demasiado alto"),
   metodoPago: metodoPagoVentaSchema,
   referencia: z.preprocess(vacioComoUndefined, z.string().trim().max(120).optional()),

@@ -7,18 +7,35 @@ import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { CobrarWhatsappButton } from "./cobrar-whatsapp-button";
 
-const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+const formatoMoneda = new Intl.NumberFormat("es-CO", {
+  style: "currency",
+  currency: "COP",
+  maximumFractionDigits: 0,
+});
 
 function monto(valor: number, peligro = false) {
   if (valor === 0) return <span className="text-muted-foreground">—</span>;
   return (
-    <span className={peligro ? "font-mono font-medium text-red-600 dark:text-red-400" : "font-mono"}>
+    <span
+      className={
+        peligro
+          ? "font-mono font-medium text-red-600 dark:text-red-400"
+          : "font-mono"
+      }
+    >
       {formatoMoneda.format(valor)}
     </span>
   );
 }
 
-export function CarteraTable({ clientes }: { clientes: ClienteCarteraVista[] }) {
+export function CarteraTable({
+  clientes,
+  puedeCobrarMostrador = true,
+}: {
+  clientes: ClienteCarteraVista[];
+  /** El mostrador solo encuentra ventas de la sede activa: con otra sede no se enlaza. */
+  puedeCobrarMostrador?: boolean;
+}) {
   const columns: DataTableColumn<ClienteCarteraVista>[] = [
     {
       header: "Cliente",
@@ -28,11 +45,19 @@ export function CarteraTable({ clientes }: { clientes: ClienteCarteraVista[] }) 
           <div className="flex flex-wrap gap-1">
             {c.facturas.map((f) =>
               f.origen === "MOSTRADOR" ? (
-                <Badge key={f.facturaId} variant="outline" className="font-mono font-normal">
+                <Badge
+                  key={f.facturaId}
+                  variant="outline"
+                  className="font-mono font-normal"
+                >
                   Mostrador · M-{f.numero} · {f.dias} d
                 </Badge>
               ) : (
-                <Link key={f.facturaId} href={`/facturas/${f.facturaId}`} className="hover:underline">
+                <Link
+                  key={f.facturaId}
+                  href={`/facturas/${f.facturaId}`}
+                  className="hover:underline"
+                >
                   <Badge variant="outline" className="font-mono font-normal">
                     Factura · #{f.numero} · {f.dias} d
                   </Badge>
@@ -43,12 +68,40 @@ export function CarteraTable({ clientes }: { clientes: ClienteCarteraVista[] }) 
         </div>
       ),
     },
-    { header: "Saldo", className: "text-right", cell: (c) => <span className="font-mono font-semibold">{formatoMoneda.format(c.saldoTotal)}</span> },
-    { header: "Más antigua", className: "text-right", cell: (c) => <span className="font-mono">{c.diasMasAntigua} días</span> },
-    { header: "0–30", className: "text-right", cell: (c) => monto(c.porRango["0-30"]) },
-    { header: "31–60", className: "text-right", cell: (c) => monto(c.porRango["31-60"]) },
-    { header: "61–90", className: "text-right", cell: (c) => monto(c.porRango["61-90"]) },
-    { header: "> 90", className: "text-right", cell: (c) => monto(c.porRango["90+"], true) },
+    {
+      header: "Saldo",
+      className: "text-right",
+      cell: (c) => (
+        <span className="font-mono font-semibold">
+          {formatoMoneda.format(c.saldoTotal)}
+        </span>
+      ),
+    },
+    {
+      header: "Más antigua",
+      className: "text-right",
+      cell: (c) => <span className="font-mono">{c.diasMasAntigua} días</span>,
+    },
+    {
+      header: "0–30",
+      className: "text-right",
+      cell: (c) => monto(c.porRango["0-30"]),
+    },
+    {
+      header: "31–60",
+      className: "text-right",
+      cell: (c) => monto(c.porRango["31-60"]),
+    },
+    {
+      header: "61–90",
+      className: "text-right",
+      cell: (c) => monto(c.porRango["61-90"]),
+    },
+    {
+      header: "> 90",
+      className: "text-right",
+      cell: (c) => monto(c.porRango["90+"], true),
+    },
     {
       header: "",
       className: "text-right",
@@ -56,16 +109,27 @@ export function CarteraTable({ clientes }: { clientes: ClienteCarteraVista[] }) 
         <div className="flex flex-wrap items-center justify-end gap-2">
           {c.facturas
             .filter((f) => f.origen === "MOSTRADOR")
-            .map((f) => (
-              <Link
-                key={f.facturaId}
-                href={`/mostrador?tab=ventas&venta=${f.facturaId}`}
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                Cobrar M-{f.numero}
-              </Link>
-            ))}
-          {c.clienteId === CONSUMIDOR_FINAL_ID ? null : <CobrarWhatsappButton urlWhatsapp={c.urlWhatsapp} />}
+            .map((f) =>
+              puedeCobrarMostrador ? (
+                <Link
+                  key={f.facturaId}
+                  href={`/mostrador?tab=ventas&venta=${f.facturaId}`}
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  Cobrar M-{f.numero}
+                </Link>
+              ) : (
+                <span
+                  key={f.facturaId}
+                  className="text-sm text-muted-foreground"
+                >
+                  M-{f.numero}
+                </span>
+              ),
+            )}
+          {c.clienteId === CONSUMIDOR_FINAL_ID ? null : (
+            <CobrarWhatsappButton urlWhatsapp={c.urlWhatsapp} />
+          )}
         </div>
       ),
     },

@@ -149,6 +149,7 @@ export function VenderMostrador({
     );
     datos.set("pagos", JSON.stringify(pagos));
     datos.set("descuento", String(totales.descuento));
+    datos.set("totalEsperado", String(totales.total));
     if (cliente) datos.set("clienteId", cliente.id);
     if (recibidoEfectivo !== null) datos.set("recibidoEfectivo", String(recibidoEfectivo));
     startTransition(() => formAction(datos));

@@ -45,6 +45,17 @@ describe("CarteraTable", () => {
     expect(screen.getByRole("button", { name: /Cobrar por WhatsApp/ })).toBeEnabled();
   });
 
+  it("con otra sede seleccionada muestra M-N sin enlace de cobro", () => {
+    render(
+      <CarteraTable
+        puedeCobrarMostrador={false}
+        clientes={[cliente("c1", "Ana", null, [{ id: "v1", numero: 5, origen: "MOSTRADOR" }])]}
+      />,
+    );
+    expect(screen.queryByRole("link", { name: "Cobrar M-5" })).not.toBeInTheDocument();
+    expect(screen.getByText("M-5")).toBeInTheDocument();
+  });
+
   it("Consumidor final no tiene WhatsApp pero sí enlace de cobro", () => {
     render(<CarteraTable clientes={[cliente(CONSUMIDOR_FINAL_ID, "Consumidor final", null, [{ id: "v2", numero: 6, origen: "MOSTRADOR" }])]} />);
     expect(screen.getByText("Consumidor final")).toBeInTheDocument();

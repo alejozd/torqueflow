@@ -98,6 +98,7 @@ describe("VenderMostrador", () => {
     ]);
     expect(JSON.parse(String(datos.get("pagos")))).toEqual([{ metodoPago: "EFECTIVO", monto: 113050 }]);
     expect(datos.get("descuento")).toBe("5000");
+    expect(datos.get("totalEsperado")).toBe("113050");
     expect(datos.get("recibidoEfectivo")).toBe("120000");
     expect(datos.get("clienteId")).toBeNull();
 

@@ -37,8 +37,9 @@ export function resumirPagos(total: number, pagos: PagoEntrada[], recibidoEfecti
   if (suma > total) return fallo("Los pagos suman más que el total");
 
   // Los pagos son netos (lo que se queda en el taller); las vueltas solo salen de lo recibido.
+  // Sin pago en efectivo no hay nada que recibir ni devolver: se ignora lo recibido.
   let vueltas = 0;
-  if (recibidoEfectivo !== null) {
+  if (recibidoEfectivo !== null && efectivo > 0) {
     if (recibidoEfectivo < efectivo) return fallo("Lo recibido en efectivo es menor que el pago en efectivo");
     vueltas = roundMoney(recibidoEfectivo - efectivo);
   }

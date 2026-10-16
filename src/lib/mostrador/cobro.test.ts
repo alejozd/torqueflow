@@ -58,8 +58,10 @@ describe("resumirPagos", () => {
     expect(r.error).toBe("Lo recibido en efectivo es menor que el pago en efectivo");
   });
 
-  it("lo recibido sin pago en efectivo se devuelve entero como vueltas", () => {
-    expect(resumirPagos(100000, [{ metodoPago: "TARJETA", monto: 100000 }], 50000).vueltas).toBe(50000);
+  it("lo recibido se ignora si no hay pago en efectivo", () => {
+    const r = resumirPagos(100000, [{ metodoPago: "TARJETA", monto: 100000 }], 50000);
+    expect(r.error).toBeNull();
+    expect(r.vueltas).toBe(0);
   });
 });
 

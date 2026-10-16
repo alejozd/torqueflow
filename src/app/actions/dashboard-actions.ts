@@ -95,6 +95,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     ordenesRecientes,
     citasHoyRows,
     facturasUltimos14Dias,
+    carteraMostradorAgg,
   ] = await Promise.all([
     tenantDb.ordenTrabajo.count({
       where: { ...scopeOrden(sedeActivaId), estado: { in: ["BORRADOR", "EN_PROCESO", "TERMINADA"] } },
@@ -160,6 +161,11 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       where: { ...scopeFactura(sedeActivaId), createdAt: { gte: rangoUltimos14Dias.gte, lt: rangoUltimos14Dias.lt } },
       select: { createdAt: true, total: true, saldoPendiente: true },
     }),
+    // La cartera del Inicio incluye lo que los clientes deben del mostrador, igual que /cartera.
+    tenantDb.ventaMostrador.aggregate({
+      where: { sedeId: sedeActivaId, estado: "PENDIENTE", saldoPendiente: { gt: 0 } },
+      _sum: { saldoPendiente: true },
+    }),
   ]);
 
   return {
@@ -181,7 +187,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       ),
     },
     cartera: {
-      saldoPendiente: Number(carteraAgg._sum.saldoPendiente ?? 0),
+      saldoPendiente: Number(carteraAgg._sum.saldoPendiente ?? 0) + Number(carteraMostradorAgg._sum.saldoPendiente ?? 0),
       facturasPendientes: facturasPendientesCount,
     },
     flujo: {

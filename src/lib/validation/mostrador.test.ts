@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { devolucionMostradorInputSchema, lineaVentaSchema, ventaMostradorInputSchema } from "./mostrador";
+import { cobroVentaSchema, devolucionMostradorInputSchema, lineaVentaSchema, ventaMostradorInputSchema } from "./mostrador";
 import { abonoProveedorSchema } from "./compras";
 
 const linea = { descripcion: "Filtro de aceite", cantidad: "2", precioUnitario: "25000" };
@@ -31,6 +31,7 @@ describe("ventaMostradorInputSchema", () => {
       clienteId: "",
       lineas: [linea],
       descuento: "",
+      totalEsperado: "1000",
       pagos: [{ metodoPago: "EFECTIVO", monto: "1000" }],
     });
 
@@ -40,8 +41,20 @@ describe("ventaMostradorInputSchema", () => {
     expect(venta.lineas).toHaveLength(1);
   });
 
+  it("el monto de un abono tampoco admite más de 2 decimales", () => {
+    expect(cobroVentaSchema.safeParse({ monto: "10.005", metodoPago: "EFECTIVO" }).success).toBe(false);
+    expect(cobroVentaSchema.safeParse({ monto: "10.05", metodoPago: "EFECTIVO" }).success).toBe(true);
+  });
+
+  it("exige el total esperado con a lo sumo 2 decimales", () => {
+    const base = { lineas: [linea], pagos: [] };
+    expect(ventaMostradorInputSchema.safeParse(base).success).toBe(false);
+    expect(ventaMostradorInputSchema.safeParse({ ...base, totalEsperado: "10.005" }).success).toBe(false);
+    expect(ventaMostradorInputSchema.safeParse({ ...base, totalEsperado: "59500" }).success).toBe(true);
+  });
+
   it("rechaza montos con más de 2 decimales", () => {
-    const base = { lineas: [linea] };
+    const base = { lineas: [linea], totalEsperado: "0" };
     expect(ventaMostradorInputSchema.safeParse({ ...base, pagos: [{ metodoPago: "EFECTIVO", monto: "10.005" }] }).success).toBe(false);
     expect(ventaMostradorInputSchema.safeParse({ ...base, pagos: [], recibidoEfectivo: "10.005" }).success).toBe(false);
     expect(ventaMostradorInputSchema.safeParse({ ...base, pagos: [{ metodoPago: "EFECTIVO", monto: "10.05" }] }).success).toBe(true);

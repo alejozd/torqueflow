@@ -85,6 +85,7 @@ function venta(cambios: Record<string, string> = {}) {
   return fd({
     lineas: JSON.stringify([LINEA]),
     descuento: "",
+    totalEsperado: "59500",
     pagos: JSON.stringify(PAGO_TOTAL),
     ...cambios,
   });
@@ -158,7 +159,7 @@ describe("crearVentaMostradorAction", () => {
   it("una línea libre conserva el precio y la descripción que se escribieron", async () => {
     const libre = { descripcion: "Lavado de motor", cantidad: 1, precioUnitario: 40000 };
 
-    await crearVentaMostradorAction(inicial, venta({ lineas: JSON.stringify([libre]), pagos: JSON.stringify([{ metodoPago: "EFECTIVO", monto: 47600 }]) }));
+    await crearVentaMostradorAction(inicial, venta({ lineas: JSON.stringify([libre]), totalEsperado: "47600", pagos: JSON.stringify([{ metodoPago: "EFECTIVO", monto: 47600 }]) }));
 
     expect(tx.ventaMostrador.create.mock.calls[0]![0].data.items.create).toEqual([
       { repuestoId: null, descripcion: "Lavado de motor", cantidad: 1, precioUnitario: 40000 },
@@ -181,7 +182,7 @@ describe("crearVentaMostradorAction", () => {
   it("agrega las líneas repetidas del mismo repuesto antes de tocar el stock", async () => {
     await crearVentaMostradorAction(
       inicial,
-      venta({ lineas: JSON.stringify([LINEA, { ...LINEA, cantidad: 3 }]), clienteId: "cli1" }),
+      venta({ lineas: JSON.stringify([LINEA, { ...LINEA, cantidad: 3 }]), totalEsperado: "148750", clienteId: "cli1" }),
     );
 
     expect(tx.repuesto.updateMany).toHaveBeenCalledTimes(1);
@@ -307,6 +308,35 @@ describe("crearVentaMostradorAction", () => {
     expect(r.error).toBe("Cliente no encontrado");
   });
 
+  it("rechaza la venta si el total que vio el cajero ya no es el del servidor, sin tocar stock ni pagos", async () => {
+    const r = await crearVentaMostradorAction(inicial, venta({ totalEsperado: "50000" }));
+
+    expect(r).toEqual({ error: "Los precios cambiaron: revisa el carrito y vuelve a cobrar", success: false });
+    expect(tx.repuesto.updateMany).not.toHaveBeenCalled();
+    expect(tx.ventaMostrador.create).not.toHaveBeenCalled();
+    expect(tx.pagoVentaMostrador.create).not.toHaveBeenCalled();
+  });
+
+  it("acepta la venta cuando el total esperado coincide con el del servidor", async () => {
+    const r = await crearVentaMostradorAction(inicial, venta({ totalEsperado: "59500.00" }));
+
+    expect(r.error).toBeNull();
+    expect(tx.ventaMostrador.create).toHaveBeenCalled();
+  });
+
+  it("ignora lo recibido en efectivo si no hay pago en efectivo", async () => {
+    const r = await crearVentaMostradorAction(
+      inicial,
+      venta({ pagos: JSON.stringify([{ metodoPago: "TARJETA", monto: 59500 }]), recibidoEfectivo: "100000" }),
+    );
+
+    expect(r.error).toBeNull();
+    expect(r.vueltas).toBe(0);
+    const creada = tx.ventaMostrador.create.mock.calls[0]![0].data;
+    expect(creada.recibidoEfectivo).toBeNull();
+    expect(Number(creada.vueltas)).toBe(0);
+  });
+
   it("rechaza un descuento mayor que el subtotal (daría un total negativo)", async () => {
     const r = await crearVentaMostradorAction(inicial, venta({ descuento: "60000" }));
 
@@ -394,18 +424,18 @@ describe("crearVentaMostradorAction", () => {
     // 10 % de 50.000 = 5.000; 6.000 es 12 %. Total = (50.000 - 6.000) * 1,19 = 52.360.
     const pagos = JSON.stringify([{ metodoPago: "TARJETA", monto: 52360 }]);
 
-    const rechazada = await crearVentaMostradorAction(inicial, venta({ descuento: "6000", pagos }));
+    const rechazada = await crearVentaMostradorAction(inicial, venta({ descuento: "6000", totalEsperado: "52360", pagos }));
     expect(rechazada.error).toBe("Tu descuento máximo es 10 %");
     expect(tx.ventaMostrador.create).not.toHaveBeenCalled();
 
     mockRequireRole.mockResolvedValue({ user: { ...SESION.user, role: "ADMIN" } });
-    const admin = await crearVentaMostradorAction(inicial, venta({ descuento: "6000", pagos }));
+    const admin = await crearVentaMostradorAction(inicial, venta({ descuento: "6000", totalEsperado: "52360", pagos }));
     expect(admin.error).toBeNull();
   });
 
   it("RECEPCION puede dar el descuento justo en el tope", async () => {
     const pagos = JSON.stringify([{ metodoPago: "TARJETA", monto: 53550 }]);
-    const r = await crearVentaMostradorAction(inicial, venta({ descuento: "5000", pagos }));
+    const r = await crearVentaMostradorAction(inicial, venta({ descuento: "5000", totalEsperado: "53550", pagos }));
     expect(r.error).toBeNull();
   });
 
@@ -703,6 +733,12 @@ describe("enviarComprobanteCorreoAction", () => {
     db.ventaMostrador.findFirst.mockResolvedValue(VENTA_GUARDADA);
     db.configuracionSmtp.findUnique.mockResolvedValue({ id: "smtp", activo: true, host: "smtp.x", fromNombre: "Taller" });
     mockEnviarEmail.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("rechaza ids que no son texto o vienen vacíos", async () => {
+    expect((await enviarComprobanteCorreoAction("")).error).toBe("Venta no encontrada");
+    expect((await enviarComprobanteCorreoAction(undefined as unknown as string)).error).toBe("Venta no encontrada");
+    expect(db.ventaMostrador.findFirst).not.toHaveBeenCalled();
   });
 
   it("manda el comprobante al correo del cliente por el SMTP del taller", async () => {

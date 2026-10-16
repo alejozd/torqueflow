@@ -98,7 +98,7 @@ export default async function CarteraPage({ searchParams }: { searchParams: Prom
           <CardTitle>Saldos por cliente</CardTitle>
         </CardHeader>
         <CardContent>
-          <CarteraTable clientes={cartera.clientes} />
+          <CarteraTable clientes={cartera.clientes} puedeCobrarMostrador={cartera.sedeId === session.user.sedeActivaId} />
         </CardContent>
       </Card>
     </main>

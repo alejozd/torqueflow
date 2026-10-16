@@ -33,6 +33,7 @@ import {
 } from "@/lib/mostrador/listado-ventas";
 import { puedeDevolver, ventaEnCajaCerrada } from "@/lib/mostrador/plazo-devolucion";
 import { calcularTotalesVenta } from "@/lib/mostrador/ventas";
+import { roundMoney } from "@/lib/money/round";
 import { scopeRepuesto } from "@/lib/sede/scope";
 import { cobroVentaSchema, ventaMostradorInputSchema, type VentaMostradorInput } from "@/lib/validation/mostrador";
 import { urlWhatsapp } from "@/lib/whatsapp/url";
@@ -94,6 +95,7 @@ function leerVenta(formData: FormData): { datos: VentaMostradorInput } | { error
     lineas,
     descuento: formData.get("descuento") ?? "",
     pagos,
+    totalEsperado: formData.get("totalEsperado") ?? "",
     recibidoEfectivo: formData.get("recibidoEfectivo") ?? "",
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -158,6 +160,12 @@ export async function crearVentaMostradorAction(
   if (datos.descuento > subtotal) return { error: "El descuento no puede ser mayor que el subtotal", success: false };
   const totales = calcularTotalesVenta(lineas, datos.descuento);
 
+  // El total que vio el cajero debe ser el del servidor: si un precio cambió entre el
+  // carrito y el cobro, los pagos ya no cubren lo mismo (y quedaría crédito sin avisar).
+  if (roundMoney(datos.totalEsperado) !== totales.total) {
+    return { error: "Los precios cambiaron: revisa el carrito y vuelve a cobrar", success: false };
+  }
+
   // El tope de descuento de recepción se mide con el subtotal a precios del servidor.
   if (session.user.role === "RECEPCION") {
     const { descuentoMaxRecepcion } = await leerOpcionesTaller(tenantDb);
@@ -208,7 +216,7 @@ export async function crearVentaMostradorAction(
           iva: totales.iva,
           total: totales.total,
           saldoPendiente: resumen.saldo,
-          recibidoEfectivo: datos.recibidoEfectivo ?? null,
+          recibidoEfectivo: hayEfectivo ? (datos.recibidoEfectivo ?? null) : null,
           vueltas: resumen.vueltas,
           estado: resumen.saldo === 0 ? "PAGADA" : "PENDIENTE",
           creadoPorId: session.user.id,
@@ -378,6 +386,7 @@ export interface EnviarComprobanteState {
 /** Manda el comprobante al correo del cliente por el SMTP del taller (como la cotización). */
 export async function enviarComprobanteCorreoAction(ventaId: string): Promise<EnviarComprobanteState> {
   const session = await requireRole(ROLES_MOSTRADOR);
+  if (typeof ventaId !== "string" || ventaId === "") return { error: "Venta no encontrada", success: false };
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const comprobante = await cargarComprobante(session.user.tenantSchema, tenantDb, session.user.sedeActivaId, ventaId);
