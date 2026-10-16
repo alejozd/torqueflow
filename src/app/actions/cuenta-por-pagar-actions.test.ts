@@ -10,7 +10,7 @@ vi.mock("@/lib/auth/guards", () => ({
 }));
 
 const tx = {
-  cuentaPorPagar: { updateMany: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
+  cuentaPorPagar: { updateMany: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn(), findMany: vi.fn() },
   pagoProveedor: { create: vi.fn() },
 };
 const db = {
@@ -23,7 +23,7 @@ const db = {
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { abonarCuentaPorPagarAction, getCuentasPorPagar } from "./cuenta-por-pagar-actions";
+import { abonarCuentaPorPagarAction, abonarProveedorAction, getCuentasPorPagar } from "./cuenta-por-pagar-actions";
 
 const SESION = { user: { id: "u1", role: "RECEPCION", tenantSchema: "taller", sedeActivaId: "sede-1" } };
 const inicial = { error: null, success: false };
@@ -267,5 +267,125 @@ describe("getCuentasPorPagar", () => {
     db.cajaSesion.findFirst.mockResolvedValue(null);
 
     expect((await getCuentasPorPagar()).cajaAbierta).toBe(false);
+  });
+});
+
+describe("abonarProveedorAction", () => {
+  const dia = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
+  // Saldos que deja cada guarda, por cuenta (lo que lee `findUniqueOrThrow` después de descontar).
+  const saldosDespues: Record<string, string> = {};
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequireRole.mockResolvedValue(SESION);
+    db.cajaSesion.findFirst.mockResolvedValue({ id: "s1", abiertaAt: new Date() });
+    tx.cuentaPorPagar.findMany.mockResolvedValue([
+      { id: "g1", fecha: dia("2026-08-07"), saldoPendiente: "3948632" },
+      { id: "g2", fecha: dia("2026-09-27"), saldoPendiente: "4029365" },
+      { id: "g3", fecha: dia("2026-10-06"), saldoPendiente: "1815989" },
+    ]);
+    tx.cuentaPorPagar.updateMany.mockResolvedValue({ count: 1 });
+    Object.assign(saldosDespues, { g1: "0", g2: "2977997", g3: "1815989" });
+    tx.cuentaPorPagar.findUniqueOrThrow.mockImplementation(async ({ where }: { where: { id: string } }) => ({
+      saldoPendiente: saldosDespues[where.id],
+    }));
+    tx.pagoProveedor.create.mockResolvedValue({});
+  });
+
+  it("reparte de la más vieja a la más nueva: un abono por cuenta tocada y salda la primera", async () => {
+    const r = await abonarProveedorAction(
+      "prov-gates",
+      { error: null, success: false },
+      fd({ monto: "5000000", metodoPago: "TRANSFERENCIA", referencia: " 004581233 " }),
+    );
+
+    expect(r).toEqual({
+      error: null,
+      success: true,
+      montoRegistrado: 5000000,
+      cuentaIds: ["g1", "g2"],
+      saldoRestante: 4793986,
+    });
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    // Solo lo pendiente del proveedor en la sede activa, de la más vieja a la más nueva.
+    expect(tx.cuentaPorPagar.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          proveedorId: "prov-gates",
+          estado: "PENDIENTE",
+          saldoPendiente: { gt: 0 },
+          entrada: { bodega: { sedeId: "sede-1" } },
+        },
+        orderBy: [{ fecha: "asc" }, { id: "asc" }],
+      }),
+    );
+    expect(tx.cuentaPorPagar.updateMany.mock.calls).toEqual([
+      [{ where: { id: "g1", saldoPendiente: { gte: 3948632 } }, data: { saldoPendiente: { decrement: 3948632 } } }],
+      [{ where: { id: "g2", saldoPendiente: { gte: 1051368 } }, data: { saldoPendiente: { decrement: 1051368 } } }],
+    ]);
+    expect(tx.pagoProveedor.create.mock.calls.map(([arg]) => arg.data)).toEqual([
+      { cuentaId: "g1", monto: 3948632, metodoPago: "TRANSFERENCIA", referencia: "004581233", registradoPorId: "u1" },
+      { cuentaId: "g2", monto: 1051368, metodoPago: "TRANSFERENCIA", referencia: "004581233", registradoPorId: "u1" },
+    ]);
+    // Solo la que llegó a cero queda pagada.
+    expect(tx.cuentaPorPagar.update).toHaveBeenCalledTimes(1);
+    expect(tx.cuentaPorPagar.update).toHaveBeenCalledWith({ where: { id: "g1" }, data: { estado: "PAGADA" } });
+  });
+
+  it("no acepta más de lo que se le debe al proveedor", async () => {
+    const r = await abonarProveedorAction(
+      "prov-gates",
+      { error: null, success: false },
+      fd({ monto: "9793987", metodoPago: "TRANSFERENCIA" }),
+    );
+
+    expect(r.error).toBe("El monto no puede ser mayor a lo que se le debe al proveedor");
+    expect(tx.pagoProveedor.create).not.toHaveBeenCalled();
+  });
+
+  it("si una guarda falla (alguien abonó a la vez) se deshace todo con un aviso", async () => {
+    tx.cuentaPorPagar.updateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+
+    const r = await abonarProveedorAction(
+      "prov-gates",
+      { error: null, success: false },
+      fd({ monto: "5000000", metodoPago: "TRANSFERENCIA" }),
+    );
+
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("Alguien acaba de abonar");
+  });
+
+  it("sin entradas por pagar en la sede no registra nada", async () => {
+    tx.cuentaPorPagar.findMany.mockResolvedValue([]);
+
+    const r = await abonarProveedorAction(
+      "prov-otro",
+      { error: null, success: false },
+      fd({ monto: "1000", metodoPago: "TARJETA" }),
+    );
+
+    expect(r.error).toBe("Ese proveedor no tiene entradas por pagar en esta sede");
+  });
+
+  it("en efectivo revisa la caja una sola vez antes de tocar las cuentas", async () => {
+    db.cajaSesion.findFirst.mockResolvedValue(null);
+
+    const r = await abonarProveedorAction(
+      "prov-gates",
+      { error: null, success: false },
+      fd({ monto: "5000000", metodoPago: "EFECTIVO" }),
+    );
+
+    expect(r.error).toBe("Abre la caja antes de pagar en efectivo a un proveedor");
+    expect(db.cajaSesion.findFirst).toHaveBeenCalledTimes(1);
+    expect(tx.cuentaPorPagar.findMany).not.toHaveBeenCalled();
+  });
+
+  it("valida el monto y el método antes de leer nada", async () => {
+    const r = await abonarProveedorAction("prov-gates", { error: null, success: false }, fd({ monto: "" }));
+
+    expect(r.error).toBe("El monto es obligatorio");
+    expect(mockRequireRole).not.toHaveBeenCalled();
   });
 });

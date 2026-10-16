@@ -55,6 +55,14 @@ describe("ProveedorCuentasLista", () => {
     expect(within(fila).getByText(/Pagado/)).toHaveTextContent("Pagado $ 200.000 de $ 5.073.557");
     expect(within(fila).getByRole("button", { name: /Abonar a la entrada del .* de Pirelli/ })).toBeInTheDocument();
     expect(screen.getByText("1 entrada por pagar · la más vieja hace 42 días")).toBeInTheDocument();
+    // Con una sola entrada no hace falta repartir: no aparece «Abonar al proveedor».
+    expect(screen.queryByRole("button", { name: "Abonar al proveedor" })).not.toBeInTheDocument();
+  });
+
+  it("con dos o más entradas por pagar aparece «Abonar al proveedor»", () => {
+    render(<ProveedorCuentasLista proveedores={[proveedor([cuenta(), cuenta({ cuentaId: "c2" })])]} />);
+
+    expect(screen.getByRole("button", { name: "Abonar al proveedor" })).toBeInTheDocument();
   });
 
   it("una cuenta recién saldada sigue en la lista resaltada, con «✓ Pagada» y sin botón", () => {

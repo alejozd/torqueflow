@@ -5,12 +5,16 @@ import { useRouter } from "next/navigation";
 import { HandCoins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AbonoCuentaDialog, type CuentaAbono } from "./abono-cuenta-dialog";
+import { AbonoProveedorDialog, type ProveedorAbono } from "./abono-proveedor-dialog";
 
 interface ContextoAbonos {
   abrirCuenta: (cuenta: CuentaAbono) => void;
+  abrirProveedor: (proveedor: ProveedorAbono) => void;
 }
 
-const AbonosContext = createContext<ContextoAbonos>({ abrirCuenta: () => {} });
+const AbonosContext = createContext<ContextoAbonos>({ abrirCuenta: () => {}, abrirProveedor: () => {} });
+
+type Abierto = { tipo: "cuenta"; cuenta: CuentaAbono } | { tipo: "proveedor"; proveedor: ProveedorAbono };
 
 /**
  * Un solo diálogo para toda la lista, fuera de las filas: al saldar una cuenta
@@ -28,7 +32,7 @@ export function AbonosProvider({
   children: ReactNode;
 }) {
   const router = useRouter();
-  const [cuenta, setCuenta] = useState<CuentaAbono | null>(null);
+  const [actual, setActual] = useState<Abierto | null>(null);
   const [abierto, setAbierto] = useState(false);
   const [version, setVersion] = useState(0);
 
@@ -41,38 +45,51 @@ export function AbonosProvider({
     window.history.replaceState(window.history.state, "", url);
   }, [abonadas]);
 
-  // Con `?abonada=` la página mantiene la fila aunque haya quedado pagada (nada se esconde sin aviso).
-  const marcarAbonada = useCallback(
-    (cuentaId: string) => {
-      const ids = [...new Set([...abonadas, cuentaId])];
+  // Con `?abonada=` la página mantiene las filas aunque hayan quedado pagadas (nada se esconde sin aviso).
+  const marcarAbonadas = useCallback(
+    (cuentaIds: string[]) => {
+      const ids = [...new Set([...abonadas, ...cuentaIds])];
       router.replace(`/cuentas-por-pagar?abonada=${ids.map(encodeURIComponent).join(",")}`, { scroll: false });
     },
     [abonadas, router],
   );
+  const marcarAbonada = useCallback((cuentaId: string) => marcarAbonadas([cuentaId]), [marcarAbonadas]);
+
+  function abrir(nuevo: Abierto) {
+    setActual(nuevo);
+    setVersion((v) => v + 1);
+    setAbierto(true);
+  }
 
   return (
     <AbonosContext.Provider
       value={{
-        abrirCuenta: (nueva) => {
-          setCuenta(nueva);
-          setVersion((v) => v + 1);
-          setAbierto(true);
-        },
+        abrirCuenta: (cuenta) => abrir({ tipo: "cuenta", cuenta }),
+        abrirProveedor: (proveedor) => abrir({ tipo: "proveedor", proveedor }),
       }}
     >
       {children}
-      {cuenta ? (
+      {actual?.tipo === "cuenta" ? (
         <AbonoCuentaDialog
-          cuenta={cuenta}
+          cuenta={actual.cuenta}
           version={version}
           cajaAbierta={cajaAbierta}
           open={abierto}
           onOpenChange={setAbierto}
           onRegistrado={marcarAbonada}
           onOtroAbono={(actualizada) => {
-            setCuenta(actualizada);
+            setActual({ tipo: "cuenta", cuenta: actualizada });
             setVersion((v) => v + 1);
           }}
+        />
+      ) : actual?.tipo === "proveedor" ? (
+        <AbonoProveedorDialog
+          proveedor={actual.proveedor}
+          version={version}
+          cajaAbierta={cajaAbierta}
+          open={abierto}
+          onOpenChange={setAbierto}
+          onRegistrado={marcarAbonadas}
         />
       ) : null}
     </AbonosContext.Provider>
@@ -93,6 +110,23 @@ export function BotonAbonar({ cuenta }: { cuenta: CuentaAbono }) {
     >
       <HandCoins aria-hidden />
       Abonar
+    </Button>
+  );
+}
+
+/** «Abonar al proveedor»: un pago repartido entre sus entradas (solo con dos o más por pagar). */
+export function BotonAbonarProveedor({ proveedor }: { proveedor: ProveedorAbono }) {
+  const { abrirProveedor } = useContext(AbonosContext);
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={() => abrirProveedor(proveedor)}
+      title="Reparte un pago entre varias entradas, de la más vieja a la más nueva"
+    >
+      <HandCoins aria-hidden />
+      Abonar al proveedor
     </Button>
   );
 }

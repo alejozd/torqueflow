@@ -14,7 +14,8 @@ import {
   type CuentaPorPagarFila,
   type ProveedorCuentas,
 } from "@/lib/proveedores/cuentas-por-pagar";
-import { abonoProveedorSchema } from "@/lib/validation/compras";
+import { repartirAbono } from "@/lib/proveedores/repartir-abono";
+import { abonoAProveedorSchema, abonoProveedorSchema } from "@/lib/validation/compras";
 import type { Prisma, Role } from "@/generated/prisma-tenant";
 
 /**
@@ -108,6 +109,124 @@ export async function abonarCuentaPorPagarAction(
   revalidatePath("/cuentas-por-pagar");
   revalidatePath("/proveedores");
   return { error: null, success: true, montoRegistrado: parsed.data.monto, saldoRestante, cuentaId };
+}
+
+export interface AbonoProveedorFormState {
+  error: string | null;
+  success: boolean;
+  /** Al registrar: lo abonado, las cuentas que tocó y lo que le queda debiendo al proveedor. */
+  montoRegistrado?: number;
+  cuentaIds?: string[];
+  saldoRestante?: number;
+}
+
+const SIN_CUENTAS = "SIN_CUENTAS";
+const MAS_DE_LO_DEBIDO = "MAS_DE_LO_DEBIDO";
+
+/**
+ * «Abonar al proveedor»: un pago repartido entre sus entradas por pagar de la
+ * sede, de la más vieja a la más nueva (`repartirAbono`). Todo en **una**
+ * transacción: un `PagoProveedor` por cuenta tocada, cada uno con la misma
+ * guarda atómica del abono suelto; si alguna falla, no queda ningún abono a medias.
+ */
+export async function abonarProveedorAction(
+  proveedorId: string,
+  prevState: AbonoProveedorFormState,
+  formData: FormData,
+): Promise<AbonoProveedorFormState> {
+  void prevState;
+  const parsed = abonoAProveedorSchema.safeParse({
+    proveedorId,
+    monto: formData.get("monto"),
+    metodoPago: formData.get("metodoPago") ?? "",
+    referencia: formData.get("referencia") ?? "",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
+
+  const session = await requireRole(ROLES_ABONO);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  const sedeId = session.user.sedeActivaId;
+
+  // La caja se revisa una sola vez: es un solo pago, aunque se reparta.
+  const errorCaja = await exigirCajaParaEfectivo(
+    tenantDb,
+    sedeId,
+    parsed.data.metodoPago,
+    "Abre la caja antes de pagar en efectivo a un proveedor",
+  );
+  if (errorCaja) return { error: errorCaja, success: false };
+
+  let resultado: { cuentaIds: string[]; saldoRestante: number };
+  try {
+    resultado = await tenantDb.$transaction(async (tx) => {
+      const cuentas = await tx.cuentaPorPagar.findMany({
+        where: {
+          proveedorId,
+          estado: "PENDIENTE",
+          saldoPendiente: { gt: 0 },
+          entrada: { bodega: { sedeId } },
+        },
+        select: { id: true, fecha: true, saldoPendiente: true },
+        orderBy: [{ fecha: "asc" }, { id: "asc" }],
+      });
+      if (cuentas.length === 0) throw new Error(SIN_CUENTAS);
+
+      const deuda = roundMoney(cuentas.reduce((suma, cuenta) => suma + Number(cuenta.saldoPendiente), 0));
+      if (parsed.data.monto > deuda) throw new Error(MAS_DE_LO_DEBIDO);
+
+      const reparto = repartirAbono(
+        cuentas.map((cuenta) => ({ cuentaId: cuenta.id, fecha: cuenta.fecha, saldo: Number(cuenta.saldoPendiente) })),
+        parsed.data.monto,
+      );
+
+      const cuentaIds: string[] = [];
+      for (const porcion of reparto) {
+        if (porcion.recibe <= 0) continue;
+        // Guarda atómica: si alguien abonó a esta cuenta mientras tanto, se deshace todo.
+        const { count } = await tx.cuentaPorPagar.updateMany({
+          where: { id: porcion.cuentaId, saldoPendiente: { gte: porcion.recibe } },
+          data: { saldoPendiente: { decrement: porcion.recibe } },
+        });
+        if (count === 0) throw new Error(SALDO_INSUFICIENTE);
+
+        await tx.pagoProveedor.create({
+          data: {
+            cuentaId: porcion.cuentaId,
+            monto: porcion.recibe,
+            metodoPago: parsed.data.metodoPago,
+            referencia: parsed.data.referencia ?? null,
+            registradoPorId: session.user.id,
+          },
+        });
+
+        const actualizada = await tx.cuentaPorPagar.findUniqueOrThrow({
+          where: { id: porcion.cuentaId },
+          select: { saldoPendiente: true },
+        });
+        if (Number(actualizada.saldoPendiente) <= 0) {
+          await tx.cuentaPorPagar.update({ where: { id: porcion.cuentaId }, data: { estado: "PAGADA" } });
+        }
+        cuentaIds.push(porcion.cuentaId);
+      }
+
+      return { cuentaIds, saldoRestante: roundMoney(deuda - parsed.data.monto) };
+    });
+  } catch (err) {
+    if (err instanceof Error && err.message === SIN_CUENTAS) {
+      return { error: "Ese proveedor no tiene entradas por pagar en esta sede", success: false };
+    }
+    if (err instanceof Error && err.message === MAS_DE_LO_DEBIDO) {
+      return { error: "El monto no puede ser mayor a lo que se le debe al proveedor", success: false };
+    }
+    if (err instanceof Error && err.message === SALDO_INSUFICIENTE) {
+      return { error: "Alguien acaba de abonar a una de estas entradas. Vuelve a abrir el diálogo", success: false };
+    }
+    return { error: friendlyPrismaErrorMessage(err, "No se pudo registrar el abono"), success: false };
+  }
+
+  revalidatePath("/cuentas-por-pagar");
+  revalidatePath("/proveedores");
+  return { error: null, success: true, montoRegistrado: parsed.data.monto, ...resultado };
 }
 
 export type FiltroCuentasPorPagar = "pendientes" | "pagadas";

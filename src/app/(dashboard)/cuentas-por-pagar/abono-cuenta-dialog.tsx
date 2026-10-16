@@ -9,7 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { BarraAbono, CampoMonto, ChipMonto, SelectorMetodo } from "./campos-abono";
+import {
+  AvisoEfectivo,
+  BarraAbono,
+  CampoMonto,
+  ChipMonto,
+  esErrorDeCaja,
+  METODO_EN_FRASE,
+  SelectorMetodo,
+} from "./campos-abono";
 import { PUNTO, TEXTO_VERDE, pesos, plural, type MetodoPagoAbono } from "./presentacion";
 
 /** Lo que el diálogo necesita de la fila (ya serializable para pasar del servidor). */
@@ -114,7 +122,7 @@ function FormularioAbono({
   const pagaTodo = monto !== null && !excede && queda <= 0;
   // La caja cerrada se avisa antes de enviar; el error del servidor sigue siendo la
   // protección final (alguien pudo cerrarla mientras el diálogo estaba abierto).
-  const errorDeCaja = state.error !== null && /caja/i.test(state.error);
+  const errorDeCaja = esErrorDeCaja(state.error);
   const efectivoBloqueado = metodo === "EFECTIVO" && (!cajaAbierta || errorDeCaja);
   const puedeEnviar = monto !== null && monto > 0 && !excede && !efectivoBloqueado && !isPending;
 
@@ -224,27 +232,11 @@ function FormularioAbono({
         <div>
           <span className="mb-1.5 block text-sm font-semibold">¿Cómo le pagas?</span>
           <SelectorMetodo metodo={metodo} onCambio={setMetodo} />
-          {efectivoBloqueado ? (
-            <div
-              role="alert"
-              className="mt-2 flex items-start gap-2 rounded-lg bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive"
-            >
-              <span className={cn("mt-1 size-1.5 shrink-0 rounded-full", PUNTO.rojo)} aria-hidden />
-              <span>
-                {errorDeCaja && state.error
-                  ? `${state.error}, o elige otro método.`
-                  : "La caja está cerrada. Ábrela antes de pagar en efectivo a un proveedor, o elige otro método."}{" "}
-                <Link href="/caja" className="font-semibold underline-offset-2 hover:underline">
-                  Abrir caja →
-                </Link>
-              </span>
-            </div>
-          ) : metodo === "EFECTIVO" ? (
-            <p className="mt-2 flex items-start gap-2 rounded-lg bg-[oklch(0.62_0.12_255/0.10)] px-2.5 py-1.5 text-xs">
-              <span className={cn("mt-1 size-1.5 shrink-0 rounded-full", PUNTO.azul)} aria-hidden />
-              El dinero sale de la caja abierta y queda anotado como salida.
-            </p>
-          ) : null}
+          <AvisoEfectivo
+            metodo={metodo}
+            bloqueado={efectivoBloqueado}
+            errorServidor={errorDeCaja ? state.error : null}
+          />
         </div>
 
         <div>
@@ -307,13 +299,6 @@ function FormularioAbono({
     </form>
   );
 }
-
-const METODO_EN_FRASE: Record<MetodoPagoAbono, string> = {
-  TRANSFERENCIA: "transferencia",
-  EFECTIVO: "efectivo",
-  TARJETA: "tarjeta",
-  OTRO: "otro método",
-};
 
 /** El contenido del diálogo después de registrar: qué se pagó y cómo quedó la entrada. */
 function ExitoAbono({

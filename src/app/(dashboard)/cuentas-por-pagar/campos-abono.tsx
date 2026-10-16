@@ -1,8 +1,9 @@
 "use client";
 
 import type { ReactNode, Ref } from "react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { METODOS_PAGO, type MetodoPagoAbono } from "./presentacion";
+import { METODOS_PAGO, PUNTO, type MetodoPagoAbono } from "./presentacion";
 
 /**
  * Piezas comunes de los dos diálogos de abono (a una entrada y al proveedor):
@@ -139,3 +140,88 @@ export function BarraAbono({ pagado, abono, total }: { pagado: number; abono: nu
     </div>
   );
 }
+
+/** El servidor rechaza el efectivo con la caja cerrada (`exigirCajaParaEfectivo`); su mensaje habla de la caja. */
+export function esErrorDeCaja(error: string | null): boolean {
+  return error !== null && /caja/i.test(error);
+}
+
+/**
+ * Junto al método: en efectivo, de dónde sale el dinero; con la caja cerrada, la
+ * alerta roja con el enlace para abrirla (o el mensaje del servidor, si llegó a responder).
+ */
+export function AvisoEfectivo({
+  metodo,
+  bloqueado,
+  errorServidor,
+}: {
+  metodo: MetodoPagoAbono;
+  bloqueado: boolean;
+  errorServidor: string | null;
+}) {
+  if (bloqueado) {
+    return (
+      <div
+        role="alert"
+        className="mt-2 flex items-start gap-2 rounded-lg bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive"
+      >
+        <span className={cn("mt-1 size-1.5 shrink-0 rounded-full", PUNTO.rojo)} aria-hidden />
+        <span>
+          {errorServidor
+            ? `${errorServidor}, o elige otro método.`
+            : "La caja está cerrada. Ábrela antes de pagar en efectivo a un proveedor, o elige otro método."}{" "}
+          <Link href="/caja" className="font-semibold underline-offset-2 hover:underline">
+            Abrir caja →
+          </Link>
+        </span>
+      </div>
+    );
+  }
+  if (metodo !== "EFECTIVO") return null;
+  return (
+    <p className="mt-2 flex items-start gap-2 rounded-lg bg-[oklch(0.62_0.12_255/0.10)] px-2.5 py-1.5 text-xs">
+      <span className={cn("mt-1 size-1.5 shrink-0 rounded-full", PUNTO.azul)} aria-hidden />
+      El dinero sale de la caja abierta y queda anotado como salida.
+    </p>
+  );
+}
+
+/** Referencia opcional (nro. de transferencia o recibo); viaja como `referencia`. */
+export function CampoReferencia({
+  id,
+  metodo,
+  valor,
+  onCambio,
+}: {
+  id: string;
+  metodo: MetodoPagoAbono;
+  valor: string;
+  onCambio: (valor: string) => void;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1.5 block text-sm font-semibold">
+        Referencia <span className="font-normal text-muted-foreground">(opcional)</span>
+      </label>
+      <input
+        id={id}
+        name="referencia"
+        maxLength={120}
+        value={valor}
+        onChange={(evento) => onCambio(evento.target.value)}
+        placeholder={
+          metodo === "TRANSFERENCIA" ? "Nro. de la transferencia, p. ej. 004581233" : "Nro. de recibo o nota"
+        }
+        className="h-9 w-full rounded-lg border bg-background px-2.5 text-sm transition-shadow outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-primary/15"
+      />
+    </div>
+  );
+}
+
+/** «transferencia», «efectivo»…: para la frase del éxito. */
+export const METODO_EN_FRASE: Record<MetodoPagoAbono, string> = {
+  TRANSFERENCIA: "transferencia",
+  EFECTIVO: "efectivo",
+  TARJETA: "tarjeta",
+  OTRO: "otro método",
+};

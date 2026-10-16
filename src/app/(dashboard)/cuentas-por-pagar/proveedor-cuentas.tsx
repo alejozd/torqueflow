@@ -4,7 +4,7 @@ import { TituloSeccion } from "@/components/titulo-seccion";
 import { Card } from "@/components/ui/card";
 import type { CuentaConAntiguedad, ProveedorCuentas } from "@/lib/proveedores/cuentas-por-pagar";
 import { cn } from "@/lib/utils";
-import { BotonAbonar } from "./abonos-contexto";
+import { BotonAbonar, BotonAbonarProveedor } from "./abonos-contexto";
 import { HistorialAbonos } from "./historial-abonos";
 import {
   esDeHoy,
@@ -90,6 +90,23 @@ function TarjetaProveedor({
               <span className="block text-[11px] text-muted-foreground">Le debes</span>
               <span className="font-mono text-[15px] font-semibold tabular-nums">{pesos(proveedor.saldoTotal)}</span>
             </div>
+            {porPagar >= 2 ? (
+              <BotonAbonarProveedor
+                proveedor={{
+                  proveedorId: proveedor.proveedorId,
+                  proveedorNombre: proveedor.proveedorNombre,
+                  cuentas: proveedor.cuentas
+                    .filter((cuenta) => cuenta.saldo > 0)
+                    .map((cuenta) => ({
+                      cuentaId: cuenta.cuentaId,
+                      fecha: cuenta.fecha,
+                      fechaTexto: fechaCuenta(cuenta.fecha),
+                      dias: cuenta.dias,
+                      saldo: cuenta.saldo,
+                    })),
+                }}
+              />
+            ) : null}
           </div>
         ) : null}
       </div>
