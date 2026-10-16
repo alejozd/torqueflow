@@ -34,6 +34,7 @@ export function BuscadorConceptos<R, S>({
   placeholder,
   etiqueta,
   inputRef,
+  onFlechaArriba,
 }: {
   buscar: (texto: string) => Promise<R>;
   vacio: R;
@@ -43,6 +44,8 @@ export function BuscadorConceptos<R, S>({
   placeholder: string;
   etiqueta: string;
   inputRef?: Ref<HTMLInputElement>;
+  /** ↑ con la lista cerrada (nada que recorrer): el mostrador lo usa para saltar a la última fila del carrito. */
+  onFlechaArriba?: () => void;
 }) {
   const [texto, setTexto] = useState("");
   const [abierto, setAbierto] = useState(false);
@@ -52,6 +55,7 @@ export function BuscadorConceptos<R, S>({
   const [activa, setActiva] = useState(0);
   const [aviso, setAviso] = useState("");
   const ultimaBusqueda = useRef(0);
+  const temporizadorAviso = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listaId = useId();
   const buscando = abierto && textoBuscado !== texto;
 
@@ -76,15 +80,38 @@ export function BuscadorConceptos<R, S>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [texto, abierto]);
 
+  // Que no quede un temporizador de aviso vivo al desmontar.
+  useEffect(
+    () => () => {
+      if (temporizadorAviso.current) clearTimeout(temporizadorAviso.current);
+    },
+    [],
+  );
+
+  function limpiarAviso() {
+    if (temporizadorAviso.current) clearTimeout(temporizadorAviso.current);
+    temporizadorAviso.current = null;
+    setAviso("");
+  }
+
+  /** Vacía y vuelve a poner el texto para que el lector de pantalla lo repita en un intento repetido. */
+  function anunciar(mensaje: string) {
+    limpiarAviso();
+    temporizadorAviso.current = setTimeout(() => {
+      temporizadorAviso.current = null;
+      setAviso(mensaje);
+    }, 50);
+  }
+
   const opciones = aOpciones(resultados, texto);
   const indiceActivo = Math.min(activa, Math.max(opciones.length - 1, 0));
 
   function elegir(opcion: OpcionBuscador<S>) {
     if (opcion.noDisponible) {
-      setAviso(opcion.noDisponible);
+      anunciar(opcion.noDisponible);
       return;
     }
-    setAviso("");
+    limpiarAviso();
     setTexto("");
     setActiva(0);
     setAbierto(false);
@@ -96,10 +123,16 @@ export function BuscadorConceptos<R, S>({
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
+      limpiarAviso();
       setAbierto(true);
       setActiva((i) => Math.min(i + 1, opciones.length - 1));
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
+      limpiarAviso();
+      if ((texto === "" || !mostrarLista) && onFlechaArriba) {
+        onFlechaArriba();
+        return;
+      }
       setActiva((i) => Math.max(i - 1, 0));
     } else if (event.key === "Enter") {
       event.preventDefault();
@@ -109,7 +142,7 @@ export function BuscadorConceptos<R, S>({
       event.preventDefault();
       setAbierto(false);
       setTexto("");
-      setAviso("");
+      limpiarAviso();
     }
   }
 
@@ -138,7 +171,7 @@ export function BuscadorConceptos<R, S>({
             setTexto(event.target.value);
             setActiva(0);
             setAbierto(true);
-            setAviso("");
+            limpiarAviso();
           }}
           onFocus={() => setAbierto(true)}
           onBlur={() => setAbierto(false)}

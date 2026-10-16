@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BuscadorConceptos, type OpcionBuscador } from "./buscador-conceptos";
 
@@ -65,10 +65,48 @@ describe("BuscadorConceptos compartido", () => {
 
     await userEvent.keyboard("{ArrowDown}{Enter}");
     expect(onSeleccionar).not.toHaveBeenCalled();
-    expect(screen.getByRole("status")).toHaveTextContent("Sin unidades libres");
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Sin unidades libres"));
 
     await userEvent.click(sinUnidades);
     expect(onSeleccionar).not.toHaveBeenCalled();
+  });
+
+  it("un intento repetido vuelve a anunciar el aviso (se vacía y se repone) y ↑/↓ lo borran", async () => {
+    pintar();
+    await userEvent.type(screen.getByLabelText("Buscar repuesto"), "filtro");
+    await screen.findByRole("option", { name: "Filtro B" });
+    await userEvent.keyboard("{ArrowDown}{Enter}");
+    const estado = screen.getByRole("status");
+    await waitFor(() => expect(estado).toHaveTextContent("Sin unidades libres"));
+
+    const cambios: string[] = [];
+    const observador = new MutationObserver(() => cambios.push(estado.textContent ?? ""));
+    observador.observe(estado, { childList: true, characterData: true, subtree: true });
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => expect(cambios).toContain(""));
+    await waitFor(() => expect(estado).toHaveTextContent("Sin unidades libres"));
+    observador.disconnect();
+
+    await userEvent.keyboard("{ArrowDown}");
+    expect(estado).toHaveTextContent("");
+  });
+
+  it("↑ con la lista cerrada llama a onFlechaArriba", async () => {
+    const onFlechaArriba = vi.fn();
+    render(
+      <BuscadorConceptos<Fila[], Fila>
+        buscar={async () => FILAS}
+        vacio={[]}
+        aOpciones={aOpciones}
+        onSeleccionar={vi.fn()}
+        placeholder="Buscar"
+        etiqueta="Buscar repuesto"
+        onFlechaArriba={onFlechaArriba}
+      />,
+    );
+    await userEvent.click(screen.getByLabelText("Buscar repuesto"));
+    await userEvent.keyboard("{ArrowUp}");
+    expect(onFlechaArriba).toHaveBeenCalledTimes(1);
   });
 
   it("Esc cierra la lista y limpia el texto", async () => {
