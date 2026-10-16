@@ -24,7 +24,11 @@ export interface FilaVencimiento {
   vehiculoId: string;
   placa: string;
   tipoVehiculo: TipoVehiculoValor;
+  marca: string;
+  modelo: string;
+  anio: number | null;
   clienteNombre: string;
+  clienteTelefono: string | null;
   tipo: TipoDocumento;
   fechaVencimiento: Date;
   diasRestantes: number;
@@ -59,6 +63,9 @@ export async function listVencimientos(): Promise<FilaVencimiento[]> {
       id: true,
       placa: true,
       tipo: true,
+      marca: true,
+      modelo: true,
+      anio: true,
       soatVence: true,
       tecnomecanicaVence: true,
       cliente: { select: { nombre: true, telefono: true } },
@@ -88,7 +95,11 @@ export async function listVencimientos(): Promise<FilaVencimiento[]> {
         vehiculoId: vehiculo.id,
         placa: vehiculo.placa,
         tipoVehiculo: vehiculo.tipo,
+        marca: vehiculo.marca,
+        modelo: vehiculo.modelo,
+        anio: vehiculo.anio,
         clienteNombre: vehiculo.cliente.nombre,
+        clienteTelefono: vehiculo.cliente.telefono,
         tipo,
         fechaVencimiento: fecha,
         diasRestantes: diasHastaVencimiento(fecha, ahora),
