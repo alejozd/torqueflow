@@ -490,7 +490,7 @@ git push -u origin fechas-rediseno
 
 **Files:**
 - Modify: `src/app/(dashboard)/gastos/gasto-dialog.tsx` (~169, RHF `fecha` → tipo `pasado`, `max` = hoy, `obligatorio`)
-- Modify: `src/app/(dashboard)/gastos/recurrentes-pendientes.tsx` (~90, no controlado `name="fecha"` + `defaultValue` → `<CampoFecha name="fecha" defaultValue=… tipo="pasado" obligatorio>`; ojo: hoy el default sale de `pendiente.fechaSugerida.toISOString().slice(0, 10)`, cambiarlo a `formatoDiaBogota.format(pendiente.fechaSugerida)` para no correr el día)
+- Modify: `src/app/(dashboard)/gastos/recurrentes-pendientes.tsx` (~90, no controlado `name="fecha"` + `defaultValue` → `<CampoFecha name="fecha" defaultValue=… tipo="pasado" obligatorio>`; ojo: mantener `pendiente.fechaSugerida.toISOString().slice(0, 10)` porque fechaSugerida es un día de calendario a medianoche UTC; la guía anterior de usar `formatoDiaBogota` era errónea y corre el día)
 - Modify: `src/app/(dashboard)/liquidaciones/pagar-liquidacion-dialog.tsx` (~140, controlado `fecha`/`setFecha` → tipo `pasado`, `max` = hoy, `obligatorio`)
 - Modify: `src/app/(dashboard)/ordenes/[id]/garantias-section.tsx` (~142, controlado `cubreHasta` → tipo `garantia`, `min` = hoy)
 

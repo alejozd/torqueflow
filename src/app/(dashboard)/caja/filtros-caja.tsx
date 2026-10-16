@@ -30,7 +30,7 @@ export function FiltrosCaja({
       ) : null}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="periodo">Mes del historial</Label>
-        <CampoMes id="periodo" name="periodo" defaultValue={periodo} />
+        <CampoMes key={periodo} id="periodo" name="periodo" defaultValue={periodo} />
       </div>
       <Button type="submit">Aplicar</Button>
     </form>

@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { confirmarRecurrenteAction, omitirRecurrenteAction } from "@/app/actions/gasto-recurrente-actions";
 import { ConfirmacionEnLinea } from "@/components/confirmacion-en-linea";
 import { CampoFecha } from "@/components/campo-fecha";
-import { formatoDiaBogota } from "@/lib/fecha-bogota";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -93,7 +92,8 @@ function ConfirmarDialog({ pendiente }: { pendiente: PendienteVista }) {
               name="fecha"
               tipo="pasado"
               obligatorio
-              defaultValue={formatoDiaBogota.format(pendiente.fechaSugerida)}
+              // fechaSugerida es un día de calendario guardado a medianoche UTC: NO se convierte a hora de Bogotá.
+              defaultValue={pendiente.fechaSugerida.toISOString().slice(0, 10)}
               className="w-full"
             />
           </div>

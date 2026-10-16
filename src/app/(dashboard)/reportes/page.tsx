@@ -122,7 +122,7 @@ export default async function ReportesPage({
           <form method="get" action="/reportes" className="flex flex-wrap items-end gap-4">
             <div className="flex w-full flex-col gap-1.5 sm:w-72">
               <Label htmlFor="periodo">Periodo</Label>
-              <RangoFechas id="periodo" defaultDesde={filtros.desde} defaultHasta={filtros.hasta} />
+              <RangoFechas key={`${filtros.desde}|${filtros.hasta}`} id="periodo" defaultDesde={filtros.desde} defaultHasta={filtros.hasta} />
             </div>
 
             {/*

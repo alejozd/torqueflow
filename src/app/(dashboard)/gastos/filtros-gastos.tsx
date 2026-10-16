@@ -25,7 +25,7 @@ export function FiltrosGastos({
     <form method="get" action="/gastos" className="flex flex-wrap items-end gap-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="periodo">Mes</Label>
-        <CampoMes id="periodo" name="periodo" defaultValue={periodo} />
+        <CampoMes key={periodo} id="periodo" name="periodo" defaultValue={periodo} />
       </div>
 
       {sedes ? (
