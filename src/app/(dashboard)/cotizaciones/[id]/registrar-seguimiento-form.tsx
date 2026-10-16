@@ -14,7 +14,7 @@ import { registrarSeguimientoInputSchema } from "@/lib/validation/cotizacion-seg
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { CampoFecha } from "@/components/campo-fecha";
-import { Input } from "@/components/ui/input";
+import { CampoFechaHora } from "@/components/campo-fecha-hora";
 import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
 import { Textarea } from "@/components/ui/textarea";
@@ -128,13 +128,21 @@ export function RegistrarSeguimientoForm({
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="seguimientoFecha">Fecha</Label>
-          <Input
-            id="seguimientoFecha"
-            type="datetime-local"
-            className="font-mono"
-            aria-invalid={errors.fecha ? true : undefined}
-            aria-describedby={errors.fecha ? "seguimientoFecha-error" : undefined}
-            {...register("fecha")}
+          <Controller
+            control={control}
+            name="fecha"
+            render={({ field }) => (
+              <CampoFechaHora
+                id="seguimientoFecha"
+                name="fecha"
+                soloPasado
+                value={typeof field.value === "string" ? field.value : ""}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                invalid={!!errors.fecha}
+                describedBy={errors.fecha ? "seguimientoFecha-error" : undefined}
+              />
+            )}
           />
           {errors.fecha ? <p id="seguimientoFecha-error" className="text-xs text-destructive">{String(errors.fecha.message)}</p> : null}
         </div>
