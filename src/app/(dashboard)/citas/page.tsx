@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
+import { PlacaVehiculo } from "@/components/placa-vehiculo";
 import { inferirColorVehiculo } from "@/lib/color-vehiculo";
 import { cn } from "@/lib/utils";
 import { momentoBogota, ocupacionDeCitas, tiempoRestante } from "@/lib/agenda-cita";
@@ -123,6 +124,8 @@ function capitalizar(texto: string): string {
 interface GrupoDia {
   clave: string;
   etiqueta: string;
+  /** "hoy" se marca en naranja, "ayer" se nombra, el resto de días pasados va en gris. */
+  cuando: "hoy" | "ayer" | "pasado" | "futuro";
   citas: CitaConDetalle[];
 }
 
@@ -132,7 +135,11 @@ interface GrupoDia {
 // order. The day groups themselves are reversed below so the agenda reads
 // most-recent-day-first, matching every other list in the app (Órdenes,
 // Facturas) instead of oldest-first.
-function agruparPorDia(citas: CitaConDetalle[]): GrupoDia[] {
+function agruparPorDia(citas: CitaConDetalle[], ahora: Date): GrupoDia[] {
+  const claveHoy = formatoDiaBogota.format(ahora);
+  const claveAyer = formatoDiaBogota.format(
+    new Date(inicioDiaBogota(ahora).getTime() - 12 * 60 * 60 * 1000),
+  );
   const grupos = new Map<string, CitaConDetalle[]>();
   for (const cita of citas) {
     const clave = formatoDiaBogota.format(cita.fechaHora);
@@ -148,6 +155,14 @@ function agruparPorDia(citas: CitaConDetalle[]): GrupoDia[] {
     .map(([clave, citasDelDia]) => ({
       clave,
       etiqueta: capitalizar(formatoFechaLarga.format(citasDelDia[0].fechaHora)),
+      cuando:
+        clave === claveHoy
+          ? "hoy"
+          : clave === claveAyer
+            ? "ayer"
+            : clave < claveHoy
+              ? "pasado"
+              : "futuro",
       citas: citasDelDia,
     }));
 }
@@ -356,7 +371,7 @@ export default async function CitasPage({
   const finSemanaMostrado = new Date(finSemana.getTime() - 24 * 60 * 60 * 1000);
   const rangoSemanaTexto = `${formatoDiaMes.format(inicioSemana)} al ${formatoDiaMes.format(finSemanaMostrado)}`;
 
-  const grupos = agruparPorDia(filtradas);
+  const grupos = agruparPorDia(filtradas, ahora);
 
   return (
     <main className="flex flex-col gap-6">
@@ -550,10 +565,35 @@ export default async function CitasPage({
               ) : (
                 grupos.map((grupo) => (
                   <div key={grupo.clave} className="flex flex-col gap-2">
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-sm font-semibold text-muted-foreground whitespace-nowrap">
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "size-2.5 shrink-0 rounded-full",
+                          grupo.cuando === "hoy"
+                            ? "bg-primary"
+                            : grupo.cuando === "futuro"
+                              ? "bg-blue-500"
+                              : "bg-muted-foreground/40",
+                        )}
+                      />
+                      <h3
+                        className={cn(
+                          "text-sm font-semibold tracking-wide whitespace-nowrap uppercase",
+                          grupo.cuando === "hoy" || grupo.cuando === "futuro"
+                            ? "text-foreground"
+                            : "text-muted-foreground",
+                        )}
+                      >
                         {grupo.etiqueta}
                       </h3>
+                      {grupo.cuando === "hoy" ? (
+                        <span className="rounded-md border border-primary px-1.5 text-[11px] font-bold text-primary">
+                          HOY
+                        </span>
+                      ) : grupo.cuando === "ayer" ? (
+                        <span className="text-xs text-muted-foreground">Ayer</span>
+                      ) : null}
                       <div className="flex-1 border-t border-border" />
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
                         {grupo.citas.length}{" "}
@@ -561,18 +601,46 @@ export default async function CitasPage({
                       </span>
                     </div>
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 max-w-6xl">
-                      {grupo.citas.map((cita) => (
+                      {grupo.citas.map((cita) => {
+                        // "En 25 min" solo en las citas de hoy que aún no pasan y siguen en pie.
+                        const falta =
+                          grupo.cuando === "hoy" && cita.estado !== "CANCELADA"
+                            ? tiempoRestante(ahora, cita.fechaHora)
+                            : null;
+                        const pronto =
+                          falta !== null &&
+                          cita.fechaHora.getTime() - ahora.getTime() < 60 * 60 * 1000;
+                        return (
                         <Link
                           key={cita.id}
                           href={`/citas/${cita.id}`}
                           className="block"
                         >
-                          <Card className="h-full transition-colors hover:bg-accent/50">
+                          <Card
+                            className={cn(
+                              "h-full transition-colors hover:bg-accent/50",
+                              grupo.cuando === "hoy" && "ring-2 ring-primary/60",
+                            )}
+                          >
                             <CardContent className="flex flex-col gap-2">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="font-mono text-lg font-semibold">
-                                  {formatoHora.format(cita.fechaHora)}
-                                </span>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="font-mono text-lg leading-tight font-semibold">
+                                    {formatoHora.format(cita.fechaHora)}
+                                  </span>
+                                  {falta ? (
+                                    <span
+                                      className={cn(
+                                        "text-xs",
+                                        pronto
+                                          ? "font-semibold text-orange-600 dark:text-orange-400"
+                                          : "text-muted-foreground",
+                                      )}
+                                    >
+                                      {capitalizar(falta)}
+                                    </span>
+                                  ) : null}
+                                </div>
                                 <Badge
                                   variant={ESTADO_BADGE_VARIANT[cita.estado]}
                                   className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[cita.estado])}
@@ -584,16 +652,20 @@ export default async function CitasPage({
                                   {ESTADO_LABELS[cita.estado]}
                                 </Badge>
                               </div>
-                              <div className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
-                                <span className="font-mono">
-                                  {cita.vehiculo.placa}
+                              <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                                <PlacaVehiculo
+                                  as="span"
+                                  placa={cita.vehiculo.placa}
+                                  className="border px-1.5 py-0 text-sm"
+                                />
+                                <span>
+                                  {cita.vehiculo.marca} {cita.vehiculo.modelo}
                                 </span>
-                                <span className="text-muted-foreground">
-                                  · {cita.vehiculo.marca} {cita.vehiculo.modelo}
-                                  {cita.vehiculo.anio
-                                    ? ` · ${cita.vehiculo.anio}`
-                                    : ""}
-                                </span>
+                                {cita.vehiculo.anio ? (
+                                  <span className="font-normal text-muted-foreground">
+                                    {cita.vehiculo.anio}
+                                  </span>
+                                ) : null}
                               </div>
                               <p className="text-sm">{cita.motivo}</p>
                               <div className="flex items-center justify-between border-t border-border pt-2 mt-1 text-xs text-muted-foreground">
@@ -607,7 +679,8 @@ export default async function CitasPage({
                             </CardContent>
                           </Card>
                         </Link>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ))
