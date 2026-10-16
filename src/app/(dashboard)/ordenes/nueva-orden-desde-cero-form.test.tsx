@@ -193,7 +193,10 @@ describe("NuevaOrdenDesdeCeroForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Crear orden" }));
 
     await vi.waitFor(() => expect(mockPush).toHaveBeenCalledWith("/ordenes/o9?tab=recepcion"));
-    expect(onCreated).toHaveBeenCalledTimes(1);
+    // El diálogo no se cierra mientras carga la ficha: si se cerrara, el
+    // listado quedaría a la vista una fracción de segundo y se le podría dar clic.
+    expect(onCreated).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Abriendo la orden..." })).toBeDisabled();
   });
 
   it("falls back to a visible success message when rendered without onCreated", async () => {

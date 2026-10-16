@@ -54,6 +54,9 @@ describe("NuevaOrdenForm", () => {
 
     await waitFor(() => expect(onCreated).toHaveBeenCalledExactlyOnceWith("o1"));
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    // Mientras el padre navega a la ficha, el botón queda bloqueado: no se
+    // puede crear la misma orden dos veces.
+    expect(screen.getByRole("button", { name: "Abriendo la orden..." })).toBeDisabled();
   });
 
   it("muestra el aviso de vencimientos cuando se pasan fechas vencidas", () => {
