@@ -119,4 +119,25 @@ describe("BuscadorConceptos compartido", () => {
     expect(campo).toHaveValue("");
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
+
+  it("Enter con un código no encontrado cierra la lista: no se queda en 'Buscando…'", async () => {
+    const alEnterSinResultados = vi.fn(async () => "No se encontró el código X1");
+    render(
+      <BuscadorConceptos<Fila[], Fila>
+        buscar={() => new Promise<Fila[]>(() => {})}
+        vacio={[]}
+        aOpciones={aOpciones}
+        onSeleccionar={vi.fn()}
+        placeholder="Buscar"
+        etiqueta="Buscar repuesto"
+        alEnterSinResultados={alEnterSinResultados}
+      />,
+    );
+    await userEvent.type(screen.getByLabelText("Buscar repuesto"), "X1{Enter}");
+
+    await waitFor(() => expect(alEnterSinResultados).toHaveBeenCalledWith("X1"));
+    expect(await screen.findByText("No se encontró el código X1")).toBeInTheDocument();
+    expect(screen.queryByText("Buscando…")).not.toBeInTheDocument();
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
 });

@@ -154,6 +154,8 @@ export function BuscadorConceptos<R, S>({
       setResultados(vacio);
       setTextoBuscado(null);
     } else {
+      // La búsqueda pendiente quedó descartada: sin cerrar la lista, "Buscando…" se quedaría para siempre.
+      setAbierto(false);
       anunciar(mensaje);
     }
   }

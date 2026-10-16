@@ -10,6 +10,8 @@ export interface AtajosMostrador {
   buscarCliente: () => void;
   /** F4 */
   descuento: () => void;
+  /** `?` fuera de un campo: muestra la lista de atajos. */
+  ayuda?: () => void;
 }
 
 function estaEscribiendo(destino: EventTarget | null): boolean {
@@ -41,6 +43,8 @@ export function useAtajosMostrador(handlers: AtajosMostrador) {
       else if (event.key === "F9" || (event.key === "Enter" && event.ctrlKey)) accion(h.irACobrar);
       else if (event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey && !estaEscribiendo(event.target)) {
         accion(h.focusBuscador);
+      } else if (event.key === "?" && h.ayuda && !event.ctrlKey && !event.metaKey && !event.altKey && !estaEscribiendo(event.target)) {
+        accion(h.ayuda);
       }
     }
     window.addEventListener("keydown", onKeyDown);

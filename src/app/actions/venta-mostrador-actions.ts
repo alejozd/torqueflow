@@ -309,6 +309,12 @@ export interface VentaMostradorDia {
 export interface MostradorDatos {
   /** El taller usa control de caja y la de la sede está cerrada: no se cobra en efectivo. */
   efectivoBloqueado: boolean;
+  /** Para el chip de la cabecera: solo se muestra si el taller usa control de caja. */
+  usarControlCaja: boolean;
+  cajaAbierta: boolean;
+  /** Rol de quien vende y su tope de descuento (RECEPCION; ADMIN no tiene tope). */
+  rol: "ADMIN" | "RECEPCION";
+  descuentoMaxRecepcion: number;
   clientes: { id: string; nombre: string }[];
   ventas: VentaMostradorDia[];
 }
@@ -346,6 +352,10 @@ export async function getMostradorDatos(): Promise<MostradorDatos> {
 
   return {
     efectivoBloqueado: opciones.usarControlCaja && sesion === null,
+    usarControlCaja: opciones.usarControlCaja,
+    cajaAbierta: sesion !== null,
+    rol: session.user.role === "ADMIN" ? "ADMIN" : "RECEPCION",
+    descuentoMaxRecepcion: opciones.descuentoMaxRecepcion,
     clientes,
     ventas: ventas.map((venta) => ({
       id: venta.id,
