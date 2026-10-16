@@ -27,6 +27,14 @@ export interface ConfiguracionTallerFormState {
 const MENSAJE_RANGO = `Ingresa un número de días entre ${DIAS_AVISO_MIN} y ${DIAS_AVISO_MAX}`;
 const MENSAJE_DIAS_ESTANCADA = `Ingresa un número de días entre ${DIAS_ESTANCADA_MIN} y ${DIAS_ESTANCADA_MAX}`;
 
+const MENSAJE_DESCUENTO_MAX = "Ingresa un porcentaje entero entre 0 y 100";
+
+const descuentoMaxSchema = z.coerce
+  .number({ error: MENSAJE_DESCUENTO_MAX })
+  .int(MENSAJE_DESCUENTO_MAX)
+  .min(0, MENSAJE_DESCUENTO_MAX)
+  .max(100, MENSAJE_DESCUENTO_MAX);
+
 const diasSchema = z.coerce
   .number({ error: MENSAJE_RANGO })
   .int(MENSAJE_RANGO)
@@ -51,8 +59,9 @@ export async function getOpcionesTaller(): Promise<OpcionesTaller> {
 }
 
 /**
- * Guarda las dos opciones del taller. Son casillas: una sin marcar no viaja en el
- * formulario, así que se lee como apagada; solo el valor "true" la enciende.
+ * Guarda las opciones del taller. Dos son casillas: una sin marcar no viaja en el
+ * formulario, así que se lee como apagada; solo el valor "true" la enciende. El tope
+ * de descuento de recepción es un entero 0-100 y un campo vacío no se lee como 0.
  */
 export async function guardarOpcionesTallerAction(
   prevState: ConfiguracionTallerFormState,
@@ -60,9 +69,14 @@ export async function guardarOpcionesTallerAction(
 ): Promise<ConfiguracionTallerFormState> {
   void prevState;
   const session = await requireRole(["ADMIN"]);
+  const crudoTope = formData.get("descuentoMaxRecepcion");
+  const tope = crudoTope === null || crudoTope === "" ? null : descuentoMaxSchema.safeParse(crudoTope);
+  if (!tope || !tope.success) return { error: MENSAJE_DESCUENTO_MAX, success: false };
+
   const opciones: OpcionesTaller = {
     exigirActaFirmada: formData.get("exigirActaFirmada") === "true",
     usarControlCaja: formData.get("usarControlCaja") === "true",
+    descuentoMaxRecepcion: tope.data,
   };
 
   const tenantDb = getTenantDb(session.user.tenantSchema);

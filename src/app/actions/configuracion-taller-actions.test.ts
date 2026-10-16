@@ -115,6 +115,7 @@ describe("guardarOpcionesTallerAction", () => {
     const fd = new FormData();
     fd.set("exigirActaFirmada", "true");
     fd.set("usarControlCaja", "true");
+    fd.set("descuentoMaxRecepcion", "15");
 
     const r = await guardarOpcionesTallerAction(inicial, fd);
 
@@ -122,19 +123,20 @@ describe("guardarOpcionesTallerAction", () => {
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
     expect(mockUpsert).toHaveBeenCalledWith({
       where: { id: "singleton" },
-      create: { id: "singleton", exigirActaFirmada: true, usarControlCaja: true },
-      update: { exigirActaFirmada: true, usarControlCaja: true },
+      create: { id: "singleton", exigirActaFirmada: true, usarControlCaja: true, descuentoMaxRecepcion: 15 },
+      update: { exigirActaFirmada: true, usarControlCaja: true, descuentoMaxRecepcion: 15 },
     });
   });
 
   it("una casilla sin marcar no viaja en el formulario y se guarda apagada", async () => {
     const fd = new FormData();
     fd.set("usarControlCaja", "true");
+    fd.set("descuentoMaxRecepcion", "10");
 
     await guardarOpcionesTallerAction(inicial, fd);
 
     expect(mockUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({ update: { exigirActaFirmada: false, usarControlCaja: true } }),
+      expect.objectContaining({ update: { exigirActaFirmada: false, usarControlCaja: true, descuentoMaxRecepcion: 10 } }),
     );
   });
 
@@ -142,18 +144,46 @@ describe("guardarOpcionesTallerAction", () => {
     const fd = new FormData();
     fd.set("exigirActaFirmada", "si");
     fd.set("usarControlCaja", "1");
+    fd.set("descuentoMaxRecepcion", "0");
 
     await guardarOpcionesTallerAction(inicial, fd);
 
     expect(mockUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({ update: { exigirActaFirmada: false, usarControlCaja: false } }),
+      expect.objectContaining({ update: { exigirActaFirmada: false, usarControlCaja: false, descuentoMaxRecepcion: 0 } }),
     );
+  });
+
+  it.each(["", "-1", "101", "10.5", "abc"])("rechaza el tope %j y no guarda nada", async (valor) => {
+    const fd = new FormData();
+    fd.set("descuentoMaxRecepcion", valor);
+
+    const r = await guardarOpcionesTallerAction(inicial, fd);
+
+    expect(r).toEqual({ error: "Ingresa un porcentaje entero entre 0 y 100", success: false });
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it("sin el campo en el formulario rechaza en vez de leerlo como 0", async () => {
+    const r = await guardarOpcionesTallerAction(inicial, new FormData());
+
+    expect(r.success).toBe(false);
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it("acepta los extremos 0 y 100", async () => {
+    for (const v of ["0", "100"]) {
+      const fd = new FormData();
+      fd.set("descuentoMaxRecepcion", v);
+      expect((await guardarOpcionesTallerAction(inicial, fd)).success).toBe(true);
+    }
   });
 
   it("devuelve un error amigable si el upsert falla", async () => {
     mockUpsert.mockRejectedValue(new Error("db down"));
 
-    const r = await guardarOpcionesTallerAction(inicial, new FormData());
+    const fd = new FormData();
+    fd.set("descuentoMaxRecepcion", "10");
+    const r = await guardarOpcionesTallerAction(inicial, fd);
 
     expect(r).toEqual({ error: "No se pudo guardar la configuración", success: false });
   });

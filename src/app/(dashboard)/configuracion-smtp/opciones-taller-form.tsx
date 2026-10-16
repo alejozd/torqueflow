@@ -4,12 +4,13 @@ import { useActionState, useEffect } from "react";
 import { toast } from "sonner";
 import { guardarOpcionesTallerAction, type ConfiguracionTallerFormState } from "@/app/actions/configuracion-taller-actions";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { OpcionesTaller } from "@/lib/configuracion/opciones-taller";
 
 const initialState: ConfiguracionTallerFormState = { error: null, success: false };
 
-const OPCIONES: { nombre: keyof OpcionesTaller; etiqueta: string; ayuda: string }[] = [
+const OPCIONES: { nombre: "exigirActaFirmada" | "usarControlCaja"; etiqueta: string; ayuda: string }[] = [
   {
     nombre: "exigirActaFirmada",
     etiqueta: "Exigir acta firmada al entregar",
@@ -64,6 +65,24 @@ export function OpcionesTallerForm({ opciones }: { opciones: OpcionesTaller }) {
           </div>
         </div>
       ))}
+      <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-muted/50 p-4">
+        <Label htmlFor="descuentoMaxRecepcion">Descuento máximo para recepción (%)</Label>
+        <Input
+          id="descuentoMaxRecepcion"
+          name="descuentoMaxRecepcion"
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={100}
+          step={1}
+          required
+          defaultValue={opciones.descuentoMaxRecepcion}
+          className="w-28"
+        />
+        <p className="text-xs text-muted-foreground">
+          Lo máximo que puede descontar quien atiende en recepción al cotizar o vender. El administrador no tiene tope.
+        </p>
+      </div>
       {state.error ? (
         <p role="alert" className="text-xs text-destructive">
           {state.error}
