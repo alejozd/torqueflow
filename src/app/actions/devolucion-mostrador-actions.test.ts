@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const opcionesTaller = { exigirActaFirmada: false, usarControlCaja: true };
 
@@ -23,6 +23,9 @@ vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { crearDevolucionAction } from "./devolucion-mostrador-actions";
+
+let cajaAbierta: { id: string; abiertaAt: Date } | null = null;
+let cierres: Date[] = [];
 
 const SESION = { user: { id: "u1", role: "RECEPCION", tenantSchema: "taller", sedeActivaId: "sede-1" } };
 const inicial = { error: null, success: false };
@@ -49,6 +52,8 @@ function venta(cambios: Record<string, unknown> = {}) {
     subtotal: "50000",
     total: "59500",
     saldoPendiente: "0",
+    // 10:00 en Bogotá, con la caja abierta a las 08:00 (ver beforeEach).
+    createdAt: new Date("2026-10-17T15:00:00Z"),
     items: [{ ...ITEM }],
     devoluciones: [],
     ...cambios,
@@ -65,10 +70,27 @@ function devolucion(campos: Record<string, string> = {}) {
 }
 
 describe("crearDevolucionAction", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
+    // "Ahora" es la tarde del mismo día de la venta.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-17T20:00:00Z"));
     mockRequireRole.mockResolvedValue(SESION);
-    db.cajaSesion.findFirst.mockResolvedValue({ id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
+    cajaAbierta = { id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") };
+    cierres = [];
+    // La misma tabla responde dos preguntas: la caja abierta y el último cierre (posterior a una fecha).
+    db.cajaSesion.findFirst.mockImplementation(
+      async ({ where }: { where: { cerradaAt: null | { gt?: Date; not?: null } } }) => {
+        if (where.cerradaAt === null) return cajaAbierta;
+        const despuesDe = where.cerradaAt.gt;
+        const validos = cierres.filter((cierre) => !despuesDe || cierre > despuesDe).sort((a, b) => b.getTime() - a.getTime());
+        return validos[0] ? { cerradaAt: validos[0] } : null;
+      },
+    );
     db.ventaMostrador.findFirst.mockResolvedValue(venta());
     tx.repuesto.update.mockResolvedValue({});
     tx.ventaMostradorItem.updateMany.mockResolvedValue({ count: 1 });
@@ -174,12 +196,12 @@ describe("crearDevolucionAction", () => {
   });
 
   it("exige caja abierta y una venta de la sede", async () => {
-    db.cajaSesion.findFirst.mockResolvedValue(null);
+    cajaAbierta = null;
     expect((await crearDevolucionAction("v1", inicial, devolucion())).error).toBe(
       "Abre la caja antes de devolver dinero en efectivo en el mostrador",
     );
 
-    db.cajaSesion.findFirst.mockResolvedValue({ id: "c1", abiertaAt: new Date() });
+    cajaAbierta = { id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") };
     db.ventaMostrador.findFirst.mockResolvedValue(null);
     expect((await crearDevolucionAction("ajena", inicial, devolucion())).error).toBe("Venta no encontrada");
     expect(db.ventaMostrador.findFirst).toHaveBeenLastCalledWith(
@@ -188,7 +210,7 @@ describe("crearDevolucionAction", () => {
   });
 
   it("lo que no sale del cajón en efectivo no exige caja (fase de consolidación, D3)", async () => {
-    db.cajaSesion.findFirst.mockResolvedValue(null);
+    cajaAbierta = null;
 
     // Devuelto por transferencia: no toca el cajón.
     expect((await crearDevolucionAction("v1", inicial, devolucion({ metodoPago: "TRANSFERENCIA" }))).error).toBeNull();
@@ -199,10 +221,74 @@ describe("crearDevolucionAction", () => {
   });
 
   it("con el control de caja apagado, ni el efectivo exige caja", async () => {
-    db.cajaSesion.findFirst.mockResolvedValue(null);
+    cajaAbierta = null;
     opcionesTaller.usarControlCaja = false;
     try {
       expect((await crearDevolucionAction("v1", inicial, devolucion())).error).toBeNull();
+    } finally {
+      opcionesTaller.usarControlCaja = true;
+    }
+  });
+
+  it("una venta de más de 30 días no se devuelve, ni siquiera ADMIN", async () => {
+    mockRequireRole.mockResolvedValue({ user: { ...SESION.user, role: "ADMIN" } });
+    db.ventaMostrador.findFirst.mockResolvedValue(venta({ createdAt: new Date("2026-09-17T19:00:00Z") }));
+
+    const r = await crearDevolucionAction("v1", inicial, devolucion());
+
+    expect(r).toEqual({ error: "Esta venta tiene más de 30 días: ya no se puede devolver", success: false });
+    expect(tx.devolucionMostrador.create).not.toHaveBeenCalled();
+    expect(tx.repuesto.update).not.toHaveBeenCalled();
+  });
+
+  it("RECEPCION devuelve una venta por transferencia de hoy hecha sin caja, antes y después de abrirla", async () => {
+    // Venta a las 10:00 sin caja abierta; un cierre de ayer no la toca.
+    cierres = [new Date("2026-10-17T00:00:00Z")];
+    cajaAbierta = null;
+    expect((await crearDevolucionAction("v1", inicial, devolucion({ metodoPago: "TRANSFERENCIA" }))).error).toBeNull();
+
+    // Se abre la caja después de la venta: sigue sin cierre posterior.
+    cajaAbierta = { id: "c2", abiertaAt: new Date("2026-10-17T17:00:00Z") };
+    expect((await crearDevolucionAction("v1", inicial, devolucion({ metodoPago: "TRANSFERENCIA" }))).error).toBeNull();
+    expect(db.cajaSesion.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { sedeId: "sede-1", cerradaAt: { gt: new Date("2026-10-17T15:00:00Z") } } }),
+    );
+  });
+
+  it("cuando una caja se cerró después de la venta (ya hizo arqueo), RECEPCION no devuelve y ADMIN sí", async () => {
+    cierres = [new Date("2026-10-17T18:00:00Z")];
+    cajaAbierta = { id: "c2", abiertaAt: new Date("2026-10-17T19:00:00Z") };
+
+    const r = await crearDevolucionAction("v1", inicial, devolucion());
+    expect(r).toEqual({
+      error: "Esta venta es de una caja ya cerrada: solo un administrador puede devolverla",
+      success: false,
+    });
+    expect(tx.devolucionMostrador.create).not.toHaveBeenCalled();
+
+    mockRequireRole.mockResolvedValue({ user: { ...SESION.user, role: "ADMIN" } });
+    expect(await crearDevolucionAction("v1", inicial, devolucion())).toEqual({ error: null, success: true, numero: 3 });
+  });
+
+  it("ADMIN devuelve dentro de los 30 días aunque la venta sea de una caja cerrada hace semanas", async () => {
+    mockRequireRole.mockResolvedValue({ user: { ...SESION.user, role: "ADMIN" } });
+    db.ventaMostrador.findFirst.mockResolvedValue(venta({ createdAt: new Date("2026-09-20T15:00:00Z") }));
+    cierres = [new Date("2026-09-21T01:00:00Z")];
+
+    expect((await crearDevolucionAction("v1", inicial, devolucion())).error).toBeNull();
+  });
+
+  it("con el control de caja apagado, RECEPCION devuelve lo de hoy pero no lo de ayer", async () => {
+    opcionesTaller.usarControlCaja = false;
+    try {
+      cajaAbierta = null;
+      expect((await crearDevolucionAction("v1", inicial, devolucion())).error).toBeNull();
+
+      // 23:00 de ayer en Bogotá.
+      db.ventaMostrador.findFirst.mockResolvedValue(venta({ createdAt: new Date("2026-10-17T04:00:00Z") }));
+      expect((await crearDevolucionAction("v1", inicial, devolucion())).error).toBe(
+        "Esta venta es de una caja ya cerrada: solo un administrador puede devolverla",
+      );
     } finally {
       opcionesTaller.usarControlCaja = true;
     }

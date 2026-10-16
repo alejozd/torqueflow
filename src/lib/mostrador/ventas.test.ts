@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { cantidadDevolvible, calcularTotalesVenta, montoADevolverPermitido, totalDevolucion } from "./ventas";
+import {
+  cantidadDevolvible,
+  calcularTotalesVenta,
+  montoADevolverPermitido,
+  repartoDevolucion,
+  totalDevolucion,
+} from "./ventas";
 
 describe("calcularTotalesVenta", () => {
   it("usa las mismas reglas que la factura: IVA sobre la base y descuento como monto", () => {
@@ -62,5 +68,13 @@ describe("totalDevolucion y su tope", () => {
     expect(montoADevolverPermitido(100000, 40000, 50000)).toBe(50000);
     expect(montoADevolverPermitido(100000, 90000, 50000)).toBe(10000);
     expect(montoADevolverPermitido(100000, 120000, 50000)).toBe(0);
+  });
+});
+
+describe("repartoDevolucion", () => {
+  it("una venta pagada devuelve todo; a crédito primero baja la deuda y solo el exceso sale", () => {
+    expect(repartoDevolucion(29750, 0)).toEqual({ aCuenta: 0, enEfectivo: 29750 });
+    expect(repartoDevolucion(29750, 59500)).toEqual({ aCuenta: 29750, enEfectivo: 0 });
+    expect(repartoDevolucion(29750, 10000)).toEqual({ aCuenta: 10000, enEfectivo: 19750 });
   });
 });

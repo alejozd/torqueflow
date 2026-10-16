@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mostrador propuesta</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = { theme: { extend: { colors: { primary: '#e2611b', primarysoft: '#fdeee4' } } } };
+</script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .mono { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; }
+  kbd { font-family: ui-monospace, Consolas, monospace; font-size: 10px; border: 1px solid #d4d4d8; border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: #fff; color: #52525b; }
+</style>
+</head>
+<body class="bg-zinc-100 text-zinc-900">
+<div class="flex min-h-screen">
+
+  <!-- Sidebar oscuro -->
+  <aside class="hidden w-60 shrink-0 flex-col bg-zinc-900 text-zinc-300 lg:flex">
+    <div class="flex items-center gap-2 px-5 py-5">
+      <div class="grid size-8 place-items-center rounded-md bg-primary font-bold text-white">T</div>
+      <span class="font-semibold text-white">TorqueFlow</span>
+    </div>
+    <p class="px-5 pb-1 text-[11px] uppercase tracking-wide text-zinc-500">Taller</p>
+    <nav class="flex flex-col gap-0.5 px-3 text-sm">
+      <a class="rounded-md px-3 py-2 hover:bg-zinc-800">Inicio</a>
+      <a class="rounded-md px-3 py-2 hover:bg-zinc-800">Citas</a>
+      <a class="rounded-md px-3 py-2 hover:bg-zinc-800">Órdenes de trabajo</a>
+      <a class="rounded-md px-3 py-2 hover:bg-zinc-800">Cotizaciones</a>
+      <a class="flex items-center justify-between rounded-md bg-primary/15 px-3 py-2 font-medium text-white ring-1 ring-primary/40">Mostrador <span class="size-1.5 rounded-full bg-primary"></span></a>
+    </nav>
+    <p class="px-5 pb-1 pt-4 text-[11px] uppercase tracking-wide text-zinc-500">Dinero</p>
+    <nav class="flex flex-col gap-0.5 px-3 text-sm">
+      <a class="rounded-md px-3 py-2 hover:bg-zinc-800">Caja</a>
+      <a class="rounded-md px-3 py-2 hover:bg-zinc-800">Facturas</a>
+      <a class="rounded-md px-3 py-2 hover:bg-zinc-800">Cartera</a>
+    </nav>
+    <p class="px-5 pb-1 pt-4 text-[11px] uppercase tracking-wide text-zinc-500">Inventario</p>
+    <nav class="flex flex-col gap-0.5 px-3 text-sm">
+      <a class="rounded-md px-3 py-2 hover:bg-zinc-800">Repuestos</a>
+      <a class="rounded-md px-3 py-2 hover:bg-zinc-800">Entradas de mercancía</a>
+    </nav>
+    <div class="mt-auto border-t border-zinc-800 px-5 py-4 text-xs">
+      <p class="text-zinc-200">Andrea Valencia Ríos</p>
+      <p class="text-zinc-500">Recepción · Sede Norte</p>
+    </div>
+  </aside>
+
+  <main class="min-w-0 flex-1 px-4 py-5 sm:px-6 lg:px-8">
+    <!-- Cabecera -->
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-semibold">Mostrador</h1>
+        <p class="text-sm text-zinc-500">Vende repuestos sin abrir orden de trabajo. El stock se descuenta al cobrar.</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <a class="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
+          <span class="size-2 rounded-full bg-emerald-500"></span> Caja abierta · base <span class="mono">$200.000</span>
+        </a>
+        <button class="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm hover:bg-zinc-50">Exportar ventas</button>
+      </div>
+    </div>
+
+    <!-- Pestañas -->
+    <div class="mt-4 flex gap-1 border-b border-zinc-200 text-sm" role="tablist">
+      <button role="tab" aria-selected="true" class="-mb-px border-b-2 border-primary px-4 py-2 font-medium text-primary">Vender</button>
+      <button role="tab" aria-selected="false" class="-mb-px border-b-2 border-transparent px-4 py-2 text-zinc-500 hover:text-zinc-800">Ventas <span class="ml-1 rounded-full bg-zinc-200 px-1.5 text-xs">14 hoy</span></button>
+    </div>
+
+    <div class="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
+      <!-- Columna principal -->
+      <section class="flex min-w-0 flex-col gap-4 lg:col-span-2">
+
+        <!-- Cliente -->
+        <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-3">
+              <div class="grid size-10 shrink-0 place-items-center rounded-full bg-primarysoft font-semibold text-primary">CM</div>
+              <div class="min-w-0">
+                <p class="truncate font-medium">Carlos Mejía Restrepo</p>
+                <p class="truncate text-xs text-zinc-500">C.C. 71.384.556 · 310 482 9917 · <span class="text-amber-700">Debe $45.000 en mostrador</span></p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <a href="#" class="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50">Cambiar cliente <kbd>F2</kbd></a>
+              <button class="rounded-md px-2 py-1.5 text-sm text-zinc-500 hover:bg-zinc-100">Consumidor final</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Productos -->
+        <div class="rounded-xl border border-zinc-200 bg-white shadow-sm">
+          <div class="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
+            <h2 class="font-semibold">Productos</h2>
+            <span class="text-xs text-zinc-500">4 productos · 8 unidades</span>
+          </div>
+          <div class="overflow-x-auto">
+          <table class="w-full min-w-[640px] text-sm">
+            <thead class="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
+              <tr>
+                <th class="px-4 py-2 font-medium">Producto</th>
+                <th class="px-2 py-2 font-medium">Disponible</th>
+                <th class="px-2 py-2 text-center font-medium">Cant.</th>
+                <th class="px-2 py-2 text-right font-medium">Precio</th>
+                <th class="px-2 py-2 text-right font-medium">Importe</th>
+                <th class="w-10 px-2 py-2"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-100">
+              <tr>
+                <td class="px-4 py-2.5"><p class="font-medium">Filtro de aceite Mann</p><p class="mono text-xs text-zinc-500">W712/95</p></td>
+                <td class="px-2"><span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700"><span class="size-1.5 rounded-full bg-emerald-500"></span>12 libres</span></td>
+                <td class="px-2"><div class="mx-auto flex w-fit items-center rounded-md border border-zinc-300"><button class="px-2 py-1 text-zinc-500" aria-label="Quitar uno">−</button><span class="mono w-8 text-center">2</span><button class="px-2 py-1 text-zinc-500" aria-label="Agregar uno">+</button></div></td>
+                <td class="mono px-2 text-right">$28.000</td>
+                <td class="mono px-2 text-right font-medium">$56.000</td>
+                <td class="px-2 text-center"><button class="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-600" aria-label="Quitar Filtro de aceite Mann">✕</button></td>
+              </tr>
+              <tr>
+                <td class="px-4 py-2.5"><p class="font-medium">Aceite 20W-50 mineral (cuarto)</p><p class="mono text-xs text-zinc-500">MOB-20W50-QT</p></td>
+                <td class="px-2"><span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700"><span class="size-1.5 rounded-full bg-emerald-500"></span>30 libres</span></td>
+                <td class="px-2"><div class="mx-auto flex w-fit items-center rounded-md border-2 border-primary ring-2 ring-primary/20"><button class="px-2 py-1 text-zinc-500" aria-label="Quitar uno">−</button><span class="mono w-8 text-center">4</span><button class="px-2 py-1 text-zinc-500" aria-label="Agregar uno">+</button></div></td>
+                <td class="mono px-2 text-right">$32.000</td>
+                <td class="mono px-2 text-right font-medium">$128.000</td>
+                <td class="px-2 text-center"><button class="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-600" aria-label="Quitar Aceite">✕</button></td>
+              </tr>
+              <tr class="bg-amber-50/40">
+                <td class="px-4 py-2.5"><p class="font-medium">Bombillo halógeno H4 12V</p><p class="mono text-xs text-zinc-500">PHI-H4-60/55</p></td>
+                <td class="px-2"><span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700 ring-1 ring-amber-200"><span class="size-1.5 rounded-full bg-amber-500"></span>Solo hay 1</span></td>
+                <td class="px-2"><div class="mx-auto flex w-fit items-center rounded-md border border-zinc-300"><button class="px-2 py-1 text-zinc-500" aria-label="Quitar uno">−</button><span class="mono w-8 text-center">1</span><button class="cursor-not-allowed px-2 py-1 text-zinc-300" disabled aria-label="No hay más unidades">+</button></div></td>
+                <td class="mono px-2 text-right">$18.000</td>
+                <td class="mono px-2 text-right font-medium">$18.000</td>
+                <td class="px-2 text-center"><button class="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-600" aria-label="Quitar Bombillo">✕</button></td>
+              </tr>
+              <tr>
+                <td class="px-4 py-2.5"><p class="font-medium">Instalación de bombillos</p><p class="text-xs text-zinc-500">Línea libre · mano de obra</p></td>
+                <td class="px-2 text-xs text-zinc-400">—</td>
+                <td class="px-2"><div class="mx-auto flex w-fit items-center rounded-md border border-zinc-300"><button class="px-2 py-1 text-zinc-500" aria-label="Quitar uno">−</button><span class="mono w-8 text-center">1</span><button class="px-2 py-1 text-zinc-500" aria-label="Agregar uno">+</button></div></td>
+                <td class="px-2 text-right"><span class="mono inline-block rounded border border-dashed border-zinc-300 px-2 py-0.5">$28.000</span></td>
+                <td class="mono px-2 text-right font-medium">$28.000</td>
+                <td class="px-2 text-center"><button class="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-600" aria-label="Quitar Instalación">✕</button></td>
+              </tr>
+              <!-- Fila buscador -->
+              <tr class="bg-zinc-50/60">
+                <td colspan="6" class="px-4 py-3">
+                  <div class="relative">
+                    <div class="flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+                      <svg class="size-4 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                      <input class="w-full bg-transparent text-sm outline-none" value="pastilla" aria-label="Buscar repuesto por código o nombre">
+                      <kbd>F1</kbd>
+                    </div>
+                    <ul class="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-md border border-zinc-200 bg-white text-sm shadow-lg" role="listbox">
+                      <li class="flex items-center justify-between gap-3 bg-primarysoft px-3 py-2" role="option" aria-selected="true">
+                        <span><span class="font-medium">Pastillas de freno delanteras Spark GT</span> <span class="mono text-xs text-zinc-500">BOS-0986-AB</span></span>
+                        <span class="flex items-center gap-3"><span class="rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">6 libres</span><span class="mono">$96.000</span><kbd>Enter</kbd></span>
+                      </li>
+                      <li class="flex items-center justify-between gap-3 px-3 py-2" role="option">
+                        <span><span class="font-medium">Pastillas de freno traseras Logan</span> <span class="mono text-xs text-zinc-500">BOS-0986-LG</span></span>
+                        <span class="flex items-center gap-3"><span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">Solo hay 2</span><span class="mono">$84.000</span></span>
+                      </li>
+                      <li class="flex items-center justify-between gap-3 px-3 py-2 text-zinc-400" role="option" aria-disabled="true">
+                        <span><span class="font-medium">Pastillas de freno Duster 4x4</span> <span class="mono text-xs">FRA-PD-DST</span></span>
+                        <span class="flex items-center gap-3"><span class="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600">Sin unidades libres</span><span class="mono">$112.000</span></span>
+                      </li>
+                      <li class="border-t border-zinc-100 px-3 py-2 text-zinc-600">+ Agregar "pastilla" como línea libre</li>
+                    </ul>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          </div>
+          <div class="mt-40 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 px-4 py-2.5 text-xs text-zinc-500">
+            <button class="rounded px-2 py-1 text-red-600 hover:bg-red-50">Vaciar carrito</button>
+            <span class="flex flex-wrap items-center gap-3"><span><kbd>↑</kbd> ir al carrito</span><span><kbd>+</kbd><kbd>−</kbd> cantidad</span><span><kbd>Esc</kbd> limpia</span><span><kbd>?</kbd> atajos</span></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Columna lateral pegajosa -->
+      <aside class="flex flex-col gap-4 lg:sticky lg:top-4 lg:self-start">
+        <!-- Resumen -->
+        <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <div class="flex items-center justify-between border-b border-zinc-200 pb-3">
+            <h2 class="font-semibold">Resumen</h2><span class="mono text-xs text-zinc-500">COP</span>
+          </div>
+          <dl class="mt-2 text-sm">
+            <div class="flex justify-between py-1.5"><dt class="flex items-center gap-2 text-zinc-500"><span class="size-2 rounded-full bg-orange-400"></span>Repuestos</dt><dd class="mono">$202.000</dd></div>
+            <div class="flex justify-between py-1.5"><dt class="flex items-center gap-2 text-zinc-500"><span class="size-2 rounded-full bg-blue-800"></span>Líneas libres</dt><dd class="mono">$28.000</dd></div>
+            <div class="flex justify-between border-t border-zinc-200 pt-2 font-semibold"><dt>Subtotal</dt><dd class="mono">$230.000</dd></div>
+            <div class="-mx-4 my-2 flex items-center justify-between gap-2 bg-zinc-50 px-4 py-2.5">
+              <dt class="text-zinc-600">Descuento <kbd>F4</kbd></dt>
+              <dd class="flex items-center gap-1.5">
+                <span class="inline-flex overflow-hidden rounded-md border border-zinc-300 text-xs"><button class="bg-zinc-900 px-2 py-1 text-white">%</button><button class="px-2 py-1">$</button></span>
+                <input class="mono w-14 rounded-md border border-zinc-300 px-2 py-1 text-right" value="5" aria-label="Descuento en porcentaje">
+              </dd>
+            </div>
+            <div class="flex justify-between py-1.5 text-red-600"><dt>Descuento 5 %</dt><dd class="mono">−$11.500</dd></div>
+            <div class="flex justify-between py-1.5"><dt class="text-zinc-500">IVA (19 %)</dt><dd class="mono">$41.515</dd></div>
+          </dl>
+          <div class="mt-3 flex items-end justify-between rounded-lg bg-primary/10 px-3 py-3 ring-1 ring-primary/20">
+            <div><p class="text-xs font-bold uppercase tracking-wide text-primary">Total a cobrar</p><p class="text-xs text-zinc-500">Incluye IVA</p></div>
+            <span class="mono text-2xl font-bold text-primary">$260.015</span>
+          </div>
+        </div>
+
+        <!-- Cobro -->
+        <div class="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <h2 class="border-b border-zinc-200 pb-3 font-semibold">Cobro</h2>
+          <div class="mt-3 grid grid-cols-3 gap-2 text-sm" role="radiogroup" aria-label="Método de pago">
+            <button role="radio" aria-checked="true" class="rounded-md border-2 border-primary bg-primarysoft py-2 font-medium text-primary">Efectivo</button>
+            <button role="radio" aria-checked="false" class="rounded-md border border-zinc-300 py-2">Tarjeta</button>
+            <button role="radio" aria-checked="false" class="rounded-md border border-zinc-300 py-2">Transferencia</button>
+          </div>
+          <label class="mt-3 block text-xs font-medium text-zinc-600" for="recibido">Recibido</label>
+          <input id="recibido" class="mono mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-right text-lg" value="$300.000">
+          <div class="mt-2 flex gap-1.5 text-xs">
+            <button class="flex-1 rounded border border-zinc-300 py-1.5 hover:bg-zinc-50">Justo</button>
+            <button class="mono flex-1 rounded border border-zinc-300 py-1.5 hover:bg-zinc-50">$270.000</button>
+            <button class="mono flex-1 rounded border border-zinc-900 bg-zinc-900 py-1.5 text-white">$300.000</button>
+          </div>
+          <div class="mt-3 flex items-center justify-between rounded-md bg-emerald-50 px-3 py-2 text-emerald-800">
+            <span class="text-sm font-medium">Vueltas</span><span class="mono text-xl font-bold">$39.985</span>
+          </div>
+          <button class="mt-2 text-sm text-primary hover:underline">+ Agregar otro método (pago mixto)</button>
+          <button class="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 text-base font-semibold text-white shadow hover:bg-orange-700 focus:outline-none focus:ring-4 focus:ring-primary/30">
+            Cobrar $260.015 <kbd class="border-white/40 bg-white/20 text-white">F9</kbd>
+          </button>
+          <label class="mt-3 flex items-center gap-2 text-sm text-zinc-600">
+            <input type="checkbox" class="size-4 accent-orange-600"> Dejar a crédito de Carlos Mejía
+          </label>
+          <p class="mt-1 text-xs text-zinc-500">Solo con cliente registrado. El saldo se cobra luego en Ventas.</p>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Estado: venta cobrada (ejemplo del siguiente paso) -->
+    <h3 class="mt-10 text-xs font-semibold uppercase tracking-wide text-zinc-500">Así se ve justo después de cobrar</h3>
+    <div class="mt-2 max-w-2xl rounded-xl border border-emerald-200 bg-white p-5 shadow-sm">
+      <div class="flex items-start gap-3">
+        <div class="grid size-10 shrink-0 place-items-center rounded-full bg-emerald-100 text-lg text-emerald-700" aria-hidden="true">✓</div>
+        <div class="min-w-0 flex-1">
+          <p class="font-semibold">Venta <span class="mono">#1043</span> cobrada</p>
+          <p class="text-sm text-zinc-500">Carlos Mejía Restrepo · <span class="mono">$260.015</span> en efectivo · Vueltas <span class="mono font-medium text-zinc-800">$39.985</span></p>
+          <div class="mt-4 flex flex-wrap gap-2 text-sm">
+            <button class="rounded-md bg-primary px-4 py-2 font-medium text-white">Nueva venta <kbd class="border-white/40 bg-white/20 text-white">Enter</kbd></button>
+            <button class="rounded-md border border-zinc-300 px-3 py-2">Imprimir comprobante</button>
+            <button class="rounded-md border border-zinc-300 px-3 py-2">Enviar por WhatsApp</button>
+            <button class="rounded-md border border-zinc-300 px-3 py-2">Enviar por correo</button>
+            <button class="rounded-md px-3 py-2 text-zinc-500 hover:bg-zinc-100">Devolver algo de esta venta</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

@@ -49,3 +49,13 @@ export function totalDevolucion(
 export function montoADevolverPermitido(totalVenta: number, yaDevuelto: number, calculado: number): number {
   return roundMoney(Math.max(0, Math.min(calculado, totalVenta - Math.max(0, yaDevuelto))));
 }
+
+/**
+ * Cómo se reparte lo devuelto: si la venta estaba a crédito, primero baja la deuda
+ * (`aCuenta`) y solo el exceso se le paga al cliente (`enEfectivo`, lo que sale del
+ * cajón si se devuelve en efectivo). La acción y el panel usan esta misma cuenta.
+ */
+export function repartoDevolucion(total: number, saldoPendiente: number): { aCuenta: number; enEfectivo: number } {
+  const aCuenta = Math.min(Math.max(saldoPendiente, 0), total);
+  return { aCuenta, enEfectivo: Math.round((total - aCuenta) * 100) / 100 };
+}

@@ -34,15 +34,16 @@ const ETIQUETA_RANGO: Record<RangoAntiguedad, string> = {
   "90+": "Más de 90 días",
 };
 
-/** Cartera de clientes: una fila por factura con saldo, más el total. */
+/** Cartera de clientes: una fila por factura o venta de mostrador con saldo, más el total. */
 export function hojaCartera(vista: CarteraVista): HojaEscrita {
-  const filas: Fila[] = [["Cliente", "Factura", "Emitida", "Días", "Antigüedad", "Total", "Saldo"]];
+  const filas: Fila[] = [["Cliente", "Origen", "Documento", "Emitida", "Días", "Antigüedad", "Total", "Saldo"]];
 
   for (const cliente of vista.clientes) {
     for (const factura of cliente.facturas) {
       filas.push([
         cliente.clienteNombre,
-        factura.numero,
+        factura.origen === "MOSTRADOR" ? "Mostrador" : "Factura",
+        factura.origen === "MOSTRADOR" ? `M-${factura.numero}` : factura.numero,
         formatoFecha.format(factura.emitidaAt),
         factura.dias,
         ETIQUETA_RANGO[factura.rango],
@@ -53,12 +54,12 @@ export function hojaCartera(vista: CarteraVista): HojaEscrita {
   }
 
   filas.push([]);
-  filas.push(["Total por cobrar", null, null, null, null, null, vista.totales.total]);
+  filas.push(["Total por cobrar", null, null, null, null, null, null, vista.totales.total]);
   for (const rango of Object.keys(ETIQUETA_RANGO) as RangoAntiguedad[]) {
-    if (vista.totales[rango] > 0) filas.push([`  ${ETIQUETA_RANGO[rango]}`, null, null, null, null, null, vista.totales[rango]]);
+    if (vista.totales[rango] > 0) filas.push([`  ${ETIQUETA_RANGO[rango]}`, null, null, null, null, null, null, vista.totales[rango]]);
   }
 
-  return { nombre: "Cartera", filas, anchos: [30, 10, 12, 8, 16, 14, 14] };
+  return { nombre: "Cartera", filas, anchos: [30, 12, 10, 12, 8, 16, 14, 14] };
 }
 
 /** Cuentas por pagar: una fila por cuenta, con el nombre del proveedor. */

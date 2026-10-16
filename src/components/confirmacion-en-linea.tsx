@@ -16,6 +16,7 @@ export function ConfirmacionEnLinea({
   pendiente = false,
   enviaFormulario = false,
   destructiva = true,
+  enfocarConfirmar = false,
   nombreBoton,
   valorBoton,
 }: {
@@ -26,6 +27,8 @@ export function ConfirmacionEnLinea({
   pendiente?: boolean;
   enviaFormulario?: boolean;
   destructiva?: boolean;
+  /** Foco inicial en "confirmar" (lo abrió el teclado: Enter confirma, Esc cancela). Por defecto, en "No". */
+  enfocarConfirmar?: boolean;
   /**
    * Con `enviaFormulario`, el `name`/`value` del botón de confirmar viaja en el
    * FormData: lo usa el formulario del acta para saber que la acción elegida es
@@ -37,14 +40,18 @@ export function ConfirmacionEnLinea({
   // The trigger button unmounts when this strip appears, so focus would fall
   // to <body>; park it on the safe choice ("No") instead.
   const cancelarRef = useRef<HTMLButtonElement>(null);
+  const confirmarRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    cancelarRef.current?.focus();
+    (enfocarConfirmar ? confirmarRef : cancelarRef).current?.focus();
+    // Solo al montar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <div role="group" aria-label={pregunta} className="flex flex-wrap items-center gap-2 text-sm">
       <span>{pregunta}</span>
       <Button
+        ref={confirmarRef}
         type={enviaFormulario ? "submit" : "button"}
         variant={destructiva ? "destructive" : "default"}
         size="sm"

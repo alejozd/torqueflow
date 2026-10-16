@@ -3,10 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
 import { registrarEventoAuditoria } from "@/lib/auditoria/registrarEvento";
-import { exigirCajaParaEfectivo } from "@/lib/caja/sesion";
+import { exigirCajaParaEfectivo, ultimoCierreDeCaja } from "@/lib/caja/sesion";
+import { leerOpcionesTaller } from "@/lib/configuracion/opciones-taller";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb } from "@/lib/db/tenant-client";
-import { cantidadDevolvible, montoADevolverPermitido, totalDevolucion } from "@/lib/mostrador/ventas";
+import { puedeDevolver, ventaEnCajaCerrada } from "@/lib/mostrador/plazo-devolucion";
+import {
+  cantidadDevolvible,
+  montoADevolverPermitido,
+  repartoDevolucion,
+  totalDevolucion,
+} from "@/lib/mostrador/ventas";
 import { devolucionMostradorInputSchema } from "@/lib/validation/mostrador";
 import type { Role } from "@/generated/prisma-tenant";
 
@@ -20,6 +27,9 @@ import type { Role } from "@/generated/prisma-tenant";
  * - **Si la venta estaba a crédito, primero baja la deuda**: solo el exceso del
  *   valor devuelto sale del cajón (`montoEnEfectivo`), que es lo que cuenta el
  *   arqueo. Devolver dinero por algo que nadie pagó sería un descuadre.
+ *
+ * Y el plazo (rediseño, D4): hasta 30 días, y de una caja ya cerrada solo ADMIN
+ * (`puedeDevolver`), comprobado aquí aunque la pantalla ya lo avise.
  */
 
 const ROLES_DEVOLUCION: Role[] = ["ADMIN", "RECEPCION"];
@@ -73,11 +83,25 @@ export async function crearDevolucionAction(
       subtotal: true,
       total: true,
       saldoPendiente: true,
+      createdAt: true,
       items: { select: { id: true, repuestoId: true, descripcion: true, cantidad: true, precioUnitario: true, devueltoCantidad: true } },
       devoluciones: { select: { total: true } },
     },
   });
   if (!venta) return { error: "Venta no encontrada", success: false };
+
+  // Caja cerrada = alguna caja de la sede se cerró después de la venta (su dinero
+  // ya pasó por un arqueo). Solo hace falta mirarlo con el control de caja encendido.
+  const { usarControlCaja } = await leerOpcionesTaller(tenantDb);
+  const ultimoCierreCaja = usarControlCaja ? await ultimoCierreDeCaja(tenantDb, sedeId, venta.createdAt) : null;
+  const ahora = new Date();
+  const plazo = puedeDevolver({
+    fechaVenta: venta.createdAt,
+    ahora,
+    rol: session.user.role,
+    cajaCerrada: ventaEnCajaCerrada({ fechaVenta: venta.createdAt, ahora, usarControlCaja, ultimoCierreCaja }),
+  });
+  if (!plazo.permitido) return { error: plazo.motivo, success: false };
 
   // Cada línea elegida tiene que existir en esta venta y caber en lo devolvible.
   const porItem = new Map<
@@ -115,9 +139,7 @@ export async function crearDevolucionAction(
   const total = montoADevolverPermitido(Number(venta.total), yaDevuelto, calculado);
 
   // Lo que se debe del cliente se cancela primero; solo el exceso sale del cajón.
-  const saldo = Number(venta.saldoPendiente);
-  const aCuenta = Math.min(Math.max(saldo, 0), total);
-  const enEfectivo = Math.round((total - aCuenta) * 100) / 100;
+  const { aCuenta, enEfectivo } = repartoDevolucion(total, Number(venta.saldoPendiente));
 
   // Solo exige caja lo que de verdad sale del cajón en efectivo (fase de
   // consolidación, D3): lo que baja la deuda del cliente no toca el dinero.

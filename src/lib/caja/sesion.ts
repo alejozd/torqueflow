@@ -22,6 +22,20 @@ export async function sesionDeCajaAbierta(tenantDb: LectorCaja, sedeId: string):
 }
 
 /**
+ * El cierre de caja más reciente de la sede (`cerradaAt`), o null si no hay. Con
+ * `despuesDe` solo cuenta un cierre posterior a esa fecha: así se sabe si el
+ * dinero de una venta ya pasó por un arqueo (devoluciones del mostrador, D4).
+ */
+export async function ultimoCierreDeCaja(tenantDb: LectorCaja, sedeId: string, despuesDe?: Date): Promise<Date | null> {
+  const sesion = await tenantDb.cajaSesion.findFirst({
+    where: { sedeId, cerradaAt: despuesDe ? { gt: despuesDe } : { not: null } },
+    select: { cerradaAt: true },
+    orderBy: { cerradaAt: "desc" },
+  });
+  return sesion?.cerradaAt ?? null;
+}
+
+/**
  * **Única regla** de cuándo un movimiento de dinero exige caja abierta (fase de
  * consolidación, D3/D4): solo si el taller usa el control de caja **y** el dinero
  * es en efectivo. Tarjeta, transferencia u otro no tocan el cajón y nunca la

@@ -8,9 +8,10 @@ vi.mock("@/lib/auth/guards", () => ({
 const ordenTrabajo = { count: vi.fn(), findMany: vi.fn() };
 const cita = { count: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() };
 const factura = { aggregate: vi.fn(), count: vi.fn(), findMany: vi.fn() };
+const ventaMostrador = { aggregate: vi.fn() };
 
 vi.mock("@/lib/db/tenant-client", () => ({
-  getTenantDb: () => ({ ordenTrabajo, cita, factura }),
+  getTenantDb: () => ({ ordenTrabajo, cita, factura, ventaMostrador }),
 }));
 
 import { getDashboardOverview } from "./dashboard-actions";
@@ -29,6 +30,7 @@ function resetMocks() {
   factura.aggregate.mockReset();
   factura.count.mockReset();
   factura.findMany.mockReset();
+  ventaMostrador.aggregate.mockReset();
 }
 
 /** Wires every query to a harmless empty/zero default so a test only needs to override what it checks. */
@@ -41,6 +43,7 @@ function stubDefaults() {
   factura.aggregate.mockResolvedValue({ _sum: { saldoPendiente: null } });
   factura.count.mockResolvedValue(0);
   factura.findMany.mockResolvedValue([]);
+  ventaMostrador.aggregate.mockResolvedValue({ _sum: { saldoPendiente: null } });
 }
 
 describe("getDashboardOverview", () => {
@@ -68,6 +71,21 @@ describe("getDashboardOverview", () => {
     expect(cita.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ sedeId: SEDE_ID }) }));
     expect(factura.aggregate).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ orden: { sedeId: SEDE_ID } }) }),
+    );
+  });
+
+  it("suma a la cartera el saldo de las ventas de mostrador pendientes de la sede", async () => {
+    factura.aggregate.mockResolvedValue({ _sum: { saldoPendiente: 1000 } });
+    ventaMostrador.aggregate.mockResolvedValue({ _sum: { saldoPendiente: 250 }, _count: { _all: 2 } });
+
+    const overview = await getDashboardOverview();
+
+    expect(overview.cartera.saldoPendiente).toBe(1250);
+    expect(overview.cartera.ventasMostradorPendientes).toBe(2);
+    expect(ventaMostrador.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { sedeId: SEDE_ID, estado: "PENDIENTE", saldoPendiente: { gt: 0 } },
+      }),
     );
   });
 
@@ -134,7 +152,7 @@ describe("getDashboardOverview", () => {
 
     const overview = await getDashboardOverview();
 
-    expect(overview.cartera).toEqual({ saldoPendiente: 0, facturasPendientes: 0 });
+    expect(overview.cartera).toEqual({ saldoPendiente: 0, facturasPendientes: 0, ventasMostradorPendientes: 0 });
   });
 
   it("computes flujo del taller counts by estado, entregadasHoy scoped to entregadaAt today", async () => {

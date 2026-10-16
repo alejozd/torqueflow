@@ -119,6 +119,15 @@ function capitalizar(texto: string): string {
 }
 
 
+/** "3 facturas y 2 ventas de mostrador pendientes": la cifra suma las dos. */
+function subtituloCartera(facturas: number, ventas: number): string | undefined {
+  const partes = [
+    facturas > 0 ? `${facturas} ${facturas === 1 ? "factura" : "facturas"}` : null,
+    ventas > 0 ? `${ventas} ${ventas === 1 ? "venta" : "ventas"} de mostrador` : null,
+  ].filter((parte): parte is string => parte !== null);
+  return partes.length > 0 ? `${partes.join(" y ")} pendientes` : undefined;
+}
+
 export default async function InicioPage() {
   const [session, overview, alertasInventario, alertasTaller] = await Promise.all([
     requireSession(),
@@ -135,9 +144,9 @@ export default async function InicioPage() {
       title="Cartera"
       value={formatoMoneda.format(overview.cartera.saldoPendiente)}
       valueColor="warning"
-      subtitle={overview.cartera.facturasPendientes > 0 ? `${overview.cartera.facturasPendientes} facturas pendientes` : undefined}
+      subtitle={subtituloCartera(overview.cartera.facturasPendientes, overview.cartera.ventasMostradorPendientes)}
       subtitleColor="warning"
-      highlight={overview.cartera.facturasPendientes > 0}
+      highlight={overview.cartera.facturasPendientes + overview.cartera.ventasMostradorPendientes > 0}
       icon={<AlertCircle className={cn("size-5", KPI_TONE.warning.icon)} />}
       iconBgColor={KPI_TONE.warning.iconBg}
       className={KPI_TONE.warning.cardBg}
