@@ -56,8 +56,9 @@ export function NuevaOrdenDialog({
           onCreated={(ordenId) => {
             // Straight to the órden the user just opened -- otherwise they'd
             // have to go find it in /ordenes' list before they could add
-            // repuestos, mano de obra, or fotos to it.
-            setOpen(false);
+            // repuestos, mano de obra, or fotos to it. The dialog stays open
+            // (button "Abriendo la orden...") until the ficha replaces this
+            // page: closing it first left the cliente page clickable meanwhile.
             router.push(`/ordenes/${ordenId}?tab=recepcion`);
           }}
         />

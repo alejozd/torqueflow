@@ -64,6 +64,9 @@ export function NuevaOrdenDesdeCeroForm({
 }) {
   const [state, setState] = useState<OrdenFormState>(initialState);
   const [isPending, startTransition] = useTransition();
+  // true desde que la orden se creó hasta que la ficha reemplaza esta pantalla:
+  // evita un segundo envío (orden duplicada) si la transición termina antes.
+  const [abriendo, setAbriendo] = useState(false);
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   // Owned here (not just the initial prop) so ClientVehicleSelector's
@@ -107,11 +110,18 @@ export function NuevaOrdenDesdeCeroForm({
       const result = await createOrdenDesdeVehiculoAction(initialState, formData);
       if (result.success) {
         toast.success("Orden creada");
+        if (result.ordenId) {
+          // La orden recién creada sigue en su ficha (recepción, ítems, mano de
+          // obra, DVI…). El diálogo NO se cierra aquí: cerrarlo dejaba el
+          // listado a la vista (y clicable) mientras cargaba la ficha. Queda
+          // abierto y bloqueado hasta que la navegación lo desmonta.
+          setAbriendo(true);
+          const ordenId = result.ordenId;
+          startTransition(() => router.push(`/ordenes/${ordenId}?tab=recepcion`));
+          return;
+        }
         if (onCreated) onCreated();
         else setState(result);
-        // La orden recién creada sigue en su ficha (recepción, ítems, mano de
-        // obra, DVI…): llevar allí, no dejar al usuario en el listado buscándola.
-        if (result.ordenId) router.push(`/ordenes/${result.ordenId}?tab=recepcion`);
       } else {
         toast.error(result.error ?? "No se pudo crear la orden");
         setState(result);
@@ -221,8 +231,8 @@ export function NuevaOrdenDesdeCeroForm({
         <DialogClose render={<Button type="button" variant="outline" />}>
           Cancelar
         </DialogClose>
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "Creando..." : "Crear orden"}
+        <Button type="submit" disabled={isPending || abriendo}>
+          {abriendo ? "Abriendo la orden..." : isPending ? "Creando..." : "Crear orden"}
         </Button>
       </div>
     </form>

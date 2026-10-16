@@ -56,6 +56,9 @@ export function NuevaOrdenForm({
 }) {
   const [state, setState] = useState<OrdenFormState>(initialState);
   const [isPending, startTransition] = useTransition();
+  // true desde que la orden se creó hasta que la ficha reemplaza esta pantalla:
+  // evita un segundo envío (orden duplicada) si la transición termina antes.
+  const [abriendo, setAbriendo] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const {
     register,
@@ -77,7 +80,11 @@ export function NuevaOrdenForm({
       formData.set("mecanicoId", data.mecanicoId ?? "");
       const result = await createOrdenAction(clienteId, vehiculoId, initialState, formData);
       if (result.success && result.ordenId && onCreated) {
-        onCreated(result.ordenId);
+        // onCreated navega a la ficha: dentro de la transición para que el
+        // botón siga ocupado hasta que la ficha reemplace esta pantalla.
+        setAbriendo(true);
+        const ordenId = result.ordenId;
+        startTransition(() => onCreated(ordenId));
       } else {
         setState(result);
       }
@@ -154,8 +161,8 @@ export function NuevaOrdenForm({
         <DialogClose render={<Button type="button" variant="outline" />}>
           Cancelar
         </DialogClose>
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "Creando..." : "Crear orden"}
+        <Button type="submit" disabled={isPending || abriendo}>
+          {abriendo ? "Abriendo la orden..." : isPending ? "Creando..." : "Crear orden"}
         </Button>
       </div>
     </form>
