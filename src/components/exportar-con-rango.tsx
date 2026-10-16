@@ -3,8 +3,8 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { ChevronDown } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RangoFechas } from "@/components/rango-fechas";
 import { rangoPorDefecto, resolverRangoExportacion } from "@/lib/exportacion/rango-fechas";
 import { cn } from "@/lib/utils";
 
@@ -22,17 +22,22 @@ export function ExportarConRango({ reporte, etiqueta }: { reporte: string; etiqu
   const desplegable = useRef<HTMLDetailsElement>(null);
 
   // Se cierra con un clic fuera, como cualquier menú. Solo toca el DOM (el
-  // atributo `open` de <details>), no el estado de React.
+  // atributo `open` de <details>), no el estado de React. El calendario del
+  // periodo vive en un portal fuera de <details>: tocarlo no cuenta como fuera.
   useEffect(() => {
     function alPulsarFuera(evento: PointerEvent) {
       const elemento = desplegable.current;
-      if (elemento?.open && !elemento.contains(evento.target as Node)) elemento.open = false;
+      const objetivo = evento.target as Element;
+      if (objetivo.closest?.('[role="dialog"]')) return;
+      if (elemento?.open && !elemento.contains(objetivo)) elemento.open = false;
     }
     document.addEventListener("pointerdown", alPulsarFuera);
     return () => document.removeEventListener("pointerdown", alPulsarFuera);
   }, []);
 
+  // Escape dentro del calendario (que burbujea por el portal) solo cierra el calendario.
   function alPulsarTecla(evento: KeyboardEvent<HTMLDetailsElement>) {
+    if ((evento.target as Element).closest?.('[role="dialog"]')) return;
     if (evento.key === "Escape" && desplegable.current) desplegable.current.open = false;
   }
 
@@ -69,12 +74,8 @@ export function ExportarConRango({ reporte, etiqueta }: { reporte: string; etiqu
         className="absolute right-0 z-20 mt-2 flex w-64 flex-col gap-3 rounded-md border bg-popover p-3 text-popover-foreground shadow-md"
       >
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${id}-desde`}>Desde</Label>
-          <Input id={`${id}-desde`} type="date" name="desde" defaultValue={porDefecto.desde} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${id}-hasta`}>Hasta</Label>
-          <Input id={`${id}-hasta`} type="date" name="hasta" defaultValue={porDefecto.hasta} />
+          <Label htmlFor={`${id}-periodo`}>Periodo</Label>
+          <RangoFechas id={`${id}-periodo`} defaultDesde={porDefecto.desde} defaultHasta={porDefecto.hasta} />
         </div>
         {error ? (
           <p role="alert" className="text-sm text-destructive">

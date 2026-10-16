@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { BotonExportar } from "./boton-exportar";
 
 describe("BotonExportar", () => {
@@ -25,21 +26,19 @@ describe("BotonExportar", () => {
     const form = container.querySelector("form")!;
     expect(form).toHaveAttribute("action", "/api/exportar/ventas");
     expect(form).toHaveAttribute("method", "get");
-    expect(screen.getByLabelText("Desde")).toHaveAttribute("name", "desde");
-    expect(screen.getByLabelText("Desde")).toHaveValue("2026-10-01");
-    expect(screen.getByLabelText("Hasta")).toHaveAttribute("name", "hasta");
-    expect(screen.getByLabelText("Hasta")).toHaveValue("2026-10-17");
+    expect(new FormData(form).get("desde")).toBe("2026-10-01");
+    expect(new FormData(form).get("hasta")).toBe("2026-10-17");
     expect(screen.getByRole("button", { name: "Descargar Excel" })).toHaveAttribute("type", "submit");
   });
 
-  it("un rango inválido no se envía y muestra el error en línea", () => {
-    const { container } = render(<BotonExportar reporte="arqueos" etiqueta="Exportar arqueos" />);
-    fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "2026-10-10" } });
-    fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "2026-10-01" } });
+  it("el atajo «Mes pasado» cambia el rango que se envía", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<BotonExportar reporte="ventas" etiqueta="Exportar ventas" />);
+    await user.click(screen.getByRole("button", { name: "Mes pasado" }));
 
-    // fireEvent devuelve false cuando el manejador cancela el envío.
-    expect(fireEvent.submit(container.querySelector("form")!)).toBe(false);
-    expect(screen.getByRole("alert")).toHaveTextContent(/posterior/);
+    const datos = new FormData(container.querySelector("form")!);
+    expect(datos.get("desde")).toBe("2026-09-01");
+    expect(datos.get("hasta")).toBe("2026-09-30");
   });
 
   it("un rango válido se envía tal cual (la descarga la hace el navegador)", () => {
@@ -59,7 +58,7 @@ describe("BotonExportar", () => {
     const desplegable = container.querySelector("details")!;
 
     desplegable.open = true;
-    fireEvent.keyDown(screen.getByLabelText("Desde"), { key: "Escape" });
+    fireEvent.keyDown(screen.getByRole("button", { name: "Hoy" }), { key: "Escape" });
     expect(desplegable.open).toBe(false);
 
     desplegable.open = true;
@@ -68,7 +67,21 @@ describe("BotonExportar", () => {
 
     // Un clic dentro no lo cierra.
     desplegable.open = true;
-    fireEvent.pointerDown(screen.getByLabelText("Hasta"));
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Mes pasado" }));
+    expect(desplegable.open).toBe(true);
+  });
+
+  it("Escape dentro del calendario abierto cierra solo el calendario", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<BotonExportar reporte="ventas" etiqueta="Exportar ventas" />);
+    const desplegable = container.querySelector("details")!;
+    desplegable.open = true;
+
+    await user.click(screen.getByRole("button", { name: /^Periodo/ }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(desplegable.open).toBe(true);
   });
 });

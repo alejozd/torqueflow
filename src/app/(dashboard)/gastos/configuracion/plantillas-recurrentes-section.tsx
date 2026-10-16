@@ -21,6 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { CampoMes } from "@/components/campo-mes";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
@@ -140,7 +141,7 @@ function PlantillaDialog({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor={`plt-desde-${id}`}>Desde</Label>
-              <Input id={`plt-desde-${id}`} name="desde" type="month" defaultValue={plantilla?.desde ?? ""} />
+              <CampoMes id={`plt-desde-${id}`} name="desde" defaultValue={plantilla?.desde ?? ""} permitirFuturo opcional />
             </div>
           </div>
           {error ? (

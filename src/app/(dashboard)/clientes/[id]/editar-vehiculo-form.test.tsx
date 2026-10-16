@@ -67,7 +67,7 @@ describe("EditarVehiculoForm", () => {
     expect(screen.getByLabelText("Año")).toHaveValue(2020);
     expect(screen.getByRole("combobox", { name: "Combustible" })).toHaveTextContent("Gasolina");
     expect(screen.getByLabelText("Kilometraje")).toHaveValue(45000);
-    expect(screen.getByLabelText("Próximo mantenimiento")).toHaveValue("2026-12-01");
+    expect(screen.getByRole("button", { name: /Próximo mantenimiento/ })).toHaveTextContent("01/12/2026");
     expect(screen.getByRole("combobox", { name: "Transmisión" })).toHaveTextContent("Automática");
     expect(screen.getByLabelText("Observaciones del vehículo")).toHaveValue("Rines de posventa");
   });
@@ -125,8 +125,8 @@ describe("EditarVehiculoForm", () => {
 
     expect(screen.getByRole("combobox", { name: "Tipo" })).toHaveTextContent("Moto");
     expect(screen.getByLabelText("VIN")).toHaveValue("9BWZZZ377VT004251");
-    expect(screen.getByLabelText("SOAT vence")).toHaveValue("2026-11-30");
-    expect(screen.getByLabelText("Tecnomecánica vence")).toHaveValue("2027-01-05");
+    expect(screen.getByRole("button", { name: /SOAT vence/ })).toHaveTextContent("30/11/2026");
+    expect(screen.getByRole("button", { name: /Tecnomecánica vence/ })).toHaveTextContent("05/01/2027");
 
     await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
 

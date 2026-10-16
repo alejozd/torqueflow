@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { RangoFechas } from "@/components/rango-fechas";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
@@ -120,14 +120,9 @@ export default async function ReportesPage({
         </CardHeader>
         <CardContent>
           <form method="get" action="/reportes" className="flex flex-wrap items-end gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="desde">Desde</Label>
-              <Input id="desde" name="desde" type="date" defaultValue={filtros.desde} required />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="hasta">Hasta</Label>
-              <Input id="hasta" name="hasta" type="date" defaultValue={filtros.hasta} required />
+            <div className="flex w-full flex-col gap-1.5 sm:w-72">
+              <Label htmlFor="periodo">Periodo</Label>
+              <RangoFechas key={`${filtros.desde}|${filtros.hasta}`} id="periodo" defaultDesde={filtros.desde} defaultHasta={filtros.hasta} />
             </div>
 
             {/*

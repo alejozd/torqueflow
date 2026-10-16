@@ -16,6 +16,7 @@ import { formatoDiaBogota } from "@/lib/fecha-bogota";
 import { gastoInputSchema } from "@/lib/validation/gasto";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { CampoFecha } from "@/components/campo-fecha";
 import {
   Dialog,
   DialogClose,
@@ -166,7 +167,23 @@ function GastoForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="gasto-fecha">Fecha</Label>
-          <Input id="gasto-fecha" type="date" aria-invalid={errors.fecha ? true : undefined} {...register("fecha")} />
+          <Controller
+            control={control}
+            name="fecha"
+            render={({ field }) => (
+              <CampoFecha
+                id="gasto-fecha"
+                tipo="pasado"
+                max={formatoDiaBogota.format(new Date())}
+                obligatorio
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                invalid={errors.fecha ? true : undefined}
+                className="w-full"
+              />
+            )}
+          />
           {errors.fecha ? <p className="text-xs text-destructive">{errors.fecha.message}</p> : null}
         </div>
       </div>

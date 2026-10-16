@@ -5,6 +5,8 @@ import { agregarGarantiaAction, quitarGarantiaAction, type RecepcionFormState } 
 import { QuitarConConfirmacion } from "@/components/quitar-con-confirmacion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { CampoFecha } from "@/components/campo-fecha";
+import { formatoDiaBogota } from "@/lib/fecha-bogota";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
@@ -135,13 +137,15 @@ export function GarantiasSection({
               placeholder="Cambio de aceite"
             />
           </div>
-          <div className="flex w-40 flex-col gap-1.5">
+          <div className="flex min-w-52 flex-col gap-1.5">
             <Label htmlFor="garantia-fecha">Hasta (fecha)</Label>
-            <Input
+            <CampoFecha
               id="garantia-fecha"
-              type="date"
+              tipo="garantia"
+              min={formatoDiaBogota.format(new Date())}
               value={cubreHasta}
-              onChange={(evento) => setCubreHasta(evento.target.value)}
+              onChange={setCubreHasta}
+              className="w-full"
             />
           </div>
           <div className="flex w-36 flex-col gap-1.5">

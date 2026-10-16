@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { CampoMes } from "@/components/campo-mes";
 import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
 
@@ -25,7 +25,7 @@ export function FiltrosGastos({
     <form method="get" action="/gastos" className="flex flex-wrap items-end gap-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="periodo">Mes</Label>
-        <Input id="periodo" name="periodo" type="month" defaultValue={periodo} required />
+        <CampoMes key={periodo} id="periodo" name="periodo" defaultValue={periodo} />
       </div>
 
       {sedes ? (

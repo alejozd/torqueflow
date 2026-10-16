@@ -2,31 +2,28 @@
 
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
-import { CalendarDays, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { CalendarDays, Clock } from "lucide-react";
 import {
   diaSemana,
-  diasDelMes,
   esMomentoPasado,
   formatoDiaCorto,
   formatoDiaLargo,
   formatoHora12,
-  formatoMesLargo,
   horasDelDia,
   leerHoraEscrita,
   leerValorFechaHora,
   nombreDiaCorto,
   nombreMesCorto,
   sumarDias,
-  sumarMeses,
   valorFechaHora,
   type MomentoBogota,
   type OcupacionCita,
 } from "@/lib/agenda-cita";
+import { CalendarioMes } from "@/components/ui/calendario-mes";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const MEDIODIA = 12 * 60;
-const ENCABEZADO_SEMANA = ["do", "lu", "ma", "mi", "ju", "vi", "sá"];
 // Ocupación en azul (dato informativo), separada del naranja de la selección.
 const TONO_OCUPACION = "text-sky-700 dark:text-sky-400";
 const PUNTO_OCUPACION = "bg-sky-600 dark:bg-sky-400";
@@ -296,7 +293,7 @@ export function SelectorFechaHora({
                   <CalendarioMes
                     seleccionada={fecha}
                     hoy={ahora.fecha}
-                    permitirPasado={original != null}
+                    min={original != null ? undefined : ahora.fecha}
                     citasPorDia={(dia) => citasDe(dia).length}
                     onElegir={(dia) => {
                       elegirFecha(dia);
@@ -420,132 +417,6 @@ export function SelectorFechaHora({
           <span>Elegiste {formatoDiaLargo(fecha)}. Falta la hora.</span>
         )}
       </p>
-    </div>
-  );
-}
-
-function CalendarioMes({
-  seleccionada,
-  hoy,
-  permitirPasado,
-  citasPorDia,
-  onElegir,
-}: {
-  seleccionada: string;
-  hoy: string;
-  permitirPasado: boolean;
-  citasPorDia: (dia: string) => number;
-  onElegir: (dia: string) => void;
-}) {
-  const [mes, setMes] = useState(seleccionada.slice(0, 7));
-  const [foco, setFoco] = useState(seleccionada);
-  const gridRef = useRef<HTMLTableElement>(null);
-  const deshabilitado = (dia: string) => !permitirPasado && dia < hoy;
-  const puedeRetroceder = permitirPasado || mes > hoy.slice(0, 7);
-
-  const desfase = diaSemana(`${mes}-01`);
-  const total = diasDelMes(mes);
-  const celdas: (string | null)[] = [
-    ...Array.from({ length: desfase }, () => null),
-    ...Array.from({ length: total }, (_, i) => `${mes}-${String(i + 1).padStart(2, "0")}`),
-  ];
-  while (celdas.length % 7) celdas.push(null);
-  const semanas = Array.from({ length: celdas.length / 7 }, (_, i) => celdas.slice(i * 7, i * 7 + 7));
-  const focoEnMes = foco.startsWith(mes) ? foco : seleccionada.startsWith(mes) ? seleccionada : hoy.startsWith(mes) ? hoy : `${mes}-01`;
-
-  function cambiarMes(delta: number) {
-    setMes(sumarMeses(mes, delta));
-  }
-
-  function tecla(evento: KeyboardEvent<HTMLButtonElement>, dia: string) {
-    const delta = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 7, ArrowUp: -7 }[evento.key];
-    if (delta == null) return;
-    evento.preventDefault();
-    const destino = sumarDias(dia, delta);
-    if (deshabilitado(destino)) return;
-    setFoco(destino);
-    setMes(destino.slice(0, 7));
-    // El botón del mes nuevo existe hasta el próximo render.
-    requestAnimationFrame(() => gridRef.current?.querySelector<HTMLButtonElement>(`[data-dia="${destino}"]`)?.focus());
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          aria-label="Mes anterior"
-          disabled={!puedeRetroceder}
-          onClick={() => cambiarMes(-1)}
-          className="grid size-7 place-items-center rounded-md border border-border disabled:opacity-35"
-        >
-          <ChevronLeft className="size-4" />
-        </button>
-        <strong className="text-sm first-letter:uppercase">{formatoMesLargo(mes)}</strong>
-        <button
-          type="button"
-          aria-label="Mes siguiente"
-          onClick={() => cambiarMes(1)}
-          className="grid size-7 place-items-center rounded-md border border-border"
-        >
-          <ChevronRight className="size-4" />
-        </button>
-      </div>
-      <table ref={gridRef} role="grid" aria-label={formatoMesLargo(mes)} className="w-full table-fixed border-collapse">
-        <thead>
-          <tr>
-            {ENCABEZADO_SEMANA.map((dia) => (
-              <th key={dia} scope="col" className="py-1 text-[11px] font-semibold text-muted-foreground uppercase">
-                {dia}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {semanas.map((semana, i) => (
-            <tr key={i}>
-              {semana.map((dia, j) =>
-                dia ? (
-                  <td key={dia} role="gridcell" aria-selected={dia === seleccionada} className="p-px text-center">
-                    <button
-                      type="button"
-                      data-dia={dia}
-                      aria-current={dia === hoy ? "date" : undefined}
-                      aria-label={`${formatoDiaLargo(dia)}${dia === hoy ? " (hoy)" : ""}${citasPorDia(dia) ? `, ya hay ${nCitas(citasPorDia(dia))}` : ""}`}
-                      tabIndex={dia === focoEnMes ? 0 : -1}
-                      disabled={deshabilitado(dia)}
-                      onClick={() => onElegir(dia)}
-                      onKeyDown={(evento) => tecla(evento, dia)}
-                      className={cn(
-                        "relative aspect-square w-full rounded-md text-sm tabular-nums",
-                        "focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
-                        "disabled:cursor-default disabled:opacity-35",
-                        dia === seleccionada ? "bg-primary text-primary-foreground" : "hover:bg-muted",
-                        dia === hoy && dia !== seleccionada && "font-bold text-primary",
-                      )}
-                    >
-                      {Number(dia.slice(8))}
-                      {citasPorDia(dia) ? (
-                        <span
-                          className={cn(
-                            "absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full",
-                            dia === seleccionada ? "bg-primary-foreground" : PUNTO_OCUPACION,
-                          )}
-                        />
-                      ) : null}
-                    </button>
-                  </td>
-                ) : (
-                  <td key={`vacio-${j}`} />
-                ),
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <span className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
-        <i className={cn("size-1.5 rounded-full", PUNTO_OCUPACION)} /> ya hay citas ese día
-      </span>
     </div>
   );
 }

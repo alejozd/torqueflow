@@ -7,6 +7,7 @@ import { formatoDiaBogota } from "@/lib/fecha-bogota";
 import { totalLiquidacion } from "@/lib/liquidaciones/calculo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { CampoFecha } from "@/components/campo-fecha";
 import {
   Dialog,
   DialogClose,
@@ -137,7 +138,15 @@ export function PagarLiquidacionDialog({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor={`fecha-${id}`}>Fecha</Label>
-              <Input id={`fecha-${id}`} type="date" value={fecha} onChange={(evento) => setFecha(evento.target.value)} />
+              <CampoFecha
+                id={`fecha-${id}`}
+                tipo="pasado"
+                max={formatoDiaBogota.format(new Date())}
+                obligatorio
+                value={fecha}
+                onChange={setFecha}
+                className="w-full"
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor={`referencia-${id}`}>Referencia (opcional)</Label>
