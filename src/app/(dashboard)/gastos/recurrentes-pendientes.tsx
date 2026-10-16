@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { confirmarRecurrenteAction, omitirRecurrenteAction } from "@/app/actions/gasto-recurrente-actions";
 import { ConfirmacionEnLinea } from "@/components/confirmacion-en-linea";
+import { CampoFecha } from "@/components/campo-fecha";
+import { formatoDiaBogota } from "@/lib/fecha-bogota";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -86,11 +88,13 @@ function ConfirmarDialog({ pendiente }: { pendiente: PendienteVista }) {
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`rec-fecha-${idBase}`}>Fecha</Label>
-            <Input
+            <CampoFecha
               id={`rec-fecha-${idBase}`}
               name="fecha"
-              type="date"
-              defaultValue={pendiente.fechaSugerida.toISOString().slice(0, 10)}
+              tipo="pasado"
+              obligatorio
+              defaultValue={formatoDiaBogota.format(pendiente.fechaSugerida)}
+              className="w-full"
             />
           </div>
           {error ? (
