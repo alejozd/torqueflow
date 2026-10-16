@@ -170,7 +170,8 @@ function FormularioAbono({
         </DialogClose>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5">
+      {/* Los bloques no se encogen: el que tiene overflow-hidden (tabla del reparto) recortaba sus filas. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5 [&>*]:shrink-0">
         {/* Resumen: de qué entrada es y cuánto falta. */}
         <div className="rounded-lg bg-muted/50 px-3 py-2.5">
           <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">

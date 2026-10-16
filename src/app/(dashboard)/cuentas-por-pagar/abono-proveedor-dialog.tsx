@@ -168,7 +168,8 @@ function FormularioAbonoProveedor({
         </DialogClose>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5">
+      {/* Los bloques no se encogen: el que tiene overflow-hidden (tabla del reparto) recortaba sus filas. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5 [&>*]:shrink-0">
         <dl className="grid grid-cols-3 gap-2 rounded-lg bg-muted/50 px-3 py-2.5">
           <div>
             <dt className="text-[11px] text-muted-foreground">Entradas por pagar</dt>
