@@ -17,11 +17,12 @@ export default function VencimientosLoading() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Listado</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <CardTitle>Listado de vencimientos</CardTitle>
+          <Skeleton className="h-8 w-40" />
         </CardHeader>
         <CardContent>
-          <DataTableSkeleton columns={8} />
+          <DataTableSkeleton columns={6} />
         </CardContent>
       </Card>
     </main>

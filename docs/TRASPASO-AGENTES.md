@@ -419,3 +419,17 @@ solo con aprobación explícita.
 
 No toques el backlog de otras fases ni cambies el flujo de despliegue sin avisar.
 ```
+
+### Rediseño lista de Vencimientos (2026-10-15)
+
+Rama `vencimientos-rediseno` (sin migraciones). Propuesta de Stitch adaptada con el usuario.
+
+- **Fila**: ahora trae marca, modelo, año y teléfono del cliente. El filtro es puro y vive en
+  `src/lib/vencimientos/filtro-lista.ts`: chips rápidos con conteo que respetan el filtro de documento.
+- **Grilla nueva**: placa amarilla, chip de documento, días con color y columna de aviso (ADMIN y quien avisa ven
+  el botón wa.me; TECNICO ve solo el último aviso).
+- **Cabecera**: «Configurar alertas» solo para ADMIN → `/configuracion-smtp`; tarjeta «Por vencer (N días)».
+- **Descartado de Stitch**: recordatorios masivos (wa.me es uno a uno), tarjeta «Gestionados este mes» (no hay
+  relación cita↔vencimiento), Exportar Excel, refrescar y los enlaces «Filtrar lista».
+- **Pendientes menores**: la tarjeta «Por vencer» cuenta días 8..N (con `diasAviso` ≤ 7 siempre muestra 0); el
+  buscador desaparece cuando un chip deja 0 filas (comportamiento de `DataTable`).

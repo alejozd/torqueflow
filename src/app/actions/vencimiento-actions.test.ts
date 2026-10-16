@@ -39,7 +39,7 @@ describe("listVencimientos", () => {
   it("una fila por documento que requiere aviso, ordenadas por días restantes", async () => {
     mockVehiculoFindMany.mockResolvedValue([
       {
-        id: "v1", placa: "ABC123", tipo: "CARRO",
+        id: "v1", placa: "ABC123", tipo: "CARRO", marca: "Renault", modelo: "Duster", anio: 2021,
         soatVence: new Date("2026-10-20T00:00:00Z"), tecnomecanicaVence: new Date("2026-09-01T00:00:00Z"),
         cliente: { nombre: "Ana", telefono: "3105550142" },
         avisosVencimiento: [
@@ -47,7 +47,7 @@ describe("listVencimientos", () => {
         ],
       },
       {
-        id: "v2", placa: "XYZ987", tipo: "MOTO",
+        id: "v2", placa: "XYZ987", tipo: "MOTO", marca: "Yamaha", modelo: "FZ", anio: null,
         soatVence: new Date("2027-05-01T00:00:00Z"), tecnomecanicaVence: null,
         cliente: { nombre: "Luis", telefono: null }, avisosVencimiento: [],
       },
@@ -74,6 +74,22 @@ describe("listVencimientos", () => {
     expect(filas[1].ultimoAviso).toBeNull();
     expect(filas[0].ultimoAviso).toBeNull();
     expect(filas[0].urlWhatsapp).toMatch(/^https:\/\/wa\.me\/573105550142\?text=/);
+    expect(filas[0]).toMatchObject({ marca: "Renault", modelo: "Duster", anio: 2021, clienteTelefono: "3105550142" });
+  });
+
+  it("clienteTelefono es null si el cliente no tiene teléfono", async () => {
+    mockVehiculoFindMany.mockResolvedValue([
+      {
+        id: "v9", placa: "LMN111", tipo: "MOTO", marca: "Yamaha", modelo: "FZ", anio: null,
+        soatVence: new Date("2026-10-20T00:00:00Z"), tecnomecanicaVence: null,
+        cliente: { nombre: "Luis", telefono: null }, avisosVencimiento: [],
+      },
+    ]);
+
+    const filas = await listVencimientos();
+
+    expect(filas).toHaveLength(1);
+    expect(filas[0]).toMatchObject({ clienteNombre: "Luis", clienteTelefono: null, anio: null });
   });
 });
 
