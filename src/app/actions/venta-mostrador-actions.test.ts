@@ -108,7 +108,7 @@ describe("crearVentaMostradorAction", () => {
   it("una línea libre conserva el precio y la descripción que se escribieron", async () => {
     const libre = { descripcion: "Lavado de motor", cantidad: 1, precioUnitario: 40000 };
 
-    await crearVentaMostradorAction(inicial, venta({ lineas: JSON.stringify([libre]) }));
+    await crearVentaMostradorAction(inicial, venta({ lineas: JSON.stringify([libre]), pagos: JSON.stringify([{ metodoPago: "EFECTIVO", monto: 47600 }]) }));
 
     expect(tx.ventaMostrador.create.mock.calls[0]![0].data.items.create).toEqual([
       { repuestoId: null, descripcion: "Lavado de motor", cantidad: 1, precioUnitario: 40000 },
@@ -144,7 +144,7 @@ describe("crearVentaMostradorAction", () => {
   it("una línea libre no toca el stock", async () => {
     await crearVentaMostradorAction(
       inicial,
-      venta({ lineas: JSON.stringify([{ descripcion: "Mano de obra suelta", cantidad: 1, precioUnitario: 40000 }]) }),
+      venta({ lineas: JSON.stringify([{ descripcion: "Mano de obra suelta", cantidad: 1, precioUnitario: 40000 }]), pagos: "[]", clienteId: "cli1" }),
     );
 
     expect(tx.repuesto.updateMany).not.toHaveBeenCalled();
@@ -269,18 +269,27 @@ describe("crearVentaMostradorAction", () => {
     expect(r.error).toBe("Los pagos suman más que el total");
   });
 
-  it("el exceso en efectivo son vueltas y al cajón entra el neto", async () => {
+  it("las vueltas salen de lo recibido en efectivo y el pago queda neto", async () => {
     const pagos = [
       { metodoPago: "TARJETA", monto: 40000 },
-      { metodoPago: "EFECTIVO", monto: 30000 },
+      { metodoPago: "EFECTIVO", monto: 19500 },
     ];
 
-    const r = await crearVentaMostradorAction(inicial, venta({ pagos: JSON.stringify(pagos) }));
+    const r = await crearVentaMostradorAction(
+      inicial,
+      venta({ pagos: JSON.stringify(pagos), recibidoEfectivo: "30000" }),
+    );
 
     expect(r.vueltas).toBe(10500);
     expect(tx.pagoVentaMostrador.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ metodoPago: "EFECTIVO", monto: 19500 }),
     });
+  });
+
+  it("lo recibido menor que el pago en efectivo se rechaza", async () => {
+    const r = await crearVentaMostradorAction(inicial, venta({ recibidoEfectivo: "1000" }));
+    expect(r.error).toBe("Lo recibido en efectivo es menor que el pago en efectivo");
+    expect(tx.ventaMostrador.create).not.toHaveBeenCalled();
   });
 
   it("RECEPCION no puede pasar del tope de descuento; ADMIN sí", async () => {

@@ -40,6 +40,13 @@ describe("ventaMostradorInputSchema", () => {
     expect(venta.lineas).toHaveLength(1);
   });
 
+  it("rechaza montos con más de 2 decimales", () => {
+    const base = { lineas: [linea] };
+    expect(ventaMostradorInputSchema.safeParse({ ...base, pagos: [{ metodoPago: "EFECTIVO", monto: "10.005" }] }).success).toBe(false);
+    expect(ventaMostradorInputSchema.safeParse({ ...base, pagos: [], recibidoEfectivo: "10.005" }).success).toBe(false);
+    expect(ventaMostradorInputSchema.safeParse({ ...base, pagos: [{ metodoPago: "EFECTIVO", monto: "10.05" }] }).success).toBe(true);
+  });
+
   it("exige al menos una línea y rechaza métodos que no son de caja", () => {
     expect(ventaMostradorInputSchema.safeParse({ lineas: [], pagos: [] }).success).toBe(false);
     // ANTICIPO es de la orden, no del mostrador.

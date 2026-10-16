@@ -10,7 +10,6 @@ import { inicioDiaBogota } from "@/lib/fecha-bogota";
 import { comprometidoPorRepuesto } from "@/lib/inventario/comprometido";
 import { descuentoPermitido, porcentajeDescuento, resumirPagos, type PagoEntrada } from "@/lib/mostrador/cobro";
 import { calcularTotalesVenta } from "@/lib/mostrador/ventas";
-import { roundMoney } from "@/lib/money/round";
 import { scopeRepuesto } from "@/lib/sede/scope";
 import { cobroVentaSchema, ventaMostradorInputSchema, type VentaMostradorInput } from "@/lib/validation/mostrador";
 import type { Role } from "@/generated/prisma-tenant";
@@ -125,10 +124,10 @@ export async function crearVentaMostradorAction(
   const totales = calcularTotalesVenta(lineas, datos.descuento);
 
   // El tope de descuento de recepción se mide con el subtotal a precios del servidor.
-  if (session.user.role === "RECEPCION" || session.user.role === "ADMIN") {
+  if (session.user.role === "RECEPCION") {
     const { descuentoMaxRecepcion } = await leerOpcionesTaller(tenantDb);
     const porcentaje = porcentajeDescuento(subtotal, datos.descuento);
-    if (!descuentoPermitido(session.user.role, porcentaje, descuentoMaxRecepcion)) {
+    if (!descuentoPermitido("RECEPCION", porcentaje, descuentoMaxRecepcion)) {
       return { error: `Tu descuento máximo es ${descuentoMaxRecepcion} %`, success: false };
     }
   }
@@ -140,18 +139,7 @@ export async function crearVentaMostradorAction(
     return { error: "Para dejar saldo pendiente elige un cliente registrado", success: false };
   }
 
-  // Si el exceso de los pagos salió del efectivo, al cajón entra solo lo neto.
-  let excesoPorQuitar = Math.max(0, roundMoney(datos.pagos.reduce((acc, pago) => acc + pago.monto, 0) - totales.total));
-  const pagos: PagoEntrada[] = [...datos.pagos]
-    .reverse()
-    .map((pago) => {
-      if (pago.metodoPago !== "EFECTIVO" || excesoPorQuitar <= 0) return { ...pago };
-      const quitar = Math.min(excesoPorQuitar, pago.monto);
-      excesoPorQuitar -= quitar;
-      return { ...pago, monto: roundMoney(pago.monto - quitar) };
-    })
-    .reverse()
-    .filter((pago) => pago.monto > 0);
+  const pagos: PagoEntrada[] = datos.pagos;
 
   // El stock se descuenta por repuesto, agregando las líneas repetidas (D8).
   const porRepuesto = new Map<string, { cantidad: number; descripcion: string }>();

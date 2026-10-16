@@ -27,11 +27,15 @@ export const lineaVentaSchema = z.object({
   ),
 });
 
+/** Dinero con centavos a lo sumo: evita montos como 10.005 que se redondean distinto. */
+const dosDecimales = (valor: number) => Math.abs(valor * 100 - Math.round(valor * 100)) < 1e-6;
+
 export const pagoVentaSchema = z.object({
   metodoPago: metodoPagoVentaSchema,
   monto: z.coerce
     .number({ error: "El monto no es válido" })
     .refine((valor) => valor > 0, "Cada pago debe ser mayor que cero")
+    .refine(dosDecimales, "El monto no puede tener más de 2 decimales")
     .refine((valor) => valor <= MONTO_MAXIMO_VENTA, "El monto es demasiado alto"),
   referencia: z.preprocess(vacioComoUndefined, z.string().trim().max(120).nullish()),
 });
@@ -47,7 +51,7 @@ export const ventaMostradorInputSchema = z
     /** Pagos mixtos; vacío = todo a crédito (solo con cliente, lo valida la acción). */
     pagos: z.array(pagoVentaSchema).max(10, "Demasiados pagos").default([]),
     /** Efectivo que entregó el cliente, para calcular las vueltas. */
-    recibidoEfectivo: z.preprocess(vacioComoUndefined, z.coerce.number().min(0).max(MONTO_MAXIMO_VENTA).optional()),
+    recibidoEfectivo: z.preprocess(vacioComoUndefined, z.coerce.number().min(0).max(MONTO_MAXIMO_VENTA).refine(dosDecimales, "Lo recibido no puede tener más de 2 decimales").optional()),
   })
   .refine(
     // Sin esto un descuento mayor que el subtotal daría un total negativo, que se

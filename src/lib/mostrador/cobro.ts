@@ -21,9 +21,8 @@ export interface ResumenPagos {
 }
 
 /**
- * Suma de pagos; vueltas = exceso pagado en EFECTIVO sobre el total (nunca de otro
- * método). `recibidoEfectivo` es el billete que entregó el cliente: si supera el
- * pago en efectivo, la diferencia también son vueltas.
+ * Los pagos son netos: su suma no puede pasar del total. Las vueltas salen solo
+ * de `recibidoEfectivo` (lo que entregó el cliente) menos el pago en efectivo.
  */
 export function resumirPagos(total: number, pagos: PagoEntrada[], recibidoEfectivo: number | null): ResumenPagos {
   const fallo = (error: string): ResumenPagos => ({ pagado: 0, saldo: roundMoney(total), vueltas: 0, error });
@@ -35,23 +34,23 @@ export function resumirPagos(total: number, pagos: PagoEntrada[], recibidoEfecti
     pagos.filter((pago) => pago.metodoPago === "EFECTIVO").reduce((acc, pago) => acc + pago.monto, 0),
   );
 
-  if (suma > total) {
-    const exceso = roundMoney(suma - total);
-    if (exceso > efectivo) return fallo("Los pagos suman más que el total");
-    return { pagado: roundMoney(total), saldo: 0, vueltas: exceso, error: null };
-  }
+  if (suma > total) return fallo("Los pagos suman más que el total");
 
-  const vueltas =
-    efectivo > 0 && recibidoEfectivo !== null && recibidoEfectivo > efectivo
-      ? roundMoney(recibidoEfectivo - efectivo)
-      : 0;
+  // Los pagos son netos (lo que se queda en el taller); las vueltas solo salen de lo recibido.
+  let vueltas = 0;
+  if (recibidoEfectivo !== null) {
+    if (recibidoEfectivo < efectivo) return fallo("Lo recibido en efectivo es menor que el pago en efectivo");
+    vueltas = roundMoney(recibidoEfectivo - efectivo);
+  }
   return { pagado: suma, saldo: roundMoney(total - suma), vueltas, error: null };
 }
 
 /** Descuento como porcentaje del subtotal (antes de IVA). */
 export function porcentajeDescuento(subtotal: number, descuento: number): number {
   if (subtotal <= 0 || descuento <= 0) return 0;
-  return (descuento / subtotal) * 100;
+  // Seis decimales: quita el ruido de coma flotante (7000/100000 daba 7.000000000000001)
+  // sin esconder un peso de más.
+  return Math.round((descuento / subtotal) * 100 * 1e6) / 1e6;
 }
 
 /** ADMIN no tiene tope; RECEPCION puede hasta el tope inclusive. */
