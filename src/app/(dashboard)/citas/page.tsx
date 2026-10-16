@@ -185,7 +185,7 @@ function construirHref(base: {
   if (base.estado) params.set("estado", base.estado);
   if (base.q) params.set("q", base.q);
   if (base.vista && base.vista !== "agenda") params.set("vista", base.vista);
-  if (base.rango && base.rango !== "todo") params.set("rango", base.rango);
+  if (base.rango && base.rango !== "semana") params.set("rango", base.rango);
   const query = params.toString();
   return query ? `/citas?${query}` : "/citas";
 }
@@ -307,9 +307,9 @@ export default async function CitasPage({
   }>;
 }) {
   const { estado, q, vista, rango } = await searchParams;
-  // Sin rango en la URL se ve todo, como antes.
+  // Sin rango en la URL se ve la semana actual.
   const rangoActual: RangoCitas =
-    rango === "hoy" || rango === "semana" ? rango : "todo";
+    rango === "hoy" || rango === "todo" ? rango : "semana";
   const estadoFiltro = ESTADOS_VALIDOS.includes(estado as EstadoCita)
     ? (estado as EstadoCita)
     : undefined;
@@ -497,7 +497,7 @@ export default async function CitasPage({
               {vistaActual !== "agenda" ? (
                 <input type="hidden" name="vista" value={vistaActual} />
               ) : null}
-              {rangoActual !== "todo" ? (
+              {rangoActual !== "semana" ? (
                 <input type="hidden" name="rango" value={rangoActual} />
               ) : null}
               <Input
