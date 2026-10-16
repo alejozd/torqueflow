@@ -8,6 +8,7 @@ import type { RangoAntiguedad } from "@/lib/cartera/antiguedad";
 import { DIAS_URGENTE, lecturaUrgente } from "@/lib/proveedores/cuentas-por-pagar";
 import { cn } from "@/lib/utils";
 import { pesos, plural, PUNTO } from "./presentacion";
+import { AbonosProvider } from "./abonos-contexto";
 import { ProveedorCuentasLista } from "./proveedor-cuentas";
 
 const RANGOS = [
@@ -143,7 +144,9 @@ export default async function CuentasPorPagarPage({ searchParams }: { searchPara
             </CardContent>
           </Card>
         ) : (
-          <ProveedorCuentasLista proveedores={lista} />
+          <AbonosProvider>
+            <ProveedorCuentasLista proveedores={lista} />
+          </AbonosProvider>
         )}
       </div>
     </div>

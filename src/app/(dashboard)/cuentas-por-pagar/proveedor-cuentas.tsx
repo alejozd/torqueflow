@@ -4,6 +4,7 @@ import { TituloSeccion } from "@/components/titulo-seccion";
 import { Card } from "@/components/ui/card";
 import type { CuentaConAntiguedad, ProveedorCuentas } from "@/lib/proveedores/cuentas-por-pagar";
 import { cn } from "@/lib/utils";
+import { BotonAbonar } from "./abonos-contexto";
 import { HistorialAbonos } from "./historial-abonos";
 import {
   esDeHoy,
@@ -98,7 +99,22 @@ function FilaCuenta({ cuenta, ahora }: { cuenta: CuentaConAntiguedad; ahora: Dat
         <span className="font-mono font-semibold tabular-nums">{pesos(cuenta.saldo)}</span>
       </div>
 
-      <div className="col-span-2 flex justify-end md:col-span-1 max-md:order-last" />
+      <div className="col-span-2 flex justify-end md:col-span-1 max-md:order-last">
+        {cuenta.saldo > 0 ? (
+          <BotonAbonar
+            cuenta={{
+              cuentaId: cuenta.cuentaId,
+              proveedorNombre: cuenta.proveedorNombre,
+              entradaId: cuenta.entrada.id,
+              fechaTexto: fechaCuenta(cuenta.fecha),
+              referencias: cuenta.entrada.referencias,
+              total: cuenta.total,
+              pagado: cuenta.pagado,
+              saldo: cuenta.saldo,
+            }}
+          />
+        ) : null}
+      </div>
 
       {cuenta.pagos.length > 0 ? (
         <div className="col-span-full max-md:order-last">
