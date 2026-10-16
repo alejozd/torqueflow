@@ -30,11 +30,8 @@ export function diasEntre(desde: string, hasta: string): number {
 export function duracionTexto(dias: number): string {
   const n = Math.abs(dias);
   if (n === 1) return "1 día";
-  if (n < 14) return `${n} días`;
-  if (n < 60) {
-    const semanas = Math.round(n / 7);
-    return semanas === 1 ? "1 semana" : `${semanas} semanas`;
-  }
+  // Hasta un mes, días exactos: «Vence en 18 días» se entiende mejor que «3 semanas».
+  if (n <= 30) return `${n} días`;
   if (n < 365) {
     const meses = Math.round(n / 30.44);
     return meses === 1 ? "1 mes" : `${meses} meses`;

@@ -100,13 +100,13 @@ describe("sumarMesesDia", () => {
 
 describe("duracionTexto y relativoTexto", () => {
   it.each([
-    [1, "1 día"], [5, "5 días"], [13, "13 días"], [14, "2 semanas"], [7 * 7, "7 semanas"],
+    [1, "1 día"], [5, "5 días"], [14, "14 días"], [30, "30 días"], [31, "1 mes"], [49, "2 meses"],
     [60, "2 meses"], [212, "7 meses"], [365, "1 año"], [365 + 61, "1 año y 2 meses"], [-4, "4 días"],
   ])("%i días -> %s", (dias, texto) => expect(duracionTexto(dias)).toBe(texto));
 
   it.each([
     ["2026-10-16", "hoy"], ["2026-10-15", "ayer"], ["2026-10-17", "mañana"],
-    ["2026-10-19", "en 3 días"], ["2026-10-02", "hace 2 semanas"],
+    ["2026-10-19", "en 3 días"], ["2026-10-02", "hace 14 días"],
   ])("%s -> %s", (iso, texto) => expect(relativoTexto(iso, HOY)).toBe(texto));
 
   it("diasEntre tiene signo", () => {
@@ -240,11 +240,8 @@ export function diasEntre(desde: string, hasta: string): number {
 export function duracionTexto(dias: number): string {
   const n = Math.abs(dias);
   if (n === 1) return "1 día";
-  if (n < 14) return `${n} días`;
-  if (n < 60) {
-    const semanas = Math.round(n / 7);
-    return semanas === 1 ? "1 semana" : `${semanas} semanas`;
-  }
+  // Hasta un mes, días exactos (decisión del usuario 2026-10-16).
+  if (n <= 30) return `${n} días`;
   if (n < 365) {
     const meses = Math.round(n / 30.44);
     return meses === 1 ? "1 mes" : `${meses} meses`;
