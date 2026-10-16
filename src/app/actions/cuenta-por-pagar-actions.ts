@@ -27,6 +27,10 @@ const ROLES_ABONO: Role[] = ["ADMIN", "RECEPCION"];
 export interface AbonoFormState {
   error: string | null;
   success: boolean;
+  /** Al registrar: lo abonado y cómo quedó la cuenta, para el mensaje y la fila resaltada. */
+  montoRegistrado?: number;
+  saldoRestante?: number;
+  cuentaId?: string;
 }
 
 const SALDO_INSUFICIENTE = "SALDO_INSUFICIENTE";
@@ -65,8 +69,9 @@ export async function abonarCuentaPorPagarAction(
   );
   if (errorCaja) return { error: errorCaja, success: false };
 
+  let saldoRestante: number;
   try {
-    await tenantDb.$transaction(async (tx) => {
+    saldoRestante = await tenantDb.$transaction(async (tx) => {
       // Guarda atómica: dos personas abonando a la vez no pueden pasarse del saldo.
       const { count } = await tx.cuentaPorPagar.updateMany({
         where: { id: cuentaId, saldoPendiente: { gte: parsed.data.monto } },
@@ -91,6 +96,7 @@ export async function abonarCuentaPorPagarAction(
       if (Number(actualizada.saldoPendiente) <= 0) {
         await tx.cuentaPorPagar.update({ where: { id: cuentaId }, data: { estado: "PAGADA" } });
       }
+      return Math.max(0, Number(actualizada.saldoPendiente));
     });
   } catch (err) {
     if (err instanceof Error && err.message === SALDO_INSUFICIENTE) {
@@ -101,7 +107,7 @@ export async function abonarCuentaPorPagarAction(
 
   revalidatePath("/cuentas-por-pagar");
   revalidatePath("/proveedores");
-  return { error: null, success: true };
+  return { error: null, success: true, montoRegistrado: parsed.data.monto, saldoRestante, cuentaId };
 }
 
 export type FiltroCuentasPorPagar = "pendientes" | "pagadas";

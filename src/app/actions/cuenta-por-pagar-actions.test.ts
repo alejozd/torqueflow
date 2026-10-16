@@ -49,7 +49,7 @@ describe("abonarCuentaPorPagarAction", () => {
   it("abona con guarda atómica y marca la cuenta como pagada al saldar", async () => {
     const r = await abonarCuentaPorPagarAction("c1", inicial, fd({ monto: "170000", metodoPago: "TRANSFERENCIA" }));
 
-    expect(r).toEqual({ error: null, success: true });
+    expect(r).toEqual({ error: null, success: true, montoRegistrado: 170000, saldoRestante: 0, cuentaId: "c1" });
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
     expect(tx.cuentaPorPagar.updateMany).toHaveBeenCalledWith({
       where: { id: "c1", saldoPendiente: { gte: 170000 } },
@@ -64,9 +64,16 @@ describe("abonarCuentaPorPagarAction", () => {
   it("un abono parcial no marca la cuenta como pagada", async () => {
     tx.cuentaPorPagar.findUniqueOrThrow.mockResolvedValue({ saldoPendiente: "70000" });
 
-    const r = await abonarCuentaPorPagarAction("c1", inicial, fd({ monto: "100000", metodoPago: "EFECTIVO" }));
+    const r = await abonarCuentaPorPagarAction(
+      "c1",
+      inicial,
+      fd({ monto: "100000", metodoPago: "EFECTIVO", referencia: "  REC-12  " }),
+    );
 
-    expect(r.success).toBe(true);
+    expect(r).toMatchObject({ success: true, montoRegistrado: 100000, saldoRestante: 70000, cuentaId: "c1" });
+    expect(tx.pagoProveedor.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ referencia: "REC-12" }),
+    });
     expect(tx.cuentaPorPagar.update).not.toHaveBeenCalled();
   });
 

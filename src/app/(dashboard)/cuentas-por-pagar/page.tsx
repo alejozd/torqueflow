@@ -39,10 +39,26 @@ function nombresUrgentes(proveedores: { nombre: string; dias: number }[]): strin
   return `${nombrados.slice(0, -1).join(", ")} y ${nombrados.at(-1)}`;
 }
 
-export default async function CuentasPorPagarPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  const { tab } = await searchParams;
+export default async function CuentasPorPagarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; abonada?: string }>;
+}) {
+  const { tab, abonada } = await searchParams;
   const filtro: FiltroCuentasPorPagar = tab === "pagadas" ? "pagadas" : "pendientes";
-  const { proveedores, totales, pagadas, conteoPagadas, cajaAbierta } = await getCuentasPorPagar({ filtro });
+  // `?abonada=id1,id2`: cuentas recién abonadas aquí, que siguen a la vista resaltadas.
+  const abonadas =
+    typeof abonada === "string"
+      ? abonada
+          .split(",")
+          .map((id) => id.trim())
+          .filter((id) => id !== "")
+          .slice(0, 20)
+      : [];
+  const { proveedores, totales, pagadas, conteoPagadas, cajaAbierta } = await getCuentasPorPagar({
+    filtro,
+    abonadas,
+  });
   // Solo lo que tiene saldo cuenta para los KPI (una cuenta recién saldada puede seguir en la lista).
   const todas = proveedores.flatMap((proveedor) => proveedor.cuentas).filter((cuenta) => cuenta.saldo > 0);
   const totalCuentas = todas.length;
@@ -144,8 +160,8 @@ export default async function CuentasPorPagarPage({ searchParams }: { searchPara
             </CardContent>
           </Card>
         ) : (
-          <AbonosProvider cajaAbierta={cajaAbierta}>
-            <ProveedorCuentasLista proveedores={lista} />
+          <AbonosProvider cajaAbierta={cajaAbierta} abonadas={abonadas}>
+            <ProveedorCuentasLista proveedores={lista} abonadas={abonadas} />
           </AbonosProvider>
         )}
       </div>

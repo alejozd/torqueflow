@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, X } from "lucide-react";
 import { abonarCuentaPorPagarAction, type AbonoFormState } from "@/app/actions/cuenta-por-pagar-actions";
@@ -29,6 +29,8 @@ type Chip = "todo" | "mitad" | "otro" | null;
 
 const initialState: AbonoFormState = { error: null, success: false };
 
+function sinAviso() {}
+
 /**
  * Abono a una entrada (reemplaza el formulario en línea, que venía con el saldo
  * completo escrito): el monto empieza vacío, el botón dice la cifra y lo pagado
@@ -41,6 +43,7 @@ export function AbonoCuentaDialog({
   open,
   onOpenChange,
   onOtroAbono,
+  onRegistrado = sinAviso,
 }: {
   cuenta: CuentaAbono;
   /** Sube con «Hacer otro abono» para empezar el formulario de cero. */
@@ -51,6 +54,8 @@ export function AbonoCuentaDialog({
   onOpenChange: (open: boolean) => void;
   /** «Hacer otro abono»: la misma cuenta con lo que quedó debiendo. */
   onOtroAbono: (cuenta: CuentaAbono) => void;
+  /** Se registró un abono a esta cuenta (la lista la resalta). */
+  onRegistrado?: (cuentaId: string) => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -65,6 +70,7 @@ export function AbonoCuentaDialog({
           cajaAbierta={cajaAbierta}
           onListo={() => onOpenChange(false)}
           onOtroAbono={onOtroAbono}
+          onRegistrado={onRegistrado}
         />
       </DialogContent>
     </Dialog>
@@ -76,11 +82,13 @@ function FormularioAbono({
   cajaAbierta,
   onListo,
   onOtroAbono,
+  onRegistrado,
 }: {
   cuenta: CuentaAbono;
   cajaAbierta: boolean;
   onListo: () => void;
   onOtroAbono: (cuenta: CuentaAbono) => void;
+  onRegistrado: (cuentaId: string) => void;
 }) {
   const abonar = abonarCuentaPorPagarAction.bind(null, cuenta.cuentaId);
   const [state, formAction, isPending] = useActionState(abonar, initialState);
@@ -89,6 +97,15 @@ function FormularioAbono({
   const [metodo, setMetodo] = useState<MetodoPagoAbono>("TRANSFERENCIA");
   const [referencia, setReferencia] = useState("");
   const campoMonto = useRef<HTMLInputElement>(null);
+
+  // Avisa una vez por abono registrado: la lista resalta la fila aunque quede pagada.
+  const avisado = useRef<AbonoFormState | null>(null);
+  useEffect(() => {
+    if (state.success && avisado.current !== state) {
+      avisado.current = state;
+      onRegistrado(cuenta.cuentaId);
+    }
+  }, [state, onRegistrado, cuenta.cuentaId]);
 
   const saldo = cuenta.saldo;
   const mitad = Math.round(saldo / 2);
@@ -102,8 +119,9 @@ function FormularioAbono({
   const puedeEnviar = monto !== null && monto > 0 && !excede && !efectivoBloqueado && !isPending;
 
   if (state.success) {
-    const registrado = monto ?? 0;
-    const restante = Math.max(0, saldo - registrado);
+    // Lo que respondió el servidor manda (alguien pudo abonar a la vez); si no viene, lo enviado.
+    const registrado = state.montoRegistrado ?? monto ?? 0;
+    const restante = state.saldoRestante ?? Math.max(0, saldo - registrado);
     return (
       <ExitoAbono
         cuenta={cuenta}

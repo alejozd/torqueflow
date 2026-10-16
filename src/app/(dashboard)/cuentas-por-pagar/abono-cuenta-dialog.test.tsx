@@ -189,4 +189,23 @@ describe("AbonoCuentaDialog", () => {
     await userEvent.click(screen.getByRole("button", { name: "Listo" }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+
+  it("con la respuesta del servidor: muestra lo que quedó y avisa a la lista una sola vez", async () => {
+    mockAbonar.mockResolvedValue({
+      error: null,
+      success: true,
+      montoRegistrado: 300000,
+      saldoRestante: 4473557,
+      cuentaId: "c1",
+    });
+    const onRegistrado = vi.fn();
+    pintar({ onRegistrado });
+    await userEvent.type(campoMonto(), "300000");
+    await userEvent.click(botonConfirmar());
+
+    // El servidor manda: alguien pudo abonar a la vez y el saldo bajó más de lo que este abono.
+    expect(await screen.findByRole("status")).toHaveTextContent(`todavía debes ${pesos(4473557)}`);
+    expect(onRegistrado).toHaveBeenCalledTimes(1);
+    expect(onRegistrado).toHaveBeenCalledWith("c1");
+  });
 });

@@ -15,24 +15,40 @@ import {
   pesos,
   plural,
   puntoAntiguedad,
+  TEXTO_VERDE,
 } from "./presentacion";
 
 /**
  * La lista de cuentas por pagar: una tarjeta por proveedor y una fila por
  * entrada. Solo muestra datos; abonar se hace desde el diálogo de cada fila.
  */
-export function ProveedorCuentasLista({ proveedores }: { proveedores: ProveedorCuentas[] }) {
+export function ProveedorCuentasLista({
+  proveedores,
+  abonadas = [],
+}: {
+  proveedores: ProveedorCuentas[];
+  /** Cuentas recién abonadas: se resaltan en verde y, si quedaron pagadas, dicen «✓ Pagada». */
+  abonadas?: string[];
+}) {
   const ahora = new Date();
   return (
     <div className="flex flex-col gap-3">
       {proveedores.map((proveedor) => (
-        <TarjetaProveedor key={proveedor.proveedorId} proveedor={proveedor} ahora={ahora} />
+        <TarjetaProveedor key={proveedor.proveedorId} proveedor={proveedor} ahora={ahora} abonadas={abonadas} />
       ))}
     </div>
   );
 }
 
-function TarjetaProveedor({ proveedor, ahora }: { proveedor: ProveedorCuentas; ahora: Date }) {
+function TarjetaProveedor({
+  proveedor,
+  ahora,
+  abonadas,
+}: {
+  proveedor: ProveedorCuentas;
+  ahora: Date;
+  abonadas: string[];
+}) {
   const porPagar = proveedor.cuentas.filter((cuenta) => cuenta.saldo > 0).length;
   return (
     <Card className="gap-0 py-0">
@@ -56,20 +72,34 @@ function TarjetaProveedor({ proveedor, ahora }: { proveedor: ProveedorCuentas; a
       </div>
       <ul className="divide-y">
         {proveedor.cuentas.map((cuenta) => (
-          <FilaCuenta key={cuenta.cuentaId} cuenta={cuenta} ahora={ahora} />
+          <FilaCuenta
+            key={cuenta.cuentaId}
+            cuenta={cuenta}
+            ahora={ahora}
+            recienAbonada={abonadas.includes(cuenta.cuentaId)}
+          />
         ))}
       </ul>
     </Card>
   );
 }
 
-function FilaCuenta({ cuenta, ahora }: { cuenta: CuentaConAntiguedad; ahora: Date }) {
+function FilaCuenta({
+  cuenta,
+  ahora,
+  recienAbonada,
+}: {
+  cuenta: CuentaConAntiguedad;
+  ahora: Date;
+  recienAbonada: boolean;
+}) {
   const porcentaje = cuenta.total > 0 ? Math.min(100, Math.round((cuenta.pagado / cuenta.total) * 100)) : 100;
   return (
     <li
       className={cn(
         "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-2.5",
         "md:grid-cols-[minmax(0,2.3fr)_118px_minmax(0,1.6fr)_120px_104px] md:gap-x-3.5",
+        recienAbonada && "bg-[oklch(0.65_0.15_150/0.12)]",
       )}
     >
       <div className="col-span-2 min-w-0 md:col-span-1">
@@ -84,6 +114,9 @@ function FilaCuenta({ cuenta, ahora }: { cuenta: CuentaConAntiguedad; ahora: Dat
         <p className="truncate text-xs text-muted-foreground" title={cuenta.entrada.resumen}>
           {plural(cuenta.entrada.referencias, "referencia", "referencias")} · {cuenta.entrada.resumen}
         </p>
+        {recienAbonada ? (
+          <span className={cn("text-xs font-semibold", TEXTO_VERDE)}>✓ Abono registrado hace un momento</span>
+        ) : null}
       </div>
 
       <div>
@@ -113,7 +146,9 @@ function FilaCuenta({ cuenta, ahora }: { cuenta: CuentaConAntiguedad; ahora: Dat
               saldo: cuenta.saldo,
             }}
           />
-        ) : null}
+        ) : (
+          <span className={cn("inline-flex items-center gap-1 font-semibold", TEXTO_VERDE)}>✓ Pagada</span>
+        )}
       </div>
 
       {cuenta.pagos.length > 0 ? (
