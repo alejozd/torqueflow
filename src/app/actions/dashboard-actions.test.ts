@@ -76,11 +76,12 @@ describe("getDashboardOverview", () => {
 
   it("suma a la cartera el saldo de las ventas de mostrador pendientes de la sede", async () => {
     factura.aggregate.mockResolvedValue({ _sum: { saldoPendiente: 1000 } });
-    ventaMostrador.aggregate.mockResolvedValue({ _sum: { saldoPendiente: 250 } });
+    ventaMostrador.aggregate.mockResolvedValue({ _sum: { saldoPendiente: 250 }, _count: { _all: 2 } });
 
     const overview = await getDashboardOverview();
 
     expect(overview.cartera.saldoPendiente).toBe(1250);
+    expect(overview.cartera.ventasMostradorPendientes).toBe(2);
     expect(ventaMostrador.aggregate).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { sedeId: SEDE_ID, estado: "PENDIENTE", saldoPendiente: { gt: 0 } },
@@ -151,7 +152,7 @@ describe("getDashboardOverview", () => {
 
     const overview = await getDashboardOverview();
 
-    expect(overview.cartera).toEqual({ saldoPendiente: 0, facturasPendientes: 0 });
+    expect(overview.cartera).toEqual({ saldoPendiente: 0, facturasPendientes: 0, ventasMostradorPendientes: 0 });
   });
 
   it("computes flujo del taller counts by estado, entregadasHoy scoped to entregadaAt today", async () => {
