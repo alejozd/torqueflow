@@ -1,8 +1,9 @@
 "use client";
 
+import { IconoWhatsapp } from "@/components/icono-whatsapp";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, MessageCircle, PackageCheck, XCircle } from "lucide-react";
+import { Mail, PackageCheck, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import {
   cancelarPedidoCompraAction,
@@ -122,7 +123,7 @@ export function AccionesPedido({
             title={urlWhatsapp ? undefined : "El proveedor no tiene teléfono registrado"}
             onClick={enviarWhatsapp}
           >
-            <MessageCircle />
+            <IconoWhatsapp />
             Enviar por WhatsApp
           </Button>
         </>

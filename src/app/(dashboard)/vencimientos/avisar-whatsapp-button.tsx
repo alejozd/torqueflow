@@ -1,7 +1,7 @@
 "use client";
 
+import { IconoWhatsapp } from "@/components/icono-whatsapp";
 import { useTransition } from "react";
-import { MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { registrarAvisoWhatsappAction } from "@/app/actions/vencimiento-actions";
 import { Button } from "@/components/ui/button";
@@ -43,7 +43,7 @@ export function AvisarWhatsappButton({
       disabled={pendiente || !urlWhatsapp}
       title={urlWhatsapp ? undefined : "El cliente no tiene teléfono registrado"}
     >
-      <MessageCircle className="size-4" />
+      <IconoWhatsapp className="size-4" />
       Avisar por WhatsApp
     </Button>
   );

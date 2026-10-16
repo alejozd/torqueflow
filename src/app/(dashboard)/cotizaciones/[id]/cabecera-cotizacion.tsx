@@ -1,5 +1,6 @@
+import { IconoWhatsapp } from "@/components/icono-whatsapp";
 import type { ReactNode } from "react";
-import { CalendarClock, MessageCircle, Phone } from "lucide-react";
+import { CalendarClock, Phone } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { PlacaVehiculo } from "@/components/placa-vehiculo";
@@ -150,7 +151,7 @@ export function CabeceraCotizacion({
           ) : null}
           {whatsapp ? (
             <a href={whatsapp} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm hover:underline">
-              <MessageCircle className="size-3.5 text-[oklch(0.55_0.15_150)]" aria-hidden />
+              <IconoWhatsapp className="size-3.5 text-[oklch(0.55_0.15_150)]" aria-hidden />
               WhatsApp
             </a>
           ) : null}
