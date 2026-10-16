@@ -167,15 +167,25 @@ function agruparPorDia(citas: CitaConDetalle[], ahora: Date): GrupoDia[] {
     }));
 }
 
+type RangoCitas = "hoy" | "semana" | "todo";
+
+const RANGOS: { valor: RangoCitas; etiqueta: string }[] = [
+  { valor: "hoy", etiqueta: "Hoy" },
+  { valor: "semana", etiqueta: "Esta semana" },
+  { valor: "todo", etiqueta: "Todo el historial" },
+];
+
 function construirHref(base: {
   estado?: EstadoCita;
   q?: string;
   vista?: "agenda" | "tabla";
+  rango?: RangoCitas;
 }): string {
   const params = new URLSearchParams();
   if (base.estado) params.set("estado", base.estado);
   if (base.q) params.set("q", base.q);
   if (base.vista && base.vista !== "agenda") params.set("vista", base.vista);
+  if (base.rango && base.rango !== "todo") params.set("rango", base.rango);
   const query = params.toString();
   return query ? `/citas?${query}` : "/citas";
 }
@@ -289,9 +299,17 @@ const COLUMNS: DataTableColumn<CitaConDetalle>[] = [
 export default async function CitasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ estado?: string; q?: string; vista?: string }>;
+  searchParams: Promise<{
+    estado?: string;
+    q?: string;
+    vista?: string;
+    rango?: string;
+  }>;
 }) {
-  const { estado, q, vista } = await searchParams;
+  const { estado, q, vista, rango } = await searchParams;
+  // Sin rango en la URL se ve todo, como antes.
+  const rangoActual: RangoCitas =
+    rango === "hoy" || rango === "semana" ? rango : "todo";
   const estadoFiltro = ESTADOS_VALIDOS.includes(estado as EstadoCita)
     ? (estado as EstadoCita)
     : undefined;
@@ -312,7 +330,7 @@ export default async function CitasPage({
     listCitas(),
     listVehiculosParaCita(),
   ]);
-  const filtradas = citas
+  const coincidentes = citas
     .filter((cita) => !estadoFiltro || cita.estado === estadoFiltro)
     .filter(
       (cita) =>
@@ -367,6 +385,22 @@ export default async function CitasPage({
   const proximas24h = citasProximas24h.length;
   // `citas` llega en orden ascendente, así que la primera es la que sigue.
   const siguienteCita = citasProximas24h[0];
+
+  const enHoy = (cita: CitaConDetalle) =>
+    cita.fechaHora >= inicioHoy && cita.fechaHora < finHoy;
+  const enSemana = (cita: CitaConDetalle) =>
+    cita.fechaHora >= inicioSemana && cita.fechaHora < finSemana;
+  const conteoRango: Record<RangoCitas, number> = {
+    hoy: coincidentes.filter(enHoy).length,
+    semana: coincidentes.filter(enSemana).length,
+    todo: coincidentes.length,
+  };
+  const filtradas =
+    rangoActual === "hoy"
+      ? coincidentes.filter(enHoy)
+      : rangoActual === "semana"
+        ? coincidentes.filter(enSemana)
+        : coincidentes;
 
   const finSemanaMostrado = new Date(finSemana.getTime() - 24 * 60 * 60 * 1000);
   const rangoSemanaTexto = `${formatoDiaMes.format(inicioSemana)} al ${formatoDiaMes.format(finSemanaMostrado)}`;
@@ -463,6 +497,9 @@ export default async function CitasPage({
               {vistaActual !== "agenda" ? (
                 <input type="hidden" name="vista" value={vistaActual} />
               ) : null}
+              {rangoActual !== "todo" ? (
+                <input type="hidden" name="rango" value={rangoActual} />
+              ) : null}
               <Input
                 type="search"
                 name="q"
@@ -482,6 +519,7 @@ export default async function CitasPage({
                     estado: estadoFiltro,
                     q,
                     vista: "agenda",
+                    rango: rangoActual,
                   })}
                   className={cn(
                     "rounded-full px-3 py-1 text-sm transition-colors",
@@ -497,6 +535,7 @@ export default async function CitasPage({
                     estado: estadoFiltro,
                     q,
                     vista: "tabla",
+                    rango: rangoActual,
                   })}
                   className={cn(
                     "rounded-full px-3 py-1 text-sm transition-colors",
@@ -510,14 +549,14 @@ export default async function CitasPage({
               </div>
               <ExportarCitasButton
                 csv={construirCsv(filtradas)}
-                filename={`citas-${estadoFiltro ?? "todas"}.csv`}
+                filename={`citas-${estadoFiltro ?? "todas"}${rangoActual !== "todo" ? `-${rangoActual}` : ""}.csv`}
               />
             </div>
           </div>
 
           <nav aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
             <Link
-              href={construirHref({ q, vista: vistaActual })}
+              href={construirHref({ q, vista: vistaActual, rango: rangoActual })}
               className={cn(
                 "rounded-full border px-3 py-1 text-sm transition-colors",
                 estadoFiltro === undefined
@@ -530,7 +569,12 @@ export default async function CitasPage({
             {ESTADOS_VALIDOS.map((value) => (
               <Link
                 key={value}
-                href={construirHref({ estado: value, q, vista: vistaActual })}
+                href={construirHref({
+                  estado: value,
+                  q,
+                  vista: vistaActual,
+                  rango: rangoActual,
+                })}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors",
                   estadoFiltro === value
@@ -547,20 +591,57 @@ export default async function CitasPage({
             ))}
           </nav>
 
+          <nav
+            aria-label="Rango de fechas"
+            className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm"
+          >
+            <span className="text-muted-foreground">Ver:</span>
+            {RANGOS.map(({ valor, etiqueta }) => (
+              <Link
+                key={valor}
+                href={construirHref({
+                  estado: estadoFiltro,
+                  q,
+                  vista: vistaActual,
+                  rango: valor,
+                })}
+                aria-current={rangoActual === valor ? "page" : undefined}
+                className={cn(
+                  "transition-colors",
+                  rangoActual === valor
+                    ? "font-semibold text-primary"
+                    : "hover:text-primary",
+                )}
+              >
+                {etiqueta} ({conteoRango[valor]})
+              </Link>
+            ))}
+          </nav>
+
           {vistaActual === "tabla" ? (
             <DataTable
               columns={COLUMNS}
               rows={filtradas}
               getRowKey={(cita) => cita.id}
               rowHref={(cita) => `/citas/${cita.id}`}
-              emptyMessage="No hay citas agendadas en esta sede."
+              emptyMessage={
+                rangoActual === "hoy"
+                  ? "No hay citas para hoy."
+                  : rangoActual === "semana"
+                    ? "No hay citas esta semana."
+                    : "No hay citas agendadas en esta sede."
+              }
               headerClassName="bg-muted"
             />
           ) : (
             <div className="flex flex-col gap-6">
               {grupos.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No hay citas agendadas en esta sede.
+                  {rangoActual === "hoy"
+                    ? "No hay citas para hoy."
+                    : rangoActual === "semana"
+                      ? "No hay citas esta semana."
+                      : "No hay citas agendadas en esta sede."}
                 </p>
               ) : (
                 grupos.map((grupo) => (
