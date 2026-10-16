@@ -45,7 +45,7 @@ const TONO_DIAS: Record<EstadoVencimiento, string> = {
 };
 
 const TONO_CHIP: Record<FiltroRapido, { suave: string; anillo: string }> = {
-  TODOS: { suave: "bg-muted text-foreground", anillo: "ring-2 ring-neutral-900 bg-neutral-900 text-white" },
+  TODOS: { suave: "bg-muted text-foreground", anillo: "ring-2 ring-foreground bg-foreground text-background" },
   VENCIDO: { suave: TONO_ESTADO.VENCIDO, anillo: "ring-2 ring-[oklch(0.5_0.2_27)]" },
   PROXIMO: { suave: TONO_ESTADO.PROXIMO, anillo: "ring-2 ring-[oklch(0.55_0.15_60)]" },
   POR_VENCER: { suave: "bg-[oklch(0.6_0.12_250/0.12)] text-[oklch(0.45_0.15_250)]", anillo: "ring-2 ring-[oklch(0.45_0.15_250)]" },
@@ -77,10 +77,10 @@ export function VencimientosTable({
     {
       header: "Vehículo",
       cell: (fila) => (
-        <Link href={`/vehiculos/${fila.vehiculoId}`} className="flex items-center gap-3 hover:underline">
+        <Link href={`/vehiculos/${fila.vehiculoId}`} className="group flex items-center gap-3">
           <PlacaVehiculo as="span" placa={fila.placa} className="text-sm" />
           <span className="flex flex-col">
-            <span className="font-medium">
+            <span className="font-medium group-hover:underline">
               {fila.marca} {fila.modelo}
             </span>
             <span className="text-xs text-muted-foreground">
@@ -159,7 +159,7 @@ export function VencimientosTable({
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle>Listado de vencimientos</CardTitle>
         <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-          {visibles.length} registros
+          {visibles.length} en el filtro
         </span>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -177,6 +177,7 @@ export function VencimientosTable({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted-foreground">Filtros rápidos:</span>
+          <div role="group" aria-label="Filtros rápidos" className="flex flex-wrap items-center gap-2">
           {FILTROS_RAPIDOS.map((filtro) => {
             const activo = rapido === filtro;
             return (
@@ -195,6 +196,7 @@ export function VencimientosTable({
               </button>
             );
           })}
+          </div>
         </div>
         <DataTable
           columns={columns}
@@ -202,7 +204,7 @@ export function VencimientosTable({
           getRowKey={(fila) => fila.id}
           emptyMessage="No hay vencimientos con este filtro."
           searchable
-          searchPlaceholder="Buscar por placa o cliente…"
+          searchPlaceholder="Buscar por placa, vehículo, cliente o teléfono…"
         />
       </CardContent>
     </Card>
