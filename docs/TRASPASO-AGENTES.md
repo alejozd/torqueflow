@@ -453,3 +453,25 @@ Rama `mostrador-rediseno`. Spec: `docs/superpowers/specs/2026-10-15-mostrador-re
 - **Pendientes menores**: el saldo del cliente no se refresca en la misma sesión; el KPI de efectivo es por día
   Bogotá, no por sesión de caja; el reenvío de correo no tiene límite; 3 tests de `kpi-card` fallaban antes de
   esta rama.
+
+### Campos de fecha nuevos (2026-10-16)
+
+Merge `a86a9f0`. Plan: `docs/superpowers/plans/2026-10-16-campos-fecha.md`.
+
+- **Ya no hay `<input type="date|month|datetime-local">` en `src`.** Se usan `CampoFecha` (fecha suelta con
+  atajos según `tipo`, línea de ayuda y fecha escrita a mano), `CampoFechaHora`, `RangoFechas` (Reportes y
+  Exportar) y `CampoMes` (Caja, Gastos, plantillas), todos sobre `src/components/ui/calendario-mes.tsx` (el
+  mismo calendario del selector de citas). Ayudantes puros en `src/lib/fechas-campo.ts`. Sin librerías nuevas.
+- **Contrato**: cadenas ISO en hora de Bogotá (`aaaa-mm-dd`, `aaaa-mm`, `aaaa-mm-ddTHH:mm`); esquemas zod y
+  server actions no cambiaron. Si el formulario arma `new FormData(form)` desde el DOM, el componente **debe**
+  recibir `name` (emite un campo oculto); si no, la fecha no llega al servidor.
+- **Trampa**: los `@db.Date` llegan como medianoche UTC (p. ej. `fechaEnPeriodo`). Para sacar el día usar
+  `toISOString().slice(0, 10)`; **no** `formatoDiaBogota`, que lo corre al día anterior.
+- En filtros de servidor el componente lleva `key` con el valor, para que no quede viejo tras una navegación.
+- Textos: plazos de hasta 30 días en días exactos («Vence en 18 días»), luego meses y años.
+
+### Crear orden sin parpadeo (2026-10-16)
+
+Merge `c92e500`. Al crear una orden (desde Órdenes o desde la ficha del cliente) el diálogo ya no se cierra
+antes de navegar: el botón pasa a «Abriendo la orden...» y queda bloqueado hasta que la ficha reemplaza la
+pantalla. Antes se veía y se podía clicar el listado mientras cargaba la ficha, y cabía un doble envío.
