@@ -22,8 +22,9 @@ const db = {
   $transaction: (fn: (cliente: typeof tx) => unknown) => fn(tx),
 };
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
+const mockTenantFindUnique = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/db/public-client", () => ({
-  publicDb: { tenant: { findUnique: vi.fn().mockResolvedValue({ nombre: "Taller Pérez", slug: "taller-perez" }) } },
+  publicDb: { tenant: { findUnique: (...args: unknown[]) => mockTenantFindUnique(...args) } },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 // Nunca se manda un correo de verdad: el SMTP y el envío van simulados.
@@ -41,6 +42,8 @@ import {
   enviarComprobanteCorreoAction,
   getComprobanteVentaMostrador,
 } from "./venta-mostrador-actions";
+
+mockTenantFindUnique.mockResolvedValue({ nombre: "Taller Pérez", slug: "taller-perez" });
 
 const SESION = { user: { id: "u1", role: "RECEPCION", tenantSchema: "taller", sedeActivaId: "sede-1" } };
 const inicial = { error: null, success: false };
@@ -215,6 +218,22 @@ describe("crearVentaMostradorAction", () => {
     expect(decodeURIComponent(r.urlWhatsapp!.split("text=")[1]!)).toContain("venta #7");
     // El comprobante se lee de la sede activa.
     expect(db.ventaMostrador.findFirst.mock.calls[0]![0].where).toEqual({ id: "v1", sedeId: "sede-1" });
+  });
+
+  it.each([
+    ["el nombre del taller", () => mockTenantFindUnique.mockRejectedValueOnce(new Error("public caído"))],
+    ["el comprobante", () => db.ventaMostrador.findFirst.mockRejectedValueOnce(new Error("timeout"))],
+  ])("si falla leer %s tras guardar, la venta igual sale como cobrada (sin WhatsApp)", async (_, fallar) => {
+    db.cliente.findFirst.mockResolvedValue({ nombre: "Ana Gómez", telefono: "310 555 1234", email: null });
+    db.ventaMostrador.findFirst.mockResolvedValue(VENTA_GUARDADA);
+    fallar();
+    const errorConsola = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const r = await crearVentaMostradorAction(inicial, venta({ clienteId: "cli1" }));
+
+    expect(r).toMatchObject({ error: null, success: true, ventaId: "v1", numero: 7, total: 59500, urlWhatsapp: null });
+    expect(errorConsola).toHaveBeenCalled();
+    errorConsola.mockRestore();
   });
 
   it("con cliente sin teléfono ni correo no ofrece WhatsApp ni correo", async () => {

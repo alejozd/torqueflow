@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { StrictMode } from "react";
 import { render, screen, within } from "@testing-library/react";
 import type { ComprobanteVenta } from "@/lib/mostrador/comprobante";
 
@@ -110,6 +111,15 @@ describe("ComprobanteVentaPage", () => {
     expect(screen.getByRole("link", { name: "← Volver al mostrador" })).toHaveAttribute("href", "/mostrador");
     expect(screen.getByRole("button", { name: "Imprimir" })).toBeInTheDocument();
     expect(container.querySelector(".print\\:hidden")).not.toBeNull();
+    expect(window.print).toHaveBeenCalledTimes(1);
+  });
+
+  it("en modo estricto (doble montaje) el diálogo se abre una sola vez", async () => {
+    const pagina = await ComprobanteVentaPage({
+      params: Promise.resolve({ id: "v1" }),
+      searchParams: Promise.resolve({ imprimir: "1" }),
+    });
+    render(<StrictMode>{pagina}</StrictMode>);
     expect(window.print).toHaveBeenCalledTimes(1);
   });
 

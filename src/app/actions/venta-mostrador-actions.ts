@@ -240,11 +240,17 @@ export async function crearVentaMostradorAction(
   }
 
   // El WhatsApp se arma aquí (con el nombre del taller) para que la tarjeta lo abra
-  // como enlace, sin esperas que el bloqueador de ventanas castigue.
+  // como enlace, sin esperas que el bloqueador de ventanas castigue. La venta ya
+  // está guardada: si esto falla no se puede responder error (el cajero cobraría
+  // dos veces), solo se queda sin el enlace.
   let enlaceWhatsapp: string | null = null;
   if (cliente && urlWhatsapp(cliente.telefono, "") !== null) {
-    const comprobante = await cargarComprobante(session.user.tenantSchema, tenantDb, sedeId, ventaId);
-    if (comprobante) enlaceWhatsapp = urlWhatsapp(cliente.telefono, textoComprobanteWhatsapp(comprobante));
+    try {
+      const comprobante = await cargarComprobante(session.user.tenantSchema, tenantDb, sedeId, ventaId);
+      if (comprobante) enlaceWhatsapp = urlWhatsapp(cliente.telefono, textoComprobanteWhatsapp(comprobante));
+    } catch (err) {
+      console.error("[crearVentaMostradorAction] venta guardada, pero no se pudo armar el WhatsApp", err);
+    }
   }
 
   revalidatePath("/mostrador");

@@ -71,17 +71,45 @@ export function VenderMostrador({
     carrito.vaciar();
     setDescuento(DESCUENTO_VACIO);
     setVentaActual((n) => n + 1);
-    setVentaCobrada({
-      ventaId: state.ventaId ?? "",
-      numero: state.numero ?? 0,
-      total: state.total ?? 0,
-      pagos: state.pagos ?? [],
-      vueltas: state.vueltas ?? 0,
-      saldoPendiente: state.saldoPendiente ?? 0,
-      cliente: state.cliente ?? null,
-      urlWhatsapp: state.urlWhatsapp ?? null,
+    // Sin id o número no hay comprobante al que apuntar: no se inventa una tarjeta.
+    setVentaCobrada(
+      state.ventaId && state.numero !== undefined
+        ? {
+            ventaId: state.ventaId,
+            numero: state.numero,
+            total: state.total ?? 0,
+            pagos: state.pagos ?? [],
+            vueltas: state.vueltas ?? 0,
+            saldoPendiente: state.saldoPendiente ?? 0,
+            cliente: state.cliente ?? null,
+            urlWhatsapp: state.urlWhatsapp ?? null,
+          }
+        : null,
+    );
+  }
+
+  // Marca roja de stock (spec §3.3): se toma la cantidad de cada fila rechazada al
+  // llegar el error, y la marca se va en cuanto esa fila cambia de cantidad o se quita.
+  const [marcaStock, setMarcaStock] = useState<{
+    fuente: VentaMostradorFormState;
+    cantidades: Record<string, number>;
+  } | null>(null);
+  const cantidadEnCarrito = (repuestoId: string) =>
+    carrito.lineas.find((linea) => linea.repuestoId === repuestoId)?.cantidad;
+  if (!state.success && state.repuestosSinStock?.length && marcaStock?.fuente !== state) {
+    setMarcaStock({
+      fuente: state,
+      cantidades: Object.fromEntries(state.repuestosSinStock.map((id) => [id, cantidadEnCarrito(id) ?? 0])),
     });
   }
+  const marcasVigentes = Object.entries(marcaStock?.cantidades ?? {}).filter(
+    ([id, cantidad]) => cantidadEnCarrito(id) === cantidad,
+  );
+  if (marcaStock && marcasVigentes.length < Object.keys(marcaStock.cantidades).length) {
+    // Se corrigió una fila: su marca no vuelve aunque se deje otra vez la misma cantidad.
+    setMarcaStock({ fuente: marcaStock.fuente, cantidades: Object.fromEntries(marcasVigentes) });
+  }
+  const sinStock = marcasVigentes.map(([id]) => id);
 
   /** Enter en la tarjeta: venta limpia; el carrito vuelve a montarse con el foco en el buscador. */
   function nuevaVenta() {
@@ -152,7 +180,7 @@ export function VenderMostrador({
                 <TablaCarrito
                   carrito={carrito}
                   buscadorRef={buscadorRef}
-                  sinStock={state.success ? undefined : state.repuestosSinStock}
+                  sinStock={sinStock}
                 />
               </CardContent>
             </Card>

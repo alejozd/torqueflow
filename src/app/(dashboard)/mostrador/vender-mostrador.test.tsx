@@ -145,6 +145,45 @@ describe("VenderMostrador", () => {
     expect(fila).toHaveTextContent("Ya no hay stock suficiente");
   });
 
+  it("la marca de stock se va al cambiar la cantidad y no vuelve al dejarla igual", async () => {
+    mockCrear.mockResolvedValue({ error: "Sin stock", success: false, repuestosSinStock: ["r1"] });
+    pintar();
+    await agregarFiltro();
+    await userEvent.click(botonCobrar());
+    await screen.findByText("Sin stock");
+    expect(screen.getByRole("row", { name: "Filtro de aceite" })).toHaveAttribute("data-sin-stock", "true");
+
+    await userEvent.click(screen.getByRole("button", { name: "Más Filtro de aceite" }));
+    expect(screen.getByRole("row", { name: "Filtro de aceite" })).not.toHaveAttribute("data-sin-stock");
+    await userEvent.click(screen.getByRole("button", { name: "Menos Filtro de aceite" }));
+    expect(screen.getByRole("row", { name: "Filtro de aceite" })).not.toHaveAttribute("data-sin-stock");
+  });
+
+  it("la marca de stock se va al quitar la fila y no vuelve al agregarla de nuevo", async () => {
+    mockCrear.mockResolvedValue({ error: "Sin stock", success: false, repuestosSinStock: ["r1"] });
+    pintar();
+    await agregarFiltro();
+    await userEvent.click(botonCobrar());
+    await screen.findByText("Sin stock");
+
+    await userEvent.click(screen.getByRole("button", { name: "Quitar Filtro de aceite" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sí, quitar" }));
+    expect(screen.queryByRole("row", { name: "Filtro de aceite" })).not.toBeInTheDocument();
+    await agregarFiltro();
+    expect(screen.getByRole("row", { name: "Filtro de aceite" })).not.toHaveAttribute("data-sin-stock");
+  });
+
+  it("si el éxito llega sin id o número de venta no inventa la tarjeta", async () => {
+    mockCrear.mockResolvedValue({ error: null, success: true, numero: 9 });
+    pintar();
+    await agregarFiltro();
+    await userEvent.click(botonCobrar());
+
+    await waitFor(() => expect(screen.queryByRole("row", { name: "Filtro de aceite" })).not.toBeInTheDocument());
+    expect(screen.queryByRole("status", { name: /Venta #/ })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Buscar repuesto")).toBeInTheDocument();
+  });
+
   it("el Cobrar de la barra angosta lleva al cobro sin cambiar el método elegido", async () => {
     pintar();
     await agregarFiltro();
