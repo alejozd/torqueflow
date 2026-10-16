@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useController, useForm } from "react-hook-form";
+import { Controller, useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -12,14 +12,14 @@ import {
   type CotizacionFormState,
   type VehiculoOption,
 } from "@/app/actions/cotizacion-actions";
-import { finDeMesBogotaIso } from "@/lib/fecha-bogota";
+import { finDeMesBogotaIso, formatoDiaBogota } from "@/lib/fecha-bogota";
 import { normalizeForSearch } from "@/lib/search";
 import { crearCotizacionInputSchema } from "@/lib/validation/cotizacion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { CampoFecha } from "@/components/campo-fecha";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { DialogClose } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -136,13 +136,22 @@ export function NuevaCotizacionForm({ vehiculos }: { vehiculos: VehiculoOption[]
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="validaHasta">Válida hasta (opcional)</Label>
-        <Input
-          id="validaHasta"
-          type="date"
-          aria-invalid={errors.validaHasta ? true : undefined}
-          aria-describedby={errors.validaHasta ? "validaHasta-error" : undefined}
-          {...register("validaHasta")}
-        />
+        <Controller
+              control={control}
+              name="validaHasta"
+              render={({ field }) => (
+                <CampoFecha
+                  id="validaHasta"
+                  tipo="cotizacion"
+                  min={formatoDiaBogota.format(new Date())}
+                  value={typeof field.value === "string" ? field.value : ""}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  invalid={!!errors.validaHasta}
+                  describedBy={errors.validaHasta ? "validaHasta-error" : undefined}
+                />
+              )}
+            />
         {errors.validaHasta ? <p id="validaHasta-error" className="text-xs text-destructive">{String(errors.validaHasta.message)}</p> : null}
       </div>
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { z } from "zod";
-import { useController, useWatch } from "react-hook-form";
+import { Controller, useController, useWatch } from "react-hook-form";
 import type { Control, FieldErrors, UseFormRegister, UseFormSetValue } from "react-hook-form";
 import { Plus } from "lucide-react";
 import {
@@ -15,6 +15,7 @@ import type { MarcaVehiculo, ModeloVehiculo } from "@/generated/prisma-tenant";
 import { NuevaMarcaDialog } from "./nueva-marca-dialog";
 import { NuevoModeloDialog } from "./nuevo-modelo-dialog";
 import { Button } from "@/components/ui/button";
+import { CampoFecha } from "@/components/campo-fecha";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { FormGroup } from "@/components/form-group";
 import { Input } from "@/components/ui/input";
@@ -303,12 +304,21 @@ export function VehiculoFormFields({
 
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="proximoMantenimiento">Próximo mantenimiento</Label>
-            <Input
-              id="proximoMantenimiento"
-              type="date"
-              aria-invalid={errors.proximoMantenimiento ? true : undefined}
-              aria-describedby={errors.proximoMantenimiento ? "proximoMantenimiento-error" : undefined}
-              {...register("proximoMantenimiento")}
+            <Controller
+              control={control}
+              name="proximoMantenimiento"
+              render={({ field }) => (
+                <CampoFecha
+                  id="proximoMantenimiento"
+                  name="proximoMantenimiento"
+                  tipo="mantenimiento"
+                  value={typeof field.value === "string" ? field.value : ""}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  invalid={!!errors.proximoMantenimiento}
+                  describedBy={errors.proximoMantenimiento ? "proximoMantenimiento-error" : undefined}
+                />
+              )}
             />
             {errors.proximoMantenimiento ? (
               <p id="proximoMantenimiento-error" className="text-xs text-destructive">{errors.proximoMantenimiento.message}</p>
@@ -342,12 +352,21 @@ export function VehiculoFormFields({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
           <div className="flex flex-col gap-1.5 sm:col-span-3">
             <Label htmlFor="soatVence">SOAT vence</Label>
-            <Input
-              id="soatVence"
-              type="date"
-              aria-invalid={errors.soatVence ? true : undefined}
-              aria-describedby={errors.soatVence ? "soatVence-error" : undefined}
-              {...register("soatVence")}
+            <Controller
+              control={control}
+              name="soatVence"
+              render={({ field }) => (
+                <CampoFecha
+                  id="soatVence"
+                  name="soatVence"
+                  tipo="vencimiento"
+                  value={typeof field.value === "string" ? field.value : ""}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  invalid={!!errors.soatVence}
+                  describedBy={errors.soatVence ? "soatVence-error" : undefined}
+                />
+              )}
             />
             {errors.soatVence ? (
               <p id="soatVence-error" className="text-xs text-destructive">{errors.soatVence.message}</p>
@@ -356,12 +375,21 @@ export function VehiculoFormFields({
 
           <div className="flex flex-col gap-1.5 sm:col-span-3">
             <Label htmlFor="tecnomecanicaVence">Tecnomecánica vence</Label>
-            <Input
-              id="tecnomecanicaVence"
-              type="date"
-              aria-invalid={errors.tecnomecanicaVence ? true : undefined}
-              aria-describedby={errors.tecnomecanicaVence ? "tecnomecanicaVence-error" : undefined}
-              {...register("tecnomecanicaVence")}
+            <Controller
+              control={control}
+              name="tecnomecanicaVence"
+              render={({ field }) => (
+                <CampoFecha
+                  id="tecnomecanicaVence"
+                  name="tecnomecanicaVence"
+                  tipo="vencimiento"
+                  value={typeof field.value === "string" ? field.value : ""}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  invalid={!!errors.tecnomecanicaVence}
+                  describedBy={errors.tecnomecanicaVence ? "tecnomecanicaVence-error" : undefined}
+                />
+              )}
             />
             {errors.tecnomecanicaVence ? (
               <p id="tecnomecanicaVence-error" className="text-xs text-destructive">

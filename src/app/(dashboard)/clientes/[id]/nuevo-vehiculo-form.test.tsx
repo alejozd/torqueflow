@@ -37,6 +37,12 @@ async function seleccionarMarcaYModelo() {
   await userEvent.click(await screen.findByRole("option", { name: "Corolla" }));
 }
 
+// Abre el calendario del CampoFecha y escribe la fecha dd/mm/aaaa.
+async function escribirFecha(nombre: RegExp, texto: string) {
+  await userEvent.click(screen.getByRole("button", { name: nombre }));
+  await userEvent.type(screen.getByPlaceholderText("dd/mm/aaaa"), `${texto}{Enter}`);
+}
+
 describe("NuevoVehiculoForm", () => {
   beforeEach(() => {
     mockCreateVehiculoAction.mockReset();
@@ -90,7 +96,7 @@ describe("NuevoVehiculoForm", () => {
 
     expect(screen.getByLabelText("Combustible")).toBeInTheDocument();
     expect(screen.getByLabelText("Kilometraje")).toBeInTheDocument();
-    expect(screen.getByLabelText("Próximo mantenimiento")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Próximo mantenimiento/ })).toBeInTheDocument();
     expect(screen.getByLabelText("Transmisión")).toBeInTheDocument();
     expect(screen.getByLabelText("Observaciones del vehículo")).toBeInTheDocument();
   });
@@ -103,7 +109,7 @@ describe("NuevoVehiculoForm", () => {
     await userEvent.click(screen.getByRole("combobox", { name: "Combustible" }));
     await userEvent.click(await screen.findByRole("option", { name: "Gasolina" }));
     await userEvent.type(screen.getByLabelText("Kilometraje"), "78420");
-    await userEvent.type(screen.getByLabelText("Próximo mantenimiento"), "2026-12-01");
+    await escribirFecha(/Próximo mantenimiento/, "01/12/2026");
     await userEvent.click(screen.getByRole("combobox", { name: "Transmisión" }));
     await userEvent.click(await screen.findByRole("option", { name: "Automática" }));
     await userEvent.type(
@@ -185,8 +191,8 @@ describe("NuevoVehiculoForm", () => {
     await userEvent.type(screen.getByLabelText("Placa"), "ABC123");
     await seleccionarMarcaYModelo();
     await userEvent.type(screen.getByLabelText("VIN"), "9BWZZZ377VT004251");
-    await userEvent.type(screen.getByLabelText("SOAT vence"), "2026-11-30");
-    await userEvent.type(screen.getByLabelText("Tecnomecánica vence"), "2026-12-15");
+    await escribirFecha(/SOAT vence/, "30/11/2026");
+    await escribirFecha(/Tecnomecánica vence/, "15/12/2026");
     await userEvent.click(screen.getByRole("button", { name: "Agregar vehículo" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Vehículo agregado");
