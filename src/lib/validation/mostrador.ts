@@ -28,7 +28,7 @@ export const lineaVentaSchema = z.object({
 });
 
 /** Dinero con centavos a lo sumo: evita montos como 10.005 que se redondean distinto. */
-const dosDecimales = (valor: number) => Math.abs(valor * 100 - Math.round(valor * 100)) < 1e-6;
+export const dosDecimales = (valor: number) => Math.abs(valor * 100 - Math.round(valor * 100)) < 1e-6;
 
 export const pagoVentaSchema = z.object({
   metodoPago: metodoPagoVentaSchema,

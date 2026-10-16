@@ -9,7 +9,22 @@ vi.mock("@/app/actions/venta-mostrador-actions", () => ({
   crearVentaMostradorAction: (...args: unknown[]) => mockCrear(...args),
   buscarParaMostradorAction: (...args: unknown[]) => mockBuscar(...args),
   buscarClientesMostradorAction: (...args: unknown[]) => mockBuscarCliente(...args),
+  enviarComprobanteCorreoAction: vi.fn(),
 }));
+
+/** Lo que responde el servidor al cobrar bien (tarea 7: datos de la tarjeta de venta cobrada). */
+const VENTA_OK = {
+  error: null,
+  success: true,
+  numero: 9,
+  ventaId: "v9",
+  total: 113050,
+  pagos: [{ metodoPago: "EFECTIVO", monto: 113050 }],
+  vueltas: 6950,
+  saldoPendiente: 0,
+  cliente: null,
+  urlWhatsapp: null,
+};
 vi.mock("@/app/actions/cliente-actions", () => ({ createClienteAction: vi.fn() }));
 
 import type { RepuestoMostrador } from "@/app/actions/venta-mostrador-actions";
@@ -43,7 +58,7 @@ const botonCobrar = () => screen.getByRole("button", { name: /^Cobrar \$/ });
 
 describe("VenderMostrador", () => {
   beforeEach(() => {
-    mockCrear.mockReset().mockResolvedValue({ error: null, success: true, numero: 9 });
+    mockCrear.mockReset().mockResolvedValue(VENTA_OK);
     mockBuscarCliente
       .mockReset()
       .mockResolvedValue([
@@ -65,7 +80,7 @@ describe("VenderMostrador", () => {
     expect(screen.queryByRole("button", { name: "Dejar a crédito" })).not.toBeInTheDocument();
   });
 
-  it("cobra con descuento: manda líneas, pagos, descuento en pesos y lo recibido; al cobrar vacía el carrito", async () => {
+  it("cobra con descuento: manda líneas, pagos, descuento en pesos y lo recibido; al cobrar sale la tarjeta de venta cobrada", async () => {
     pintar();
     await agregarFiltro();
     await userEvent.type(screen.getByLabelText("Descuento"), "5");
@@ -85,20 +100,60 @@ describe("VenderMostrador", () => {
     expect(datos.get("recibidoEfectivo")).toBe("120000");
     expect(datos.get("clienteId")).toBeNull();
 
-    expect(await screen.findByText("Venta #9 registrada.")).toBeInTheDocument();
+    // El carrito se reemplaza por la tarjeta de éxito, con el foco en "Nueva venta".
+    const tarjeta = await screen.findByRole("status", { name: "Venta #9 cobrada" });
+    expect(tarjeta).toHaveTextContent(`Consumidor final · ${textoPesos(113050)} · Efectivo · Vueltas ${textoPesos(6950)}`);
     expect(screen.queryByRole("row", { name: "Filtro de aceite" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Buscar repuesto")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Descuento")).toHaveValue(null);
-    await waitFor(() => expect(screen.getByLabelText("Buscar repuesto")).toHaveFocus());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Nueva venta" })).toHaveFocus());
   });
 
-  it("si el servidor responde un error, el carrito no se vacía", async () => {
-    mockCrear.mockResolvedValue({ error: 'No hay stock suficiente de "Filtro de aceite"', success: false });
+  it("Enter en la venta cobrada arranca una venta limpia con el foco en el buscador", async () => {
+    mockCrear.mockResolvedValue({ ...VENTA_OK, cliente: { nombre: "Ana Pérez", correo: null } });
     pintar();
     await agregarFiltro();
+    await userEvent.type(screen.getByLabelText("Buscar cliente"), "ana");
+    await userEvent.click(await screen.findByRole("option", { name: /Ana Pérez/ }));
+    await userEvent.type(screen.getByLabelText("Recibido"), "200000");
+    await userEvent.click(botonCobrar());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Nueva venta" })).toHaveFocus());
+
+    await userEvent.keyboard("{Enter}");
+
+    expect(screen.queryByRole("status", { name: /Venta #9/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("Buscar repuesto")).toHaveFocus());
+    expect(screen.getByTestId("cliente-actual")).toHaveTextContent("Consumidor final");
+    expect(screen.queryByRole("row", { name: "Filtro de aceite" })).not.toBeInTheDocument();
+  });
+
+  it("si el servidor responde stock insuficiente, el carrito no se vacía y la fila se marca", async () => {
+    mockCrear.mockResolvedValue({
+      error: 'No hay stock suficiente de "Filtro de aceite"',
+      success: false,
+      repuestosSinStock: ["r1"],
+    });
+    pintar();
+    await agregarFiltro();
+    expect(screen.getByRole("row", { name: "Filtro de aceite" })).not.toHaveAttribute("data-sin-stock");
     await userEvent.click(botonCobrar());
 
     expect(await screen.findByText('No hay stock suficiente de "Filtro de aceite"')).toBeInTheDocument();
-    expect(screen.getByRole("row", { name: "Filtro de aceite" })).toBeInTheDocument();
+    const fila = screen.getByRole("row", { name: "Filtro de aceite" });
+    expect(fila).toHaveAttribute("data-sin-stock", "true");
+    expect(fila).toHaveAttribute("aria-invalid", "true");
+    expect(fila).toHaveTextContent("Ya no hay stock suficiente");
+  });
+
+  it("el Cobrar de la barra angosta lleva al cobro sin cambiar el método elegido", async () => {
+    pintar();
+    await agregarFiltro();
+    await userEvent.click(screen.getByRole("button", { name: "Tarjeta" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cobrar" }));
+
+    expect(screen.getByRole("button", { name: "Tarjeta" })).toHaveAttribute("aria-pressed", "true");
+    expect(botonCobrar()).toHaveFocus();
+    expect(mockCrear).not.toHaveBeenCalled();
   });
 
   it("RECEPCION ve su tope y no puede cobrar con un descuento mayor", async () => {

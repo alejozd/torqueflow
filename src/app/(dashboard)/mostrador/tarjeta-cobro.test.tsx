@@ -1,7 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
-import { useRef } from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { useRef, type ReactNode } from "react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+
+// Marca el enlace para comprobar que "Abrir caja" navega con next/link.
+vi.mock("next/link", () => ({
+  default: ({ href, children, ...resto }: { href: string; children: ReactNode }) => (
+    <a href={href} data-next-link="" {...resto}>
+      {children}
+    </a>
+  ),
+}));
+
 import { TarjetaCobro, type TarjetaCobroHandle } from "./tarjeta-cobro";
 import { useAtajosMostrador } from "./use-atajos-mostrador";
 
@@ -170,5 +180,110 @@ describe("TarjetaCobro", () => {
     rerender(<TarjetaCobro {...props} hayCliente={false} />);
     rerender(<TarjetaCobro {...props} hayCliente />);
     expect(screen.queryByRole("button", { name: "Registrar a crédito" })).not.toBeInTheDocument();
+  });
+
+  it("+ Agregar otro método con efectivo recibido por debajo del total: la fila 1 queda con lo recibido", async () => {
+    const { onCobrar } = pintar({ hayCliente: true });
+    await userEvent.type(screen.getByLabelText("Recibido"), "200000");
+    await userEvent.click(screen.getByRole("button", { name: "+ Agregar otro método" }));
+
+    expect(screen.getByLabelText("Método del pago 1")).toHaveValue("EFECTIVO");
+    expect(screen.getByLabelText("Monto del pago 1")).toHaveValue(200000);
+    expect(screen.getByLabelText("Método del pago 2")).toHaveValue("TARJETA");
+    expect(screen.getByLabelText("Monto del pago 2")).toHaveValue(60015);
+    await userEvent.click(botonCobrar());
+    expect(onCobrar).toHaveBeenCalledWith({
+      pagos: [
+        { metodoPago: "EFECTIVO", monto: 200000 },
+        { metodoPago: "TARJETA", monto: 60015 },
+      ],
+      recibidoEfectivo: 200000,
+    });
+  });
+
+  it("un monto con más de 2 decimales no deja cobrar, con el mismo mensaje del servidor", async () => {
+    pintar();
+    await userEvent.click(screen.getByRole("button", { name: "Tarjeta" }));
+    await userEvent.click(screen.getByRole("button", { name: "+ Agregar otro método" }));
+    const primero = screen.getByLabelText("Monto del pago 1");
+    await userEvent.clear(primero);
+    await userEvent.type(primero, "1000.555");
+
+    expect(screen.getByText("El monto no puede tener más de 2 decimales")).toBeInTheDocument();
+    expect(botonCobrar()).toBeDisabled();
+  });
+
+  it("lo recibido con más de 2 decimales no deja cobrar, con el mismo mensaje del servidor", async () => {
+    pintar();
+    await userEvent.type(screen.getByLabelText("Recibido"), "300000.125");
+
+    expect(screen.getByText("Lo recibido no puede tener más de 2 decimales")).toBeInTheDocument();
+    expect(botonCobrar()).toBeDisabled();
+  });
+
+  it("si al final no entra efectivo, no manda lo recibido aunque se haya escrito", async () => {
+    const { onCobrar } = pintar({ hayCliente: true });
+    await userEvent.type(screen.getByLabelText("Recibido"), "100000");
+    await userEvent.click(screen.getByRole("button", { name: "+ Agregar otro método" }));
+    const primero = screen.getByLabelText("Monto del pago 1");
+    await userEvent.clear(primero);
+    await userEvent.type(primero, "0");
+
+    expect(screen.getByLabelText("Monto del pago 2")).toHaveValue(260015);
+    await userEvent.click(botonCobrar());
+    expect(onCobrar).toHaveBeenCalledWith({
+      pagos: [{ metodoPago: "TARJETA", monto: 260015 }],
+      recibidoEfectivo: null,
+    });
+  });
+
+  it("enfocar (botón Cobrar de la barra angosta) lleva al cobro sin cambiar el método", async () => {
+    let handle: TarjetaCobroHandle | null = null;
+    render(
+      <TarjetaCobro
+        ref={(h) => {
+          handle = h;
+        }}
+        total={50000}
+        hayCliente={false}
+        efectivoBloqueado={false}
+        motivoBloqueo={null}
+        ocupado={false}
+        onCobrar={vi.fn()}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Tarjeta" }));
+    await userEvent.click(document.body);
+
+    act(() => handle!.enfocar());
+    expect(screen.getByRole("button", { name: "Tarjeta" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByLabelText("Recibido")).not.toBeInTheDocument();
+    expect(botonCobrar()).toHaveFocus();
+  });
+
+  it("con efectivo elegido, enfocar lleva a Recibido", async () => {
+    let handle: TarjetaCobroHandle | null = null;
+    render(
+      <TarjetaCobro
+        ref={(h) => {
+          handle = h;
+        }}
+        total={50000}
+        hayCliente={false}
+        efectivoBloqueado={false}
+        motivoBloqueo={null}
+        ocupado={false}
+        onCobrar={vi.fn()}
+      />,
+    );
+    act(() => handle!.enfocar());
+    expect(screen.getByLabelText("Recibido")).toHaveFocus();
+  });
+
+  it("Abrir caja es un enlace de next/link a /caja", () => {
+    pintar({ efectivoBloqueado: true });
+    const enlace = screen.getByRole("link", { name: "Abrir caja" });
+    expect(enlace).toHaveAttribute("href", "/caja");
+    expect(enlace).toHaveAttribute("data-next-link");
   });
 });

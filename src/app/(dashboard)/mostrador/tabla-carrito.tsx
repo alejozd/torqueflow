@@ -52,9 +52,12 @@ function unidades(n: number) {
 export function TablaCarrito({
   carrito,
   buscadorRef,
+  sinStock = [],
 }: {
   carrito: Carrito;
   buscadorRef?: RefObject<HTMLInputElement | null>;
+  /** Repuestos que el servidor rechazó por stock al cobrar: su fila se marca en rojo. */
+  sinStock?: readonly string[];
 }) {
   const { lineas, agregarRepuesto, agregarLibre, cambiarCantidad, quitar, vaciar, totalProductos, totalUnidades } = carrito;
   const internoRef = useRef<HTMLInputElement | null>(null);
@@ -205,6 +208,7 @@ export function TablaCarrito({
           <tbody>
             {lineas.map((linea, indice) => {
               const tope = linea.disponible !== null && linea.cantidad >= linea.disponible;
+              const faltaStock = linea.repuestoId !== null && sinStock.includes(linea.repuestoId);
               return (
                 <Fragment key={linea.id}>
                   <tr
@@ -215,10 +219,18 @@ export function TablaCarrito({
                     tabIndex={0}
                     aria-label={linea.descripcion}
                     onKeyDown={(event) => onKeyDownFila(event, linea, indice)}
-                    className="border-b outline-none focus-visible:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
+                    aria-invalid={faltaStock || undefined}
+                    data-sin-stock={faltaStock || undefined}
+                    className={cn(
+                      "border-b outline-none focus-visible:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset",
+                      faltaStock && "bg-destructive/10 shadow-[inset_3px_0_0_var(--destructive)]",
+                    )}
                   >
                     <td className="px-3 py-2">
                       <div className="font-medium">{linea.descripcion}</div>
+                      {faltaStock ? (
+                        <p className="text-xs font-medium text-destructive">Ya no hay stock suficiente: ajusta la cantidad o quítalo</p>
+                      ) : null}
                       <div className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
                         {linea.codigo ? <span className="font-mono">{linea.codigo}</span> : <span>Línea libre</span>}
                         {linea.disponible !== null ? (

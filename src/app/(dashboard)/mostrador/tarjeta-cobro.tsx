@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useImperativeHandle, useRef, useState, type FormEvent, type Ref } from "react";
+import Link from "next/link";
 import { HandCoins, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import { TituloSeccion } from "@/components/titulo-seccion";
 import { resumirPagos, type PagoEntrada } from "@/lib/mostrador/cobro";
 import { roundMoney } from "@/lib/money/round";
 import { cn } from "@/lib/utils";
+import { dosDecimales } from "@/lib/validation/mostrador";
 
 /** Los métodos que se ofrecen en el mostrador (valores de `MetodoPago`). */
 type Metodo = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA";
@@ -46,6 +48,8 @@ export interface CobroListo {
 export interface TarjetaCobroHandle {
   /** F9 / Ctrl+Enter: fuera del cobro lleva a "Recibido" (o a Cobrar); dentro, cobra. */
   irACobrar: () => void;
+  /** Botón Cobrar de la barra angosta: solo lleva al bloque de cobro, sin cambiar el método. */
+  enfocar: () => void;
 }
 
 /**
@@ -111,11 +115,23 @@ export function TarjetaCobro({
       .filter((pago) => pago.monto > 0);
   }
 
-  const hayEfectivo = !aCredito && filas.some((fila) => fila.metodo === "EFECTIVO");
+  /** Hay una fila en efectivo: se pide lo recibido. */
+  const muestraEfectivo = !aCredito && filas.some((fila) => fila.metodo === "EFECTIVO");
+  /** Entra efectivo de verdad en los pagos netos: solo entonces cuenta lo recibido. */
+  const hayEfectivo = pagos.some((pago) => pago.metodoPago === "EFECTIVO" && pago.monto > 0);
   const resumen = resumirPagos(total, pagos, hayEfectivo ? recibidoValido : null);
-  const faltaEnEfectivo = !mixto && hayEfectivo && recibidoValido !== null && recibidoValido < total;
+  const faltaEnEfectivo = !mixto && muestraEfectivo && recibidoValido !== null && recibidoValido < total;
+
+  // Los mismos mensajes del servidor: un monto como 10.005 se redondearía distinto.
+  let errorDecimales: string | null = null;
+  if (mixto && !aCredito && filas.some((fila) => fila.monto !== null && !dosDecimales(Number(fila.monto) || 0))) {
+    errorDecimales = "El monto no puede tener más de 2 decimales";
+  } else if (muestraEfectivo && recibidoValido !== null && !dosDecimales(recibidoValido)) {
+    errorDecimales = "Lo recibido no puede tener más de 2 decimales";
+  }
 
   let motivo: string | null = motivoBloqueo;
+  if (!motivo && errorDecimales) motivo = errorDecimales;
   if (!motivo && resumen.error) motivo = resumen.error;
   if (!motivo && efectivoBloqueado && hayEfectivo) motivo = MOTIVO_CAJA;
   if (!motivo && resumen.saldo > 0 && !hayCliente) {
@@ -142,6 +158,14 @@ export function TarjetaCobro({
         cobrarRef.current?.focus();
       }
     },
+    enfocar() {
+      formRef.current?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      const destino =
+        recibidoRef.current ??
+        (cobrarRef.current && !cobrarRef.current.disabled ? cobrarRef.current : null) ??
+        formRef.current?.querySelector<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled)");
+      destino?.focus();
+    },
   }));
 
   function elegirMetodo(metodo: Metodo) {
@@ -152,9 +176,17 @@ export function TarjetaCobro({
     const usados = new Set(filas.map((fila) => fila.metodo));
     const libre =
       METODOS.find((m) => !usados.has(m.valor) && !(m.valor === "EFECTIVO" && efectivoBloqueado))?.valor ?? "TARJETA";
+    // Un solo efectivo con lo recibido por debajo del total: la fila queda con lo
+    // recibido y lo que falta pasa a la nueva (no el total completo).
+    const recibidoParcial =
+      !mixto && filas[0].metodo === "EFECTIVO" && recibidoValido !== null && recibidoValido > 0 && recibidoValido < total
+        ? recibidoValido
+        : null;
     setFilas((actuales) => [
       // La fila que era automática queda con lo que tenía; la nueva se lleva lo que falte.
-      ...actuales.map((fila, indice) => (fila.monto === null ? { ...fila, monto: String(montos[indice]) } : fila)),
+      ...actuales.map((fila, indice) =>
+        fila.monto === null ? { ...fila, monto: String(recibidoParcial ?? montos[indice]) } : fila,
+      ),
       { id: siguienteId.current++, metodo: libre, monto: null },
     ]);
   }
@@ -256,13 +288,13 @@ export function TarjetaCobro({
           {efectivoBloqueado && !aCredito ? (
             <p id="motivo-efectivo" className="text-xs text-destructive">
               {MOTIVO_CAJA}.{" "}
-              <a href="/caja" className="underline underline-offset-2">
+              <Link href="/caja" className="underline underline-offset-2">
                 Abrir caja
-              </a>
+              </Link>
             </p>
           ) : null}
 
-          {hayEfectivo ? (
+          {muestraEfectivo ? (
             <div className="flex flex-col gap-1.5">
               <label htmlFor="recibido-efectivo" className="text-sm text-muted-foreground">
                 Recibido

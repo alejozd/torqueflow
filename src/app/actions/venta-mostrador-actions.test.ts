@@ -18,15 +18,28 @@ const db = {
   repuesto: { findMany: vi.fn() },
   itemOrden: { groupBy: vi.fn() },
   ventaMostrador: { findFirst: vi.fn(), groupBy: vi.fn() },
+  configuracionSmtp: { findUnique: vi.fn() },
   $transaction: (fn: (cliente: typeof tx) => unknown) => fn(tx),
 };
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
+vi.mock("@/lib/db/public-client", () => ({
+  publicDb: { tenant: { findUnique: vi.fn().mockResolvedValue({ nombre: "Taller Pérez", slug: "taller-perez" }) } },
+}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+// Nunca se manda un correo de verdad: el SMTP y el envío van simulados.
+const mockEnviarEmail = vi.fn();
+vi.mock("@/lib/email/enviar-email", () => ({ enviarEmail: (...args: unknown[]) => mockEnviarEmail(...args) }));
+vi.mock("@/lib/email/smtp-config", () => ({
+  CONFIGURACION_SMTP_ID: "smtp",
+  descifrarConfiguracionSmtp: (fila: unknown) => ({ ...(fila as object), password: "secreto" }),
+}));
 
 import {
   buscarClientesMostradorAction,
   buscarParaMostradorAction,
   cobrarVentaMostradorAction, crearVentaMostradorAction,
+  enviarComprobanteCorreoAction,
+  getComprobanteVentaMostrador,
 } from "./venta-mostrador-actions";
 
 const SESION = { user: { id: "u1", role: "RECEPCION", tenantSchema: "taller", sedeActivaId: "sede-1" } };
@@ -41,6 +54,25 @@ function fd(campos: Record<string, string>): FormData {
 const LINEA = { repuestoId: "r1", descripcion: "Filtro de aceite", cantidad: 2, precioUnitario: 25000 };
 
 const PAGO_TOTAL = [{ metodoPago: "EFECTIVO", monto: 59500 }];
+
+/** Venta como la devuelve Prisma (Decimal llega como texto) para el comprobante. */
+const VENTA_GUARDADA = {
+  id: "v1",
+  numero: 7,
+  createdAt: new Date("2026-10-16T15:00:00.000Z"),
+  subtotal: "50000",
+  descuento: "0",
+  iva: "9500",
+  total: "59500",
+  saldoPendiente: "0",
+  sede: { nombre: "Sede Norte" },
+  cliente: { nombre: "Ana Gómez", documento: "1020", telefono: "310 555 1234", email: "ana@correo.co" },
+  items: [{ id: "i1", descripcion: "Filtro de aceite", cantidad: 2, precioUnitario: "25000" }],
+  pagos: [
+    { metodoPago: "EFECTIVO", monto: "40000" },
+    { metodoPago: "TARJETA", monto: "19500" },
+  ],
+};
 
 function venta(cambios: Record<string, string> = {}) {
   return fd({
@@ -58,7 +90,7 @@ describe("crearVentaMostradorAction", () => {
     vi.clearAllMocks();
     mockRequireRole.mockResolvedValue(SESION);
     db.cajaSesion.findFirst.mockResolvedValue({ id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
-    db.cliente.findFirst.mockResolvedValue({ id: "cli1" });
+    db.cliente.findFirst.mockResolvedValue({ nombre: "Ana Gómez", telefono: null, email: null });
     // Precio y nombre del repuesto salen de aquí, no del formulario (fase de consolidación, D6).
     db.repuesto.findMany.mockResolvedValue([{ id: "r1", nombre: "Filtro de aceite", precioVenta: "25000" }]);
     tx.repuesto.updateMany.mockResolvedValue({ count: 1 });
@@ -77,6 +109,9 @@ describe("crearVentaMostradorAction", () => {
       total: 59500,
       pagos: [{ metodoPago: "EFECTIVO", monto: 59500 }],
       vueltas: 0,
+      saldoPendiente: 0,
+      cliente: null,
+      urlWhatsapp: null,
     });
     // Vender es cobrar: el técnico no usa el mostrador (D6).
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
@@ -160,8 +195,34 @@ describe("crearVentaMostradorAction", () => {
 
     const r = await crearVentaMostradorAction(inicial, venta());
 
-    expect(r).toEqual({ error: 'No hay stock suficiente de "Filtro de aceite"', success: false });
+    // Dice cuál repuesto falta para que el carrito marque su fila (tarea 7).
+    expect(r).toEqual({
+      error: 'No hay stock suficiente de "Filtro de aceite"',
+      success: false,
+      repuestosSinStock: ["r1"],
+    });
     expect(tx.ventaMostrador.create).not.toHaveBeenCalled();
+  });
+
+  it("con cliente devuelve su nombre, su correo y el WhatsApp con el comprobante", async () => {
+    db.cliente.findFirst.mockResolvedValue({ nombre: "Ana Gómez", telefono: "310 555 1234", email: "ana@correo.co" });
+    db.ventaMostrador.findFirst.mockResolvedValue(VENTA_GUARDADA);
+
+    const r = await crearVentaMostradorAction(inicial, venta({ clienteId: "cli1" }));
+
+    expect(r.cliente).toEqual({ nombre: "Ana Gómez", correo: "ana@correo.co" });
+    expect(r.urlWhatsapp).toMatch(/^https:\/\/wa\.me\/573105551234\?text=/);
+    expect(decodeURIComponent(r.urlWhatsapp!.split("text=")[1]!)).toContain("venta #7");
+    // El comprobante se lee de la sede activa.
+    expect(db.ventaMostrador.findFirst.mock.calls[0]![0].where).toEqual({ id: "v1", sedeId: "sede-1" });
+  });
+
+  it("con cliente sin teléfono ni correo no ofrece WhatsApp ni correo", async () => {
+    const r = await crearVentaMostradorAction(inicial, venta({ clienteId: "cli1" }));
+
+    expect(r.cliente).toEqual({ nombre: "Ana Gómez", correo: null });
+    expect(r.urlWhatsapp).toBeNull();
+    expect(db.ventaMostrador.findFirst).not.toHaveBeenCalled();
   });
 
   it("exige caja abierta", async () => {
@@ -552,5 +613,96 @@ describe("buscarClientesMostradorAction", () => {
       { id: "c1", nombre: "Ana", documento: "123", telefono: "3001112233", placas: ["JKT482"], saldoMostrador: 45000 },
       { id: "c2", nombre: "Beto", documento: null, telefono: null, placas: [], saldoMostrador: 0 },
     ]);
+  });
+});
+
+describe("getComprobanteVentaMostrador", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequireRole.mockResolvedValue(SESION);
+    db.ventaMostrador.findFirst.mockResolvedValue(VENTA_GUARDADA);
+  });
+
+  it("solo ADMIN y RECEPCION, y solo ventas de la sede activa", async () => {
+    await getComprobanteVentaMostrador("v1");
+
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(db.ventaMostrador.findFirst.mock.calls[0]![0].where).toEqual({ id: "v1", sedeId: "sede-1" });
+  });
+
+  it("si no tiene permiso, falla antes de consultar", async () => {
+    mockRequireRole.mockRejectedValue(new Error("NEXT_REDIRECT"));
+
+    await expect(getComprobanteVentaMostrador("v1")).rejects.toThrow("NEXT_REDIRECT");
+    expect(db.ventaMostrador.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("una venta de otra sede (o que no existe) da null", async () => {
+    db.ventaMostrador.findFirst.mockResolvedValue(null);
+    expect(await getComprobanteVentaMostrador("ajena")).toBeNull();
+  });
+
+  it("arma el comprobante con el taller, la sede, los números y los pagos por método", async () => {
+    const c = await getComprobanteVentaMostrador("v1");
+
+    expect(c).toMatchObject({
+      id: "v1",
+      tallerNombre: "Taller Pérez",
+      sedeNombre: "Sede Norte",
+      numero: 7,
+      subtotal: 50000,
+      iva: 9500,
+      total: 59500,
+      saldoPendiente: 0,
+      cliente: { nombre: "Ana Gómez", email: "ana@correo.co" },
+      lineas: [{ id: "i1", descripcion: "Filtro de aceite", cantidad: 2, precioUnitario: 25000 }],
+      pagos: [
+        { metodoPago: "EFECTIVO", monto: 40000 },
+        { metodoPago: "TARJETA", monto: 19500 },
+      ],
+    });
+  });
+});
+
+describe("enviarComprobanteCorreoAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequireRole.mockResolvedValue(SESION);
+    db.ventaMostrador.findFirst.mockResolvedValue(VENTA_GUARDADA);
+    db.configuracionSmtp.findUnique.mockResolvedValue({ id: "smtp", activo: true, host: "smtp.x", fromNombre: "Taller" });
+    mockEnviarEmail.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("manda el comprobante al correo del cliente por el SMTP del taller", async () => {
+    const r = await enviarComprobanteCorreoAction("v1");
+
+    expect(r).toEqual({ error: null, success: true });
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(db.ventaMostrador.findFirst.mock.calls[0]![0].where).toEqual({ id: "v1", sedeId: "sede-1" });
+    const [config, mensaje] = mockEnviarEmail.mock.calls[0]!;
+    expect(config).toMatchObject({ host: "smtp.x" });
+    expect(mensaje).toMatchObject({ para: "ana@correo.co", asunto: "Comprobante de tu compra #7 — Taller Pérez" });
+  });
+
+  it("sin correo del cliente, sin venta o sin SMTP activo no manda nada", async () => {
+    db.ventaMostrador.findFirst.mockResolvedValueOnce({ ...VENTA_GUARDADA, cliente: { ...VENTA_GUARDADA.cliente, email: null } });
+    expect((await enviarComprobanteCorreoAction("v1")).error).toBe("Este cliente no tiene correo registrado.");
+
+    db.ventaMostrador.findFirst.mockResolvedValueOnce(null);
+    expect((await enviarComprobanteCorreoAction("ajena")).error).toBe("Venta no encontrada");
+
+    db.configuracionSmtp.findUnique.mockResolvedValueOnce({ id: "smtp", activo: false });
+    expect((await enviarComprobanteCorreoAction("v1")).error).toMatch(/SMTP no está configurado/);
+
+    expect(mockEnviarEmail).not.toHaveBeenCalled();
+  });
+
+  it("si el SMTP falla responde un mensaje genérico", async () => {
+    mockEnviarEmail.mockRejectedValue(new Error("ECONNREFUSED 10.0.0.5 usuario@x"));
+
+    const r = await enviarComprobanteCorreoAction("v1");
+
+    expect(r.success).toBe(false);
+    expect(r.error).toBe("No se pudo enviar el comprobante por correo. Revisa la configuración SMTP.");
   });
 });

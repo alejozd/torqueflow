@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useRef, useState } from "react";
+import { startTransition, useActionState, useRef, useState } from "react";
 import { ShoppingCart, UserRound } from "lucide-react";
 import {
   crearVentaMostradorAction,
@@ -25,6 +25,7 @@ import { TablaCarrito } from "./tabla-carrito";
 import { TarjetaCobro, type CobroListo, type TarjetaCobroHandle } from "./tarjeta-cobro";
 import { useAtajosMostrador } from "./use-atajos-mostrador";
 import { useCarrito } from "./use-carrito";
+import { VentaCobrada, type VentaCobradaDatos } from "./venta-cobrada";
 
 const initialState: VentaMostradorFormState = { error: null, success: false };
 
@@ -59,19 +60,34 @@ export function VenderMostrador({
   const descuentoRef = useRef<HTMLInputElement>(null);
   const tarjetaRef = useRef<TarjetaCobroHandle>(null);
 
-  // Vaciar el carrito en cuanto el servidor confirma una venta nueva (durante el
-  // render, el patrón de React para "ajustar estado cuando cambia algo de fuera").
-  // Si el servidor responde un error (stock, caja…) el carrito se queda como está.
+  const [ventaCobrada, setVentaCobrada] = useState<VentaCobradaDatos | null>(null);
+
+  // En cuanto el servidor confirma una venta nueva el carrito se vacía y en su
+  // lugar sale la tarjeta de venta cobrada (durante el render, el patrón de React
+  // para "ajustar estado cuando cambia algo de fuera"). Si el servidor responde
+  // un error (stock, caja…) el carrito se queda como está.
   if (state.success && state.numero !== numeroConfirmado) {
     setNumeroConfirmado(state.numero);
     carrito.vaciar();
     setDescuento(DESCUENTO_VACIO);
     setVentaActual((n) => n + 1);
+    setVentaCobrada({
+      ventaId: state.ventaId ?? "",
+      numero: state.numero ?? 0,
+      total: state.total ?? 0,
+      pagos: state.pagos ?? [],
+      vueltas: state.vueltas ?? 0,
+      saldoPendiente: state.saldoPendiente ?? 0,
+      cliente: state.cliente ?? null,
+      urlWhatsapp: state.urlWhatsapp ?? null,
+    });
   }
 
-  useEffect(() => {
-    if (numeroConfirmado !== undefined) buscadorRef.current?.focus();
-  }, [numeroConfirmado]);
+  /** Enter en la tarjeta: venta limpia; el carrito vuelve a montarse con el foco en el buscador. */
+  function nuevaVenta() {
+    setVentaCobrada(null);
+    setCliente(null);
+  }
 
   useAtajosMostrador({
     focusBuscador: () => buscadorRef.current?.focus(),
@@ -110,28 +126,38 @@ export function VenderMostrador({
   return (
     <div className="grid grid-cols-1 gap-4 pb-24 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:pb-0">
       <div className="flex min-w-0 flex-col gap-4">
-        <Card>
-          <CardHeader className="border-b">
-            <CardTitle className="flex items-center justify-between gap-2">
-              <TituloSeccion icono={UserRound}>Cliente</TituloSeccion>
-              <kbd className="font-mono text-xs font-normal text-muted-foreground">F2</kbd>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <SelectorCliente cliente={cliente} onCambiar={setCliente} inputRef={clienteRef} />
-          </CardContent>
-        </Card>
+        {ventaCobrada ? (
+          <VentaCobrada venta={ventaCobrada} onNuevaVenta={nuevaVenta} />
+        ) : (
+          <>
+            <Card>
+              <CardHeader className="border-b">
+                <CardTitle className="flex items-center justify-between gap-2">
+                  <TituloSeccion icono={UserRound}>Cliente</TituloSeccion>
+                  <kbd className="font-mono text-xs font-normal text-muted-foreground">F2</kbd>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SelectorCliente cliente={cliente} onCambiar={setCliente} inputRef={clienteRef} />
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="border-b">
-            <CardTitle>
-              <TituloSeccion icono={ShoppingCart}>Productos</TituloSeccion>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TablaCarrito carrito={carrito} buscadorRef={buscadorRef} />
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader className="border-b">
+                <CardTitle>
+                  <TituloSeccion icono={ShoppingCart}>Productos</TituloSeccion>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <TablaCarrito
+                  carrito={carrito}
+                  buscadorRef={buscadorRef}
+                  sinStock={state.success ? undefined : state.repuestosSinStock}
+                />
+              </CardContent>
+            </Card>
+          </>
+        )}
 
         <p className="hidden text-xs text-muted-foreground lg:block">
           Esc limpia el buscador · F9 cobra ·{" "}
@@ -144,11 +170,6 @@ export function VenderMostrador({
           <Alert variant="destructive">
             <AlertDescription>{state.error}</AlertDescription>
           </Alert>
-        ) : null}
-        {state.success ? (
-          <p role="status" className="text-sm text-muted-foreground">
-            Venta #{state.numero} registrada.
-          </p>
         ) : null}
       </div>
 
@@ -190,7 +211,7 @@ export function VenderMostrador({
           <p className="text-xs text-muted-foreground">Total</p>
           <p className="font-mono text-lg font-bold">{formatoMoneda.format(totales.total)}</p>
         </div>
-        <Button type="button" size="lg" onClick={() => tarjetaRef.current?.irACobrar()}>
+        <Button type="button" size="lg" onClick={() => tarjetaRef.current?.enfocar()}>
           Cobrar
         </Button>
       </div>

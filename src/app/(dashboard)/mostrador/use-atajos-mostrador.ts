@@ -14,7 +14,7 @@ export interface AtajosMostrador {
   ayuda?: () => void;
 }
 
-function estaEscribiendo(destino: EventTarget | null): boolean {
+export function estaEscribiendo(destino: EventTarget | null): boolean {
   if (!(destino instanceof HTMLElement)) return false;
   return destino.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(destino.tagName);
 }

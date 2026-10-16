@@ -5,13 +5,27 @@ import { requireRole } from "@/lib/auth/guards";
 import { exigirCajaParaEfectivo, sesionDeCajaAbierta } from "@/lib/caja/sesion";
 import { leerOpcionesTaller } from "@/lib/configuracion/opciones-taller";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
+import { publicDb } from "@/lib/db/public-client";
 import { getTenantDb } from "@/lib/db/tenant-client";
+import { enviarEmail } from "@/lib/email/enviar-email";
+import {
+  CONFIGURACION_SMTP_ID,
+  descifrarConfiguracionSmtp,
+  type ConfiguracionSmtpAlmacenada,
+} from "@/lib/email/smtp-config";
 import { inicioDiaBogota } from "@/lib/fecha-bogota";
 import { comprometidoPorRepuesto } from "@/lib/inventario/comprometido";
 import { descuentoPermitido, porcentajeDescuento, resumirPagos, type PagoEntrada } from "@/lib/mostrador/cobro";
+import {
+  agruparPagos,
+  construirMensajeComprobante,
+  textoComprobanteWhatsapp,
+  type ComprobanteVenta,
+} from "@/lib/mostrador/comprobante";
 import { calcularTotalesVenta } from "@/lib/mostrador/ventas";
 import { scopeRepuesto } from "@/lib/sede/scope";
 import { cobroVentaSchema, ventaMostradorInputSchema, type VentaMostradorInput } from "@/lib/validation/mostrador";
+import { urlWhatsapp } from "@/lib/whatsapp/url";
 import type { Role } from "@/generated/prisma-tenant";
 
 /**
@@ -41,6 +55,13 @@ export interface VentaMostradorFormState {
   total?: number;
   pagos?: PagoEntrada[];
   vueltas?: number;
+  saldoPendiente?: number;
+  /** null = Consumidor final. `correo` decide si se ofrece "Enviar por correo". */
+  cliente?: { nombre: string; correo: string | null } | null;
+  /** wa.me con el comprobante; null si no hay cliente con teléfono. */
+  urlWhatsapp?: string | null;
+  /** En error de stock: los repuestos que no alcanzaron, para marcar su fila. */
+  repuestosSinStock?: string[];
 }
 
 /** Las líneas y los pagos llegan como JSON (`lineas`, `pagos`): el carrito los arma en el cliente. */
@@ -87,8 +108,12 @@ export async function crearVentaMostradorAction(
   const errorCaja = await exigirCajaParaEfectivo(tenantDb, sedeId, hayEfectivo, SIN_CAJA);
   if (errorCaja) return { error: errorCaja, success: false };
 
+  let cliente: { nombre: string; telefono: string | null; email: string | null } | null = null;
   if (datos.clienteId) {
-    const cliente = await tenantDb.cliente.findFirst({ where: { id: datos.clienteId }, select: { id: true } });
+    cliente = await tenantDb.cliente.findFirst({
+      where: { id: datos.clienteId },
+      select: { nombre: true, telefono: true, email: true },
+    });
     if (!cliente) return { error: "Cliente no encontrado", success: false };
   }
 
@@ -161,7 +186,7 @@ export async function crearVentaMostradorAction(
           where: { id: repuestoId, stockActual: { gte: linea.cantidad } },
           data: { stockActual: { decrement: linea.cantidad } },
         });
-        if (count === 0) throw new Error(`${STOCK_INSUFICIENTE}:${linea.descripcion}`);
+        if (count === 0) throw new ErrorSinStock(repuestoId, linea.descripcion);
       }
 
       const creada = await tx.ventaMostrador.create({
@@ -204,16 +229,154 @@ export async function crearVentaMostradorAction(
     ventaId = venta.id;
     numero = venta.numero;
   } catch (err) {
-    if (err instanceof Error && err.message.startsWith(STOCK_INSUFICIENTE)) {
-      const descripcion = err.message.slice(STOCK_INSUFICIENTE.length + 1);
-      return { error: `No hay stock suficiente de "${descripcion}"`, success: false };
+    if (err instanceof ErrorSinStock) {
+      return {
+        error: `No hay stock suficiente de "${err.descripcion}"`,
+        success: false,
+        repuestosSinStock: [err.repuestoId],
+      };
     }
     return { error: friendlyPrismaErrorMessage(err, "No se pudo registrar la venta"), success: false };
   }
 
+  // El WhatsApp se arma aquí (con el nombre del taller) para que la tarjeta lo abra
+  // como enlace, sin esperas que el bloqueador de ventanas castigue.
+  let enlaceWhatsapp: string | null = null;
+  if (cliente && urlWhatsapp(cliente.telefono, "") !== null) {
+    const comprobante = await cargarComprobante(session.user.tenantSchema, tenantDb, sedeId, ventaId);
+    if (comprobante) enlaceWhatsapp = urlWhatsapp(cliente.telefono, textoComprobanteWhatsapp(comprobante));
+  }
+
   revalidatePath("/mostrador");
   revalidatePath("/caja");
-  return { error: null, success: true, numero, ventaId, total: totales.total, pagos, vueltas: resumen.vueltas };
+  return {
+    error: null,
+    success: true,
+    numero,
+    ventaId,
+    total: totales.total,
+    pagos,
+    vueltas: resumen.vueltas,
+    saldoPendiente: resumen.saldo,
+    cliente: cliente ? { nombre: cliente.nombre, correo: cliente.email || null } : null,
+    urlWhatsapp: enlaceWhatsapp,
+  };
+}
+
+/** Stock insuficiente dentro de la transacción: lleva el repuesto para marcar su fila. */
+class ErrorSinStock extends Error {
+  readonly repuestoId: string;
+  readonly descripcion: string;
+
+  constructor(repuestoId: string, descripcion: string) {
+    super(STOCK_INSUFICIENTE);
+    this.repuestoId = repuestoId;
+    this.descripcion = descripcion;
+  }
+}
+
+async function nombreTaller(tenantSchema: string): Promise<string> {
+  const tenant = await publicDb.tenant.findUnique({ where: { schemaName: tenantSchema }, select: { nombre: true, slug: true } });
+  return tenant?.nombre || tenant?.slug || "Nuestro taller";
+}
+
+/** El comprobante de una venta de la sede activa; null si no existe o es de otra sede. */
+async function cargarComprobante(
+  tenantSchema: string,
+  tenantDb: ReturnType<typeof getTenantDb>,
+  sedeId: string,
+  ventaId: string,
+): Promise<ComprobanteVenta | null> {
+  const venta = await tenantDb.ventaMostrador.findFirst({
+    where: { id: ventaId, sedeId },
+    select: {
+      id: true,
+      numero: true,
+      createdAt: true,
+      subtotal: true,
+      descuento: true,
+      iva: true,
+      total: true,
+      saldoPendiente: true,
+      sede: { select: { nombre: true } },
+      cliente: { select: { nombre: true, documento: true, telefono: true, email: true } },
+      items: {
+        select: { id: true, descripcion: true, cantidad: true, precioUnitario: true },
+        orderBy: { createdAt: "asc" },
+      },
+      pagos: { select: { metodoPago: true, monto: true }, orderBy: { createdAt: "asc" } },
+    },
+  });
+  if (!venta) return null;
+
+  return {
+    id: venta.id,
+    tallerNombre: await nombreTaller(tenantSchema),
+    sedeNombre: venta.sede.nombre,
+    numero: venta.numero,
+    fecha: venta.createdAt,
+    cliente: venta.cliente
+      ? {
+          nombre: venta.cliente.nombre,
+          documento: venta.cliente.documento ?? null,
+          telefono: venta.cliente.telefono ?? null,
+          email: venta.cliente.email || null,
+        }
+      : null,
+    lineas: venta.items.map((item) => ({
+      id: item.id,
+      descripcion: item.descripcion,
+      cantidad: item.cantidad,
+      precioUnitario: Number(item.precioUnitario),
+    })),
+    subtotal: Number(venta.subtotal),
+    descuento: Number(venta.descuento),
+    iva: Number(venta.iva),
+    total: Number(venta.total),
+    pagos: agruparPagos(venta.pagos.map((pago) => ({ metodoPago: pago.metodoPago, monto: Number(pago.monto) }))),
+    saldoPendiente: Number(venta.saldoPendiente),
+  };
+}
+
+/**
+ * Comprobante imprimible de una venta (ruta `/mostrador/[id]/comprobante`):
+ * solo ADMIN y RECEPCION, y solo ventas de la sede activa del tenant.
+ */
+export async function getComprobanteVentaMostrador(ventaId: string): Promise<ComprobanteVenta | null> {
+  const session = await requireRole(ROLES_MOSTRADOR);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  return cargarComprobante(session.user.tenantSchema, tenantDb, session.user.sedeActivaId, ventaId);
+}
+
+export interface EnviarComprobanteState {
+  error: string | null;
+  success: boolean;
+}
+
+/** Manda el comprobante al correo del cliente por el SMTP del taller (como la cotización). */
+export async function enviarComprobanteCorreoAction(ventaId: string): Promise<EnviarComprobanteState> {
+  const session = await requireRole(ROLES_MOSTRADOR);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const comprobante = await cargarComprobante(session.user.tenantSchema, tenantDb, session.user.sedeActivaId, ventaId);
+  if (!comprobante) return { error: "Venta no encontrada", success: false };
+  if (!comprobante.cliente?.email) return { error: "Este cliente no tiene correo registrado.", success: false };
+
+  const filaSmtp = await tenantDb.configuracionSmtp.findUnique({ where: { id: CONFIGURACION_SMTP_ID } });
+  if (!filaSmtp || !filaSmtp.activo) {
+    return {
+      error: "No se puede enviar por correo: el servidor SMTP no está configurado o está inactivo. Ve a Configuración → SMTP.",
+      success: false,
+    };
+  }
+  try {
+    const config = descifrarConfiguracionSmtp(filaSmtp as ConfiguracionSmtpAlmacenada);
+    await enviarEmail(config, construirMensajeComprobante(comprobante.cliente.email, comprobante));
+  } catch {
+    // El error crudo de SMTP puede traer el host o el usuario: se muestra uno genérico.
+    return { error: "No se pudo enviar el comprobante por correo. Revisa la configuración SMTP.", success: false };
+  }
+  return { error: null, success: true };
 }
 
 export interface RepuestoMostrador {
