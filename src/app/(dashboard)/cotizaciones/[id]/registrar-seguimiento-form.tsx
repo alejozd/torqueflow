@@ -161,6 +161,7 @@ export function RegistrarSeguimientoForm({
               render={({ field }) => (
                 <CampoFecha
                   id="seguimientoProximo"
+                  name="proximoSeguimiento"
                   tipo="seguimiento"
                   min={formatoDiaBogota.format(new Date())}
                   value={typeof field.value === "string" ? field.value : ""}
