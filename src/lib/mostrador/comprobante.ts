@@ -40,6 +40,9 @@ export interface ComprobanteVenta {
   /** Un renglón por método, ya sumado. */
   pagos: PagoComprobante[];
   saldoPendiente: number;
+  /** Lo que entregó el cliente en efectivo; null en ventas sin ese dato (las anteriores). */
+  recibidoEfectivo: number | null;
+  vueltas: number;
 }
 
 /** Un renglón por método en el orden en que aparecen (dos pagos en efectivo se suman). */
@@ -72,6 +75,9 @@ function lineasTotales(datos: ComprobanteVenta): string[] {
     `IVA: ${pesos(datos.iva)}`,
     `Total: ${pesos(datos.total)}`,
     ...agruparPagos(datos.pagos).map((pago) => `${ETIQUETA_METODO_PAGO[pago.metodoPago]}: ${pesos(pago.monto)}`),
+    ...(datos.recibidoEfectivo !== null && datos.vueltas > 0
+      ? [`Recibido en efectivo: ${pesos(datos.recibidoEfectivo)}`, `Vueltas: ${pesos(datos.vueltas)}`]
+      : []),
     ...(datos.saldoPendiente > 0 ? [`Saldo pendiente: ${pesos(datos.saldoPendiente)}`] : []),
   ];
 }

@@ -26,13 +26,9 @@ export interface VentaCobradaDatos {
   urlWhatsapp: string | null;
 }
 
-/** Ruta imprimible; las vueltas viajan en la URL porque no se guardan (el pago queda neto). */
-export function urlComprobante(venta: Pick<VentaCobradaDatos, "ventaId" | "vueltas">, imprimir = false): string {
-  const consulta = new URLSearchParams();
-  if (venta.vueltas > 0) consulta.set("vueltas", String(venta.vueltas));
-  if (imprimir) consulta.set("imprimir", "1");
-  const texto = consulta.toString();
-  return `/mostrador/${venta.ventaId}/comprobante${texto ? `?${texto}` : ""}`;
+/** Ruta imprimible; lo recibido y las vueltas se leen de la venta guardada. */
+export function urlComprobante(venta: Pick<VentaCobradaDatos, "ventaId">, imprimir = false): string {
+  return `/mostrador/${venta.ventaId}/comprobante${imprimir ? "?imprimir=1" : ""}`;
 }
 
 /**

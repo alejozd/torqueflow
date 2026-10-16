@@ -69,7 +69,7 @@ describe("VentaCobrada", () => {
     pintar();
     expect(screen.getByRole("link", { name: "Imprimir comprobante" })).toHaveAttribute(
       "href",
-      "/mostrador/v1/comprobante?vueltas=39985&imprimir=1",
+      "/mostrador/v1/comprobante?imprimir=1",
     );
     expect(screen.queryByRole("link", { name: "Enviar por WhatsApp" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Enviar por correo" })).not.toBeInTheDocument();
@@ -117,7 +117,7 @@ describe("VentaCobrada", () => {
     pintar();
     await userEvent.click(document.body);
     await userEvent.keyboard("p");
-    expect(window.open).toHaveBeenCalledWith("/mostrador/v1/comprobante?vueltas=39985&imprimir=1", "_blank", "noopener");
+    expect(window.open).toHaveBeenCalledWith("/mostrador/v1/comprobante?imprimir=1", "_blank", "noopener");
   });
 
   it("P escribiendo en un campo no imprime", async () => {
@@ -133,7 +133,7 @@ describe("VentaCobrada", () => {
 });
 
 describe("urlComprobante", () => {
-  it("sin vueltas ni impresión es la ruta sola", () => {
-    expect(urlComprobante({ ventaId: "v9", vueltas: 0 })).toBe("/mostrador/v9/comprobante");
+  it("sin impresión es la ruta sola y nunca lleva vueltas", () => {
+    expect(urlComprobante({ ventaId: "v9" })).toBe("/mostrador/v9/comprobante");
   });
 });

@@ -68,6 +68,8 @@ const VENTA_GUARDADA = {
   iva: "9500",
   total: "59500",
   saldoPendiente: "0",
+  recibidoEfectivo: "50000",
+  vueltas: "10500",
   sede: { nombre: "Sede Norte" },
   cliente: { nombre: "Ana Gómez", documento: "1020", telefono: "310 555 1234", email: "ana@correo.co" },
   items: [{ id: "i1", descripcion: "Filtro de aceite", cantidad: 2, precioUnitario: "25000" }],
@@ -125,6 +127,9 @@ describe("crearVentaMostradorAction", () => {
     const creada = tx.ventaMostrador.create.mock.calls[0]![0].data;
     expect(creada).toMatchObject({ sedeId: "sede-1", estado: "PAGADA", creadoPorId: "u1" });
     expect(Number(creada.saldoPendiente)).toBe(0);
+    // Sin recibido: null y vueltas 0.
+    expect(creada.recibidoEfectivo).toBeNull();
+    expect(Number(creada.vueltas)).toBe(0);
     expect(Number(creada.total)).toBe(59500); // 50.000 + 19% de IVA
     expect(tx.pagoVentaMostrador.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ ventaId: "v1", monto: 59500, metodoPago: "EFECTIVO", registradoPorId: "u1" }),
@@ -218,6 +223,9 @@ describe("crearVentaMostradorAction", () => {
     expect(decodeURIComponent(r.urlWhatsapp!.split("text=")[1]!)).toContain("venta #7");
     // El comprobante se lee de la sede activa.
     expect(db.ventaMostrador.findFirst.mock.calls[0]![0].where).toEqual({ id: "v1", sedeId: "sede-1" });
+    // Lo recibido y las vueltas salen de la base, no de la URL.
+    const texto = decodeURIComponent(r.urlWhatsapp!.split("text=")[1]!);
+    expect(texto).toContain("Vueltas");
   });
 
   it.each([
@@ -366,6 +374,9 @@ describe("crearVentaMostradorAction", () => {
     );
 
     expect(r.vueltas).toBe(10500);
+    const creada = tx.ventaMostrador.create.mock.calls[0]![0].data;
+    expect(Number(creada.recibidoEfectivo)).toBe(30000);
+    expect(Number(creada.vueltas)).toBe(10500);
     expect(tx.pagoVentaMostrador.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ metodoPago: "EFECTIVO", monto: 19500 }),
     });

@@ -28,6 +28,8 @@ const BASE: ComprobanteVenta = {
     { metodoPago: "EFECTIVO", monto: 3550 },
   ],
   saldoPendiente: 10000,
+  recibidoEfectivo: 30000,
+  vueltas: 6450,
 };
 
 describe("agruparPagos / describirMetodos", () => {
@@ -55,6 +57,8 @@ describe("textoComprobanteWhatsapp", () => {
     expect(texto).toContain(`*Total: ${pesos(53550)}*`);
     expect(texto).toContain(`Efectivo: ${pesos(23550)}`);
     expect(texto).toContain(`Saldo pendiente: ${pesos(10000)}`);
+    expect(texto).toContain(`Recibido en efectivo: ${pesos(30000)}`);
+    expect(texto).toContain(`Vueltas: ${pesos(6450)}`);
     expect(texto).toContain("Documento no válido como factura electrónica");
   });
 
@@ -63,6 +67,9 @@ describe("textoComprobanteWhatsapp", () => {
     expect(texto.startsWith("Hola, gracias")).toBe(true);
     expect(texto).not.toContain("Descuento");
     expect(texto).not.toContain("Saldo pendiente");
+    const antigua = textoComprobanteWhatsapp({ ...BASE, recibidoEfectivo: null, vueltas: 0 });
+    expect(antigua).not.toContain("Vueltas");
+    expect(antigua).not.toContain("Recibido en efectivo");
   });
 });
 

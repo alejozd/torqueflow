@@ -1287,6 +1287,9 @@ model VentaMostrador {
   iva            Decimal       @db.Decimal(10, 2)
   total          Decimal       @db.Decimal(10, 2)
   saldoPendiente Decimal       @map("saldo_pendiente") @db.Decimal(10, 2)
+  /// Lo que entregó el cliente en efectivo (null si no se anotó); los pagos quedan netos.
+  recibidoEfectivo Decimal?    @map("recibido_efectivo") @db.Decimal(10, 2)
+  vueltas        Decimal       @default(0) @db.Decimal(10, 2)
   creadoPorId    String        @map("creado_por_id")
   creadoPor      Usuario       @relation("VentaMostradorCreadaPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
   items          VentaMostradorItem[]

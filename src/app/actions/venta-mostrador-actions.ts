@@ -198,6 +198,8 @@ export async function crearVentaMostradorAction(
           iva: totales.iva,
           total: totales.total,
           saldoPendiente: resumen.saldo,
+          recibidoEfectivo: datos.recibidoEfectivo ?? null,
+          vueltas: resumen.vueltas,
           estado: resumen.saldo === 0 ? "PAGADA" : "PENDIENTE",
           creadoPorId: session.user.id,
           items: {
@@ -304,6 +306,8 @@ async function cargarComprobante(
       iva: true,
       total: true,
       saldoPendiente: true,
+      recibidoEfectivo: true,
+      vueltas: true,
       sede: { select: { nombre: true } },
       cliente: { select: { nombre: true, documento: true, telefono: true, email: true } },
       items: {
@@ -341,6 +345,8 @@ async function cargarComprobante(
     total: Number(venta.total),
     pagos: agruparPagos(venta.pagos.map((pago) => ({ metodoPago: pago.metodoPago, monto: Number(pago.monto) }))),
     saldoPendiente: Number(venta.saldoPendiente),
+    recibidoEfectivo: venta.recibidoEfectivo === null ? null : Number(venta.recibidoEfectivo),
+    vueltas: Number(venta.vueltas),
   };
 }
 

@@ -6,22 +6,10 @@ import {
   ETIQUETA_METODO_PAGO,
   formatoFechaHoraBogota,
 } from "@/lib/mostrador/comprobante";
-import { roundMoney } from "@/lib/money/round";
 import { ImprimirButton } from "./imprimir-button";
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 const pesos = (valor: number) => formatoMoneda.format(valor);
-
-/**
- * Las vueltas no se guardan (el pago queda neto): llegan en la URL desde la
- * tarjeta de venta cobrada y solo se muestran si tienen sentido.
- */
-function leerVueltas(valor: string | string[] | undefined): number | null {
-  if (typeof valor !== "string") return null;
-  const numero = Number(valor);
-  if (!Number.isFinite(numero) || numero <= 0 || numero > 100_000_000) return null;
-  return roundMoney(numero);
-}
 
 /**
  * Comprobante imprimible de una venta de mostrador (rediseño, tarea 7). Vive
@@ -44,8 +32,7 @@ export default async function ComprobanteVentaPage({
     notFound();
   }
 
-  const efectivo = venta.pagos.find((pago) => pago.metodoPago === "EFECTIVO")?.monto ?? 0;
-  const vueltas = efectivo > 0 ? leerVueltas(consulta.vueltas) : null;
+  const mostrarVueltas = venta.recibidoEfectivo !== null && venta.vueltas > 0;
 
   return (
     <main className="mx-auto flex max-w-md flex-col gap-5 p-6 text-sm text-black">
@@ -109,10 +96,10 @@ export default async function ComprobanteVentaPage({
         {venta.pagos.map((pago) => (
           <Fila key={pago.metodoPago} etiqueta={ETIQUETA_METODO_PAGO[pago.metodoPago]} valor={pesos(pago.monto)} />
         ))}
-        {vueltas !== null ? (
+        {mostrarVueltas ? (
           <>
-            <Fila etiqueta="Recibido en efectivo" valor={pesos(roundMoney(efectivo + vueltas))} />
-            <Fila etiqueta="Vueltas" valor={pesos(vueltas)} />
+            <Fila etiqueta="Recibido en efectivo" valor={pesos(venta.recibidoEfectivo ?? 0)} />
+            <Fila etiqueta="Vueltas" valor={pesos(venta.vueltas)} />
           </>
         ) : null}
         {venta.saldoPendiente > 0 ? <Fila etiqueta="Saldo pendiente" valor={pesos(venta.saldoPendiente)} fuerte /> : null}

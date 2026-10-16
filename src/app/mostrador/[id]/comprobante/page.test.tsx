@@ -35,6 +35,8 @@ const VENTA: ComprobanteVenta = {
     { metodoPago: "TARJETA", monto: 10000 },
   ],
   saldoPendiente: 10000,
+  recibidoEfectivo: 40000,
+  vueltas: 6450,
 };
 
 async function pintar(consulta: Record<string, string> = {}, id = "v1") {
@@ -76,23 +78,20 @@ describe("ComprobanteVentaPage", () => {
     expect(fila("Efectivo")).toHaveTextContent(pesos(33550));
     expect(fila("Tarjeta")).toHaveTextContent(pesos(10000));
     expect(fila("Saldo pendiente")).toHaveTextContent(pesos(10000));
-    expect(screen.queryByText("Vueltas")).not.toBeInTheDocument();
   });
 
-  it("muestra lo recibido y las vueltas si llegan en la URL y hubo efectivo", async () => {
-    await pintar({ vueltas: "6450" });
+  it("muestra lo recibido y las vueltas guardados en la venta", async () => {
+    await pintar();
 
     expect(fila("Recibido en efectivo")).toHaveTextContent(pesos(40000));
     expect(fila("Vueltas")).toHaveTextContent(pesos(6450));
   });
 
-  it("ignora vueltas inválidas o sin pago en efectivo", async () => {
-    await pintar({ vueltas: "-5" });
-    expect(screen.queryByText("Vueltas")).not.toBeInTheDocument();
-
-    mockGetComprobante.mockResolvedValue({ ...VENTA, pagos: [{ metodoPago: "TARJETA", monto: 53550 }] });
+  it("las ventas sin esos datos (anteriores) o sin vueltas no muestran las líneas, y la URL no influye", async () => {
+    mockGetComprobante.mockResolvedValue({ ...VENTA, recibidoEfectivo: null, vueltas: 0 });
     await pintar({ vueltas: "1000" });
     expect(screen.queryByText("Vueltas")).not.toBeInTheDocument();
+    expect(screen.queryByText("Recibido en efectivo")).not.toBeInTheDocument();
   });
 
   it("sin cliente dice Consumidor final; sin pagos, a crédito; sin descuento ni saldo no los muestra", async () => {
