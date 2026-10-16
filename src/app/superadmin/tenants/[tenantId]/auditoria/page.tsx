@@ -5,7 +5,7 @@ import { requireSuperAdmin } from "@/lib/super-admin/guards";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import type { AuditLogConActor } from "@/app/actions/auditoria-actions";
 import { TIPO_EVENTO_AUDITORIA_LABELS } from "@/lib/auditoria/catalogo";
 
@@ -52,9 +52,9 @@ export default async function SuperAdminTenantAuditoriaPage({
             {resultado.eventos.length} evento(s) registrados en este taller.
           </p>
         </div>
-        <Button variant="outline" render={<Link href="/superadmin" />}>
+        <Link href="/superadmin" className={buttonVariants({ variant: "outline" })}>
           Volver a talleres
-        </Button>
+        </Link>
       </div>
 
       <Card>

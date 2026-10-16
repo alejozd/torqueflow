@@ -13,7 +13,7 @@ import { CrearTenantForm } from "./crear-tenant-form";
 import { SignOutButton } from "./sign-out-button";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
@@ -176,9 +176,9 @@ export default async function SuperAdminPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" render={<Link href="/superadmin/auditoria" />}>
+          <Link href="/superadmin/auditoria" className={buttonVariants({ variant: "outline" })}>
             Auditoría de plataforma
-          </Button>
+          </Link>
           <CrearTenantForm planes={planes} />
         </div>
       </div>

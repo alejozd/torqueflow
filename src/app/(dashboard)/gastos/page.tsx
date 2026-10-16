@@ -6,7 +6,7 @@ import { listRecurrentesPendientes } from "@/app/actions/gasto-recurrente-action
 import { listSedes } from "@/app/actions/sede-actions";
 import { requireRole } from "@/lib/auth/guards";
 import { ETIQUETA_MES } from "@/lib/gastos/periodo";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
@@ -56,10 +56,10 @@ export default async function GastosPage({
         </div>
         <div className="flex items-center gap-2">
           {esAdmin ? (
-            <Button variant="outline" render={<Link href="/gastos/configuracion" />}>
+            <Link href="/gastos/configuracion" className={buttonVariants({ variant: "outline" })}>
               <Settings />
               Configuración
-            </Button>
+            </Link>
           ) : null}
           <GastoDialog modo="crear" categorias={categorias} sedeIdPorDefecto={gastos.sedeId} sedes={sedesOpciones} periodo={gastos.periodo} />
         </div>
