@@ -19,6 +19,7 @@
 - Colores: selección en `bg-primary text-primary-foreground` (naranja), ayuda ok `text-emerald-700 dark:text-emerald-400`, aviso `text-amber-700 dark:text-amber-400`, vencido `text-destructive`.
 - Accesibilidad: el disparador es un `<button>` con `aria-haspopup="dialog"`, ligado a su `<Label>` con `aria-labelledby`; el calendario conserva la navegación con flechas que ya tiene `CalendarioMes`; los atajos son `<button aria-pressed>`.
 - No tocar los archivos borrados/no rastreados de `docs/Evidencias/` que ya están en el árbol de trabajo: usar `git add` con rutas explícitas.
+- Si el formulario arma el envío con `new FormData(form)` (desde el DOM), el componente DEBE recibir `name` para emitir su campo oculto; si no, la fecha no llega al servidor. Revisarlo en cada migración y cubrirlo con una prueba de `FormData` cuando el formulario ya tenga tests.
 - Verificación al final de cada tarea: `npx tsc --noEmit`, `npm test -- <archivos de la tarea>`, `npx eslint <archivos tocados>`. Sin reintentos automáticos (RULES.md).
 
 ## File Structure
