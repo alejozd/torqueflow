@@ -67,4 +67,42 @@ describe("ProveedorCuentasLista", () => {
     expect(within(fila).getByText("✓ Abono registrado hace un momento")).toBeInTheDocument();
     expect(within(fila).queryByRole("button", { name: /Abonar/ })).not.toBeInTheDocument();
   });
+
+  it("Pagadas: chip con la fecha del pago, historial abierto, sin «Le debes» ni «Abonar»", () => {
+    const pago = (id: string, createdAt: Date) => ({
+      id,
+      monto: 5073557,
+      metodoPago: "TRANSFERENCIA",
+      referencia: null,
+      registradoPor: "Admin Dev",
+      createdAt,
+    });
+    render(
+      <ProveedorCuentasLista
+        modo="pagadas"
+        proveedores={[
+          proveedor([
+            cuenta({ saldo: 0, pagado: 5073557, pagos: [pago("pg1", new Date())] }),
+            cuenta({
+              cuentaId: "c2",
+              saldo: 0,
+              pagado: 5073557,
+              pagos: [pago("pg2", new Date(Date.now() - 5 * 24 * 60 * 60 * 1000))],
+            }),
+          ]),
+        ]}
+      />,
+    );
+
+    const [hoy, antes] = screen
+      .getAllByRole("listitem")
+      .filter((li) => li.parentElement?.tagName === "UL" && li.querySelector("a"));
+    expect(within(hoy!).getByText("Pagada hoy")).toBeInTheDocument();
+    expect(within(antes!).getByText(/^Pagada el /)).toBeInTheDocument();
+    // En Pagadas el historial viene abierto aunque el pago no sea de hoy.
+    expect(within(antes!).getByRole("button", { name: "1 abono registrado" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("2 entradas pagadas en los últimos 30 días")).toBeInTheDocument();
+    expect(screen.queryByText("Le debes")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Abonar/ })).not.toBeInTheDocument();
+  });
 });

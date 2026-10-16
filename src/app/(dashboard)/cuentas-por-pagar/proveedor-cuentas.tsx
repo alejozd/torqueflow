@@ -10,10 +10,12 @@ import {
   esDeHoy,
   etiquetaAntiguedad,
   etiquetaMetodo,
+  etiquetaPagada,
   fechaCuenta,
   fechaHoraPago,
   pesos,
   plural,
+  PUNTO,
   puntoAntiguedad,
   TEXTO_VERDE,
 } from "./presentacion";
@@ -22,11 +24,16 @@ import {
  * La lista de cuentas por pagar: una tarjeta por proveedor y una fila por
  * entrada. Solo muestra datos; abonar se hace desde el diálogo de cada fila.
  */
+export type ModoLista = "pendientes" | "pagadas";
+
 export function ProveedorCuentasLista({
   proveedores,
+  modo = "pendientes",
   abonadas = [],
 }: {
   proveedores: ProveedorCuentas[];
+  /** Pagadas: mismas tarjetas, con la fecha del pago en vez de la antigüedad y sin abonar. */
+  modo?: ModoLista;
   /** Cuentas recién abonadas: se resaltan en verde y, si quedaron pagadas, dicen «✓ Pagada». */
   abonadas?: string[];
 }) {
@@ -34,7 +41,13 @@ export function ProveedorCuentasLista({
   return (
     <div className="flex flex-col gap-3">
       {proveedores.map((proveedor) => (
-        <TarjetaProveedor key={proveedor.proveedorId} proveedor={proveedor} ahora={ahora} abonadas={abonadas} />
+        <TarjetaProveedor
+          key={proveedor.proveedorId}
+          proveedor={proveedor}
+          modo={modo}
+          ahora={ahora}
+          abonadas={abonadas}
+        />
       ))}
     </div>
   );
@@ -42,10 +55,12 @@ export function ProveedorCuentasLista({
 
 function TarjetaProveedor({
   proveedor,
+  modo,
   ahora,
   abonadas,
 }: {
   proveedor: ProveedorCuentas;
+  modo: ModoLista;
   ahora: Date;
   abonadas: string[];
 }) {
@@ -58,23 +73,32 @@ function TarjetaProveedor({
             {proveedor.proveedorNombre}
           </TituloSeccion>
           <p className="mt-0.5 pl-[2.625rem] text-xs text-muted-foreground">
-            {plural(porPagar, "entrada", "entradas")} por pagar · la más vieja hace{" "}
-            {plural(proveedor.diasMasAntigua, "día", "días")}
+            {modo === "pagadas" ? (
+              <>{plural(proveedor.cuentas.length, "entrada pagada", "entradas pagadas")} en los últimos 30 días</>
+            ) : (
+              <>
+                {plural(porPagar, "entrada", "entradas")} por pagar · la más vieja hace{" "}
+                {plural(proveedor.diasMasAntigua, "día", "días")}
+              </>
+            )}
           </p>
         </div>
-        <div className="flex items-center gap-2.5 max-sm:w-full max-sm:justify-between">
-          {/* Bloque teñido: la cifra clave del proveedor. */}
-          <div className="rounded-lg bg-[oklch(0.75_0.15_70/0.14)] px-3 py-1 text-right">
-            <span className="block text-[11px] text-muted-foreground">Le debes</span>
-            <span className="font-mono text-[15px] font-semibold tabular-nums">{pesos(proveedor.saldoTotal)}</span>
+        {modo === "pendientes" ? (
+          <div className="flex items-center gap-2.5 max-sm:w-full max-sm:justify-between">
+            {/* Bloque teñido: la cifra clave del proveedor. */}
+            <div className="rounded-lg bg-[oklch(0.75_0.15_70/0.14)] px-3 py-1 text-right">
+              <span className="block text-[11px] text-muted-foreground">Le debes</span>
+              <span className="font-mono text-[15px] font-semibold tabular-nums">{pesos(proveedor.saldoTotal)}</span>
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
       <ul className="divide-y">
         {proveedor.cuentas.map((cuenta) => (
           <FilaCuenta
             key={cuenta.cuentaId}
             cuenta={cuenta}
+            modo={modo}
             ahora={ahora}
             recienAbonada={abonadas.includes(cuenta.cuentaId)}
           />
@@ -86,13 +110,16 @@ function TarjetaProveedor({
 
 function FilaCuenta({
   cuenta,
+  modo,
   ahora,
   recienAbonada,
 }: {
   cuenta: CuentaConAntiguedad;
+  modo: ModoLista;
   ahora: Date;
   recienAbonada: boolean;
 }) {
+  const ultimoPago = cuenta.pagos[0]?.createdAt ?? null;
   const porcentaje = cuenta.total > 0 ? Math.min(100, Math.round((cuenta.pagado / cuenta.total) * 100)) : 100;
   return (
     <li
@@ -120,7 +147,12 @@ function FilaCuenta({
       </div>
 
       <div>
-        <Chip punto={puntoAntiguedad(cuenta.dias)}>{etiquetaAntiguedad(cuenta.dias)}</Chip>
+        {/* Saldada: cuándo se pagó; pendiente: cuánto lleva. */}
+        {cuenta.saldo <= 0 && ultimoPago ? (
+          <Chip punto={PUNTO.verde}>{etiquetaPagada(ultimoPago, ahora)}</Chip>
+        ) : (
+          <Chip punto={puntoAntiguedad(cuenta.dias)}>{etiquetaAntiguedad(cuenta.dias)}</Chip>
+        )}
       </div>
 
       <div className="col-span-2 md:col-span-1 max-md:order-last">
@@ -162,7 +194,7 @@ function FilaCuenta({
               referencia: pago.referencia,
               registradoPor: pago.registradoPor,
             }))}
-            abiertoInicial={cuenta.pagos[0] ? esDeHoy(cuenta.pagos[0].createdAt, ahora) : false}
+            abiertoInicial={modo === "pagadas" || (ultimoPago !== null && esDeHoy(ultimoPago, ahora))}
           />
         </div>
       ) : null}

@@ -7,7 +7,7 @@ import { KPI_TONE, KpiCard, type KpiAccentColor, type KpiTone } from "@/componen
 import type { RangoAntiguedad } from "@/lib/cartera/antiguedad";
 import { DIAS_URGENTE, lecturaUrgente } from "@/lib/proveedores/cuentas-por-pagar";
 import { cn } from "@/lib/utils";
-import { pesos, plural, PUNTO } from "./presentacion";
+import { pesos, plural, PUNTO, TEXTO_VERDE } from "./presentacion";
 import { AbonosProvider } from "./abonos-contexto";
 import { ProveedorCuentasLista } from "./proveedor-cuentas";
 
@@ -32,7 +32,10 @@ function cuentas(n: number) {
 function nombresUrgentes(proveedores: { nombre: string; dias: number }[]): string {
   const nombrados = proveedores
     .slice(0, 3)
-    .map((proveedor, indice) => `${proveedor.nombre} (${indice === 0 ? plural(proveedor.dias, "día", "días") : proveedor.dias})`);
+    .map(
+      (proveedor, indice) =>
+        `${proveedor.nombre} (${indice === 0 ? plural(proveedor.dias, "día", "días") : proveedor.dias})`,
+    );
   const resto = proveedores.length - nombrados.length;
   if (resto > 0) return `${nombrados.join(", ")} y ${plural(resto, "proveedor más", "proveedores más")}`;
   if (nombrados.length === 1) return nombrados[0]!;
@@ -118,18 +121,24 @@ export default async function CuentasPorPagarPage({
 
       {/* Lectura en lenguaje sencillo: qué atender primero. */}
       {urgente.entradas > 0 ? (
-        <p role="note" className="-mt-2 flex items-start gap-2 rounded-lg bg-[oklch(0.75_0.15_70/0.14)] px-3 py-2 text-sm">
+        <p
+          role="note"
+          className="-mt-2 flex items-start gap-2 rounded-lg bg-[oklch(0.75_0.15_70/0.14)] px-3 py-2 text-sm"
+        >
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-[oklch(0.66_0.16_60)]" aria-hidden />
           <span>
             <b className="font-semibold">Lo más urgente:</b>{" "}
             {urgente.entradas === 1 ? "1 entrada pasa" : `${urgente.entradas} entradas pasan`} de {DIAS_URGENTE} días y{" "}
-            {urgente.entradas === 1 ? "debe" : "suman"} <b className="font-mono font-semibold">{pesos(urgente.suma)}</b> —{" "}
-            {nombresUrgentes(urgente.proveedores)}. Para abonar, toca <b className="font-semibold">Abonar</b> en la
+            {urgente.entradas === 1 ? "debe" : "suman"} <b className="font-mono font-semibold">{pesos(urgente.suma)}</b>{" "}
+            — {nombresUrgentes(urgente.proveedores)}. Para abonar, toca <b className="font-semibold">Abonar</b> en la
             entrada que vas a pagar.
           </span>
         </p>
       ) : totalCuentas > 0 ? (
-        <p role="note" className="-mt-2 flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-sm text-muted-foreground">
+        <p
+          role="note"
+          className="-mt-2 flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-sm text-muted-foreground"
+        >
           <span className={cn("size-1.5 shrink-0 rounded-full", PUNTO.verde)} aria-hidden />
           Ninguna entrada pasa de {DIAS_URGENTE} días. Para abonar, toca Abonar en la entrada que vas a pagar.
         </p>
@@ -155,13 +164,20 @@ export default async function CuentasPorPagarPage({
 
         {lista.length === 0 ? (
           <Card>
-            <CardContent className="py-6 text-sm text-muted-foreground">
-              No hay cuentas pendientes: todo lo recibido está pagado.
-            </CardContent>
+            {filtro === "pagadas" ? (
+              <CardContent className="py-7 text-center text-sm text-muted-foreground">
+                No hay cuentas pagadas en los últimos 30 días.
+              </CardContent>
+            ) : (
+              <CardContent className="py-7 text-center text-sm text-muted-foreground">
+                <p className={cn("text-lg font-semibold", TEXTO_VERDE)}>✓ Todo está pagado</p>
+                <p>No le debes nada a ningún proveedor.</p>
+              </CardContent>
+            )}
           </Card>
         ) : (
           <AbonosProvider cajaAbierta={cajaAbierta} abonadas={abonadas}>
-            <ProveedorCuentasLista proveedores={lista} abonadas={abonadas} />
+            <ProveedorCuentasLista proveedores={lista} modo={filtro} abonadas={abonadas} />
           </AbonosProvider>
         )}
       </div>
@@ -187,7 +203,9 @@ function PestanaFiltro({
       aria-current={activa ? "page" : undefined}
       className={cn(
         "inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-semibold whitespace-nowrap transition-colors",
-        activa ? "bg-card shadow-sm ring-1 ring-border" : "text-muted-foreground hover:bg-card/70 hover:text-foreground",
+        activa
+          ? "bg-card shadow-sm ring-1 ring-border"
+          : "text-muted-foreground hover:bg-card/70 hover:text-foreground",
       )}
     >
       {children}
