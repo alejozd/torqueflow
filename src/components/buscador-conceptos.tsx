@@ -114,6 +114,7 @@ export function BuscadorConceptos<R, S>({
 
   const opciones = aOpciones(resultados, texto);
   const indiceActivo = Math.min(activa, Math.max(opciones.length - 1, 0));
+  const listaRef = useRef<HTMLUListElement>(null);
 
   function elegir(opcion: OpcionBuscador<S>) {
     if (opcion.noDisponible) {
@@ -130,6 +131,19 @@ export function BuscadorConceptos<R, S>({
   }
 
   const mostrarLista = abierto && (opciones.length > 0 || buscando);
+
+  // Con el campo cerca del borde inferior (pantallas bajas) la lista quedaría fuera
+  // de la vista: al llegar resultados la página baja solo lo justo para mostrarla.
+  // `?.()`: jsdom no implementa scrollIntoView.
+  useEffect(() => {
+    if (mostrarLista) listaRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, [mostrarLista, textoBuscado]);
+
+  // La opción resaltada con las flechas no se sale de la parte visible de la lista.
+  const claveActiva = mostrarLista ? opciones[indiceActivo]?.clave : undefined;
+  useEffect(() => {
+    if (claveActiva) document.getElementById(`${listaId}-${claveActiva}`)?.scrollIntoView?.({ block: "nearest" });
+  }, [claveActiva, listaId]);
 
   /** Enter sin resultados fiables (lector de códigos): lo resuelve el llamador y, si agrega, se limpia el campo. */
   async function resolverSinResultados() {
@@ -229,6 +243,7 @@ export function BuscadorConceptos<R, S>({
 
       {mostrarLista ? (
         <ul
+          ref={listaRef}
           id={listaId}
           role="listbox"
           aria-label="Resultados"
