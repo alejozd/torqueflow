@@ -433,3 +433,23 @@ Rama `vencimientos-rediseno` (sin migraciones). Propuesta de Stitch adaptada con
   relación cita↔vencimiento), Exportar Excel, refrescar y los enlaces «Filtrar lista».
 - **Pendientes menores**: la tarjeta «Por vencer» cuenta días 8..N (con `diasAviso` ≤ 7 siempre muestra 0); el
   buscador desaparece cuando un chip deja 0 filas (comportamiento de `DataTable`).
+
+### Rediseño del Mostrador (2026-10-16)
+
+Rama `mostrador-rediseno`. Spec: `docs/superpowers/specs/2026-10-15-mostrador-rediseno-propuesta.md`; plan:
+`docs/superpowers/plans/2026-10-15-mostrador-rediseno.md`.
+
+- **Vender**: con teclado y lector de código; el buscador es compartido con la cotización. Cobro mixto con lo
+  recibido en efectivo y las vueltas guardados en la venta. El total del carrito viaja como `totalEsperado` y el
+  servidor lo rechaza si los precios cambiaron.
+- **Reglas**: tope de descuento para RECEPCION configurable; crédito solo con cliente registrado.
+- **Comprobante**: imprimible, wa.me o SMTP, en `src/app/mostrador/[id]/comprobante`.
+- **Pestaña Ventas**: filtros, cobro de saldo y devoluciones hasta 30 días. «Caja cerrada» = existe un cierre de
+  caja de la sede posterior a la venta (con control de caja) o la venta es de un día anterior (sin control).
+- **Cartera e Inicio** incluyen las ventas de mostrador con saldo pendiente.
+- **Despliegue: 2 migraciones de tenant obligatorias**, por cada schema y con respaldo previo:
+  `20261021120000_descuento_max_recepcion` y `20261022120000_venta_mostrador_recibido_vueltas`. Luego
+  `prisma generate` y build. Ya aplicadas en `taller_dev`.
+- **Pendientes menores**: el saldo del cliente no se refresca en la misma sesión; el KPI de efectivo es por día
+  Bogotá, no por sesión de caja; el reenvío de correo no tiene límite; 3 tests de `kpi-card` fallaban antes de
+  esta rama.
