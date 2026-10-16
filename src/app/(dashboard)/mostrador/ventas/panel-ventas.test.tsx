@@ -70,7 +70,7 @@ const filaDe = (numero: number) => screen.getByRole("row", { name: new RegExp(`#
 describe("PanelVentas", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockListar.mockResolvedValue({ ventas: [], error: null });
+    mockListar.mockResolvedValue({ ventas: [], error: null, limitado: false });
     mockObtener.mockResolvedValue(null);
     mockCobrar.mockResolvedValue({ error: null, success: true, numero: 8 });
   });
@@ -113,7 +113,11 @@ describe("PanelVentas", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-17T20:00:00Z"));
     try {
-      mockListar.mockResolvedValue({ ventas: [fila({ id: "v0", numero: 3, createdAt: new Date("2026-10-16T15:00:00Z") })], error: null });
+      mockListar.mockResolvedValue({
+        ventas: [fila({ id: "v0", numero: 3, createdAt: new Date("2026-10-16T15:00:00Z") })],
+        error: null,
+        limitado: false,
+      });
       pintar();
 
       await userEvent.click(screen.getByRole("button", { name: "Ayer" }));
@@ -213,5 +217,43 @@ describe("PanelVentas", () => {
     expect(mockObtener).toHaveBeenCalledWith("v9");
     const panel = await screen.findByRole("dialog");
     await waitFor(() => expect(panel).toHaveTextContent("Devolver de la venta #12"));
+  });
+
+  it("si el servidor cortó en 500 ventas lo avisa", async () => {
+    mockListar.mockResolvedValue({ ventas: [PAGADA], error: null, limitado: true });
+    pintar();
+
+    await userEvent.click(screen.getByRole("button", { name: "Últimos 30 días" }));
+
+    expect(await screen.findByText("Hay más de 500 ventas: busca o acorta las fechas.")).toBeInTheDocument();
+  });
+
+  it("tras cobrar no cierra el panel: refresca la lista y el monto sigue al saldo nuevo", async () => {
+    mockListar.mockResolvedValue({ ventas: [A_CREDITO], error: null, limitado: false });
+    pintar([]);
+    await userEvent.click(screen.getByRole("button", { name: "Ayer" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Cobrar saldo de la venta #8" }));
+    const panel = await screen.findByRole("dialog");
+
+    mockListar.mockClear();
+    mockListar.mockResolvedValue({ ventas: [{ ...A_CREDITO, saldoPendiente: 5000 }], error: null, limitado: false });
+    await userEvent.clear(within(panel).getByLabelText("Monto"));
+    await userEvent.type(within(panel).getByLabelText("Monto"), "15000");
+    await userEvent.click(within(panel).getByRole("button", { name: "Cobrar" }));
+
+    await waitFor(() => expect(mockListar).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await waitFor(() => expect(within(screen.getByRole("dialog")).getByLabelText("Monto")).toHaveValue(5000));
+  });
+
+  it("al cerrar el panel quita ?venta= de la dirección", async () => {
+    window.history.replaceState(null, "", "/mostrador?tab=ventas&venta=v1");
+    pintar();
+    await userEvent.click(within(filaDe(7)).getByRole("button", { name: "Ver venta #7" }));
+    await screen.findByRole("dialog");
+
+    await userEvent.keyboard("{Escape}");
+
+    await waitFor(() => expect(window.location.search).toBe("?tab=ventas"));
   });
 });

@@ -78,4 +78,18 @@ describe("DevolucionForm", () => {
     expect(resumen).toHaveTextContent(/Baja de la deuda\s*\$\s*59\.500/);
     expect(resumen).toHaveTextContent(/Sale del cajón\s*\$\s*0/);
   });
+
+  it("al registrar la devolución vuelve las cantidades a cero y avisa para refrescar", async () => {
+    const onExito = vi.fn();
+    render(<DevolucionForm venta={venta([ITEM])} onExito={onExito} />);
+
+    await userEvent.type(screen.getByLabelText("Cantidad a devolver de Filtro de aceite"), "1");
+    await userEvent.click(screen.getByRole("button", { name: "Devolver" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sí, devolver" }));
+
+    expect(await screen.findByText("Devolución #4 registrada.")).toBeInTheDocument();
+    expect(onExito).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("Cantidad a devolver de Filtro de aceite")).toHaveValue(0);
+    expect(screen.getByRole("button", { name: "Devolver" })).toBeDisabled();
+  });
 });

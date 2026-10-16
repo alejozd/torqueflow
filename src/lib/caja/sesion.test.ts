@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { exigirCajaParaEfectivo } from "./sesion";
+import { exigirCajaParaEfectivo, ultimoCierreDeCaja } from "./sesion";
 
 function db({ usarControlCaja, abierta }: { usarControlCaja: boolean | null; abierta: boolean }) {
   return {
@@ -57,5 +57,28 @@ describe("exigirCajaParaEfectivo", () => {
 
     await expect(exigirCajaParaEfectivo(lector as never, "sede-1", false, MENSAJE)).resolves.toBeNull();
     await expect(exigirCajaParaEfectivo(lector as never, "sede-1", true, MENSAJE)).resolves.toBe(MENSAJE);
+  });
+});
+
+describe("ultimoCierreDeCaja", () => {
+  it("busca el cierre más reciente de la sede, o solo uno posterior a una fecha", async () => {
+    const cierre = new Date("2026-10-17T23:00:00Z");
+    const lector = { cajaSesion: { findFirst: vi.fn().mockResolvedValue({ cerradaAt: cierre }) } };
+
+    await expect(ultimoCierreDeCaja(lector as never, "sede-1")).resolves.toEqual(cierre);
+    expect(lector.cajaSesion.findFirst).toHaveBeenLastCalledWith({
+      where: { sedeId: "sede-1", cerradaAt: { not: null } },
+      select: { cerradaAt: true },
+      orderBy: { cerradaAt: "desc" },
+    });
+
+    const venta = new Date("2026-10-17T15:00:00Z");
+    await ultimoCierreDeCaja(lector as never, "sede-1", venta);
+    expect(lector.cajaSesion.findFirst).toHaveBeenLastCalledWith(
+      expect.objectContaining({ where: { sedeId: "sede-1", cerradaAt: { gt: venta } } }),
+    );
+
+    lector.cajaSesion.findFirst.mockResolvedValue(null);
+    await expect(ultimoCierreDeCaja(lector as never, "sede-1")).resolves.toBeNull();
   });
 });

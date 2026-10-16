@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import {
   crearDevolucionAction,
   type DevolucionFormState,
@@ -43,19 +42,39 @@ export type VentaDevolvible = Pick<
  * pantalla no puede ofrecer devolver más de lo vendido. Antes de confirmar dice
  * cuánto sale del cajón y cuánto baja de la deuda, con la misma cuenta del servidor.
  */
-export function DevolucionForm({ venta }: { venta: VentaDevolvible }) {
+export function DevolucionForm({ venta, onExito }: { venta: VentaDevolvible; onExito?: () => void }) {
   const devolver = crearDevolucionAction.bind(null, venta.id);
   const [state, formAction, isPending] = useActionState(devolver, initialState);
   const [metodoPago, setMetodoPago] = useState("EFECTIVO");
   const [cantidades, setCantidades] = useState<Record<string, number>>({});
   const [confirmando, setConfirmando] = useState(false);
 
+  // Devolución registrada: las cantidades vuelven a cero (lo devolvible ya cambió)
+  // y se avisa para refrescar la venta sin cerrar el panel.
+  const [exitoVisto, setExitoVisto] = useState<DevolucionFormState>(initialState);
+  if (state.success && state !== exitoVisto) {
+    setExitoVisto(state);
+    setCantidades({});
+    setConfirmando(false);
+  }
+  const onExitoRef = useRef(onExito);
+  useEffect(() => {
+    onExitoRef.current = onExito;
+  });
+  useEffect(() => {
+    if (state.success) onExitoRef.current?.();
+  }, [state]);
+
   const devolvibles = venta.items
     .map((item) => ({ ...item, maximo: cantidadDevolvible(item.cantidad, item.devueltoCantidad) }))
     .filter((item) => item.maximo > 0);
 
   if (devolvibles.length === 0) {
-    return <p className="text-sm text-muted-foreground">Esta venta ya se devolvió por completo.</p>;
+    return (
+      <p role="status" className="text-sm text-muted-foreground">
+        {state.success ? `Devolución #${state.numero} registrada. ` : ""}Esta venta ya se devolvió por completo.
+      </p>
+    );
   }
 
   const lineas = devolvibles

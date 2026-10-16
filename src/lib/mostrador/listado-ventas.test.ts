@@ -5,7 +5,7 @@ describe("rangoDelFiltro", () => {
   // 00:30 del 17 en Bogotá (05:30Z): en UTC ya sería otro día distinto al de Bogotá a otras horas.
   const ahora = new Date("2026-10-17T05:30:00Z");
 
-  it("hoy, ayer y los últimos 30 días en días de Bogotá", () => {
+  it("hoy, ayer y los últimos 30 días (hoy y los 30 anteriores) en días de Bogotá", () => {
     expect(rangoDelFiltro("hoy", ahora)).toEqual({ desde: "2026-10-17", hasta: "2026-10-17" });
     expect(rangoDelFiltro("ayer", ahora)).toEqual({ desde: "2026-10-16", hasta: "2026-10-16" });
     expect(rangoDelFiltro("30dias", ahora)).toEqual({ desde: "2026-09-17", hasta: "2026-10-17" });
@@ -24,10 +24,10 @@ describe("ventanaDelRango", () => {
     });
   });
 
-  it("acepta hasta 30 días y rechaza 31", () => {
+  it("acepta una fecha inicial hasta 30 días antes de la final (el filtro Últimos 30 días) y rechaza 31", () => {
     expect(ventanaDelRango({ desde: "2026-09-17", hasta: "2026-10-17" })).toHaveProperty("inicio");
     expect(ventanaDelRango({ desde: "2026-09-16", hasta: "2026-10-17" })).toEqual({
-      error: "El rango puede ser de máximo 30 días",
+      error: "La fecha inicial puede estar máximo 30 días antes de la final",
     });
   });
 

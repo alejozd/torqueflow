@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
 import { registrarEventoAuditoria } from "@/lib/auditoria/registrarEvento";
-import { exigirCajaParaEfectivo, sesionDeCajaAbierta } from "@/lib/caja/sesion";
+import { exigirCajaParaEfectivo, ultimoCierreDeCaja } from "@/lib/caja/sesion";
 import { leerOpcionesTaller } from "@/lib/configuracion/opciones-taller";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb } from "@/lib/db/tenant-client";
@@ -90,18 +90,16 @@ export async function crearDevolucionAction(
   });
   if (!venta) return { error: "Venta no encontrada", success: false };
 
-  const [opciones, cajaAbierta] = await Promise.all([leerOpcionesTaller(tenantDb), sesionDeCajaAbierta(tenantDb, sedeId)]);
+  // Caja cerrada = alguna caja de la sede se cerró después de la venta (su dinero
+  // ya pasó por un arqueo). Solo hace falta mirarlo con el control de caja encendido.
+  const { usarControlCaja } = await leerOpcionesTaller(tenantDb);
+  const ultimoCierreCaja = usarControlCaja ? await ultimoCierreDeCaja(tenantDb, sedeId, venta.createdAt) : null;
   const ahora = new Date();
   const plazo = puedeDevolver({
     fechaVenta: venta.createdAt,
     ahora,
     rol: session.user.role,
-    cajaCerrada: ventaEnCajaCerrada({
-      fechaVenta: venta.createdAt,
-      ahora,
-      usarControlCaja: opciones.usarControlCaja,
-      cajaAbiertaDesde: cajaAbierta?.abiertaAt ?? null,
-    }),
+    cajaCerrada: ventaEnCajaCerrada({ fechaVenta: venta.createdAt, ahora, usarControlCaja, ultimoCierreCaja }),
   });
   if (!plazo.permitido) return { error: plazo.motivo, success: false };
 

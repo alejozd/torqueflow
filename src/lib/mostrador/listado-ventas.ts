@@ -7,7 +7,11 @@ import { cantidadDevolvible } from "@/lib/mostrador/ventas";
  * se muestra y el resumen de productos de cada fila.
  */
 
+/** La fecha inicial puede estar hasta 30 días antes de la final (hoy y los 30 anteriores = lo devolvible). */
 export const MAX_DIAS_RANGO_VENTAS = 30;
+
+/** Tope de filas del listado: 30 días de un mostrador con mucho movimiento no caben en la pantalla. */
+export const MAX_VENTAS_LISTADO = 500;
 
 const MS_DIA = 24 * 60 * 60 * 1000;
 const FORMATO_DIA = /^\d{4}-\d{2}-\d{2}$/;
@@ -28,7 +32,7 @@ function diaMas(dia: string, dias: number): string {
   return formatoDiaBogota.format(new Date(inicioDe(dia).getTime() + dias * MS_DIA));
 }
 
-/** Hoy, ayer o los últimos 30 días (hoy y los 30 anteriores: lo que aún se puede devolver). */
+/** Hoy, ayer o "Últimos 30 días": hoy y los 30 días anteriores (lo que aún se puede devolver). */
 export function rangoDelFiltro(filtro: FiltroVentas, ahora: Date): RangoVentas {
   const hoy = formatoDiaBogota.format(ahora);
   if (filtro === "ayer") {
@@ -41,8 +45,8 @@ export function rangoDelFiltro(filtro: FiltroVentas, ahora: Date): RangoVentas {
 
 /**
  * Convierte el rango en la ventana `[inicio, fin)` de `createdAt`. Rechaza fechas
- * mal escritas, un rango al revés y uno de más de 30 días (no se carga medio año
- * de ventas en la pantalla del mostrador).
+ * mal escritas, un rango al revés y una fecha inicial más de 30 días antes de la
+ * final (no se carga medio año de ventas en la pantalla del mostrador).
  */
 export function ventanaDelRango(rango: RangoVentas): { inicio: Date; fin: Date } | { error: string } {
   const { desde, hasta } = rango;
@@ -56,7 +60,7 @@ export function ventanaDelRango(rango: RangoVentas): { inicio: Date; fin: Date }
   }
   if (ultimo.getTime() < inicio.getTime()) return { error: "La fecha inicial va antes de la final" };
   if ((ultimo.getTime() - inicio.getTime()) / MS_DIA > MAX_DIAS_RANGO_VENTAS) {
-    return { error: `El rango puede ser de máximo ${MAX_DIAS_RANGO_VENTAS} días` };
+    return { error: `La fecha inicial puede estar máximo ${MAX_DIAS_RANGO_VENTAS} días antes de la final` };
   }
   return { inicio, fin: new Date(ultimo.getTime() + MS_DIA) };
 }

@@ -31,12 +31,15 @@ export function SheetVenta({
   cargando,
   onCambiarAccion,
   onCerrar,
+  onExito,
 }: {
   abierta: { ventaId: string; accion: AccionVenta } | null;
   venta: VentaMostradorFila | null;
   cargando: boolean;
   onCambiarAccion: (accion: AccionVenta) => void;
   onCerrar: () => void;
+  /** Un cobro o una devolución salió bien: hay que refrescar la venta. */
+  onExito: () => void;
 }) {
   const accion = abierta?.accion ?? "ver";
 
@@ -67,7 +70,7 @@ export function SheetVenta({
                     Saldo pendiente <span className="font-mono font-semibold">{pesos(venta.saldoPendiente)}</span> de{" "}
                     <span className="font-mono">{pesos(venta.total)}</span>.
                   </p>
-                  <CobrarVentaForm key={`${venta.id}-${venta.saldoPendiente}`} ventaId={venta.id} saldo={venta.saldoPendiente} />
+                  <CobrarVentaForm key={venta.id} ventaId={venta.id} saldo={venta.saldoPendiente} onExito={onExito} />
                 </>
               ) : (
                 <p role="status" className="text-sm text-muted-foreground">
@@ -78,7 +81,7 @@ export function SheetVenta({
 
             {accion === "devolver" ? (
               venta.devolucion.permitido ? (
-                <DevolucionForm key={venta.id} venta={venta} />
+                <DevolucionForm key={venta.id} venta={venta} onExito={onExito} />
               ) : (
                 <Alert>
                   <AlertDescription>{venta.devolucion.motivo}</AlertDescription>

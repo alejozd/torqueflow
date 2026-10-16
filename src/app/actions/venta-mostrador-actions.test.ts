@@ -765,7 +765,8 @@ describe("listarVentasMostradorAction", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-17T20:00:00Z"));
     mockRequireRole.mockResolvedValue(SESION);
-    db.cajaSesion.findFirst.mockResolvedValue({ id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
+    // La caja de ayer se cerró anoche: lo vendido antes ya pasó por un arqueo.
+    db.cajaSesion.findFirst.mockResolvedValue({ cerradaAt: new Date("2026-10-17T02:00:00Z") });
     db.ventaMostrador.findMany.mockResolvedValue([filaGuardada()]);
   });
 
@@ -785,8 +786,13 @@ describe("listarVentasMostradorAction", () => {
           createdAt: { gte: new Date("2026-09-17T05:00:00Z"), lt: new Date("2026-10-18T05:00:00Z") },
         },
         orderBy: { createdAt: "desc" },
+        take: 501,
       }),
     );
+    expect(db.cajaSesion.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { sedeId: "sede-1", cerradaAt: { not: null } } }),
+    );
+    expect(r.limitado).toBe(false);
     expect(r.ventas).toEqual([
       {
         id: "v1",
@@ -805,21 +811,23 @@ describe("listarVentasMostradorAction", () => {
     ]);
   });
 
-  it("rechaza un rango de más de 30 días o mal formado sin consultar", async () => {
+  it("rechaza una fecha inicial más de 30 días antes de la final, o mal formada, sin consultar", async () => {
     expect(await listarVentasMostradorAction({ desde: "2026-09-16", hasta: "2026-10-17" })).toEqual({
       ventas: [],
-      error: "El rango puede ser de máximo 30 días",
+      error: "La fecha inicial puede estar máximo 30 días antes de la final",
+      limitado: false,
     });
     expect(await listarVentasMostradorAction({ desde: "ayer", hasta: "2026-10-17" })).toEqual({
       ventas: [],
       error: "Fechas inválidas",
+      limitado: false,
     });
     expect(db.ventaMostrador.findMany).not.toHaveBeenCalled();
   });
 
   it("marca el estado y si quien mira puede devolver cada venta", async () => {
     db.ventaMostrador.findMany.mockResolvedValue([
-      // De ayer: la caja abierta hoy es otra, así que RECEPCION ya no la devuelve.
+      // De ayer, antes del cierre de anoche: RECEPCION ya no la devuelve.
       filaGuardada({ id: "ayer", createdAt: new Date("2026-10-16T15:00:00Z"), saldoPendiente: "20000", pagos: [] }),
       filaGuardada({
         id: "parcial",
@@ -837,6 +845,17 @@ describe("listarVentasMostradorAction", () => {
       devolucion: { permitido: false, motivo: "Esta venta es de una caja ya cerrada: solo un administrador puede devolverla" },
     });
     expect(ventas[1]).toMatchObject({ estado: "DEVUELTA_PARCIAL", totalDevuelto: 29750, devolucion: { permitido: true } });
+  });
+
+  it("con más de 500 ventas trae las 500 más recientes y avisa", async () => {
+    db.ventaMostrador.findMany.mockResolvedValue(
+      Array.from({ length: 501 }, (_, indice) => filaGuardada({ id: `v${indice}`, numero: indice })),
+    );
+
+    const r = await listarVentasMostradorAction({ desde: "2026-09-17", hasta: "2026-10-17" });
+
+    expect(r.ventas).toHaveLength(500);
+    expect(r.limitado).toBe(true);
   });
 
   it("si no tiene permiso, falla antes de consultar", async () => {

@@ -15,24 +15,26 @@ export const MOTIVO_FUERA_DE_PLAZO = `Esta venta tiene más de ${DIAS_PLAZO_DEVO
 export const MOTIVO_CAJA_CERRADA = "Esta venta es de una caja ya cerrada: solo un administrador puede devolverla";
 
 /**
- * Si la venta pertenece a una caja ya cerrada (regla del plan):
- * - Con control de caja: no hay caja abierta en la sede, o la abierta se abrió
- *   después de la venta (la de la venta ya se cerró).
+ * Si la venta pertenece a una caja ya cerrada (regla del plan, ronda 1: "si la
+ * caja de ese día ya se cerró"):
+ * - Con control de caja: alguna caja de la sede se cerró **después** de la venta,
+ *   o sea que su dinero ya se contó en un arqueo. No tener caja abierta, por sí
+ *   solo, no la vuelve cerrada.
  * - Sin control de caja: la venta es de un día anterior (hora Bogotá).
  */
 export function ventaEnCajaCerrada({
   fechaVenta,
   ahora,
   usarControlCaja,
-  cajaAbiertaDesde,
+  ultimoCierreCaja,
 }: {
   fechaVenta: Date;
   ahora: Date;
   usarControlCaja: boolean;
-  /** `abiertaAt` de la caja abierta de la sede; null si no hay ninguna. */
-  cajaAbiertaDesde: Date | null;
+  /** `cerradaAt` más reciente de las cajas de la sede; null si nunca se ha cerrado una. */
+  ultimoCierreCaja: Date | null;
 }): boolean {
-  if (usarControlCaja) return cajaAbiertaDesde === null || cajaAbiertaDesde.getTime() > fechaVenta.getTime();
+  if (usarControlCaja) return ultimoCierreCaja !== null && ultimoCierreCaja.getTime() > fechaVenta.getTime();
   // "AAAA-MM-DD" se compara bien como texto.
   return formatoDiaBogota.format(fechaVenta) < formatoDiaBogota.format(ahora);
 }

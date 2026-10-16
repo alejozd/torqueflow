@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import {
   ETIQUETA_ESTADO_VENTA,
+  MAX_VENTAS_LISTADO,
   quedaPorDevolver,
   rangoDelFiltro,
   resumirProductos,
@@ -79,7 +80,12 @@ export function PanelVentas({
 }) {
   const { solicitud } = usePestanaMostrador();
   const [filtro, setFiltro] = useState<FiltroVentas>("hoy");
-  const [otras, setOtras] = useState<{ filtro: FiltroVentas; ventas: VentaMostradorFila[]; error: string | null } | null>(null);
+  const [otras, setOtras] = useState<{
+    filtro: FiltroVentas;
+    ventas: VentaMostradorFila[];
+    error: string | null;
+    limitado: boolean;
+  } | null>(null);
   const [cargando, startCarga] = useTransition();
   const [busqueda, setBusqueda] = useState("");
   const [abierta, setAbierta] = useState<{ ventaId: string; accion: AccionVenta } | null>(null);
@@ -111,6 +117,7 @@ export function PanelVentas({
 
   const filas = filtro === "hoy" ? ventasHoy : otras?.filtro === filtro ? otras.ventas : [];
   const errorListado = filtro !== "hoy" && otras?.filtro === filtro ? otras.error : null;
+  const limitado = filtro !== "hoy" && otras?.filtro === filtro && otras.limitado;
   const visibles = filas.filter((venta) => coincide(venta, busqueda));
 
   const buscarPorId = (id: string) =>
@@ -137,10 +144,28 @@ export function PanelVentas({
     };
   }, [idFaltante]);
 
+  /**
+   * Tras cobrar o devolver, sin cerrar el panel: "Hoy" y la venta del enlace se
+   * refrescan solos (el servidor revalida la página); el resto se pide de nuevo.
+   */
+  function refrescar() {
+    cargar(filtro);
+    const id = abierta?.ventaId;
+    if (id && sueltas.some((venta) => venta.id === id)) {
+      obtenerVentaMostradorAction(id).then((venta) => {
+        if (venta) setSueltas((actuales) => actuales.map((v) => (v.id === venta.id ? venta : v)));
+      });
+    }
+  }
+
   function cerrar() {
     setAbierta(null);
-    // Lo cobrado o devuelto cambia la fila: "Hoy" se refresca solo; los otros filtros se piden de nuevo.
-    cargar(filtro);
+    // El enlace de Cartera (`?venta=`) ya se atendió: recargar no debe volver a abrirlo.
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("venta")) {
+      url.searchParams.delete("venta");
+      window.history.replaceState(window.history.state, "", url);
+    }
   }
 
   const columnas: DataTableColumn<VentaMostradorFila>[] = [
@@ -234,7 +259,7 @@ export function PanelVentas({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         <KpiCard
           title="Vendido hoy"
           value={pesos(resumen.vendido)}
@@ -308,6 +333,12 @@ export function PanelVentas({
         ) : null}
       </div>
 
+      {limitado ? (
+        <Alert>
+          <AlertDescription>Hay más de {MAX_VENTAS_LISTADO} ventas: busca o acorta las fechas.</AlertDescription>
+        </Alert>
+      ) : null}
+
       {errorListado ? (
         <Alert variant="destructive">
           <AlertDescription>{errorListado}</AlertDescription>
@@ -333,6 +364,7 @@ export function PanelVentas({
         cargando={faltaVentaAbierta}
         onCambiarAccion={(accion) => setAbierta((actual) => (actual ? { ...actual, accion } : actual))}
         onCerrar={cerrar}
+        onExito={refrescar}
       />
     </div>
   );

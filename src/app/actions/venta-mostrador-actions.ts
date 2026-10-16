@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
-import { exigirCajaParaEfectivo, sesionDeCajaAbierta } from "@/lib/caja/sesion";
+import { exigirCajaParaEfectivo, sesionDeCajaAbierta, ultimoCierreDeCaja } from "@/lib/caja/sesion";
 import { leerOpcionesTaller } from "@/lib/configuracion/opciones-taller";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { publicDb } from "@/lib/db/public-client";
@@ -25,6 +25,7 @@ import {
 } from "@/lib/mostrador/comprobante";
 import {
   estadoVentaMostrador,
+  MAX_VENTAS_LISTADO,
   rangoDelFiltro,
   ventanaDelRango,
   type EstadoVentaMostrador,
@@ -614,20 +615,38 @@ interface ContextoDevolucion {
   ahora: Date;
   rol: string;
   usarControlCaja: boolean;
-  cajaAbiertaDesde: Date | null;
+  /** Último cierre de caja de la sede: las ventas anteriores a él ya pasaron por un arqueo. */
+  ultimoCierreCaja: Date | null;
+}
+
+async function contextoDevolucion(
+  tenantDb: TenantDb,
+  sedeId: string,
+  rol: string,
+  usarControlCaja: boolean,
+): Promise<ContextoDevolucion> {
+  const ultimoCierreCaja = usarControlCaja ? await ultimoCierreDeCaja(tenantDb, sedeId) : null;
+  return { ahora: new Date(), rol, usarControlCaja, ultimoCierreCaja };
 }
 
 async function leerContextoDevolucion(tenantDb: TenantDb, sedeId: string, rol: string): Promise<ContextoDevolucion> {
-  const [opciones, sesion] = await Promise.all([leerOpcionesTaller(tenantDb), sesionDeCajaAbierta(tenantDb, sedeId)]);
-  return { ahora: new Date(), rol, usarControlCaja: opciones.usarControlCaja, cajaAbiertaDesde: sesion?.abiertaAt ?? null };
+  const { usarControlCaja } = await leerOpcionesTaller(tenantDb);
+  return contextoDevolucion(tenantDb, sedeId, rol, usarControlCaja);
 }
+
 
 async function leerFilas(
   tenantDb: TenantDb,
   where: { sedeId: string; id?: string; createdAt?: { gte: Date; lt: Date } },
   contexto: ContextoDevolucion,
+  take?: number,
 ): Promise<VentaMostradorFila[]> {
-  const ventas = await tenantDb.ventaMostrador.findMany({ where, select: SELECT_FILA, orderBy: { createdAt: "desc" } });
+  const ventas = await tenantDb.ventaMostrador.findMany({
+    where,
+    select: SELECT_FILA,
+    orderBy: { createdAt: "desc" },
+    ...(take ? { take } : {}),
+  });
   return ventas.map((venta) => {
     const items = venta.items.map((item) => ({
       id: item.id,
@@ -641,7 +660,7 @@ async function leerFilas(
       fechaVenta: venta.createdAt,
       ahora: contexto.ahora,
       usarControlCaja: contexto.usarControlCaja,
-      cajaAbiertaDesde: contexto.cajaAbiertaDesde,
+      ultimoCierreCaja: contexto.ultimoCierreCaja,
     });
     return {
       id: venta.id,
@@ -700,13 +719,11 @@ export async function getMostradorDatos(): Promise<MostradorDatos> {
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
 
-  const [opciones, sesion] = await Promise.all([leerOpcionesTaller(tenantDb), sesionDeCajaAbierta(tenantDb, sedeId)]);
-  const contexto: ContextoDevolucion = {
-    ahora: new Date(),
-    rol: session.user.role,
-    usarControlCaja: opciones.usarControlCaja,
-    cajaAbiertaDesde: sesion?.abiertaAt ?? null,
-  };
+  const opciones = await leerOpcionesTaller(tenantDb);
+  const [sesion, contexto] = await Promise.all([
+    sesionDeCajaAbierta(tenantDb, sedeId),
+    contextoDevolucion(tenantDb, sedeId, session.user.role, opciones.usarControlCaja),
+  ]);
   const hoy = ventanaDelRango(rangoDelFiltro("hoy", contexto.ahora));
   if ("error" in hoy) throw new Error(hoy.error);
   const [ventas, resumen] = await Promise.all([
@@ -715,9 +732,9 @@ export async function getMostradorDatos(): Promise<MostradorDatos> {
   ]);
 
   return {
-    efectivoBloqueado: opciones.usarControlCaja && contexto.cajaAbiertaDesde === null,
+    efectivoBloqueado: opciones.usarControlCaja && sesion === null,
     usarControlCaja: opciones.usarControlCaja,
-    cajaAbierta: contexto.cajaAbiertaDesde !== null,
+    cajaAbierta: sesion !== null,
     rol: session.user.role === "ADMIN" ? "ADMIN" : "RECEPCION",
     descuentoMaxRecepcion: opciones.descuentoMaxRecepcion,
     ventas,
@@ -728,6 +745,8 @@ export async function getMostradorDatos(): Promise<MostradorDatos> {
 export interface ListadoVentasMostrador {
   ventas: VentaMostradorFila[];
   error: string | null;
+  /** Había más de `MAX_VENTAS_LISTADO`: solo vienen las más recientes. */
+  limitado: boolean;
 }
 
 /**
@@ -740,13 +759,20 @@ export async function listarVentasMostradorAction(rango: RangoVentas): Promise<L
     desde: typeof rango?.desde === "string" ? rango.desde : "",
     hasta: typeof rango?.hasta === "string" ? rango.hasta : "",
   });
-  if ("error" in ventana) return { ventas: [], error: ventana.error };
+  if ("error" in ventana) return { ventas: [], error: ventana.error, limitado: false };
 
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
   const contexto = await leerContextoDevolucion(tenantDb, sedeId, session.user.role);
-  const ventas = await leerFilas(tenantDb, { sedeId, createdAt: { gte: ventana.inicio, lt: ventana.fin } }, contexto);
-  return { ventas, error: null };
+  // Se pide una de más para saber si hubo que cortar.
+  const ventas = await leerFilas(
+    tenantDb,
+    { sedeId, createdAt: { gte: ventana.inicio, lt: ventana.fin } },
+    contexto,
+    MAX_VENTAS_LISTADO + 1,
+  );
+  const limitado = ventas.length > MAX_VENTAS_LISTADO;
+  return { ventas: limitado ? ventas.slice(0, MAX_VENTAS_LISTADO) : ventas, error: null, limitado };
 }
 
 /**
