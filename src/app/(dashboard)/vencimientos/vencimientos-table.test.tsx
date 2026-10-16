@@ -57,4 +57,12 @@ describe("VencimientosTable", () => {
     expect(screen.queryByRole("button", { name: /avisar por whatsapp/i })).not.toBeInTheDocument();
     expect(screen.getByText(/WhatsApp ·/)).toBeInTheDocument();
   });
+
+  it("el buscador sigue visible y conserva el texto cuando un chip no deja filas", async () => {
+    render(<VencimientosTable filas={filas} puedeAvisar ahora={ahora} />);
+    await userEvent.type(screen.getByRole("searchbox"), "mazda");
+    await userEvent.click(screen.getByRole("button", { name: "Por vencer (0)" }));
+    expect(screen.getByText("No hay vencimientos con este filtro.")).toBeInTheDocument();
+    expect(screen.getByRole("searchbox")).toHaveValue("mazda");
+  });
 });
