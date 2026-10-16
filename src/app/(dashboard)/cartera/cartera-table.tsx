@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ClienteCarteraVista } from "@/app/actions/cartera-actions";
+import { CONSUMIDOR_FINAL_ID } from "@/lib/cartera/antiguedad";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { CobrarWhatsappButton } from "./cobrar-whatsapp-button";
@@ -25,13 +26,19 @@ export function CarteraTable({ clientes }: { clientes: ClienteCarteraVista[] }) 
         <div className="flex flex-col gap-1">
           <span className="font-medium">{c.clienteNombre}</span>
           <div className="flex flex-wrap gap-1">
-            {c.facturas.map((f) => (
-              <Link key={f.facturaId} href={`/facturas/${f.facturaId}`} className="hover:underline">
-                <Badge variant="outline" className="font-mono font-normal">
-                  #{f.numero} · {f.dias} d
+            {c.facturas.map((f) =>
+              f.origen === "MOSTRADOR" ? (
+                <Badge key={f.facturaId} variant="outline" className="font-mono font-normal">
+                  Mostrador · M-{f.numero} · {f.dias} d
                 </Badge>
-              </Link>
-            ))}
+              ) : (
+                <Link key={f.facturaId} href={`/facturas/${f.facturaId}`} className="hover:underline">
+                  <Badge variant="outline" className="font-mono font-normal">
+                    Factura · #{f.numero} · {f.dias} d
+                  </Badge>
+                </Link>
+              ),
+            )}
           </div>
         </div>
       ),
@@ -42,7 +49,26 @@ export function CarteraTable({ clientes }: { clientes: ClienteCarteraVista[] }) 
     { header: "31–60", className: "text-right", cell: (c) => monto(c.porRango["31-60"]) },
     { header: "61–90", className: "text-right", cell: (c) => monto(c.porRango["61-90"]) },
     { header: "> 90", className: "text-right", cell: (c) => monto(c.porRango["90+"], true) },
-    { header: "", className: "text-right", cell: (c) => <CobrarWhatsappButton urlWhatsapp={c.urlWhatsapp} /> },
+    {
+      header: "",
+      className: "text-right",
+      cell: (c) => (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {c.facturas
+            .filter((f) => f.origen === "MOSTRADOR")
+            .map((f) => (
+              <Link
+                key={f.facturaId}
+                href={`/mostrador?tab=ventas&venta=${f.facturaId}`}
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                Cobrar M-{f.numero}
+              </Link>
+            ))}
+          {c.clienteId === CONSUMIDOR_FINAL_ID ? null : <CobrarWhatsappButton urlWhatsapp={c.urlWhatsapp} />}
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -50,7 +76,7 @@ export function CarteraTable({ clientes }: { clientes: ClienteCarteraVista[] }) 
       columns={columns}
       rows={clientes}
       getRowKey={(c) => c.clienteId}
-      emptyMessage="No hay facturas con saldo pendiente."
+      emptyMessage="No hay facturas ni ventas de mostrador con saldo pendiente."
     />
   );
 }

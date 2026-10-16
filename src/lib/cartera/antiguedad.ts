@@ -3,8 +3,16 @@ import { roundMoney } from "@/lib/money/round";
 
 export type RangoAntiguedad = "0-30" | "31-60" | "61-90" | "90+";
 
+/** Cliente sintético para las ventas de mostrador a crédito sin cliente. */
+export const CONSUMIDOR_FINAL_ID = "consumidor-final";
+
+export type OrigenCartera = "FACTURA" | "MOSTRADOR";
+
 export interface FacturaCartera {
+  /** Id del documento: la factura o la venta de mostrador (según `origen`). */
   facturaId: string;
+  /** Sin `origen` se entiende FACTURA (compatibilidad con quien arma solo facturas). */
+  origen?: OrigenCartera;
   numero: number;
   clienteId: string;
   clienteNombre: string;

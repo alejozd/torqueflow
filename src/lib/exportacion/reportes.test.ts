@@ -38,9 +38,9 @@ describe("reportes de exportación", () => {
     const hoja = hojaCartera(CARTERA);
 
     expect(hoja.nombre).toBe("Cartera");
-    expect(hoja.filas[0]).toEqual(["Cliente", "Factura", "Emitida", "Días", "Antigüedad", "Total", "Saldo"]);
-    expect(hoja.filas[1]).toEqual(["Ana Pérez", 7, expect.any(String), 45, "31 a 60 días", 100000, 100000]);
-    expect(hoja.filas).toContainEqual(["Total por cobrar", null, null, null, null, null, 100000]);
+    expect(hoja.filas[0]).toEqual(["Cliente", "Origen", "Documento", "Emitida", "Días", "Antigüedad", "Total", "Saldo"]);
+    expect(hoja.filas[1]).toEqual(["Ana Pérez", "Factura", 7, expect.any(String), 45, "31 a 60 días", 100000, 100000]);
+    expect(hoja.filas).toContainEqual(["Total por cobrar", null, null, null, null, null, null, 100000]);
   });
 
   it("las cuentas por pagar suman lo que se debe", () => {

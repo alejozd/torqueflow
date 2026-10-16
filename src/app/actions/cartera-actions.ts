@@ -3,7 +3,7 @@
 import { requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { publicDb } from "@/lib/db/public-client";
-import { agruparCartera, type ClienteCartera, type RangoAntiguedad } from "@/lib/cartera/antiguedad";
+import { agruparCartera, CONSUMIDOR_FINAL_ID, type FacturaCartera, type ClienteCartera, type RangoAntiguedad } from "@/lib/cartera/antiguedad";
 import { resolverSede } from "@/lib/gastos/validaciones-db";
 import { urlWhatsapp } from "@/lib/whatsapp/url";
 
@@ -26,16 +26,20 @@ async function nombreTaller(tenantSchema: string): Promise<string> {
 }
 
 function textoCobro(cliente: ClienteCartera, tallerNombre: string): string {
-  const numeros = cliente.facturas.map((factura) => factura.numero).join(", ");
+  const facturas = cliente.facturas.filter((d) => d.origen !== "MOSTRADOR").map((d) => d.numero);
+  const ventas = cliente.facturas.filter((d) => d.origen === "MOSTRADOR").map((d) => `M-${d.numero}`);
+  const partes: string[] = [];
+  if (facturas.length > 0) partes.push(`${facturas.length === 1 ? "factura" : "facturas"} ${facturas.join(", ")}`);
+  if (ventas.length > 0) partes.push(`${ventas.length === 1 ? "venta" : "ventas"} de mostrador ${ventas.join(", ")}`);
   return (
     `Hola ${cliente.clienteNombre}, te recordamos que tienes un saldo pendiente de ` +
-    `${formatoMoneda.format(cliente.saldoTotal)} con ${tallerNombre} (facturas ${numeros}). ` +
+    `${formatoMoneda.format(cliente.saldoTotal)} con ${tallerNombre} (${partes.join(" y ")}). ` +
     "Puedes pagar en el taller o por transferencia. ¡Gracias!"
   );
 }
 
 /**
- * Facturas con saldo de la sede, agrupadas por cliente y antigüedad. RECEPCION
+ * Facturas y ventas de mostrador con saldo de la sede, agrupadas por cliente y antigüedad. RECEPCION
  * siempre ve su sede activa; ADMIN puede pedir otra. El texto de cobro se arma
  * aquí, en el servidor: el cliente solo recibe el enlace wa.me ya listo.
  */
@@ -56,9 +60,22 @@ export async function getCartera(filtros: { sedeId?: string }): Promise<CarteraV
     },
   });
 
-  const { clientes, totales } = agruparCartera(
-    facturas.map((factura) => ({
+  const ventas = await tenantDb.ventaMostrador.findMany({
+    where: { estado: "PENDIENTE", saldoPendiente: { gt: 0 }, sedeId },
+    select: {
+      id: true,
+      numero: true,
+      total: true,
+      saldoPendiente: true,
+      createdAt: true,
+      cliente: { select: { id: true, nombre: true, telefono: true } },
+    },
+  });
+
+  const documentos: FacturaCartera[] = [
+    ...facturas.map((factura) => ({
       facturaId: factura.id,
+      origen: "FACTURA" as const,
       numero: factura.numero,
       clienteId: factura.cliente.id,
       clienteNombre: factura.cliente.nombre,
@@ -67,6 +84,21 @@ export async function getCartera(filtros: { sedeId?: string }): Promise<CarteraV
       total: Number(factura.total),
       saldo: Number(factura.saldoPendiente),
     })),
+    ...ventas.map((venta) => ({
+      facturaId: venta.id,
+      origen: "MOSTRADOR" as const,
+      numero: venta.numero,
+      clienteId: venta.cliente?.id ?? CONSUMIDOR_FINAL_ID,
+      clienteNombre: venta.cliente?.nombre ?? "Consumidor final",
+      clienteTelefono: venta.cliente?.telefono ?? null,
+      emitidaAt: venta.createdAt,
+      total: Number(venta.total),
+      saldo: Number(venta.saldoPendiente),
+    })),
+  ];
+
+  const { clientes, totales } = agruparCartera(
+    documentos,
     new Date(),
   );
 
