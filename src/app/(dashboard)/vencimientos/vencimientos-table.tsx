@@ -178,24 +178,24 @@ export function VencimientosTable({
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted-foreground">Filtros rápidos:</span>
           <div role="group" aria-label="Filtros rápidos" className="flex flex-wrap items-center gap-2">
-          {FILTROS_RAPIDOS.map((filtro) => {
-            const activo = rapido === filtro;
-            return (
-              <button
-                key={filtro}
-                type="button"
-                aria-pressed={activo}
-                onClick={() => setRapido(filtro)}
-                className={cn(
-                  "rounded-full px-3 py-1 text-xs font-medium transition-shadow",
-                  TONO_CHIP[filtro].suave,
-                  activo && TONO_CHIP[filtro].anillo,
-                )}
-              >
-                {ETIQUETA_FILTRO_RAPIDO[filtro]} ({conteos[filtro]})
-              </button>
-            );
-          })}
+            {FILTROS_RAPIDOS.map((filtro) => {
+              const activo = rapido === filtro;
+              return (
+                <button
+                  key={filtro}
+                  type="button"
+                  aria-pressed={activo}
+                  onClick={() => setRapido(filtro)}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-medium transition-shadow",
+                    TONO_CHIP[filtro].suave,
+                    activo && TONO_CHIP[filtro].anillo,
+                  )}
+                >
+                  {ETIQUETA_FILTRO_RAPIDO[filtro]} ({conteos[filtro]})
+                </button>
+              );
+            })}
           </div>
         </div>
         <DataTable
@@ -204,6 +204,7 @@ export function VencimientosTable({
           getRowKey={(fila) => fila.id}
           emptyMessage="No hay vencimientos con este filtro."
           searchable
+          keepSearchWhenEmpty
           searchPlaceholder="Buscar por placa, vehículo, cliente o teléfono…"
         />
       </CardContent>

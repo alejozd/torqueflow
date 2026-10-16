@@ -43,6 +43,7 @@ export function DataTable<T>({
   searchable = false,
   searchPlaceholder = "Buscar...",
   headerClassName,
+  keepSearchWhenEmpty = false,
 }: {
   columns: DataTableColumn<T>[];
   rows: T[];
@@ -82,8 +83,14 @@ export function DataTable<T>({
   searchPlaceholder?: string;
   /** Optional className for the table's <thead>. Undefined by default -- zero visual change for callers that don't opt in. */
   headerClassName?: string;
+  /**
+   * Keeps DataTableInteractive mounted when `rows` is empty, so the search box
+   * (and what was typed in it) survives an outer filter that momentarily
+   * leaves no rows. Defaults to `false` -- zero visible change for other callers.
+   */
+  keepSearchWhenEmpty?: boolean;
 }) {
-  if (rows.length === 0) {
+  if (rows.length === 0 && !(searchable && keepSearchWhenEmpty)) {
     return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
   }
 
