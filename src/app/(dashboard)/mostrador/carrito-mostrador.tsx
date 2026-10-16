@@ -1,8 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useActionState } from "react";
-import { crearVentaMostradorAction, type RepuestoMostrador, type VentaMostradorFormState } from "@/app/actions/venta-mostrador-actions";
+import {
+  buscarParaMostradorAction,
+  crearVentaMostradorAction,
+  type ResultadoRepuestoMostrador,
+  type VentaMostradorFormState,
+} from "@/app/actions/venta-mostrador-actions";
+import { BuscadorConceptos, type OpcionBuscador } from "@/components/buscador-conceptos";
 import { calcularTotalesVenta } from "@/lib/mostrador/ventas";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -18,7 +24,11 @@ export interface LineaCarrito {
   descripcion: string;
   cantidad: number;
   precioUnitario: number;
+  /** Unidades libres del repuesto al agregarlo (tope de cantidad); solo en líneas de inventario. */
+  disponible?: number;
 }
+
+const SIN_RESULTADOS: ResultadoRepuestoMostrador[] = [];
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
@@ -29,17 +39,14 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", curren
  * factura. Las líneas viajan como JSON en un campo del formulario.
  */
 export function CarritoMostrador({
-  repuestos,
   clientes,
   efectivoBloqueado,
 }: {
-  repuestos: RepuestoMostrador[];
   clientes: { id: string; nombre: string }[];
   /** El taller usa control de caja y la de esta sede está cerrada: no se cobra en efectivo. */
   efectivoBloqueado: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(crearVentaMostradorAction, initialState);
-  const [busqueda, setBusqueda] = useState("");
   const [lineas, setLineas] = useState<LineaCarrito[]>([]);
   const [clienteId, setClienteId] = useState("");
   const [descuento, setDescuento] = useState("");
@@ -56,19 +63,7 @@ export function CarritoMostrador({
     setLineas([]);
     setDescuento("");
     setCobrarTodo(true);
-    setBusqueda("");
   }
-
-  const encontrados = useMemo(() => {
-    const texto = busqueda.trim().toLowerCase();
-    const lista = texto
-      ? repuestos.filter(
-          (repuesto) =>
-            repuesto.nombre.toLowerCase().includes(texto) || repuesto.codigo.toLowerCase().includes(texto),
-        )
-      : repuestos;
-    return lista.slice(0, 8);
-  }, [busqueda, repuestos]);
 
   function enCarrito(repuestoId: string): number {
     return lineas
@@ -76,7 +71,7 @@ export function CarritoMostrador({
       .reduce((suma, linea) => suma + linea.cantidad, 0);
   }
 
-  function agregar(repuesto: RepuestoMostrador) {
+  function agregar(repuesto: ResultadoRepuestoMostrador) {
     const yaEnCarrito = enCarrito(repuesto.id);
     if (yaEnCarrito >= repuesto.disponible) return;
     setLineas((actuales) => [
@@ -87,9 +82,30 @@ export function CarritoMostrador({
         descripcion: repuesto.nombre,
         cantidad: 1,
         precioUnitario: repuesto.precioVenta,
+        disponible: repuesto.disponible,
       },
     ]);
-    setBusqueda("");
+  }
+
+  function aOpciones(resultados: ResultadoRepuestoMostrador[]): OpcionBuscador<ResultadoRepuestoMostrador>[] {
+    return resultados.map((repuesto) => {
+      const libres = repuesto.disponible - enCarrito(repuesto.id);
+      return {
+        clave: repuesto.id,
+        valor: repuesto,
+        noDisponible: libres > 0 ? undefined : "Sin unidades libres: no se puede agregar",
+        contenido: (
+          <>
+            <span className="min-w-0 flex-1 truncate">
+              <span className="font-medium">{repuesto.nombre}</span>{" "}
+              <span className="font-mono text-muted-foreground">{repuesto.codigo}</span>
+              <span className="ml-2 text-muted-foreground">{libres > 0 ? `${libres} disponibles` : "Sin unidades libres"}</span>
+            </span>
+            <span className="shrink-0 font-mono">{formatoMoneda.format(repuesto.precioVenta)}</span>
+          </>
+        ),
+      };
+    });
   }
 
   function agregarLibre() {
@@ -123,41 +139,15 @@ export function CarritoMostrador({
       ) : null}
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="buscarRepuesto">Buscar repuesto</Label>
-        <Input
-          id="buscarRepuesto"
+        <Label>Buscar repuesto</Label>
+        <BuscadorConceptos<ResultadoRepuestoMostrador[], ResultadoRepuestoMostrador>
+          buscar={buscarParaMostradorAction}
+          vacio={SIN_RESULTADOS}
+          aOpciones={aOpciones}
+          onSeleccionar={agregar}
           placeholder="Nombre o código"
-          value={busqueda}
-          onChange={(evento) => setBusqueda(evento.target.value)}
+          etiqueta="Buscar repuesto"
         />
-        {busqueda.trim() ? (
-          <ul className="mt-1 divide-y rounded-md border">
-            {encontrados.length === 0 ? (
-              <li className="px-3 py-2 text-sm text-muted-foreground">Sin resultados</li>
-            ) : (
-              encontrados.map((repuesto) => {
-                const libres = repuesto.disponible - enCarrito(repuesto.id);
-                return (
-                  <li key={repuesto.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-                    <span>
-                      <span className="font-medium">{repuesto.nombre}</span>{" "}
-                      <span className="font-mono text-muted-foreground">{repuesto.codigo}</span>
-                      <span className="ml-2 text-muted-foreground">
-                        {libres > 0 ? `${libres} disponibles` : "sin unidades libres"}
-                      </span>
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <span className="font-mono">{formatoMoneda.format(repuesto.precioVenta)}</span>
-                      <Button type="button" size="sm" variant="outline" disabled={libres <= 0} onClick={() => agregar(repuesto)}>
-                        Agregar
-                      </Button>
-                    </span>
-                  </li>
-                );
-              })
-            )}
-          </ul>
-        ) : null}
       </div>
 
       <form
@@ -193,15 +183,18 @@ export function CarritoMostrador({
               </tr>
             ) : null}
             {lineas.map((linea) => {
-              const repuesto = linea.repuestoId ? repuestos.find((r) => r.id === linea.repuestoId) : undefined;
-              const maximo = repuesto ? repuesto.disponible - (enCarrito(repuesto.id) - linea.cantidad) : 9999;
+              const esDeInventario = linea.repuestoId !== null;
+              const maximo =
+                esDeInventario && linea.repuestoId
+                  ? (linea.disponible ?? 0) - (enCarrito(linea.repuestoId) - linea.cantidad)
+                  : 9999;
               return (
                 <tr key={linea.key} className="border-t">
                   <td className="py-2">
                     {/* Un repuesto lleva el nombre y el precio del inventario: el servidor
                         los vuelve a tomar de ahí (fase de consolidación, D6). Solo una
                         línea libre se escribe a mano. */}
-                    {repuesto ? (
+                    {esDeInventario ? (
                       <span className="text-sm">{linea.descripcion}</span>
                     ) : (
                       <Input
@@ -223,7 +216,7 @@ export function CarritoMostrador({
                     />
                   </td>
                   <td className="py-2">
-                    {repuesto ? (
+                    {esDeInventario ? (
                       <span className="font-mono text-sm">{formatoMoneda.format(linea.precioUnitario)}</span>
                     ) : (
                       <Input

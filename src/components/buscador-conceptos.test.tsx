@@ -1,0 +1,84 @@
+import { describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { BuscadorConceptos, type OpcionBuscador } from "./buscador-conceptos";
+
+interface Fila {
+  id: string;
+  nombre: string;
+  libres: number;
+}
+
+const FILAS: Fila[] = [
+  { id: "a", nombre: "Filtro A", libres: 2 },
+  { id: "b", nombre: "Filtro B", libres: 0 },
+  { id: "c", nombre: "Filtro C", libres: 5 },
+];
+
+function aOpciones(filas: Fila[]): OpcionBuscador<Fila>[] {
+  return filas.map((fila) => ({
+    clave: fila.id,
+    valor: fila,
+    noDisponible: fila.libres > 0 ? undefined : "Sin unidades libres: no se puede agregar",
+    contenido: <span>{fila.nombre}</span>,
+  }));
+}
+
+function pintar() {
+  const onSeleccionar = vi.fn();
+  const buscar = vi.fn(async () => FILAS);
+  render(
+    <BuscadorConceptos<Fila[], Fila>
+      buscar={buscar}
+      vacio={[]}
+      aOpciones={aOpciones}
+      onSeleccionar={onSeleccionar}
+      placeholder="Buscar"
+      etiqueta="Buscar repuesto"
+    />,
+  );
+  return { onSeleccionar, buscar };
+}
+
+describe("BuscadorConceptos compartido", () => {
+  it("las flechas mueven la opción activa y Enter agrega la activa", async () => {
+    const { onSeleccionar } = pintar();
+    const campo = screen.getByLabelText("Buscar repuesto");
+    await userEvent.type(campo, "filtro");
+    await screen.findByRole("option", { name: "Filtro A" });
+
+    expect(screen.getByRole("option", { name: "Filtro A" })).toHaveAttribute("aria-selected", "true");
+    await userEvent.keyboard("{ArrowDown}{ArrowDown}");
+    expect(screen.getByRole("option", { name: "Filtro C" })).toHaveAttribute("aria-selected", "true");
+    await userEvent.keyboard("{ArrowUp}{ArrowDown}");
+    await userEvent.keyboard("{Enter}");
+
+    expect(onSeleccionar).toHaveBeenCalledWith(FILAS[2]);
+    expect(campo).toHaveValue("");
+  });
+
+  it("un resultado sin unidades se ve atenuado, no se agrega con Enter ni con clic y se avisa", async () => {
+    const { onSeleccionar } = pintar();
+    await userEvent.type(screen.getByLabelText("Buscar repuesto"), "filtro");
+    const sinUnidades = await screen.findByRole("option", { name: "Filtro B" });
+    expect(sinUnidades).toHaveAttribute("aria-disabled", "true");
+
+    await userEvent.keyboard("{ArrowDown}{Enter}");
+    expect(onSeleccionar).not.toHaveBeenCalled();
+    expect(screen.getByRole("status")).toHaveTextContent("Sin unidades libres");
+
+    await userEvent.click(sinUnidades);
+    expect(onSeleccionar).not.toHaveBeenCalled();
+  });
+
+  it("Esc cierra la lista y limpia el texto", async () => {
+    pintar();
+    const campo = screen.getByLabelText("Buscar repuesto");
+    await userEvent.type(campo, "filtro");
+    await screen.findByRole("option", { name: "Filtro A" });
+    await userEvent.keyboard("{Escape}");
+
+    expect(campo).toHaveValue("");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+});

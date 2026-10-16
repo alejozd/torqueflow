@@ -11,7 +11,7 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", curren
 const formatoHora = new Intl.DateTimeFormat("es-CO", { hour: "2-digit", minute: "2-digit", timeZone: "America/Bogota" });
 
 export default async function MostradorPage() {
-  const { efectivoBloqueado, repuestos, clientes, ventas } = await getMostradorDatos();
+  const { efectivoBloqueado, clientes, ventas } = await getMostradorDatos();
 
   const columnas: DataTableColumn<(typeof ventas)[number]>[] = [
     { header: "Venta", cell: (venta) => <span className="font-mono">#{venta.numero}</span> },
@@ -60,7 +60,7 @@ export default async function MostradorPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <CarritoMostrador repuestos={repuestos} clientes={clientes} efectivoBloqueado={efectivoBloqueado} />
+          <CarritoMostrador clientes={clientes} efectivoBloqueado={efectivoBloqueado} />
         </CardContent>
       </Card>
 

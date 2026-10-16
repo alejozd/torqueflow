@@ -1,13 +1,14 @@
 "use client";
 
-import { forwardRef, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { Loader2, Package, Plus, Search, Wrench } from "lucide-react";
+import { forwardRef } from "react";
+import { Package, Plus, Wrench } from "lucide-react";
 import {
   buscarParaCotizacionAction,
   type ResultadoKitBusqueda,
   type ResultadoRepuestoBusqueda,
   type ResultadosBusquedaCotizacion,
 } from "@/app/actions/buscar-cotizacion-actions";
+import { BuscadorConceptos as BuscadorCompartido, type OpcionBuscador } from "@/components/buscador-conceptos";
 import { estadoDisponibilidad } from "@/lib/cotizacion/disponibilidad";
 import { cn } from "@/lib/utils";
 import { formatoPesos } from "./formato";
@@ -17,170 +18,52 @@ export type SeleccionBuscador =
   | { clase: "repuesto"; repuesto: ResultadoRepuestoBusqueda }
   | { clase: "libre"; tipo: "REPUESTO" | "MANO_OBRA"; descripcion: string };
 
-type Opcion = SeleccionBuscador & { clave: string };
+type Opcion = SeleccionBuscador;
 
-const ESPERA_MS = 200;
 const VACIO: ResultadosBusquedaCotizacion = { kits: [], repuestos: [] };
+
+function aOpciones({ kits, repuestos }: ResultadosBusquedaCotizacion, texto: string): OpcionBuscador<SeleccionBuscador>[] {
+  const descripcionLibre = texto.trim();
+  const construir = (valor: SeleccionBuscador, clave: string, seccion: string): OpcionBuscador<SeleccionBuscador> => ({
+    clave,
+    valor,
+    seccion,
+    contenido: <ContenidoOpcion opcion={valor} />,
+  });
+  return [
+    ...kits.map((kit) => construir({ clase: "kit", kit }, `kit-${kit.id}`, "Kits y servicios")),
+    ...repuestos.map((repuesto) => construir({ clase: "repuesto", repuesto }, `rep-${repuesto.id}`, "Repuestos")),
+    ...(descripcionLibre
+      ? [
+          construir({ clase: "libre", tipo: "REPUESTO", descripcion: descripcionLibre }, "libre-repuesto", "No está en el catálogo"),
+          construir({ clase: "libre", tipo: "MANO_OBRA", descripcion: descripcionLibre }, "libre-mano", "No está en el catálogo"),
+        ]
+      : []),
+  ];
+}
 
 /**
  * Línea de captura de la tabla de conceptos: un solo campo para kits,
- * repuestos del inventario e ítems libres. Flechas para moverse, Enter para
- * agregar, Esc para cerrar.
+ * repuestos del inventario e ítems libres. Usa el buscador compartido con el
+ * mostrador; aquí solo se pone la búsqueda y el pintado de cada resultado.
  */
 export const BuscadorConceptos = forwardRef<
   HTMLInputElement,
   { onSeleccionar: (seleccion: SeleccionBuscador) => void; ocupado?: boolean }
 >(function BuscadorConceptos({ onSeleccionar, ocupado = false }, ref) {
-  const [texto, setTexto] = useState("");
-  const [abierto, setAbierto] = useState(false);
-  const [resultados, setResultados] = useState<ResultadosBusquedaCotizacion>(VACIO);
-  /** Texto al que corresponden los resultados mostrados; si difiere del escrito, se está buscando. */
-  const [textoBuscado, setTextoBuscado] = useState<string | null>(null);
-  const [activa, setActiva] = useState(0);
-  const ultimaBusqueda = useRef(0);
-  const listaId = useId();
-  const buscando = abierto && textoBuscado !== texto;
-
-  useEffect(() => {
-    if (!abierto) return;
-    const numero = ++ultimaBusqueda.current;
-    const temporizador = setTimeout(async () => {
-      let encontrados = VACIO;
-      try {
-        encontrados = await buscarParaCotizacionAction(texto);
-      } catch {
-        // Sin resultados: el usuario aún puede agregar lo escrito como ítem libre.
-      }
-      // Una respuesta lenta de una búsqueda vieja no pisa la más reciente.
-      if (numero === ultimaBusqueda.current) {
-        setResultados(encontrados);
-        setTextoBuscado(texto);
-      }
-    }, ESPERA_MS);
-    return () => clearTimeout(temporizador);
-  }, [texto, abierto]);
-
-  const descripcionLibre = texto.trim();
-  const opciones: Opcion[] = [
-    ...resultados.kits.map((kit) => ({ clase: "kit" as const, kit, clave: `kit-${kit.id}` })),
-    ...resultados.repuestos.map((repuesto) => ({ clase: "repuesto" as const, repuesto, clave: `rep-${repuesto.id}` })),
-    ...(descripcionLibre
-      ? [
-          { clase: "libre" as const, tipo: "REPUESTO" as const, descripcion: descripcionLibre, clave: "libre-repuesto" },
-          { clase: "libre" as const, tipo: "MANO_OBRA" as const, descripcion: descripcionLibre, clave: "libre-mano" },
-        ]
-      : []),
-  ];
-  const indiceActivo = Math.min(activa, Math.max(opciones.length - 1, 0));
-
-  function elegir(opcion: Opcion) {
-    setTexto("");
-    setActiva(0);
-    setAbierto(false);
-    setResultados(VACIO);
-    setTextoBuscado(null);
-    onSeleccionar(opcion);
-  }
-
-  function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setAbierto(true);
-      setActiva((i) => Math.min(i + 1, opciones.length - 1));
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setActiva((i) => Math.max(i - 1, 0));
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      const opcion = opciones[indiceActivo];
-      if (abierto && opcion && !ocupado) elegir(opcion);
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      setAbierto(false);
-      setTexto("");
-    }
-  }
-
-  const mostrarLista = abierto && (opciones.length > 0 || buscando);
-
   return (
-    <div className="relative">
-      <div className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 px-3 focus-within:border-ring focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/30">
-        {ocupado ? (
-          <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />
-        ) : (
-          <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-        )}
-        <input
-          ref={ref}
-          type="text"
-          role="combobox"
-          aria-label="Agregar repuesto, servicio o kit"
-          aria-expanded={mostrarLista}
-          aria-controls={listaId}
-          aria-autocomplete="list"
-          aria-activedescendant={mostrarLista && opciones[indiceActivo] ? `${listaId}-${opciones[indiceActivo].clave}` : undefined}
-          placeholder="Agregar repuesto, servicio o kit…"
-          value={texto}
-          onChange={(event) => {
-            setTexto(event.target.value);
-            setActiva(0);
-            setAbierto(true);
-          }}
-          onFocus={() => setAbierto(true)}
-          onBlur={() => setAbierto(false)}
-          onKeyDown={onKeyDown}
-          className="h-10 w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-        />
-      </div>
-
-      {mostrarLista ? (
-        <ul
-          id={listaId}
-          role="listbox"
-          aria-label="Resultados"
-          className="absolute inset-x-0 top-full z-30 mt-1 max-h-80 overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
-        >
-          {opciones.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-muted-foreground">Buscando…</li>
-          ) : null}
-          {opciones.map((opcion, indice) => {
-            const primeraDeSeccion = indice === 0 || opciones[indice - 1].clase !== opcion.clase;
-            return (
-              <li key={opcion.clave} role="presentation">
-                {primeraDeSeccion ? <TituloSeccion clase={opcion.clase} /> : null}
-                <div
-                  id={`${listaId}-${opcion.clave}`}
-                  role="option"
-                  aria-selected={indice === indiceActivo}
-                  // mousedown y no click: el blur del campo cerraría la lista antes del click.
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    if (!ocupado) elegir(opcion);
-                  }}
-                  onMouseEnter={() => setActiva(indice)}
-                  className={cn(
-                    "flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm",
-                    indice === indiceActivo && "bg-accent text-accent-foreground",
-                  )}
-                >
-                  <ContenidoOpcion opcion={opcion} />
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
-    </div>
+    <BuscadorCompartido<ResultadosBusquedaCotizacion, SeleccionBuscador>
+      inputRef={ref}
+      buscar={buscarParaCotizacionAction}
+      vacio={VACIO}
+      aOpciones={aOpciones}
+      onSeleccionar={onSeleccionar}
+      ocupado={ocupado}
+      placeholder="Agregar repuesto, servicio o kit…"
+      etiqueta="Agregar repuesto, servicio o kit"
+    />
   );
 });
-
-function TituloSeccion({ clase }: { clase: Opcion["clase"] }) {
-  const titulo = clase === "kit" ? "Kits y servicios" : clase === "repuesto" ? "Repuestos" : "No está en el catálogo";
-  return (
-    <p className="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">{titulo}</p>
-  );
-}
 
 function ContenidoOpcion({ opcion }: { opcion: Opcion }) {
   if (opcion.clase === "kit") {

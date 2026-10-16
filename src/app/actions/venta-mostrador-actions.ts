@@ -226,6 +226,69 @@ export interface RepuestoMostrador {
   disponible: number;
 }
 
+export interface ResultadoRepuestoMostrador extends RepuestoMostrador {
+  /** El texto coincide exacto con el código: se ofrece primero (lector de códigos de barras). */
+  exacto?: boolean;
+}
+
+const MAX_RESULTADOS_MOSTRADOR = 20;
+
+function aRepuestoMostrador(
+  repuesto: { id: string; codigo: string; nombre: string; precioVenta: unknown; stockActual: number },
+  comprometido: Map<string, number>,
+): RepuestoMostrador {
+  const tomado = comprometido.get(repuesto.id) ?? 0;
+  return {
+    id: repuesto.id,
+    codigo: repuesto.codigo,
+    nombre: repuesto.nombre,
+    precioVenta: Number(repuesto.precioVenta),
+    stockActual: repuesto.stockActual,
+    disponible: Math.max(0, repuesto.stockActual - tomado),
+  };
+}
+
+/**
+ * Búsqueda del mostrador en el servidor: repuestos de la sede activa cuyo nombre
+ * o código contiene el texto (sin distinguir mayúsculas), con su stock libre.
+ * Un código exacto va primero y se marca `exacto`. Sin texto no devuelve nada.
+ */
+export async function buscarParaMostradorAction(texto: string): Promise<ResultadoRepuestoMostrador[]> {
+  const session = await requireRole(ROLES_MOSTRADOR);
+  const q = (typeof texto === "string" ? texto : "").trim().slice(0, 80);
+  if (q === "") return [];
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  const sedeId = session.user.sedeActivaId;
+  const select = { id: true, codigo: true, nombre: true, precioVenta: true, stockActual: true } as const;
+
+  const [exactos, coincidencias, comprometido] = await Promise.all([
+    tenantDb.repuesto.findMany({
+      where: { ...scopeRepuesto(sedeId), codigo: { equals: q, mode: "insensitive" } },
+      select,
+    }),
+    tenantDb.repuesto.findMany({
+      where: {
+        ...scopeRepuesto(sedeId),
+        OR: [
+          { nombre: { contains: q, mode: "insensitive" } },
+          { codigo: { contains: q, mode: "insensitive" } },
+        ],
+      },
+      select,
+      orderBy: { nombre: "asc" },
+      take: MAX_RESULTADOS_MOSTRADOR,
+    }),
+    comprometidoPorRepuesto(tenantDb, sedeId),
+  ]);
+
+  const idsExactos = new Set(exactos.map((repuesto) => repuesto.id));
+  const resto = coincidencias.filter((repuesto) => !idsExactos.has(repuesto.id));
+  return [
+    ...exactos.map((repuesto) => ({ ...aRepuestoMostrador(repuesto, comprometido), exacto: true })),
+    ...resto.map((repuesto) => aRepuestoMostrador(repuesto, comprometido)),
+  ].slice(0, MAX_RESULTADOS_MOSTRADOR);
+}
+
 export interface VentaMostradorDia {
   id: string;
   numero: number;
@@ -246,31 +309,24 @@ export interface VentaMostradorDia {
 export interface MostradorDatos {
   /** El taller usa control de caja y la de la sede está cerrada: no se cobra en efectivo. */
   efectivoBloqueado: boolean;
-  repuestos: RepuestoMostrador[];
   clientes: { id: string; nombre: string }[];
   ventas: VentaMostradorDia[];
 }
 
 /**
- * Todo lo que necesita la pantalla del mostrador en una sola lectura: si hay caja
- * abierta (sin ella no se puede cobrar), los repuestos con su **stock libre** —
- * `stockActual` sobreestima lo vendible porque las órdenes abiertas ya
- * comprometieron unidades (misma regla que las alertas de inventario) —, los
- * clientes para la venta a crédito y las ventas del día con lo ya devuelto.
+ * Lo que necesita la pantalla del mostrador en una sola lectura: si hay caja
+ * abierta (sin ella no se puede cobrar), los clientes para la venta a crédito y
+ * las ventas del día con lo ya devuelto. Los repuestos ya no viajan completos:
+ * se buscan en el servidor con `buscarParaMostradorAction`.
  */
 export async function getMostradorDatos(): Promise<MostradorDatos> {
   const session = await requireRole(ROLES_MOSTRADOR);
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
 
-  const [sesion, opciones, repuestos, clientes, ventas] = await Promise.all([
+  const [sesion, opciones, clientes, ventas] = await Promise.all([
     sesionDeCajaAbierta(tenantDb, sedeId),
     leerOpcionesTaller(tenantDb),
-    tenantDb.repuesto.findMany({
-      where: { ...scopeRepuesto(sedeId) },
-      select: { id: true, codigo: true, nombre: true, precioVenta: true, stockActual: true },
-      orderBy: { nombre: "asc" },
-    }),
     tenantDb.cliente.findMany({ select: { id: true, nombre: true }, orderBy: { nombre: "asc" }, take: 500 }),
     tenantDb.ventaMostrador.findMany({
       where: { sedeId, createdAt: { gte: inicioDiaBogota(new Date()) } },
@@ -288,21 +344,8 @@ export async function getMostradorDatos(): Promise<MostradorDatos> {
     }),
   ]);
 
-  const comprometido = await comprometidoPorRepuesto(tenantDb, sedeId);
-
   return {
     efectivoBloqueado: opciones.usarControlCaja && sesion === null,
-    repuestos: repuestos.map((repuesto) => {
-      const tomado = comprometido.get(repuesto.id) ?? 0;
-      return {
-        id: repuesto.id,
-        codigo: repuesto.codigo,
-        nombre: repuesto.nombre,
-        precioVenta: Number(repuesto.precioVenta),
-        stockActual: repuesto.stockActual,
-        disponible: Math.max(0, repuesto.stockActual - tomado),
-      };
-    }),
     clientes,
     ventas: ventas.map((venta) => ({
       id: venta.id,

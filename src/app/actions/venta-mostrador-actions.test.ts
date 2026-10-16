@@ -16,13 +16,14 @@ const db = {
   configuracionTaller: { findUnique: async () => opcionesTaller },
   cliente: { findFirst: vi.fn() },
   repuesto: { findMany: vi.fn() },
+  itemOrden: { groupBy: vi.fn() },
   ventaMostrador: { findFirst: vi.fn() },
   $transaction: (fn: (cliente: typeof tx) => unknown) => fn(tx),
 };
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { cobrarVentaMostradorAction, crearVentaMostradorAction } from "./venta-mostrador-actions";
+import { buscarParaMostradorAction, cobrarVentaMostradorAction, crearVentaMostradorAction } from "./venta-mostrador-actions";
 
 const SESION = { user: { id: "u1", role: "RECEPCION", tenantSchema: "taller", sedeActivaId: "sede-1" } };
 const inicial = { error: null, success: false };
@@ -414,5 +415,81 @@ describe("cobrarVentaMostradorAction", () => {
       "El monto debe ser mayor que cero",
     );
     expect(db.ventaMostrador.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+describe("buscarParaMostradorAction", () => {
+  const fila = (id: string, codigo: string, nombre: string, stockActual: number) => ({
+    id,
+    codigo,
+    nombre,
+    precioVenta: "25000",
+    stockActual,
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequireRole.mockResolvedValue(SESION);
+    db.itemOrden.groupBy.mockResolvedValue([{ repuestoId: "r1", _sum: { cantidad: 3 } }]);
+  });
+
+  it("solo ADMIN y RECEPCION pueden buscar", async () => {
+    db.repuesto.findMany.mockResolvedValue([]);
+    await buscarParaMostradorAction("filtro");
+
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+  });
+
+  it("sin texto no consulta nada", async () => {
+    expect(await buscarParaMostradorAction("   ")).toEqual([]);
+    expect(db.repuesto.findMany).not.toHaveBeenCalled();
+  });
+
+  it("filtra por nombre o código sin distinguir mayúsculas, en la sede activa y con tope de 20", async () => {
+    db.repuesto.findMany.mockResolvedValue([]);
+    await buscarParaMostradorAction("  Filtro ");
+
+    const consultas = db.repuesto.findMany.mock.calls.map(([arg]) => arg);
+    const amplia = consultas.find((arg) => arg.take === 20);
+    expect(amplia.where.OR).toEqual([
+      { nombre: { contains: "Filtro", mode: "insensitive" } },
+      { codigo: { contains: "Filtro", mode: "insensitive" } },
+    ]);
+    expect(JSON.stringify(amplia.where)).toContain("sede-1");
+    expect(consultas.some((arg) => arg.where.codigo?.mode === "insensitive")).toBe(true);
+  });
+
+  it("calcula disponible como stock menos lo comprometido en órdenes abiertas, sin bajar de cero", async () => {
+    db.repuesto.findMany.mockImplementation(async (arg: { take?: number }) =>
+      arg.take === 20 ? [fila("r1", "FLT-1", "Filtro", 5), fila("r2", "FLT-2", "Filtro grande", 0)] : [],
+    );
+    const r = await buscarParaMostradorAction("filtro");
+
+    expect(r).toEqual([
+      { id: "r1", codigo: "FLT-1", nombre: "Filtro", precioVenta: 25000, stockActual: 5, disponible: 2 },
+      { id: "r2", codigo: "FLT-2", nombre: "Filtro grande", precioVenta: 25000, stockActual: 0, disponible: 0 },
+    ]);
+  });
+
+  it("el código exacto va primero con exacto: true y no se repite", async () => {
+    const exacto = fila("r2", "FLT-2", "Filtro grande", 4);
+    db.repuesto.findMany.mockImplementation(async (arg: { take?: number }) =>
+      arg.take === 20 ? [fila("r1", "FLT-1", "Filtro", 5), exacto] : [exacto],
+    );
+    const r = await buscarParaMostradorAction("flt-2");
+
+    expect(r.map((x) => x.id)).toEqual(["r2", "r1"]);
+    expect(r[0].exacto).toBe(true);
+    expect(r[1].exacto).toBeUndefined();
+  });
+
+  it("nunca devuelve más de 20", async () => {
+    const muchos = Array.from({ length: 20 }, (_, i) => fila("m" + i, "C" + i, "Filtro " + i, 1));
+    const exacto = fila("x", "FLT", "Otro", 1);
+    db.repuesto.findMany.mockImplementation(async (arg: { take?: number }) => (arg.take === 20 ? muchos : [exacto]));
+    const r = await buscarParaMostradorAction("flt");
+
+    expect(r).toHaveLength(20);
+    expect(r[0].id).toBe("x");
   });
 });

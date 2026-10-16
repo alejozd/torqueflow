@@ -3,8 +3,10 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockCrear = vi.fn();
+const mockBuscar = vi.fn();
 vi.mock("@/app/actions/venta-mostrador-actions", () => ({
   crearVentaMostradorAction: (...args: unknown[]) => mockCrear(...args),
+  buscarParaMostradorAction: (...args: unknown[]) => mockBuscar(...args),
 }));
 
 import { CarritoMostrador } from "./carrito-mostrador";
@@ -18,7 +20,6 @@ const REPUESTOS: RepuestoMostrador[] = [
 function pintar(cambios: { efectivoBloqueado?: boolean } = {}) {
   return render(
     <CarritoMostrador
-      repuestos={REPUESTOS}
       clientes={[{ id: "c1", nombre: "Ana Pérez" }]}
       efectivoBloqueado={cambios.efectivoBloqueado ?? false}
     />,
@@ -27,12 +28,17 @@ function pintar(cambios: { efectivoBloqueado?: boolean } = {}) {
 
 async function agregarFiltro() {
   await userEvent.type(screen.getByLabelText("Buscar repuesto"), "Filtro");
-  await userEvent.click(screen.getByRole("button", { name: "Agregar" }));
+  await userEvent.click(await screen.findByRole("option", { name: /Filtro de aceite/ }));
 }
 
 describe("CarritoMostrador", () => {
   beforeEach(() => {
     mockCrear.mockReset().mockResolvedValue({ error: null, success: true, numero: 9 });
+    mockBuscar
+      .mockReset()
+      .mockImplementation(async (q: string) =>
+        REPUESTOS.filter((r) => r.nombre.toLowerCase().includes(q.trim().toLowerCase())),
+      );
   });
 
   it("con el control de caja y la caja cerrada, solo bloquea el cobro en efectivo", { timeout: 20_000 }, async () => {
@@ -69,18 +75,17 @@ describe("CarritoMostrador", () => {
   it("no deja agregar más unidades que las libres", { timeout: 20_000 }, async () => {
     pintar();
 
-    // Al agregar, el buscador se limpia y la lista se desmonta: hay que volver a
-    // escribir y a buscar el botón en cada vuelta.
-    for (let vuelta = 0; vuelta < 3; vuelta++) {
-      await userEvent.type(screen.getByLabelText("Buscar repuesto"), "Filtro");
-      await userEvent.click(await screen.findByRole("button", { name: "Agregar" }));
-    }
+    // Al agregar, el buscador se limpia y la lista se cierra: hay que volver a escribir.
+    for (let vuelta = 0; vuelta < 3; vuelta++) await agregarFiltro();
 
     // El repuesto tiene 3 libres: se agregaron las tres y no una cuarta.
     expect(screen.getAllByLabelText("Cantidad")).toHaveLength(3);
     await userEvent.type(screen.getByLabelText("Buscar repuesto"), "Filtro");
-    expect(screen.getByText("sin unidades libres")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Agregar" })).toBeDisabled();
+    const opcion = await screen.findByRole("option", { name: /Filtro de aceite/ });
+    expect(opcion).toHaveAttribute("aria-disabled", "true");
+    expect(opcion).toHaveTextContent("Sin unidades libres");
+    await userEvent.click(opcion);
+    expect(screen.getAllByLabelText("Cantidad")).toHaveLength(3);
   });
 
   it("envía las líneas como JSON con lo que hay en el carrito", async () => {
