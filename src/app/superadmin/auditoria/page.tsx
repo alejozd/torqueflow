@@ -4,7 +4,7 @@ import { requireSuperAdmin } from "@/lib/super-admin/guards";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import type { AuditLogPlataformaConSuperAdmin } from "@/app/actions/super-admin-actions";
 
 const TIPO_LABELS: Record<string, string> = {
@@ -50,9 +50,9 @@ export default async function SuperAdminAuditoriaPage() {
             Últimos {eventos.length} evento(s) de creación de tenants, cambios de plan y cambios de estado.
           </p>
         </div>
-        <Button variant="outline" render={<Link href="/superadmin" />}>
+        <Link href="/superadmin" className={buttonVariants({ variant: "outline" })}>
           Volver a talleres
-        </Button>
+        </Link>
       </div>
 
       <Card>

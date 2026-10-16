@@ -9,7 +9,7 @@ import {
 } from "@/app/actions/super-admin-actions";
 import { ConfirmacionEnLinea } from "@/components/confirmacion-en-linea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
 
@@ -113,8 +113,8 @@ export function PlanTenantSelector({
 /** Enlaza al drill-down de auditoría de este tenant (spec §"UI y acceso"). */
 export function VerAuditoriaButton({ tenantId }: { tenantId: string }) {
   return (
-    <Button variant="outline" size="sm" render={<Link href={`/superadmin/tenants/${tenantId}/auditoria`} />}>
+    <Link href={`/superadmin/tenants/${tenantId}/auditoria`} className={buttonVariants({ variant: "outline", size: "sm" })}>
       Ver auditoría
-    </Button>
+    </Link>
   );
 }
