@@ -152,3 +152,13 @@ Comportamiento (spec §3.3, §4.1, §4.4): buscador como última fila con foco a
 
 - [ ] Nota en `docs/TRASPASO-AGENTES.md` (qué cambió, D1-D5, **migración de tenant de Task 1 obligatoria al desplegar**).
 - [ ] Revisión final de la rama; dejar la app corriendo para revisión manual del usuario (venta rápida solo con teclado, pago mixto, crédito, devolución de ayer, cartera); merge `--no-ff` a `main` + push tras su visto bueno.
+
+---
+
+### Task 7b: Guardar lo recibido en efectivo y las vueltas (pedido del usuario, 2026-10-16)
+
+**Files:**
+- Modify: `prisma/tenant/schema.prisma` (`VentaMostrador`: `recibidoEfectivo Decimal? @map("recibido_efectivo") @db.Decimal(10, 2)`, `vueltas Decimal @default(0) @db.Decimal(10, 2)`) + segunda migración de tenant (mismo estilo que la de Task 1, nombre posterior).
+- Modify: `crearVentaMostradorAction` guarda `recibidoEfectivo` (null si no vino) y `vueltas` (de `resumirPagos`) dentro de la misma transacción; tests.
+- Modify: comprobante (`src/app/mostrador/[id]/comprobante/`, `cargarComprobante`, texto de WhatsApp y correo) lee recibido y vueltas de la base; se quita el parámetro `?vueltas=` de la URL y de quien la arma; tests.
+- Commit `mostrador-task 7b: lo recibido en efectivo y las vueltas quedan guardados en la venta` + push.
