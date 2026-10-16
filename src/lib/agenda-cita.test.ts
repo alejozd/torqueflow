@@ -14,6 +14,7 @@ import {
   ocupacionDeCitas,
   sumarDias,
   sumarMeses,
+  tiempoRestante,
   valorFechaHora,
   valorFechaHoraDeDate,
 } from "./agenda-cita";
@@ -101,5 +102,24 @@ describe("agenda-cita", () => {
       { fecha: "2026-10-16", minutos: 8 * 60, placa: "PLA2", motivo: "Motivo 2" },
       { fecha: "2026-10-16", minutos: 14 * 60, placa: "PLA1", motivo: "Motivo 1" },
     ]);
+  });
+});
+
+describe("tiempoRestante", () => {
+  const ahora = new Date("2026-10-15T13:05:00-05:00");
+  const en = (min: number) => new Date(ahora.getTime() + min * 60000);
+
+  it("dice los minutos cuando falta menos de una hora", () => {
+    expect(tiempoRestante(ahora, en(25))).toBe("en 25 min");
+  });
+
+  it("dice horas y minutos cuando falta más", () => {
+    expect(tiempoRestante(ahora, en(180))).toBe("en 3 h");
+    expect(tiempoRestante(ahora, en(195))).toBe("en 3 h 15 min");
+  });
+
+  it("dice ahora en el mismo minuto y null si ya pasó", () => {
+    expect(tiempoRestante(ahora, en(0))).toBe("ahora");
+    expect(tiempoRestante(ahora, en(-10))).toBeNull();
   });
 });

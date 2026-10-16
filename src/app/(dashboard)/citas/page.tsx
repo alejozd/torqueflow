@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { inferirColorVehiculo } from "@/lib/color-vehiculo";
 import { cn } from "@/lib/utils";
-import { momentoBogota, ocupacionDeCitas } from "@/lib/agenda-cita";
+import { momentoBogota, ocupacionDeCitas, tiempoRestante } from "@/lib/agenda-cita";
 
 const ESTADOS_VALIDOS: EstadoCita[] = [
   "PROGRAMADA",
@@ -316,9 +316,15 @@ export default async function CitasPage({
   const finHoy = new Date(inicioHoy.getTime() + 24 * 60 * 60 * 1000);
   const { inicio: inicioSemana, fin: finSemana } = rangoSemanaBogota(ahora);
 
-  const citasHoy = citas.filter(
+  const citasDeHoy = citas.filter(
     (cita) => cita.fechaHora >= inicioHoy && cita.fechaHora < finHoy,
+  );
+  const citasHoy = citasDeHoy.length;
+  // Mañana = antes del mediodía en Bogotá; lo demás es tarde.
+  const citasHoyManana = citasDeHoy.filter(
+    (cita) => momentoBogota(cita.fechaHora).minutos < 12 * 60,
   ).length;
+  const diaDeHoy = Number(momentoBogota(ahora).fecha.slice(8));
   const citasSemana = citas.filter(
     (cita) => cita.fechaHora >= inicioSemana && cita.fechaHora < finSemana,
   );
@@ -337,12 +343,15 @@ export default async function CitasPage({
       : 0;
 
   const finProximas24h = new Date(ahora.getTime() + 24 * 60 * 60 * 1000);
-  const proximas24h = citas.filter(
+  const citasProximas24h = citas.filter(
     (cita) =>
       cita.fechaHora >= ahora &&
       cita.fechaHora < finProximas24h &&
       cita.estado !== "CANCELADA",
-  ).length;
+  );
+  const proximas24h = citasProximas24h.length;
+  // `citas` llega en orden ascendente, así que la primera es la que sigue.
+  const siguienteCita = citasProximas24h[0];
 
   const finSemanaMostrado = new Date(finSemana.getTime() - 24 * 60 * 60 * 1000);
   const rangoSemanaTexto = `${formatoDiaMes.format(inicioSemana)} al ${formatoDiaMes.format(finSemanaMostrado)}`;
@@ -371,10 +380,22 @@ export default async function CitasPage({
         <KpiCard
           title="Hoy"
           value={citasHoy}
-          subtitle="citas agendadas hoy"
-          icon={<Calendar className={cn("size-5", KPI_TONE.info.icon)} />}
+          subtitle={
+            citasHoy > 0
+              ? `${citasHoyManana} en la mañana · ${citasHoy - citasHoyManana} en la tarde`
+              : "sin citas para hoy"
+          }
+          icon={
+            <span className={cn("relative inline-flex", KPI_TONE.info.icon)}>
+              <Calendar className="size-5" />
+              <span className="absolute inset-x-0 bottom-[2px] text-center font-mono text-[8px] leading-none font-bold">
+                {diaDeHoy}
+              </span>
+            </span>
+          }
           iconBgColor={KPI_TONE.info.iconBg}
-          className={KPI_TONE.info.cardBg}
+          className={cn(KPI_TONE.info.cardBg, KPI_TONE.info.ring)}
+          titleClassName={KPI_TONE.info.title}
         />
 
         <KpiCard
@@ -384,7 +405,8 @@ export default async function CitasPage({
           subtitle={`esta semana · ${programadasSemana} sin confirmar`}
           icon={<CheckCircle className={cn("size-5", KPI_TONE.success.icon)} />}
           iconBgColor={KPI_TONE.success.iconBg}
-          className={KPI_TONE.success.cardBg}
+          className={cn(KPI_TONE.success.cardBg, KPI_TONE.success.ring)}
+          titleClassName={KPI_TONE.success.title}
         />
 
         <KpiCard
@@ -394,16 +416,22 @@ export default async function CitasPage({
           subtitle={`esta semana${citasSemana.length > 0 ? ` · ${porcentajeCanceladas}% del total` : ""}`}
           icon={<XCircle className={cn("size-5", KPI_TONE.danger.icon)} />}
           iconBgColor={KPI_TONE.danger.iconBg}
-          className={KPI_TONE.danger.cardBg}
+          className={cn(KPI_TONE.danger.cardBg, KPI_TONE.danger.ring)}
+          titleClassName={KPI_TONE.danger.title}
         />
 
         <KpiCard
           title="Próximas 24h"
           value={proximas24h}
-          subtitle="citas sin cancelar"
-          icon={<Clock className={cn("size-5", KPI_TONE.info.icon)} />}
-          iconBgColor={KPI_TONE.info.iconBg}
-          className={KPI_TONE.info.cardBg}
+          subtitle={
+            siguienteCita
+              ? `Sigue ${siguienteCita.vehiculo.placa.toUpperCase()} a las ${formatoHora.format(siguienteCita.fechaHora)} · ${tiempoRestante(ahora, siguienteCita.fechaHora)}`
+              : "sin citas en las próximas 24 h"
+          }
+          icon={<Clock className={cn("size-5", KPI_TONE.warning.icon)} />}
+          iconBgColor={KPI_TONE.warning.iconBg}
+          className={cn(KPI_TONE.warning.cardBg, KPI_TONE.warning.ring)}
+          titleClassName={KPI_TONE.warning.title}
         />
       </div>
 
