@@ -124,3 +124,30 @@ export function agruparCuentasPorPagar(
   for (const proveedor of proveedores) proveedor.cuentas.sort((a, b) => b.dias - a.dias);
   return { proveedores, totales };
 }
+
+/** Desde cuántos días una entrada sin pagar se lee como urgente (los tramos 61-90 y 90+). */
+export const DIAS_URGENTE = 60;
+
+/**
+ * Para la lectura «Lo más urgente»: las entradas con saldo que pasan de 60 días,
+ * cuánto suman y qué proveedores las tienen (con su entrada más vieja, de la más
+ * vieja a la más nueva).
+ */
+export function lecturaUrgente(proveedores: ProveedorCuentas[]): {
+  entradas: number;
+  suma: number;
+  proveedores: { nombre: string; dias: number }[];
+} {
+  let entradas = 0;
+  let suma = 0;
+  const conUrgentes: { nombre: string; dias: number }[] = [];
+  for (const proveedor of proveedores) {
+    const urgentes = proveedor.cuentas.filter((cuenta) => cuenta.saldo > 0 && cuenta.dias > DIAS_URGENTE);
+    if (urgentes.length === 0) continue;
+    entradas += urgentes.length;
+    for (const cuenta of urgentes) suma = roundMoney(suma + cuenta.saldo);
+    conUrgentes.push({ nombre: proveedor.proveedorNombre, dias: Math.max(...urgentes.map((cuenta) => cuenta.dias)) });
+  }
+  conUrgentes.sort((a, b) => b.dias - a.dias);
+  return { entradas, suma, proveedores: conUrgentes };
+}

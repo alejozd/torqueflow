@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agruparCuentasPorPagar, resumirEntrada, type CuentaPorPagarFila } from "./cuentas-por-pagar";
+import { agruparCuentasPorPagar, lecturaUrgente, resumirEntrada, type CuentaPorPagarFila } from "./cuentas-por-pagar";
 
 const AHORA = new Date("2026-10-17T15:00:00.000Z");
 const haceDias = (dias: number) => new Date(AHORA.getTime() - dias * 24 * 60 * 60 * 1000);
@@ -109,5 +109,36 @@ describe("agruparCuentasPorPagar con los datos de la fila", () => {
     expect(fila.pagado).toBe(200000);
     expect(fila.entrada).toEqual({ id: "e1", referencias: 1, resumen: "Filtro ×2" });
     expect(fila.pagos).toEqual(pagos);
+  });
+});
+
+describe("lecturaUrgente", () => {
+  it("cuenta las entradas con saldo de más de 60 días y nombra a sus proveedores, la más vieja primero", () => {
+    const { proveedores } = agruparCuentasPorPagar(
+      [
+        cuenta({ cuentaId: "g1", proveedorId: "g", proveedorNombre: "Gates", saldo: 300, fecha: haceDias(70) }),
+        cuenta({ cuentaId: "g2", proveedorId: "g", proveedorNombre: "Gates", saldo: 100, fecha: haceDias(10) }),
+        cuenta({ cuentaId: "t1", proveedorId: "t", proveedorNombre: "Terpel", saldo: 200, fecha: haceDias(73) }),
+        cuenta({ cuentaId: "t2", proveedorId: "t", proveedorNombre: "Terpel", saldo: 50, fecha: haceDias(61) }),
+        // Saldada hace un momento (sigue en la lista con «✓ Pagada»): no es urgente.
+        cuenta({ cuentaId: "b1", proveedorId: "b", proveedorNombre: "Bosch", saldo: 0, fecha: haceDias(90) }),
+        // Justo 60 días todavía no pasa del límite.
+        cuenta({ cuentaId: "a1", proveedorId: "a", proveedorNombre: "Andina", saldo: 80, fecha: haceDias(60) }),
+      ],
+      AHORA,
+    );
+
+    expect(lecturaUrgente(proveedores)).toEqual({
+      entradas: 3,
+      suma: 550,
+      proveedores: [
+        { nombre: "Terpel", dias: 73 },
+        { nombre: "Gates", dias: 70 },
+      ],
+    });
+  });
+
+  it("sin nada viejo no hay urgencias", () => {
+    expect(lecturaUrgente([])).toEqual({ entradas: 0, suma: 0, proveedores: [] });
   });
 });
