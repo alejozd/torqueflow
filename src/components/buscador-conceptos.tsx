@@ -35,6 +35,7 @@ export function BuscadorConceptos<R, S>({
   etiqueta,
   inputRef,
   onFlechaArriba,
+  alEnterSinResultados,
 }: {
   buscar: (texto: string) => Promise<R>;
   vacio: R;
@@ -46,6 +47,13 @@ export function BuscadorConceptos<R, S>({
   inputRef?: Ref<HTMLInputElement>;
   /** ↑ con la lista cerrada (nada que recorrer): el mostrador lo usa para saltar a la última fila del carrito. */
   onFlechaArriba?: () => void;
+  /**
+   * Enter con texto mientras la búsqueda sigue pendiente (un lector de códigos
+   * escribe y envía Enter en milisegundos) o sin resultados. Quien lo usa busca
+   * y agrega por su cuenta: devuelve `null` si agregó (se limpia el campo) o el
+   * mensaje a anunciar si no. Sin esta prop el comportamiento no cambia.
+   */
+  alEnterSinResultados?: (texto: string) => Promise<string | null>;
 }) {
   const [texto, setTexto] = useState("");
   const [abierto, setAbierto] = useState(false);
@@ -55,6 +63,7 @@ export function BuscadorConceptos<R, S>({
   const [activa, setActiva] = useState(0);
   const [aviso, setAviso] = useState("");
   const ultimaBusqueda = useRef(0);
+  const resolviendo = useRef(false);
   const temporizadorAviso = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listaId = useId();
   const buscando = abierto && textoBuscado !== texto;
@@ -120,6 +129,35 @@ export function BuscadorConceptos<R, S>({
     onSeleccionar(opcion.valor);
   }
 
+  const mostrarLista = abierto && (opciones.length > 0 || buscando);
+
+  /** Enter sin resultados fiables (lector de códigos): lo resuelve el llamador y, si agrega, se limpia el campo. */
+  async function resolverSinResultados() {
+    if (!alEnterSinResultados || resolviendo.current) return;
+    resolviendo.current = true;
+    const buscado = texto.trim();
+    // Cualquier búsqueda en curso queda descartada: no puede reabrir la lista ni dejar un resultado viejo.
+    ultimaBusqueda.current++;
+    let mensaje: string | null;
+    try {
+      mensaje = await alEnterSinResultados(buscado);
+    } catch {
+      mensaje = "No se pudo buscar. Intenta de nuevo";
+    } finally {
+      resolviendo.current = false;
+    }
+    if (mensaje === null) {
+      limpiarAviso();
+      setTexto("");
+      setActiva(0);
+      setAbierto(false);
+      setResultados(vacio);
+      setTextoBuscado(null);
+    } else {
+      anunciar(mensaje);
+    }
+  }
+
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -136,8 +174,13 @@ export function BuscadorConceptos<R, S>({
       setActiva((i) => Math.max(i - 1, 0));
     } else if (event.key === "Enter") {
       event.preventDefault();
+      if (ocupado) return;
+      if (alEnterSinResultados && texto.trim() !== "" && (buscando || opciones.length === 0)) {
+        void resolverSinResultados();
+        return;
+      }
       const opcion = opciones[indiceActivo];
-      if (abierto && opcion && !ocupado) elegir(opcion);
+      if (abierto && opcion) elegir(opcion);
     } else if (event.key === "Escape") {
       event.preventDefault();
       setAbierto(false);
@@ -145,8 +188,6 @@ export function BuscadorConceptos<R, S>({
       limpiarAviso();
     }
   }
-
-  const mostrarLista = abierto && (opciones.length > 0 || buscando);
 
   return (
     <div className="relative">

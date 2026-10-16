@@ -33,9 +33,13 @@ describe("TablaCarrito", () => {
   beforeEach(() => {
     mockBuscar
       .mockReset()
-      .mockImplementation(async (q: string) =>
-        REPUESTOS.filter((r) => r.nombre.toLowerCase().includes(q.trim().toLowerCase())),
-      );
+      .mockImplementation(async (q: string) => {
+        const t = q.trim().toLowerCase();
+        return REPUESTOS.filter((r) => r.nombre.toLowerCase().includes(t) || r.codigo.toLowerCase() === t).map((r) => ({
+          ...r,
+          exacto: r.codigo.toLowerCase() === t,
+        }));
+      });
   });
 
   it("vacío: muestra la indicación, el buscador con foco y el pie en cero", () => {
@@ -136,19 +140,57 @@ describe("TablaCarrito", () => {
       await waitFor(() => expect(screen.getByRole("row", { name: "Filtro de aceite" })).toHaveFocus());
     });
 
-    it("Supr y luego Enter quita la fila", async () => {
+    it("Supr deja el foco en 'Sí, quitar' y Enter quita la fila", async () => {
       render(<Probador />);
       await agregar("filtro", /Filtro de aceite/);
-      await userEvent.keyboard("{ArrowUp}{Delete}{Enter}");
+      await userEvent.keyboard("{ArrowUp}{Delete}");
+      expect(screen.getByRole("button", { name: "Sí, quitar" })).toHaveFocus();
+      await userEvent.keyboard("{Enter}");
       expect(screen.queryByRole("row", { name: "Filtro de aceite" })).not.toBeInTheDocument();
       expect(screen.getByTestId("pie-carrito")).toHaveTextContent("0 productos");
     });
 
-    it("tras pulsar Tab dentro de la confirmación, Enter ya no confirma", async () => {
+    it("al abrir con el ratón (✕) el foco queda en 'No' y Enter cancela", async () => {
       render(<Probador />);
       await agregar("filtro", /Filtro de aceite/);
-      await userEvent.keyboard("{ArrowUp}{Delete}{Tab}{Enter}");
+      await userEvent.click(screen.getByRole("button", { name: "Quitar Filtro de aceite" }));
+      expect(screen.getByRole("button", { name: "No" })).toHaveFocus();
+      await userEvent.keyboard("{Enter}");
       expect(screen.getByRole("row", { name: "Filtro de aceite" })).toBeInTheDocument();
+      expect(screen.queryByRole("group")).not.toBeInTheDocument();
+    });
+
+    it("Esc cancela también cuando se abrió con el ratón", async () => {
+      render(<Probador />);
+      await agregar("filtro", /Filtro de aceite/);
+      await userEvent.click(screen.getByRole("button", { name: "Quitar Filtro de aceite" }));
+      await userEvent.keyboard("{Escape}");
+      expect(screen.queryByRole("group")).not.toBeInTheDocument();
+      expect(screen.getByRole("row", { name: "Filtro de aceite" })).toBeInTheDocument();
+    });
+
+    it("lector de códigos: escribir un código y Enter al instante agrega la fila y deja el foco en el buscador", async () => {
+      render(<Probador />);
+      const campo = screen.getByLabelText("Buscar repuesto");
+      await userEvent.type(campo, "ACE-1{Enter}");
+      expect(await screen.findByRole("row", { name: "Aceite 20W50" })).toBeInTheDocument();
+      expect(campo).toHaveValue("");
+      expect(campo).toHaveFocus();
+      expect(screen.getByTestId("pie-carrito")).toHaveTextContent("1 producto · 1 unidad");
+    });
+
+    it("lector de códigos: código desconocido no agrega y avisa; sin unidades también", async () => {
+      render(<Probador />);
+      const campo = screen.getByLabelText("Buscar repuesto");
+      await userEvent.type(campo, "XYZ-9{Enter}");
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("No se encontró el código XYZ-9"));
+      expect(campo).toHaveValue("XYZ-9");
+      expect(screen.getByTestId("pie-carrito")).toHaveTextContent("0 productos");
+
+      await userEvent.clear(campo);
+      await userEvent.type(campo, "BJ-4{Enter}");
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Sin unidades libres"));
+      expect(screen.getByTestId("pie-carrito")).toHaveTextContent("0 productos");
     });
 
     it("Esc en el buscador limpia el texto", async () => {

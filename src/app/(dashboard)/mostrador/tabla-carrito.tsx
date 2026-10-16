@@ -59,9 +59,10 @@ export function TablaCarrito({
   const { lineas, agregarRepuesto, agregarLibre, cambiarCantidad, quitar, vaciar, totalProductos, totalUnidades } = carrito;
   const internoRef = useRef<HTMLInputElement | null>(null);
   const filas = useRef(new Map<string, HTMLTableRowElement>());
-  /** Tab pulsado desde que se abrió la confirmación: Enter deja de significar "confirmar". */
-  const tabulado = useRef(false);
-  const [confirmando, setConfirmando] = useState<string | null>(null);
+  /** Fila con la confirmación abierta y si se abrió con el teclado (foco en "Sí") o con el ratón (foco en "No"). */
+  const [confirmando, setConfirmando] = useState<{ id: string; teclado: boolean } | null>(null);
+  /** Fila a la que devolver el foco tras cancelar. */
+  const [refocar, setRefocar] = useState<{ id: string } | null>(null);
   const [confirmandoVaciar, setConfirmandoVaciar] = useState(false);
   const [libreAbierta, setLibreAbierta] = useState(false);
   const [libreDescripcion, setLibreDescripcion] = useState("");
@@ -71,6 +72,11 @@ export function TablaCarrito({
   useEffect(() => {
     internoRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    // Objeto nuevo en cada cancelación: así se repite aunque sea la misma fila.
+    if (refocar) filas.current.get(refocar.id)?.focus();
+  }, [refocar]);
 
   function asignarBuscador(el: HTMLInputElement | null) {
     internoRef.current = el;
@@ -110,9 +116,18 @@ export function TablaCarrito({
     });
   }
 
-  function abrirConfirmacion(id: string) {
-    tabulado.current = false;
-    setConfirmando(id);
+  function abrirConfirmacion(id: string, teclado: boolean) {
+    setConfirmando({ id, teclado });
+  }
+
+  /** Lector de códigos: Enter antes de que llegue la búsqueda. Agrega solo una coincidencia exacta de código. */
+  async function agregarPorCodigo(texto: string): Promise<string | null> {
+    const encontrados = await buscarParaMostradorAction(texto);
+    const exacto = encontrados.find((repuesto) => repuesto.exacto);
+    if (!exacto) return `No se encontró el código ${texto}`;
+    if (exacto.disponible - enCarrito(exacto.id) <= 0) return "Sin unidades libres: no se puede agregar";
+    agregarRepuesto(exacto);
+    return null;
   }
 
   function onKeyDownFila(event: KeyboardEvent<HTMLTableRowElement>, linea: LineaCarrito, indice: number) {
@@ -126,7 +141,7 @@ export function TablaCarrito({
       cambiarCantidad(linea.id, linea.cantidad - 1);
     } else if (event.key === "Delete") {
       event.preventDefault();
-      abrirConfirmacion(linea.id);
+      abrirConfirmacion(linea.id, true);
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       enfocarFila(lineas[indice - 1]?.id);
@@ -145,8 +160,7 @@ export function TablaCarrito({
 
   function cancelarQuitar(id: string) {
     setConfirmando(null);
-    // El foco vuelve a la fila cuando la confirmación ya desapareció.
-    setTimeout(() => enfocarFila(id), 0);
+    setRefocar({ id });
   }
 
   function confirmarVaciar() {
@@ -165,18 +179,11 @@ export function TablaCarrito({
     enfocarBuscador();
   }
 
-  /**
-   * Enter confirma mientras el foco sigue en la opción segura ("No") y no se ha
-   * pulsado Tab; Esc cancela. Tras un Tab, Enter vuelve a ser el del botón enfocado.
-   */
-  function teclasConfirmacion(event: KeyboardEvent<HTMLDivElement>, aceptar: () => void, cancelar: () => void) {
-    if (event.key === "Tab") tabulado.current = true;
-    else if (event.key === "Escape") {
+  /** Esc cancela; Enter hace lo normal del botón enfocado (nunca confirma desde "No"). */
+  function teclasConfirmacion(event: KeyboardEvent<HTMLDivElement>, cancelar: () => void) {
+    if (event.key === "Escape") {
       event.preventDefault();
       cancelar();
-    } else if (event.key === "Enter" && !tabulado.current) {
-      event.preventDefault();
-      aceptar();
     }
   }
 
@@ -259,27 +266,24 @@ export function TablaCarrito({
                         variant="ghost"
                         className="size-8"
                         aria-label={`Quitar ${linea.descripcion}`}
-                        onClick={() => abrirConfirmacion(linea.id)}
+                        onClick={() => abrirConfirmacion(linea.id, false)}
                       >
                         <X className="size-4" aria-hidden />
                       </Button>
                     </td>
                   </tr>
-                  {confirmando === linea.id ? (
+                  {confirmando?.id === linea.id ? (
                     <tr className="border-b bg-destructive/5">
                       <td colSpan={5} className="px-3 py-2">
                         <div
                           onKeyDown={(event) =>
-                            teclasConfirmacion(
-                              event,
-                              () => confirmarQuitar(linea.id),
-                              () => cancelarQuitar(linea.id),
-                            )
+                            teclasConfirmacion(event, () => cancelarQuitar(linea.id))
                           }
                         >
                           <ConfirmacionEnLinea
                             pregunta={`¿Quitar ${linea.descripcion} del carrito?`}
                             etiquetaConfirmar="Sí, quitar"
+                            enfocarConfirmar={confirmando.teclado}
                             onConfirmar={() => confirmarQuitar(linea.id)}
                             onCancelar={() => cancelarQuitar(linea.id)}
                           />
@@ -308,6 +312,7 @@ export function TablaCarrito({
                   etiqueta="Buscar repuesto"
                   inputRef={asignarBuscador}
                   onFlechaArriba={() => enfocarFila(lineas[lineas.length - 1]?.id)}
+                  alEnterSinResultados={agregarPorCodigo}
                 />
               </td>
             </tr>
@@ -355,7 +360,7 @@ export function TablaCarrito({
           {confirmandoVaciar ? (
             <div
               onKeyDown={(event) =>
-                teclasConfirmacion(event, confirmarVaciar, () => {
+                teclasConfirmacion(event, () => {
                   setConfirmandoVaciar(false);
                   enfocarBuscador();
                 })
@@ -378,10 +383,7 @@ export function TablaCarrito({
                 size="sm"
                 variant="ghost"
                 disabled={lineas.length === 0}
-                onClick={() => {
-                  tabulado.current = false;
-                  setConfirmandoVaciar(true);
-                }}
+                onClick={() => setConfirmandoVaciar(true)}
               >
                 Vaciar carrito
               </Button>
