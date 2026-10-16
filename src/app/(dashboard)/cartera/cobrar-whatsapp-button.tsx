@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircle } from "lucide-react";
+import { IconoWhatsapp } from "@/components/icono-whatsapp";
 import { Button } from "@/components/ui/button";
 
 /** Abre el wa.me de cobro. Sin teléfono, queda deshabilitado con la razón en el tooltip. */
@@ -21,7 +21,7 @@ export function CobrarWhatsappButton({ urlWhatsapp }: { urlWhatsapp: string | nu
       disabled={!urlWhatsapp}
       title={urlWhatsapp ? undefined : "El cliente no tiene teléfono registrado"}
     >
-      <MessageCircle className="size-4" />
+      <IconoWhatsapp className="size-4" />
       Cobrar por WhatsApp
     </Button>
   );

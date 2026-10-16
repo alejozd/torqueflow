@@ -1,7 +1,8 @@
 "use client";
 
+import { IconoWhatsapp } from "@/components/icono-whatsapp";
 import { useState, type FormEvent, type Ref } from "react";
-import { MessageCircle, UserPlus, X } from "lucide-react";
+import { UserPlus, X } from "lucide-react";
 import { createClienteAction } from "@/app/actions/cliente-actions";
 import { buscarClientesMostradorAction, type ClienteMostrador } from "@/app/actions/venta-mostrador-actions";
 import { BuscadorConceptos, type OpcionBuscador } from "@/components/buscador-conceptos";
@@ -81,7 +82,7 @@ export function SelectorCliente({
                           aria-label="Escribir por WhatsApp"
                           className="inline-flex align-middle text-[oklch(0.5_0.12_150)]"
                         >
-                          <MessageCircle className="size-3.5" aria-hidden />
+                          <IconoWhatsapp className="size-3.5" aria-hidden />
                         </a>
                       </>
                     ) : null}
