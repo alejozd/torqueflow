@@ -154,4 +154,21 @@ describe("TarjetaCobro", () => {
     await userEvent.keyboard("{F9}");
     expect(onCobrar).toHaveBeenCalledWith({ pagos: [{ metodoPago: "EFECTIVO", monto: 50000 }], recibidoEfectivo: null });
   });
+
+  it("si se quita el cliente tras marcar crédito, la marca se reinicia y no vuelve con otro cliente", async () => {
+    const props = {
+      total: 50000,
+      efectivoBloqueado: false,
+      motivoBloqueo: null,
+      ocupado: false,
+      onCobrar: vi.fn(),
+    };
+    const { rerender } = render(<TarjetaCobro {...props} hayCliente />);
+    await userEvent.click(screen.getByRole("button", { name: "Dejar a crédito" }));
+    expect(screen.getByRole("button", { name: "Registrar a crédito" })).toBeInTheDocument();
+
+    rerender(<TarjetaCobro {...props} hayCliente={false} />);
+    rerender(<TarjetaCobro {...props} hayCliente />);
+    expect(screen.queryByRole("button", { name: "Registrar a crédito" })).not.toBeInTheDocument();
+  });
 });

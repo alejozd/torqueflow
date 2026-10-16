@@ -14,16 +14,20 @@ const db = {
   cajaSesion: { findFirst: vi.fn() },
   // Control de caja encendido: la regla del efectivo aplica (fase de consolidación, D3).
   configuracionTaller: { findUnique: async () => opcionesTaller },
-  cliente: { findFirst: vi.fn() },
+  cliente: { findFirst: vi.fn(), findMany: vi.fn() },
   repuesto: { findMany: vi.fn() },
   itemOrden: { groupBy: vi.fn() },
-  ventaMostrador: { findFirst: vi.fn() },
+  ventaMostrador: { findFirst: vi.fn(), groupBy: vi.fn() },
   $transaction: (fn: (cliente: typeof tx) => unknown) => fn(tx),
 };
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { buscarParaMostradorAction, cobrarVentaMostradorAction, crearVentaMostradorAction } from "./venta-mostrador-actions";
+import {
+  buscarClientesMostradorAction,
+  buscarParaMostradorAction,
+  cobrarVentaMostradorAction, crearVentaMostradorAction,
+} from "./venta-mostrador-actions";
 
 const SESION = { user: { id: "u1", role: "RECEPCION", tenantSchema: "taller", sedeActivaId: "sede-1" } };
 const inicial = { error: null, success: false };
@@ -491,5 +495,62 @@ describe("buscarParaMostradorAction", () => {
 
     expect(r).toHaveLength(20);
     expect(r[0].id).toBe("x");
+  });
+});
+
+describe("buscarClientesMostradorAction", () => {
+  beforeEach(() => {
+    mockRequireRole.mockResolvedValue(SESION);
+    db.cliente.findMany.mockReset().mockResolvedValue([]);
+    db.ventaMostrador.groupBy.mockReset().mockResolvedValue([]);
+  });
+
+  it("busca cada palabra en nombre, documento, teléfono o placa sin distinguir mayúsculas, con tope de 10", async () => {
+    await buscarClientesMostradorAction("  ana jkt ");
+
+    const args = db.cliente.findMany.mock.calls[0][0];
+    expect(args.take).toBe(10);
+    expect(args.where.AND).toHaveLength(2);
+    expect(args.where.AND[0]).toEqual({
+      OR: [
+        { nombre: { contains: "ana", mode: "insensitive" } },
+        { documento: { contains: "ana", mode: "insensitive" } },
+        { telefono: { contains: "ana", mode: "insensitive" } },
+        { vehiculos: { some: { placa: { contains: "ana", mode: "insensitive" } } } },
+      ],
+    });
+    expect(args.where.AND[1].OR[3]).toEqual({ vehiculos: { some: { placa: { contains: "jkt", mode: "insensitive" } } } });
+  });
+
+  it("sin texto no consulta nada; solo ADMIN y RECEPCION", async () => {
+    expect(await buscarClientesMostradorAction("   ")).toEqual([]);
+    expect(db.cliente.findMany).not.toHaveBeenCalled();
+
+    await buscarClientesMostradorAction("ana");
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+  });
+
+  it("si no tiene permiso, falla antes de consultar", async () => {
+    mockRequireRole.mockRejectedValue(new Error("No autorizado"));
+    await expect(buscarClientesMostradorAction("ana")).rejects.toThrow("No autorizado");
+    expect(db.cliente.findMany).not.toHaveBeenCalled();
+  });
+
+  it("devuelve el saldo pendiente del mostrador (solo ventas con saldo) y 0 si está al día", async () => {
+    db.cliente.findMany.mockResolvedValue([
+      { id: "c1", nombre: "Ana", documento: "123", telefono: "3001112233", vehiculos: [{ placa: "JKT482" }] },
+      { id: "c2", nombre: "Beto", documento: null, telefono: null, vehiculos: [] },
+    ]);
+    db.ventaMostrador.groupBy.mockResolvedValue([{ clienteId: "c1", _sum: { saldoPendiente: "45000.00" } }]);
+
+    const resultado = await buscarClientesMostradorAction("a");
+
+    expect(db.ventaMostrador.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { clienteId: { in: ["c1", "c2"] }, saldoPendiente: { gt: 0 } } }),
+    );
+    expect(resultado).toEqual([
+      { id: "c1", nombre: "Ana", documento: "123", telefono: "3001112233", placas: ["JKT482"], saldoMostrador: 45000 },
+      { id: "c2", nombre: "Beto", documento: null, telefono: null, placas: [], saldoMostrador: 0 },
+    ]);
   });
 });

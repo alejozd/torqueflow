@@ -4,6 +4,7 @@ import { startTransition, useActionState, useEffect, useRef, useState } from "re
 import { ShoppingCart, UserRound } from "lucide-react";
 import {
   crearVentaMostradorAction,
+  type ClienteMostrador,
   type VentaMostradorFormState,
 } from "@/app/actions/venta-mostrador-actions";
 import {
@@ -17,9 +18,9 @@ import { TituloSeccion } from "@/components/titulo-seccion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { SelectField } from "@/components/ui/select-field";
 import { calcularTotalesVenta } from "@/lib/mostrador/ventas";
 import { AyudaAtajos } from "./ayuda-atajos";
+import { SelectorCliente } from "./selector-cliente";
 import { TablaCarrito } from "./tabla-carrito";
 import { TarjetaCobro, type CobroListo, type TarjetaCobroHandle } from "./tarjeta-cobro";
 import { useAtajosMostrador } from "./use-atajos-mostrador";
@@ -30,8 +31,6 @@ const initialState: VentaMostradorFormState = { error: null, success: false };
 const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 const formatoPorcentaje = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 2 });
 
-const ID_CLIENTE = "cliente-mostrador";
-
 /**
  * Pestaña "Vender" del mostrador (spec §3.1): cliente y carrito a la izquierda;
  * resumen con descuento y tarjeta de cobro en una columna lateral pegajosa. En
@@ -39,25 +38,24 @@ const ID_CLIENTE = "cliente-mostrador";
  * Los totales salen de `calcularTotalesVenta`, el mismo cálculo del servidor.
  */
 export function VenderMostrador({
-  clientes,
   efectivoBloqueado,
   rol,
   descuentoMaxRecepcion,
 }: {
-  clientes: { id: string; nombre: string }[];
   efectivoBloqueado: boolean;
   rol: "ADMIN" | "RECEPCION";
   descuentoMaxRecepcion: number;
 }) {
   const carrito = useCarrito();
   const [state, formAction, isPending] = useActionState(crearVentaMostradorAction, initialState);
-  const [clienteId, setClienteId] = useState("");
+  const [cliente, setCliente] = useState<ClienteMostrador | null>(null);
   const [descuento, setDescuento] = useState<DescuentoLocal>(DESCUENTO_VACIO);
   const [numeroConfirmado, setNumeroConfirmado] = useState<number | undefined>(undefined);
   /** Cambia con cada venta cobrada: reinicia la tarjeta de cobro (métodos, recibido). */
   const [ventaActual, setVentaActual] = useState(0);
   const [ayudaAbierta, setAyudaAbierta] = useState(false);
   const buscadorRef = useRef<HTMLInputElement | null>(null);
+  const clienteRef = useRef<HTMLInputElement>(null);
   const descuentoRef = useRef<HTMLInputElement>(null);
   const tarjetaRef = useRef<TarjetaCobroHandle>(null);
 
@@ -78,7 +76,7 @@ export function VenderMostrador({
   useAtajosMostrador({
     focusBuscador: () => buscadorRef.current?.focus(),
     irACobrar: () => tarjetaRef.current?.irACobrar(),
-    buscarCliente: () => document.getElementById(ID_CLIENTE)?.focus(),
+    buscarCliente: () => clienteRef.current?.focus(),
     descuento: () => descuentoRef.current?.focus(),
     ayuda: () => setAyudaAbierta(true),
   });
@@ -88,7 +86,6 @@ export function VenderMostrador({
   const evaluacion = evaluarDescuento(subtotalBruto, descuento, tope);
   const totales = calcularTotalesVenta(carrito.lineas, evaluacion.error ? 0 : evaluacion.monto);
   const motivoBloqueo = carrito.lineas.length === 0 ? "Agrega al menos un producto" : evaluacion.error;
-  const cliente = clientes.find((c) => c.id === clienteId);
 
   function cobrar({ pagos, recibidoEfectivo }: CobroListo) {
     const datos = new FormData();
@@ -105,7 +102,7 @@ export function VenderMostrador({
     );
     datos.set("pagos", JSON.stringify(pagos));
     datos.set("descuento", String(totales.descuento));
-    if (clienteId) datos.set("clienteId", clienteId);
+    if (cliente) datos.set("clienteId", cliente.id);
     if (recibidoEfectivo !== null) datos.set("recibidoEfectivo", String(recibidoEfectivo));
     startTransition(() => formAction(datos));
   }
@@ -120,22 +117,8 @@ export function VenderMostrador({
               <kbd className="font-mono text-xs font-normal text-muted-foreground">F2</kbd>
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            <p className={cliente ? "text-sm font-medium" : "text-sm text-muted-foreground"} data-testid="cliente-actual">
-              {cliente?.nombre ?? "Consumidor final"}
-            </p>
-            <SelectField
-              id={ID_CLIENTE}
-              aria-describedby="cliente-ayuda"
-              value={clienteId}
-              onValueChange={setClienteId}
-              items={[{ value: "", label: "Consumidor final" }, ...clientes.map((c) => ({ value: c.id, label: c.nombre }))]}
-            />
-            <p id="cliente-ayuda" className="text-xs text-muted-foreground">
-              {cliente
-                ? "Con cliente registrado puedes dejar saldo a crédito."
-                : "Sin cliente, la venta tiene que quedar pagada."}
-            </p>
+          <CardContent>
+            <SelectorCliente cliente={cliente} onCambiar={setCliente} inputRef={clienteRef} />
           </CardContent>
         </Card>
 

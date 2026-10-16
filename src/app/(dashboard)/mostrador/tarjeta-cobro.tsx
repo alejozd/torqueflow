@@ -84,6 +84,8 @@ export function TarjetaCobro({
   const cobrarRef = useRef<HTMLButtonElement>(null);
 
   // Sin cliente no hay a quién cobrarle después: el crédito se apaga solo.
+  // Y la marca no vuelve sola si después se elige otro cliente: se desmarca de verdad.
+  if (creditoMarcado && !hayCliente) setCreditoMarcado(false);
   const aCredito = creditoMarcado && hayCliente;
   const mixto = filas.length > 1;
   const recibidoNumero = recibido.trim() === "" ? null : Number(recibido);

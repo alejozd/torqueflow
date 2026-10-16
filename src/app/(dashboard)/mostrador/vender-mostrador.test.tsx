@@ -4,10 +4,13 @@ import userEvent from "@testing-library/user-event";
 
 const mockCrear = vi.fn();
 const mockBuscar = vi.fn();
+const mockBuscarCliente = vi.fn();
 vi.mock("@/app/actions/venta-mostrador-actions", () => ({
   crearVentaMostradorAction: (...args: unknown[]) => mockCrear(...args),
   buscarParaMostradorAction: (...args: unknown[]) => mockBuscar(...args),
+  buscarClientesMostradorAction: (...args: unknown[]) => mockBuscarCliente(...args),
 }));
+vi.mock("@/app/actions/cliente-actions", () => ({ createClienteAction: vi.fn() }));
 
 import type { RepuestoMostrador } from "@/app/actions/venta-mostrador-actions";
 import { VenderMostrador } from "./vender-mostrador";
@@ -24,7 +27,6 @@ const textoPesos = (n: number) =>
 function pintar(rol: "ADMIN" | "RECEPCION" = "RECEPCION") {
   render(
     <VenderMostrador
-      clientes={[{ id: "c1", nombre: "Ana Pérez" }]}
       efectivoBloqueado={false}
       rol={rol}
       descuentoMaxRecepcion={10}
@@ -42,6 +44,11 @@ const botonCobrar = () => screen.getByRole("button", { name: /^Cobrar \$/ });
 describe("VenderMostrador", () => {
   beforeEach(() => {
     mockCrear.mockReset().mockResolvedValue({ error: null, success: true, numero: 9 });
+    mockBuscarCliente
+      .mockReset()
+      .mockResolvedValue([
+        { id: "c1", nombre: "Ana Pérez", documento: "123", telefono: null, placas: [], saldoMostrador: 0 },
+      ]);
     mockBuscar
       .mockReset()
       .mockImplementation(async (q: string) =>
@@ -116,5 +123,30 @@ describe("VenderMostrador", () => {
     await userEvent.click(document.body);
     await userEvent.keyboard("?");
     expect(await screen.findByRole("dialog", { name: "Atajos de teclado" })).toHaveTextContent("F9 o Ctrl+Enter");
+  });
+
+  it("con cliente elegido manda clienteId; al quitarlo, la marca de crédito no vuelve al elegir otro", async () => {
+    pintar();
+    await agregarFiltro();
+    await userEvent.type(screen.getByLabelText("Buscar cliente"), "ana");
+    await userEvent.click(await screen.findByRole("option", { name: /Ana Pérez/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Dejar a crédito" }));
+    expect(screen.getByRole("button", { name: "Registrar a crédito" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Quitar cliente/ }));
+    await userEvent.type(screen.getByLabelText("Buscar cliente"), "ana");
+    await userEvent.click(await screen.findByRole("option", { name: /Ana Pérez/ }));
+    expect(screen.queryByRole("button", { name: "Registrar a crédito" })).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("Recibido"), "200000");
+    await userEvent.click(botonCobrar());
+    await waitFor(() => expect(mockCrear).toHaveBeenCalled());
+    expect((mockCrear.mock.calls[0][1] as FormData).get("clienteId")).toBe("c1");
+  });
+
+  it("F2 lleva el foco al buscador de cliente", async () => {
+    pintar();
+    await userEvent.keyboard("{F2}");
+    await waitFor(() => expect(screen.getByLabelText("Buscar cliente")).toHaveFocus());
   });
 });

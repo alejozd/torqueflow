@@ -15,7 +15,7 @@ const formatoHora = new Intl.DateTimeFormat("es-CO", { hour: "2-digit", minute: 
 
 export default async function MostradorPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const { tab } = await searchParams;
-  const { efectivoBloqueado, usarControlCaja, cajaAbierta, rol, descuentoMaxRecepcion, clientes, ventas } =
+  const { efectivoBloqueado, usarControlCaja, cajaAbierta, rol, descuentoMaxRecepcion, ventas } =
     await getMostradorDatos();
 
   const columnas: DataTableColumn<(typeof ventas)[number]>[] = [
@@ -80,7 +80,6 @@ export default async function MostradorPage({ searchParams }: { searchParams: Pr
         ventasHoy={ventas.length}
         vender={
           <VenderMostrador
-            clientes={clientes}
             efectivoBloqueado={efectivoBloqueado}
             rol={rol}
             descuentoMaxRecepcion={descuentoMaxRecepcion}

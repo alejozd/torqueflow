@@ -289,6 +289,74 @@ export async function buscarParaMostradorAction(texto: string): Promise<Resultad
   ].slice(0, MAX_RESULTADOS_MOSTRADOR);
 }
 
+export interface ClienteMostrador {
+  id: string;
+  nombre: string;
+  documento: string | null;
+  telefono: string | null;
+  /** Placas de sus vehículos (hasta 3), para reconocerlo al buscar por placa. */
+  placas: string[];
+  /** Suma de lo que debe en ventas del mostrador (0 si está al día). */
+  saldoMostrador: number;
+}
+
+const MAX_CLIENTES_MOSTRADOR = 10;
+
+/**
+ * Busca clientes para la venta: cada palabra debe aparecer en el nombre, el
+ * documento, el teléfono o la placa de alguno de sus vehículos (sin distinguir
+ * mayúsculas). Trae su saldo pendiente en ventas del mostrador. Sin texto no
+ * devuelve nada.
+ */
+export async function buscarClientesMostradorAction(texto: string): Promise<ClienteMostrador[]> {
+  const session = await requireRole(ROLES_MOSTRADOR);
+  const q = (typeof texto === "string" ? texto : "").trim().slice(0, 80);
+  if (q === "") return [];
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const clientes = await tenantDb.cliente.findMany({
+    where: {
+      AND: q
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((palabra) => ({
+          OR: [
+            { nombre: { contains: palabra, mode: "insensitive" as const } },
+            { documento: { contains: palabra, mode: "insensitive" as const } },
+            { telefono: { contains: palabra, mode: "insensitive" as const } },
+            { vehiculos: { some: { placa: { contains: palabra, mode: "insensitive" as const } } } },
+          ],
+        })),
+    },
+    select: {
+      id: true,
+      nombre: true,
+      documento: true,
+      telefono: true,
+      vehiculos: { select: { placa: true }, orderBy: { placa: "asc" }, take: 3 },
+    },
+    orderBy: { nombre: "asc" },
+    take: MAX_CLIENTES_MOSTRADOR,
+  });
+  if (clientes.length === 0) return [];
+
+  const saldos = await tenantDb.ventaMostrador.groupBy({
+    by: ["clienteId"],
+    where: { clienteId: { in: clientes.map((cliente) => cliente.id) }, saldoPendiente: { gt: 0 } },
+    _sum: { saldoPendiente: true },
+  });
+  const saldoPorCliente = new Map(saldos.map((fila) => [fila.clienteId, Number(fila._sum.saldoPendiente ?? 0)]));
+
+  return clientes.map((cliente) => ({
+    id: cliente.id,
+    nombre: cliente.nombre,
+    documento: cliente.documento,
+    telefono: cliente.telefono,
+    placas: cliente.vehiculos.map((vehiculo) => vehiculo.placa),
+    saldoMostrador: saldoPorCliente.get(cliente.id) ?? 0,
+  }));
+}
+
 export interface VentaMostradorDia {
   id: string;
   numero: number;
@@ -315,25 +383,23 @@ export interface MostradorDatos {
   /** Rol de quien vende y su tope de descuento (RECEPCION; ADMIN no tiene tope). */
   rol: "ADMIN" | "RECEPCION";
   descuentoMaxRecepcion: number;
-  clientes: { id: string; nombre: string }[];
   ventas: VentaMostradorDia[];
 }
 
 /**
  * Lo que necesita la pantalla del mostrador en una sola lectura: si hay caja
- * abierta (sin ella no se puede cobrar), los clientes para la venta a crédito y
- * las ventas del día con lo ya devuelto. Los repuestos ya no viajan completos:
- * se buscan en el servidor con `buscarParaMostradorAction`.
+ * abierta (sin ella no se puede cobrar) y las ventas del día con lo ya devuelto.
+ * Repuestos y clientes no viajan completos: se buscan en el servidor con
+ * `buscarParaMostradorAction` y `buscarClientesMostradorAction`.
  */
 export async function getMostradorDatos(): Promise<MostradorDatos> {
   const session = await requireRole(ROLES_MOSTRADOR);
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
 
-  const [sesion, opciones, clientes, ventas] = await Promise.all([
+  const [sesion, opciones, ventas] = await Promise.all([
     sesionDeCajaAbierta(tenantDb, sedeId),
     leerOpcionesTaller(tenantDb),
-    tenantDb.cliente.findMany({ select: { id: true, nombre: true }, orderBy: { nombre: "asc" }, take: 500 }),
     tenantDb.ventaMostrador.findMany({
       where: { sedeId, createdAt: { gte: inicioDiaBogota(new Date()) } },
       select: {
@@ -356,7 +422,6 @@ export async function getMostradorDatos(): Promise<MostradorDatos> {
     cajaAbierta: sesion !== null,
     rol: session.user.role === "ADMIN" ? "ADMIN" : "RECEPCION",
     descuentoMaxRecepcion: opciones.descuentoMaxRecepcion,
-    clientes,
     ventas: ventas.map((venta) => ({
       id: venta.id,
       numero: venta.numero,
