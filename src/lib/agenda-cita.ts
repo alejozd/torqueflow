@@ -188,3 +188,14 @@ export function ocupacionDeCitas(
     .filter((ocupacion) => ocupacion.fecha >= opciones.desde)
     .sort((a, b) => (a.fecha === b.fecha ? a.minutos - b.minutos : a.fecha < b.fecha ? -1 : 1));
 }
+
+/** Cuánto falta para la cita en palabras cortas: "en 25 min", "en 3 h", "en 3 h 15 min"; null si ya pasó. */
+export function tiempoRestante(ahora: Date, fecha: Date): string | null {
+  const minutos = Math.round((fecha.getTime() - ahora.getTime()) / 60000);
+  if (minutos < 0) return null;
+  if (minutos < 1) return "ahora";
+  if (minutos < 60) return `en ${minutos} min`;
+  const horas = Math.floor(minutos / 60);
+  const resto = minutos % 60;
+  return resto === 0 ? `en ${horas} h` : `en ${horas} h ${resto} min`;
+}

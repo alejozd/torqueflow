@@ -12,38 +12,54 @@ export type KpiTone = "info" | "warning" | "success" | "danger" | "neutral" | "p
  * wash (cardBg), a slightly stronger icon-circle fill (iconBg) so the icon
  * still reads against that wash, and the icon's own color. dark: variants
  * keep it legible against the oklch .dark theme in globals.css -- plain
- * bg-*-50/text-*-600 literals have no dark counterpart.
+ * bg-*-50/text-*-600 literals have no dark counterpart. title/ring are opt-in
+ * (titleClassName / className) for rows that want the whole card in its tone.
  */
-export const KPI_TONE: Record<KpiTone, { cardBg: string; iconBg: string; icon: string }> = {
+export const KPI_TONE: Record<
+  KpiTone,
+  { cardBg: string; iconBg: string; icon: string; title: string; ring: string }
+> = {
   info: {
     cardBg: "bg-blue-50 dark:bg-blue-500/10",
     iconBg: "bg-blue-100 dark:bg-blue-500/20",
     icon: "text-blue-600 dark:text-blue-400",
+    title: "font-semibold tracking-wide text-blue-700 dark:text-blue-400",
+    ring: "ring-blue-200 dark:ring-blue-500/30",
   },
   warning: {
     cardBg: "bg-orange-50 dark:bg-orange-500/10",
     iconBg: "bg-orange-100 dark:bg-orange-500/20",
     icon: "text-orange-600 dark:text-orange-400",
+    title: "font-semibold tracking-wide text-orange-700 dark:text-orange-400",
+    ring: "ring-orange-200 dark:ring-orange-500/30",
   },
   success: {
     cardBg: "bg-green-50 dark:bg-green-500/10",
     iconBg: "bg-green-100 dark:bg-green-500/20",
     icon: "text-green-600 dark:text-green-400",
+    title: "font-semibold tracking-wide text-green-700 dark:text-green-400",
+    ring: "ring-green-200 dark:ring-green-500/30",
   },
   danger: {
     cardBg: "bg-red-50 dark:bg-red-500/10",
     iconBg: "bg-red-100 dark:bg-red-500/20",
     icon: "text-red-600 dark:text-red-400",
+    title: "font-semibold tracking-wide text-red-700 dark:text-red-400",
+    ring: "ring-red-200 dark:ring-red-500/30",
   },
   neutral: {
     cardBg: "bg-gray-50 dark:bg-gray-500/10",
     iconBg: "bg-gray-100 dark:bg-gray-500/20",
     icon: "text-gray-600 dark:text-gray-400",
+    title: "font-semibold tracking-wide text-gray-700 dark:text-gray-400",
+    ring: "ring-gray-200 dark:ring-gray-500/30",
   },
   purple: {
     cardBg: "bg-purple-50 dark:bg-purple-500/10",
     iconBg: "bg-purple-100 dark:bg-purple-500/20",
     icon: "text-purple-600 dark:text-purple-400",
+    title: "font-semibold tracking-wide text-purple-700 dark:text-purple-400",
+    ring: "ring-purple-200 dark:ring-purple-500/30",
   },
 };
 
@@ -58,6 +74,7 @@ export interface KpiCardProps {
   iconBgColor?: string;
   highlight?: boolean;
   className?: string;
+  titleClassName?: string;
 }
 
 // globals.css has no --success/--warning tokens yet. success/warning reuse
@@ -99,6 +116,7 @@ export function KpiCard({
   iconBgColor = "bg-primary/10",
   highlight = false,
   className,
+  titleClassName,
 }: KpiCardProps) {
   return (
     <Card className={cn("@container h-full w-full", highlight && "bg-primary/5 ring-2 ring-primary/25", className)}>
@@ -110,7 +128,12 @@ export function KpiCard({
           anything narrower.
         */}
         <div className="flex items-start justify-between gap-1.5">
-          <p className="line-clamp-2 min-w-0 text-[11px] font-medium break-words text-muted-foreground uppercase">
+          <p
+            className={cn(
+              "line-clamp-2 min-w-0 text-[11px] font-medium break-words text-muted-foreground uppercase",
+              titleClassName,
+            )}
+          >
             {title}
           </p>
           <div className={cn("flex size-7 shrink-0 items-center justify-center rounded-full", iconBgColor)}>
