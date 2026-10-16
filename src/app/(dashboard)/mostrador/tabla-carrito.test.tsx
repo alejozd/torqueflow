@@ -110,11 +110,11 @@ describe("TablaCarrito", () => {
   });
 
   describe("teclado", () => {
-    it("↑ desde el buscador vacío va a la última fila; + y − cambian la cantidad", async () => {
+    it("↓ desde el buscador vacío va a la primera fila; + y − cambian la cantidad", async () => {
       render(<Probador />);
-      await agregar("aceite 20", /Aceite 20W50/);
       await agregar("filtro", /Filtro de aceite/);
-      await userEvent.keyboard("{ArrowUp}");
+      await agregar("aceite 20", /Aceite 20W50/);
+      await userEvent.keyboard("{ArrowDown}");
       expect(screen.getByRole("row", { name: "Filtro de aceite" })).toHaveFocus();
 
       await userEvent.keyboard("+");
@@ -124,16 +124,16 @@ describe("TablaCarrito", () => {
       await userEvent.keyboard("-");
       expect(screen.getByLabelText("Cantidad de Filtro de aceite")).toHaveTextContent("1");
 
-      await userEvent.keyboard("{ArrowUp}");
+      await userEvent.keyboard("{ArrowDown}");
       expect(screen.getByRole("row", { name: "Aceite 20W50" })).toHaveFocus();
-      await userEvent.keyboard("{ArrowDown}{ArrowDown}");
+      await userEvent.keyboard("{ArrowUp}{ArrowUp}");
       expect(screen.getByLabelText("Buscar repuesto")).toHaveFocus();
     });
 
     it("Supr abre la confirmación, Esc la cancela y devuelve el foco a la fila", async () => {
       render(<Probador />);
       await agregar("filtro", /Filtro de aceite/);
-      await userEvent.keyboard("{ArrowUp}{Delete}");
+      await userEvent.keyboard("{ArrowDown}{Delete}");
       expect(screen.getByRole("group", { name: /¿Quitar Filtro de aceite/ })).toBeInTheDocument();
       await userEvent.keyboard("{Escape}");
       expect(screen.queryByRole("group")).not.toBeInTheDocument();
@@ -143,7 +143,7 @@ describe("TablaCarrito", () => {
     it("Supr deja el foco en 'Sí, quitar' y Enter quita la fila", async () => {
       render(<Probador />);
       await agregar("filtro", /Filtro de aceite/);
-      await userEvent.keyboard("{ArrowUp}{Delete}");
+      await userEvent.keyboard("{ArrowDown}{Delete}");
       expect(screen.getByRole("button", { name: "Sí, quitar" })).toHaveFocus();
       await userEvent.keyboard("{Enter}");
       expect(screen.queryByRole("row", { name: "Filtro de aceite" })).not.toBeInTheDocument();
