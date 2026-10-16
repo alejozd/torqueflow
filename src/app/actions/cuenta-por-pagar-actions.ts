@@ -2,12 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
-import { exigirCajaParaEfectivo } from "@/lib/caja/sesion";
+import { exigirCajaParaEfectivo, sesionDeCajaAbierta } from "@/lib/caja/sesion";
+import { leerOpcionesTaller } from "@/lib/configuracion/opciones-taller";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb } from "@/lib/db/tenant-client";
-import { agruparCuentasPorPagar, type CuentaPorPagarFila } from "@/lib/proveedores/cuentas-por-pagar";
+import { inicioDiaBogota } from "@/lib/fecha-bogota";
+import { roundMoney } from "@/lib/money/round";
+import {
+  agruparCuentasPorPagar,
+  resumirEntrada,
+  type CuentaPorPagarFila,
+  type ProveedorCuentas,
+} from "@/lib/proveedores/cuentas-por-pagar";
 import { abonoProveedorSchema } from "@/lib/validation/compras";
-import type { Role } from "@/generated/prisma-tenant";
+import type { Prisma, Role } from "@/generated/prisma-tenant";
 
 /**
  * Cuentas por pagar (Fase 24, D5/D6): la deuda la crea la entrada de mercancía
@@ -96,38 +104,126 @@ export async function abonarCuentaPorPagarAction(
   return { error: null, success: true };
 }
 
-/** Lo que el taller debe, agrupado por proveedor y por antigüedad. */
-export async function getCuentasPorPagar(): Promise<{
-  proveedores: ReturnType<typeof agruparCuentasPorPagar>["proveedores"];
-  totales: ReturnType<typeof agruparCuentasPorPagar>["totales"];
-}> {
-  // Lo que el taller debe es información financiera: la ven ADMIN y RECEPCION,
-  // igual que la caja y la cartera (hallazgo B6).
-  const session = await requireRole(ROLES_ABONO);
-  const tenantDb = getTenantDb(session.user.tenantSchema);
+export type FiltroCuentasPorPagar = "pendientes" | "pagadas";
 
-  const cuentas = await tenantDb.cuentaPorPagar.findMany({
-    where: { estado: "PENDIENTE", entrada: { bodega: { sedeId: session.user.sedeActivaId } } },
+/** La pestaña Pagadas muestra las cuentas saldadas en esta ventana. */
+const DIAS_PAGADAS = 30;
+
+const SELECT_CUENTA = {
+  id: true,
+  total: true,
+  saldoPendiente: true,
+  fecha: true,
+  entradaId: true,
+  proveedor: { select: { id: true, nombre: true } },
+  entrada: {
+    select: { items: { select: { repuestoId: true, cantidad: true, repuesto: { select: { nombre: true } } } } },
+  },
+  pagos: {
     select: {
       id: true,
-      total: true,
-      saldoPendiente: true,
-      fecha: true,
-      entradaId: true,
-      proveedor: { select: { id: true, nombre: true } },
+      monto: true,
+      metodoPago: true,
+      referencia: true,
+      createdAt: true,
+      registradoPor: { select: { nombre: true } },
     },
-    orderBy: { fecha: "asc" },
-  });
+    orderBy: { createdAt: "desc" },
+  },
+} as const satisfies Prisma.CuentaPorPagarSelect;
 
-  const filas: CuentaPorPagarFila[] = cuentas.map((cuenta) => ({
+type CuentaLeida = Prisma.CuentaPorPagarGetPayload<{ select: typeof SELECT_CUENTA }>;
+
+function aFila(cuenta: CuentaLeida): CuentaPorPagarFila {
+  const total = Number(cuenta.total);
+  const saldo = Number(cuenta.saldoPendiente);
+  return {
     cuentaId: cuenta.id,
     proveedorId: cuenta.proveedor.id,
     proveedorNombre: cuenta.proveedor.nombre,
     entradaId: cuenta.entradaId,
     fecha: cuenta.fecha,
-    total: Number(cuenta.total),
-    saldo: Number(cuenta.saldoPendiente),
-  }));
+    total,
+    saldo,
+    pagado: roundMoney(total - saldo),
+    entrada: {
+      id: cuenta.entradaId,
+      ...resumirEntrada(
+        cuenta.entrada.items.map((item) => ({
+          repuestoId: item.repuestoId,
+          nombre: item.repuesto.nombre,
+          cantidad: item.cantidad,
+        })),
+      ),
+    },
+    pagos: cuenta.pagos.map((pago) => ({
+      id: pago.id,
+      monto: Number(pago.monto),
+      metodoPago: pago.metodoPago,
+      referencia: pago.referencia,
+      registradoPor: pago.registradoPor.nombre,
+      createdAt: pago.createdAt,
+    })),
+  };
+}
 
-  return agruparCuentasPorPagar(filas, new Date());
+export interface CuentasPorPagarDatos {
+  /** Lo pendiente, agrupado por proveedor (de aquí salen los KPI y la lectura). */
+  proveedores: ProveedorCuentas[];
+  totales: ReturnType<typeof agruparCuentasPorPagar>["totales"];
+  /** Solo con `filtro: "pagadas"`: lo saldado en los últimos 30 días. */
+  pagadas: ProveedorCuentas[] | null;
+  /** Para el número de la pestaña Pagadas. */
+  conteoPagadas: number;
+  /** Falso si el taller usa control de caja y la de la sede está cerrada: no se paga en efectivo. */
+  cajaAbierta: boolean;
+}
+
+/**
+ * Lo que el taller debe, agrupado por proveedor y por antigüedad.
+ *
+ * `abonadas` son cuentas recién saldadas desde la pantalla (`?abonada=`): siguen
+ * en Pendientes con «✓ Pagada» hasta recargar, para que nada desaparezca sin aviso.
+ */
+export async function getCuentasPorPagar({
+  filtro = "pendientes",
+  abonadas = [],
+}: { filtro?: FiltroCuentasPorPagar; abonadas?: string[] } = {}): Promise<CuentasPorPagarDatos> {
+  // Lo que el taller debe es información financiera: la ven ADMIN y RECEPCION,
+  // igual que la caja y la cartera (hallazgo B6).
+  const session = await requireRole(ROLES_ABONO);
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  const sedeId = session.user.sedeActivaId;
+  const deLaSede = { entrada: { bodega: { sedeId } } };
+
+  const ahora = new Date();
+  const desde = new Date(inicioDiaBogota(ahora).getTime() - DIAS_PAGADAS * 24 * 60 * 60 * 1000);
+  // «Pagada en los últimos 30 días»: si algún abono cae en la ventana, el último también.
+  const wherePagadas = { estado: "PAGADA", ...deLaSede, pagos: { some: { createdAt: { gte: desde } } } } as const;
+
+  const [pendientes, pagadas, conteoPagadas, opciones, sesion] = await Promise.all([
+    tenantDb.cuentaPorPagar.findMany({
+      where:
+        abonadas.length > 0
+          ? { ...deLaSede, OR: [{ estado: "PENDIENTE" }, { id: { in: abonadas } }] }
+          : { estado: "PENDIENTE", ...deLaSede },
+      select: SELECT_CUENTA,
+      orderBy: { fecha: "asc" },
+    }),
+    filtro === "pagadas"
+      ? tenantDb.cuentaPorPagar.findMany({ where: wherePagadas, select: SELECT_CUENTA, orderBy: { fecha: "asc" } })
+      : null,
+    tenantDb.cuentaPorPagar.count({ where: wherePagadas }),
+    leerOpcionesTaller(tenantDb),
+    sesionDeCajaAbierta(tenantDb, sedeId),
+  ]);
+
+  const { proveedores, totales } = agruparCuentasPorPagar(pendientes.map(aFila), ahora);
+  return {
+    proveedores,
+    totales,
+    pagadas: pagadas ? agruparCuentasPorPagar(pagadas.map(aFila), ahora).proveedores : null,
+    conteoPagadas,
+    cajaAbierta: !opciones.usarControlCaja || sesion !== null,
+  };
 }

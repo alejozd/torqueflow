@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agruparCuentasPorPagar, type CuentaPorPagarFila } from "./cuentas-por-pagar";
+import { agruparCuentasPorPagar, resumirEntrada, type CuentaPorPagarFila } from "./cuentas-por-pagar";
 
 const AHORA = new Date("2026-10-17T15:00:00.000Z");
 const haceDias = (dias: number) => new Date(AHORA.getTime() - dias * 24 * 60 * 60 * 1000);
@@ -13,6 +13,9 @@ function cuenta(cambios: Partial<CuentaPorPagarFila> = {}): CuentaPorPagarFila {
     fecha: haceDias(10),
     total: 100000,
     saldo: 100000,
+    pagado: 0,
+    entrada: { id: "e1", referencias: 1, resumen: "Filtro ×2" },
+    pagos: [],
     ...cambios,
   };
 }
@@ -53,5 +56,58 @@ describe("agruparCuentasPorPagar", () => {
     expect(proveedores[0]!.saldoTotal).toBe(0);
     expect(proveedores[0]!.cuentas).toHaveLength(1);
     expect(totales.total).toBe(0);
+  });
+});
+
+describe("resumirEntrada", () => {
+  const item = (repuestoId: string, nombre: string, cantidad: number) => ({ repuestoId, nombre, cantidad });
+
+  it("nombra los dos repuestos de mayor cantidad y cuenta el resto", () => {
+    expect(
+      resumirEntrada([
+        item("r1", "Aceite de motor 5W-30", 6),
+        item("r2", "Batería NGK", 20),
+        item("r3", "Refrigerante", 2),
+      ]),
+    ).toEqual({ referencias: 3, resumen: "Batería NGK ×20, Aceite de motor 5W-30 ×6 y 1 más" });
+  });
+
+  it("junta las líneas del mismo repuesto antes de ordenar", () => {
+    expect(resumirEntrada([item("r1", "Filtro", 4), item("r2", "Correa", 6), item("r1", "Filtro", 4)])).toEqual({
+      referencias: 2,
+      resumen: "Filtro ×8, Correa ×6",
+    });
+  });
+
+  it("una sola referencia o ninguna", () => {
+    expect(resumirEntrada([item("r1", "Refrigerante NGK", 6)])).toEqual({
+      referencias: 1,
+      resumen: "Refrigerante NGK ×6",
+    });
+    expect(resumirEntrada([])).toEqual({ referencias: 0, resumen: "Sin ítems" });
+  });
+});
+
+describe("agruparCuentasPorPagar con los datos de la fila", () => {
+  it("conserva lo pagado, el resumen de la entrada y los abonos", () => {
+    const pagos = [
+      {
+        id: "pg1",
+        monto: 200000,
+        metodoPago: "TRANSFERENCIA",
+        referencia: null,
+        registradoPor: "Admin Dev",
+        createdAt: AHORA,
+      },
+    ];
+    const { proveedores } = agruparCuentasPorPagar(
+      [cuenta({ total: 500000, saldo: 300000, pagado: 200000, pagos })],
+      AHORA,
+    );
+
+    const fila = proveedores[0]!.cuentas[0]!;
+    expect(fila.pagado).toBe(200000);
+    expect(fila.entrada).toEqual({ id: "e1", referencias: 1, resumen: "Filtro ×2" });
+    expect(fila.pagos).toEqual(pagos);
   });
 });

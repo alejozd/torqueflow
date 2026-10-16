@@ -14,7 +14,7 @@ const tx = {
   pagoProveedor: { create: vi.fn() },
 };
 const db = {
-  cuentaPorPagar: { findFirst: vi.fn(), findMany: vi.fn() },
+  cuentaPorPagar: { findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn() },
   cajaSesion: { findFirst: vi.fn() },
   // Control de caja encendido: la regla del efectivo aplica (fase de consolidación, D3).
   configuracionTaller: { findUnique: async () => opcionesTaller },
@@ -129,6 +129,8 @@ describe("getCuentasPorPagar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRequireRole.mockResolvedValue(SESION);
+    db.cuentaPorPagar.count.mockResolvedValue(0);
+    db.cajaSesion.findFirst.mockResolvedValue({ id: "s1", abiertaAt: new Date() });
   });
 
   it("solo ADMIN y RECEPCION ven lo que el taller debe (hallazgo B6)", async () => {
@@ -148,6 +150,8 @@ describe("getCuentasPorPagar", () => {
         fecha: new Date(),
         entradaId: "e1",
         proveedor: { id: "p1", nombre: "Repuestos del Norte" },
+        entrada: { items: [] },
+        pagos: [],
       },
       {
         id: "c2",
@@ -156,6 +160,8 @@ describe("getCuentasPorPagar", () => {
         fecha: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000),
         entradaId: "e2",
         proveedor: { id: "p2", nombre: "Frenos SA" },
+        entrada: { items: [] },
+        pagos: [],
       },
     ]);
 
@@ -169,5 +175,90 @@ describe("getCuentasPorPagar", () => {
     expect(proveedores.map((p) => p.proveedorNombre)).toEqual(["Repuestos del Norte", "Frenos SA"]);
     expect(totales.total).toBe(120000);
     expect(totales["31-60"]).toBe(50000);
+  });
+
+  it("cada fila trae lo pagado, el resumen de la entrada y los abonos con quién los registró", async () => {
+    const creado = new Date("2026-10-16T18:58:00Z");
+    db.cuentaPorPagar.findMany.mockResolvedValue([
+      {
+        id: "c1",
+        total: "5073557",
+        saldoPendiente: "4873557",
+        fecha: new Date(),
+        entradaId: "e1",
+        proveedor: { id: "p1", nombre: "Pirelli" },
+        entrada: {
+          items: [
+            { repuestoId: "r1", cantidad: 20, repuesto: { nombre: "Batería NGK" } },
+            { repuestoId: "r2", cantidad: 6, repuesto: { nombre: "Aceite 5W-30" } },
+            { repuestoId: "r3", cantidad: 1, repuesto: { nombre: "Filtro" } },
+          ],
+        },
+        pagos: [
+          {
+            id: "pg1",
+            monto: "200000",
+            metodoPago: "TRANSFERENCIA",
+            referencia: "004581233",
+            createdAt: creado,
+            registradoPor: { nombre: "Admin Dev" },
+          },
+        ],
+      },
+    ]);
+
+    const { proveedores, pagadas } = await getCuentasPorPagar();
+
+    const fila = proveedores[0]!.cuentas[0]!;
+    expect(fila.pagado).toBe(200000);
+    expect(fila.entrada).toEqual({ id: "e1", referencias: 3, resumen: "Batería NGK ×20, Aceite 5W-30 ×6 y 1 más" });
+    expect(fila.pagos).toEqual([
+      {
+        id: "pg1",
+        monto: 200000,
+        metodoPago: "TRANSFERENCIA",
+        referencia: "004581233",
+        registradoPor: "Admin Dev",
+        createdAt: creado,
+      },
+    ]);
+    // Sin pedir la pestaña Pagadas no se leen sus filas, solo el conteo.
+    expect(pagadas).toBeNull();
+    expect(db.cuentaPorPagar.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("Pagadas: cuentas saldadas de la sede con algún abono en los últimos 30 días", async () => {
+    db.cuentaPorPagar.findMany.mockResolvedValue([]);
+    db.cuentaPorPagar.count.mockResolvedValue(1);
+
+    const datos = await getCuentasPorPagar({ filtro: "pagadas" });
+
+    expect(datos.pagadas).toEqual([]);
+    expect(datos.conteoPagadas).toBe(1);
+    const consulta = db.cuentaPorPagar.findMany.mock.calls[1]![0] as { where: Record<string, unknown> };
+    expect(consulta.where).toMatchObject({
+      estado: "PAGADA",
+      entrada: { bodega: { sedeId: "sede-1" } },
+      pagos: { some: { createdAt: { gte: expect.any(Date) } } },
+    });
+  });
+
+  it("una cuenta recién saldada (?abonada=) sigue en Pendientes hasta recargar", async () => {
+    db.cuentaPorPagar.findMany.mockResolvedValue([]);
+
+    await getCuentasPorPagar({ abonadas: ["c9"] });
+
+    expect(db.cuentaPorPagar.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { entrada: { bodega: { sedeId: "sede-1" } }, OR: [{ estado: "PENDIENTE" }, { id: { in: ["c9"] } }] },
+      }),
+    );
+  });
+
+  it("dice si la caja está cerrada para avisar antes de pagar en efectivo", async () => {
+    db.cuentaPorPagar.findMany.mockResolvedValue([]);
+    db.cajaSesion.findFirst.mockResolvedValue(null);
+
+    expect((await getCuentasPorPagar()).cajaAbierta).toBe(false);
   });
 });

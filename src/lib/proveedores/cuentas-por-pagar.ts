@@ -7,6 +7,26 @@ import { roundMoney } from "@/lib/money/round";
  * las dos igual, y deja el cálculo fuera de la consulta para poder probarlo.
  */
 
+/** Un abono ya registrado a la cuenta, para el historial de la fila. */
+export interface PagoCuentaFila {
+  id: string;
+  monto: number;
+  metodoPago: string;
+  referencia: string | null;
+  /** Nombre de quien lo registró. */
+  registradoPor: string;
+  createdAt: Date;
+}
+
+/** Lo que se compró en la entrada, en una línea: para saber de qué es la deuda. */
+export interface EntradaResumen {
+  id: string;
+  /** Cuántos repuestos distintos trajo la entrada. */
+  referencias: number;
+  /** «Batería NGK ×20, Aceite 5W-30 ×6 y 1 más». */
+  resumen: string;
+}
+
 export interface CuentaPorPagarFila {
   cuentaId: string;
   proveedorId: string;
@@ -15,6 +35,40 @@ export interface CuentaPorPagarFila {
   fecha: Date;
   total: number;
   saldo: number;
+  /** total − saldo: lo que ya se le abonó a esta entrada. */
+  pagado: number;
+  entrada: EntradaResumen;
+  /** Del abono más reciente al más viejo. */
+  pagos: PagoCuentaFila[];
+}
+
+/** Cuántos ítems se nombran en el resumen de la entrada; el resto va como «y N más». */
+const ITEMS_EN_RESUMEN = 2;
+
+/**
+ * Resume los ítems de una entrada: junta las líneas del mismo repuesto (una
+ * entrada suelta puede traer dos veces el mismo) y nombra los de mayor cantidad.
+ */
+export function resumirEntrada(
+  items: { repuestoId: string; nombre: string; cantidad: number }[],
+): { referencias: number; resumen: string } {
+  const porRepuesto = new Map<string, { nombre: string; cantidad: number }>();
+  for (const item of items) {
+    const previo = porRepuesto.get(item.repuestoId);
+    if (previo) previo.cantidad += item.cantidad;
+    else porRepuesto.set(item.repuestoId, { nombre: item.nombre, cantidad: item.cantidad });
+  }
+
+  const ordenados = [...porRepuesto.values()].sort(
+    (a, b) => b.cantidad - a.cantidad || a.nombre.localeCompare(b.nombre, "es"),
+  );
+  const nombrados = ordenados.slice(0, ITEMS_EN_RESUMEN).map((item) => `${item.nombre} ×${item.cantidad}`);
+  const resto = ordenados.length - nombrados.length;
+  if (nombrados.length === 0) return { referencias: 0, resumen: "Sin ítems" };
+  return {
+    referencias: ordenados.length,
+    resumen: resto > 0 ? `${nombrados.join(", ")} y ${resto} más` : nombrados.join(", "),
+  };
 }
 
 export interface CuentaConAntiguedad extends CuentaPorPagarFila {
