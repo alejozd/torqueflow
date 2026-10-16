@@ -34,7 +34,7 @@ export function BuscadorConceptos<R, S>({
   placeholder,
   etiqueta,
   inputRef,
-  onFlechaArriba,
+  onFlechaAbajo,
   alEnterSinResultados,
 }: {
   buscar: (texto: string) => Promise<R>;
@@ -45,8 +45,8 @@ export function BuscadorConceptos<R, S>({
   placeholder: string;
   etiqueta: string;
   inputRef?: Ref<HTMLInputElement>;
-  /** ↑ con la lista cerrada (nada que recorrer): el mostrador lo usa para saltar a la última fila del carrito. */
-  onFlechaArriba?: () => void;
+  /** ↓ con la lista cerrada (nada que recorrer): el mostrador lo usa para bajar a la primera fila del carrito. */
+  onFlechaAbajo?: () => void;
   /**
    * Enter con texto mientras la búsqueda sigue pendiente (un lector de códigos
    * escribe y envía Enter en milisegundos) o sin resultados. Quien lo usa busca
@@ -164,15 +164,15 @@ export function BuscadorConceptos<R, S>({
     if (event.key === "ArrowDown") {
       event.preventDefault();
       limpiarAviso();
+      if ((texto === "" || !mostrarLista) && onFlechaAbajo) {
+        onFlechaAbajo();
+        return;
+      }
       setAbierto(true);
       setActiva((i) => Math.min(i + 1, opciones.length - 1));
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       limpiarAviso();
-      if ((texto === "" || !mostrarLista) && onFlechaArriba) {
-        onFlechaArriba();
-        return;
-      }
       setActiva((i) => Math.max(i - 1, 0));
     } else if (event.key === "Enter") {
       event.preventDefault();

@@ -91,8 +91,8 @@ describe("BuscadorConceptos compartido", () => {
     expect(estado).toHaveTextContent("");
   });
 
-  it("↑ con la lista cerrada llama a onFlechaArriba", async () => {
-    const onFlechaArriba = vi.fn();
+  it("↓ con la lista cerrada llama a onFlechaAbajo", async () => {
+    const onFlechaAbajo = vi.fn();
     render(
       <BuscadorConceptos<Fila[], Fila>
         buscar={async () => FILAS}
@@ -101,12 +101,12 @@ describe("BuscadorConceptos compartido", () => {
         onSeleccionar={vi.fn()}
         placeholder="Buscar"
         etiqueta="Buscar repuesto"
-        onFlechaArriba={onFlechaArriba}
+        onFlechaAbajo={onFlechaAbajo}
       />,
     );
     await userEvent.click(screen.getByLabelText("Buscar repuesto"));
-    await userEvent.keyboard("{ArrowUp}");
-    expect(onFlechaArriba).toHaveBeenCalledTimes(1);
+    await userEvent.keyboard("{ArrowDown}");
+    expect(onFlechaAbajo).toHaveBeenCalledTimes(1);
   });
 
   it("Esc cierra la lista y limpia el texto", async () => {

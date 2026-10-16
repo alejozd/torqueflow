@@ -45,8 +45,10 @@ function unidades(n: number) {
 
 /**
  * Carrito del mostrador: filas con chip de disponibilidad, − / + con tope y
- * quitar con confirmación en línea; el buscador es la última fila. Todo se
- * maneja con teclado (spec §4.4): ↑ desde el buscador baja a la última fila,
+ * quitar con confirmación en línea. El buscador va encima de la tabla y fuera de
+ * su caja con desplazamiento horizontal: ahí la lista de resultados quedaría
+ * recortada y escondida abajo. Todo se maneja con teclado (spec §4.4): ↓ desde
+ * el buscador baja a la primera fila, ↑ desde la primera vuelve al buscador,
  * `+` / `−` cambian la cantidad, Supr quita (Enter confirma, Esc cancela).
  */
 export function TablaCarrito({
@@ -99,11 +101,14 @@ export function TablaCarrito({
   }
 
   function aOpciones(resultados: ResultadoRepuestoMostrador[]): OpcionBuscador<ResultadoRepuestoMostrador>[] {
+    // Encabezado con el conteo: deja claro que hay más resultados al desplazarse por la lista.
+    const conteo = `${resultados.length} ${resultados.length === 1 ? "resultado" : "resultados"}`;
     return resultados.map((repuesto) => {
       const libres = repuesto.disponible - enCarrito(repuesto.id);
       return {
         clave: repuesto.id,
         valor: repuesto,
+        seccion: conteo,
         noDisponible: libres > 0 ? undefined : "Sin unidades libres: no se puede agregar",
         contenido: (
           <>
@@ -147,11 +152,11 @@ export function TablaCarrito({
       abrirConfirmacion(linea.id, true);
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      enfocarFila(lineas[indice - 1]?.id);
+      if (indice === 0) enfocarBuscador();
+      else enfocarFila(lineas[indice - 1]?.id);
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
-      if (indice === lineas.length - 1) enfocarBuscador();
-      else enfocarFila(lineas[indice + 1]?.id);
+      enfocarFila(lineas[indice + 1]?.id);
     }
   }
 
@@ -192,6 +197,17 @@ export function TablaCarrito({
 
   return (
     <div className="flex flex-col gap-2">
+      <BuscadorConceptos<ResultadoRepuestoMostrador[], ResultadoRepuestoMostrador>
+        buscar={buscarParaMostradorAction}
+        vacio={SIN_RESULTADOS}
+        aOpciones={aOpciones}
+        onSeleccionar={agregarRepuesto}
+        placeholder="Escanea o escribe código / nombre… (F1)"
+        etiqueta="Buscar repuesto"
+        inputRef={asignarBuscador}
+        onFlechaAbajo={() => enfocarFila(lineas[0]?.id)}
+        alEnterSinResultados={agregarPorCodigo}
+      />
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-sm">
           <thead>
@@ -313,21 +329,6 @@ export function TablaCarrito({
                 </td>
               </tr>
             ) : null}
-            <tr>
-              <td colSpan={5} className="px-3 py-2">
-                <BuscadorConceptos<ResultadoRepuestoMostrador[], ResultadoRepuestoMostrador>
-                  buscar={buscarParaMostradorAction}
-                  vacio={SIN_RESULTADOS}
-                  aOpciones={aOpciones}
-                  onSeleccionar={agregarRepuesto}
-                  placeholder="Escanea o escribe código / nombre… (F1)"
-                  etiqueta="Buscar repuesto"
-                  inputRef={asignarBuscador}
-                  onFlechaArriba={() => enfocarFila(lineas[lineas.length - 1]?.id)}
-                  alEnterSinResultados={agregarPorCodigo}
-                />
-              </td>
-            </tr>
           </tbody>
         </table>
       </div>

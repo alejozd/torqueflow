@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 export const ATAJOS_MOSTRADOR: { teclas: string; accion: string }[] = [
   { teclas: "F1 o /", accion: "Ir al buscador de productos" },
   { teclas: "↑ / ↓ · Enter", accion: "Moverse en los resultados · agregar" },
-  { teclas: "↑ desde el buscador", accion: "Ir a la última fila del carrito" },
+  { teclas: "↓ desde el buscador vacío", accion: "Ir a la primera fila del carrito" },
   { teclas: "+ / − en una fila", accion: "Subir / bajar la cantidad" },
   { teclas: "Supr en una fila", accion: "Quitar (Enter confirma, Esc cancela)" },
   { teclas: "F2", accion: "Buscar / cambiar cliente" },
