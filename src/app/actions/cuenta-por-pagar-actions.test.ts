@@ -10,11 +10,11 @@ vi.mock("@/lib/auth/guards", () => ({
 }));
 
 const tx = {
-  cuentaPorPagar: { updateMany: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
+  cuentaPorPagar: { updateMany: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn(), findMany: vi.fn() },
   pagoProveedor: { create: vi.fn() },
 };
 const db = {
-  cuentaPorPagar: { findFirst: vi.fn(), findMany: vi.fn() },
+  cuentaPorPagar: { findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn() },
   cajaSesion: { findFirst: vi.fn() },
   // Control de caja encendido: la regla del efectivo aplica (fase de consolidación, D3).
   configuracionTaller: { findUnique: async () => opcionesTaller },
@@ -23,7 +23,7 @@ const db = {
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { abonarCuentaPorPagarAction, getCuentasPorPagar } from "./cuenta-por-pagar-actions";
+import { abonarCuentaPorPagarAction, abonarProveedorAction, getCuentasPorPagar } from "./cuenta-por-pagar-actions";
 
 const SESION = { user: { id: "u1", role: "RECEPCION", tenantSchema: "taller", sedeActivaId: "sede-1" } };
 const inicial = { error: null, success: false };
@@ -49,7 +49,7 @@ describe("abonarCuentaPorPagarAction", () => {
   it("abona con guarda atómica y marca la cuenta como pagada al saldar", async () => {
     const r = await abonarCuentaPorPagarAction("c1", inicial, fd({ monto: "170000", metodoPago: "TRANSFERENCIA" }));
 
-    expect(r).toEqual({ error: null, success: true });
+    expect(r).toEqual({ error: null, success: true, montoRegistrado: 170000, saldoRestante: 0, cuentaId: "c1" });
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
     expect(tx.cuentaPorPagar.updateMany).toHaveBeenCalledWith({
       where: { id: "c1", saldoPendiente: { gte: 170000 } },
@@ -64,9 +64,16 @@ describe("abonarCuentaPorPagarAction", () => {
   it("un abono parcial no marca la cuenta como pagada", async () => {
     tx.cuentaPorPagar.findUniqueOrThrow.mockResolvedValue({ saldoPendiente: "70000" });
 
-    const r = await abonarCuentaPorPagarAction("c1", inicial, fd({ monto: "100000", metodoPago: "EFECTIVO" }));
+    const r = await abonarCuentaPorPagarAction(
+      "c1",
+      inicial,
+      fd({ monto: "100000", metodoPago: "EFECTIVO", referencia: "  REC-12  " }),
+    );
 
-    expect(r.success).toBe(true);
+    expect(r).toMatchObject({ success: true, montoRegistrado: 100000, saldoRestante: 70000, cuentaId: "c1" });
+    expect(tx.pagoProveedor.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ referencia: "REC-12" }),
+    });
     expect(tx.cuentaPorPagar.update).not.toHaveBeenCalled();
   });
 
@@ -129,6 +136,8 @@ describe("getCuentasPorPagar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRequireRole.mockResolvedValue(SESION);
+    db.cuentaPorPagar.count.mockResolvedValue(0);
+    db.cajaSesion.findFirst.mockResolvedValue({ id: "s1", abiertaAt: new Date() });
   });
 
   it("solo ADMIN y RECEPCION ven lo que el taller debe (hallazgo B6)", async () => {
@@ -148,6 +157,8 @@ describe("getCuentasPorPagar", () => {
         fecha: new Date(),
         entradaId: "e1",
         proveedor: { id: "p1", nombre: "Repuestos del Norte" },
+        entrada: { items: [] },
+        pagos: [],
       },
       {
         id: "c2",
@@ -156,6 +167,8 @@ describe("getCuentasPorPagar", () => {
         fecha: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000),
         entradaId: "e2",
         proveedor: { id: "p2", nombre: "Frenos SA" },
+        entrada: { items: [] },
+        pagos: [],
       },
     ]);
 
@@ -169,5 +182,210 @@ describe("getCuentasPorPagar", () => {
     expect(proveedores.map((p) => p.proveedorNombre)).toEqual(["Repuestos del Norte", "Frenos SA"]);
     expect(totales.total).toBe(120000);
     expect(totales["31-60"]).toBe(50000);
+  });
+
+  it("cada fila trae lo pagado, el resumen de la entrada y los abonos con quién los registró", async () => {
+    const creado = new Date("2026-10-16T18:58:00Z");
+    db.cuentaPorPagar.findMany.mockResolvedValue([
+      {
+        id: "c1",
+        total: "5073557",
+        saldoPendiente: "4873557",
+        fecha: new Date(),
+        entradaId: "e1",
+        proveedor: { id: "p1", nombre: "Pirelli" },
+        entrada: {
+          items: [
+            { repuestoId: "r1", cantidad: 20, repuesto: { nombre: "Batería NGK" } },
+            { repuestoId: "r2", cantidad: 6, repuesto: { nombre: "Aceite 5W-30" } },
+            { repuestoId: "r3", cantidad: 1, repuesto: { nombre: "Filtro" } },
+          ],
+        },
+        pagos: [
+          {
+            id: "pg1",
+            monto: "200000",
+            metodoPago: "TRANSFERENCIA",
+            referencia: "004581233",
+            createdAt: creado,
+            registradoPor: { nombre: "Admin Dev" },
+          },
+        ],
+      },
+    ]);
+
+    const { proveedores, pagadas } = await getCuentasPorPagar();
+
+    const fila = proveedores[0]!.cuentas[0]!;
+    expect(fila.pagado).toBe(200000);
+    expect(fila.entrada).toEqual({ id: "e1", referencias: 3, resumen: "Batería NGK ×20, Aceite 5W-30 ×6 y 1 más" });
+    expect(fila.pagos).toEqual([
+      {
+        id: "pg1",
+        monto: 200000,
+        metodoPago: "TRANSFERENCIA",
+        referencia: "004581233",
+        registradoPor: "Admin Dev",
+        createdAt: creado,
+      },
+    ]);
+    // Sin pedir la pestaña Pagadas no se leen sus filas, solo el conteo.
+    expect(pagadas).toBeNull();
+    expect(db.cuentaPorPagar.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("Pagadas: cuentas saldadas de la sede con algún abono en los últimos 30 días", async () => {
+    db.cuentaPorPagar.findMany.mockResolvedValue([]);
+    db.cuentaPorPagar.count.mockResolvedValue(1);
+
+    const datos = await getCuentasPorPagar({ filtro: "pagadas" });
+
+    expect(datos.pagadas).toEqual([]);
+    expect(datos.conteoPagadas).toBe(1);
+    const consulta = db.cuentaPorPagar.findMany.mock.calls[1]![0] as { where: Record<string, unknown> };
+    expect(consulta.where).toMatchObject({
+      estado: "PAGADA",
+      entrada: { bodega: { sedeId: "sede-1" } },
+      pagos: { some: { createdAt: { gte: expect.any(Date) } } },
+    });
+  });
+
+  it("una cuenta recién saldada (?abonada=) sigue en Pendientes hasta recargar", async () => {
+    db.cuentaPorPagar.findMany.mockResolvedValue([]);
+
+    await getCuentasPorPagar({ abonadas: ["c9"] });
+
+    expect(db.cuentaPorPagar.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { entrada: { bodega: { sedeId: "sede-1" } }, OR: [{ estado: "PENDIENTE" }, { id: { in: ["c9"] } }] },
+      }),
+    );
+  });
+
+  it("dice si la caja está cerrada para avisar antes de pagar en efectivo", async () => {
+    db.cuentaPorPagar.findMany.mockResolvedValue([]);
+    db.cajaSesion.findFirst.mockResolvedValue(null);
+
+    expect((await getCuentasPorPagar()).cajaAbierta).toBe(false);
+  });
+});
+
+describe("abonarProveedorAction", () => {
+  const dia = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
+  // Saldos que deja cada guarda, por cuenta (lo que lee `findUniqueOrThrow` después de descontar).
+  const saldosDespues: Record<string, string> = {};
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequireRole.mockResolvedValue(SESION);
+    db.cajaSesion.findFirst.mockResolvedValue({ id: "s1", abiertaAt: new Date() });
+    tx.cuentaPorPagar.findMany.mockResolvedValue([
+      { id: "g1", fecha: dia("2026-08-07"), saldoPendiente: "3948632" },
+      { id: "g2", fecha: dia("2026-09-27"), saldoPendiente: "4029365" },
+      { id: "g3", fecha: dia("2026-10-06"), saldoPendiente: "1815989" },
+    ]);
+    tx.cuentaPorPagar.updateMany.mockResolvedValue({ count: 1 });
+    Object.assign(saldosDespues, { g1: "0", g2: "2977997", g3: "1815989" });
+    tx.cuentaPorPagar.findUniqueOrThrow.mockImplementation(async ({ where }: { where: { id: string } }) => ({
+      saldoPendiente: saldosDespues[where.id],
+    }));
+    tx.pagoProveedor.create.mockResolvedValue({});
+  });
+
+  it("reparte de la más vieja a la más nueva: un abono por cuenta tocada y salda la primera", async () => {
+    const r = await abonarProveedorAction(
+      "prov-gates",
+      { error: null, success: false },
+      fd({ monto: "5000000", metodoPago: "TRANSFERENCIA", referencia: " 004581233 " }),
+    );
+
+    expect(r).toEqual({
+      error: null,
+      success: true,
+      montoRegistrado: 5000000,
+      cuentaIds: ["g1", "g2"],
+      saldoRestante: 4793986,
+    });
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    // Solo lo pendiente del proveedor en la sede activa, de la más vieja a la más nueva.
+    expect(tx.cuentaPorPagar.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          proveedorId: "prov-gates",
+          estado: "PENDIENTE",
+          saldoPendiente: { gt: 0 },
+          entrada: { bodega: { sedeId: "sede-1" } },
+        },
+        orderBy: [{ fecha: "asc" }, { id: "asc" }],
+      }),
+    );
+    expect(tx.cuentaPorPagar.updateMany.mock.calls).toEqual([
+      [{ where: { id: "g1", saldoPendiente: { gte: 3948632 } }, data: { saldoPendiente: { decrement: 3948632 } } }],
+      [{ where: { id: "g2", saldoPendiente: { gte: 1051368 } }, data: { saldoPendiente: { decrement: 1051368 } } }],
+    ]);
+    expect(tx.pagoProveedor.create.mock.calls.map(([arg]) => arg.data)).toEqual([
+      { cuentaId: "g1", monto: 3948632, metodoPago: "TRANSFERENCIA", referencia: "004581233", registradoPorId: "u1" },
+      { cuentaId: "g2", monto: 1051368, metodoPago: "TRANSFERENCIA", referencia: "004581233", registradoPorId: "u1" },
+    ]);
+    // Solo la que llegó a cero queda pagada.
+    expect(tx.cuentaPorPagar.update).toHaveBeenCalledTimes(1);
+    expect(tx.cuentaPorPagar.update).toHaveBeenCalledWith({ where: { id: "g1" }, data: { estado: "PAGADA" } });
+  });
+
+  it("no acepta más de lo que se le debe al proveedor", async () => {
+    const r = await abonarProveedorAction(
+      "prov-gates",
+      { error: null, success: false },
+      fd({ monto: "9793987", metodoPago: "TRANSFERENCIA" }),
+    );
+
+    expect(r.error).toBe("El monto no puede ser mayor a lo que se le debe al proveedor");
+    expect(tx.pagoProveedor.create).not.toHaveBeenCalled();
+  });
+
+  it("si una guarda falla (alguien abonó a la vez) se deshace todo con un aviso", async () => {
+    tx.cuentaPorPagar.updateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+
+    const r = await abonarProveedorAction(
+      "prov-gates",
+      { error: null, success: false },
+      fd({ monto: "5000000", metodoPago: "TRANSFERENCIA" }),
+    );
+
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("Alguien acaba de abonar");
+  });
+
+  it("sin entradas por pagar en la sede no registra nada", async () => {
+    tx.cuentaPorPagar.findMany.mockResolvedValue([]);
+
+    const r = await abonarProveedorAction(
+      "prov-otro",
+      { error: null, success: false },
+      fd({ monto: "1000", metodoPago: "TARJETA" }),
+    );
+
+    expect(r.error).toBe("Ese proveedor no tiene entradas por pagar en esta sede");
+  });
+
+  it("en efectivo revisa la caja una sola vez antes de tocar las cuentas", async () => {
+    db.cajaSesion.findFirst.mockResolvedValue(null);
+
+    const r = await abonarProveedorAction(
+      "prov-gates",
+      { error: null, success: false },
+      fd({ monto: "5000000", metodoPago: "EFECTIVO" }),
+    );
+
+    expect(r.error).toBe("Abre la caja antes de pagar en efectivo a un proveedor");
+    expect(db.cajaSesion.findFirst).toHaveBeenCalledTimes(1);
+    expect(tx.cuentaPorPagar.findMany).not.toHaveBeenCalled();
+  });
+
+  it("valida el monto y el método antes de leer nada", async () => {
+    const r = await abonarProveedorAction("prov-gates", { error: null, success: false }, fd({ monto: "" }));
+
+    expect(r.error).toBe("El monto es obligatorio");
+    expect(mockRequireRole).not.toHaveBeenCalled();
   });
 });

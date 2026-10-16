@@ -19,3 +19,8 @@ export const abonoProveedorSchema = z.object({
 });
 
 export type AbonoProveedorInput = z.infer<typeof abonoProveedorSchema>;
+
+/** «Abonar al proveedor»: un pago que se reparte entre sus entradas, de la más vieja a la más nueva. */
+export const abonoAProveedorSchema = abonoProveedorSchema.omit({ cuentaId: true }).extend({
+  proveedorId: z.string().trim().min(1, "Falta el proveedor"),
+});

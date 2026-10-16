@@ -1,20 +1,75 @@
-import { getCuentasPorPagar } from "@/app/actions/cuenta-por-pagar-actions";
+import Link from "next/link";
+import { AlertCircle, Clock, HandCoins, TriangleAlert, type LucideIcon } from "lucide-react";
+import { getCuentasPorPagar, type FiltroCuentasPorPagar } from "@/app/actions/cuenta-por-pagar-actions";
 import { BotonExportar } from "@/components/boton-exportar";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AbonoCuentaForm } from "./abono-cuenta-form";
-
-const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
-const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeZone: "America/Bogota" });
+import { Card, CardContent } from "@/components/ui/card";
+import { KPI_TONE, KpiCard, type KpiAccentColor, type KpiTone } from "@/components/ui/kpi-card";
+import type { RangoAntiguedad } from "@/lib/cartera/antiguedad";
+import { DIAS_URGENTE, lecturaUrgente } from "@/lib/proveedores/cuentas-por-pagar";
+import { cn } from "@/lib/utils";
+import { pesos, plural, PUNTO, TEXTO_VERDE } from "./presentacion";
+import { AbonosProvider } from "./abonos-contexto";
+import { ProveedorCuentasLista } from "./proveedor-cuentas";
 
 const RANGOS = [
-  { clave: "0-30", etiqueta: "0 a 30 días" },
-  { clave: "31-60", etiqueta: "31 a 60 días" },
-  { clave: "61-90", etiqueta: "61 a 90 días" },
-  { clave: "90+", etiqueta: "Más de 90 días" },
-] as const;
+  { clave: "0-30", etiqueta: "0 a 30 días", tono: "info", colorValor: "default", icono: Clock },
+  { clave: "31-60", etiqueta: "31 a 60 días", tono: "info", colorValor: "default", icono: Clock },
+  { clave: "61-90", etiqueta: "61 a 90 días", tono: "warning", colorValor: "warning", icono: Clock },
+  { clave: "90+", etiqueta: "Más de 90 días", tono: "danger", colorValor: "danger", icono: AlertCircle },
+] as const satisfies readonly {
+  clave: RangoAntiguedad;
+  etiqueta: string;
+  tono: KpiTone;
+  colorValor: KpiAccentColor;
+  icono: LucideIcon;
+}[];
 
-export default async function CuentasPorPagarPage() {
-  const { proveedores, totales } = await getCuentasPorPagar();
+function cuentas(n: number) {
+  return `${n} ${n === 1 ? "cuenta" : "cuentas"}`;
+}
+
+/** «Terpel (73 días), Gates (70) y Andina (69)»: hasta tres nombres y el resto contado. */
+function nombresUrgentes(proveedores: { nombre: string; dias: number }[]): string {
+  const nombrados = proveedores
+    .slice(0, 3)
+    .map(
+      (proveedor, indice) =>
+        `${proveedor.nombre} (${indice === 0 ? plural(proveedor.dias, "día", "días") : proveedor.dias})`,
+    );
+  const resto = proveedores.length - nombrados.length;
+  if (resto > 0) return `${nombrados.join(", ")} y ${plural(resto, "proveedor más", "proveedores más")}`;
+  if (nombrados.length === 1) return nombrados[0]!;
+  return `${nombrados.slice(0, -1).join(", ")} y ${nombrados.at(-1)}`;
+}
+
+export default async function CuentasPorPagarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; abonada?: string }>;
+}) {
+  const { tab, abonada } = await searchParams;
+  const filtro: FiltroCuentasPorPagar = tab === "pagadas" ? "pagadas" : "pendientes";
+  // `?abonada=id1,id2`: cuentas recién abonadas aquí, que siguen a la vista resaltadas.
+  const abonadas =
+    typeof abonada === "string"
+      ? abonada
+          .split(",")
+          .map((id) => id.trim())
+          .filter((id) => id !== "")
+          .slice(0, 20)
+      : [];
+  const { proveedores, totales, pagadas, conteoPagadas, cajaAbierta } = await getCuentasPorPagar({
+    filtro,
+    abonadas,
+  });
+  // Solo lo que tiene saldo cuenta para los KPI (una cuenta recién saldada puede seguir en la lista).
+  const todas = proveedores.flatMap((proveedor) => proveedor.cuentas).filter((cuenta) => cuenta.saldo > 0);
+  const totalCuentas = todas.length;
+  const cuentasPorRango = Object.fromEntries(
+    RANGOS.map((rango) => [rango.clave, todas.filter((cuenta) => cuenta.rango === rango.clave).length]),
+  ) as Record<RangoAntiguedad, number>;
+  const urgente = lecturaUrgente(proveedores);
+  const lista = filtro === "pagadas" ? (pagadas ?? []) : proveedores;
 
   return (
     <div className="flex flex-col gap-6">
@@ -28,63 +83,133 @@ export default async function CuentasPorPagarPage() {
         <BotonExportar reporte="cuentas-por-pagar" etiqueta="Exportar a Excel" />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Total por pagar</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="font-mono text-xl font-semibold">{formatoMoneda.format(totales.total)}</p>
-          </CardContent>
-        </Card>
-        {RANGOS.map((rango) => (
-          <Card key={rango.clave}>
-            <CardHeader className="pb-2">
-              <CardDescription>{rango.etiqueta}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="font-mono text-xl">{formatoMoneda.format(totales[rango.clave])}</p>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Misma fila que Cartera: el color sube con la antigüedad de la deuda. */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <KpiCard
+          title="Total por pagar"
+          value={pesos(totales.total)}
+          valueColor="warning"
+          subtitle={
+            totalCuentas === 0
+              ? "Todo está pagado"
+              : `${cuentas(totalCuentas)} · ${proveedores.length} ${proveedores.length === 1 ? "proveedor" : "proveedores"}`
+          }
+          icon={<HandCoins className={cn("size-5", KPI_TONE.warning.icon)} />}
+          iconBgColor={KPI_TONE.warning.iconBg}
+          className={KPI_TONE.warning.cardBg}
+        />
+        {RANGOS.map((rango) => {
+          const tono = KPI_TONE[rango.tono];
+          const Icono = rango.icono;
+          const enRango = cuentasPorRango[rango.clave];
+          return (
+            <KpiCard
+              key={rango.clave}
+              title={rango.etiqueta}
+              value={pesos(totales[rango.clave])}
+              valueColor={rango.colorValor}
+              highlight={rango.clave === "90+" && totales["90+"] > 0}
+              subtitle={enRango === 0 ? "Sin cuentas" : cuentas(enRango)}
+              subtitleIcon={enRango === 0 ? "none" : "dot"}
+              icon={<Icono className={cn("size-5", tono.icon)} />}
+              iconBgColor={tono.iconBg}
+              className={tono.cardBg}
+            />
+          );
+        })}
       </div>
 
-      {proveedores.length === 0 ? (
-        <Card>
-          <CardContent className="py-6 text-sm text-muted-foreground">
-            No hay cuentas pendientes: todo lo recibido está pagado.
-          </CardContent>
-        </Card>
-      ) : (
-        proveedores.map((proveedor) => (
-          <Card key={proveedor.proveedorId}>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between gap-3">
-                <span>{proveedor.proveedorNombre}</span>
-                <span className="font-mono text-base">{formatoMoneda.format(proveedor.saldoTotal)}</span>
-              </CardTitle>
-              <CardDescription>
-                {proveedor.cuentas.length} {proveedor.cuentas.length === 1 ? "cuenta" : "cuentas"} · la más antigua hace{" "}
-                {proveedor.diasMasAntigua} {proveedor.diasMasAntigua === 1 ? "día" : "días"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              {proveedor.cuentas.map((cuenta) => (
-                <div key={cuenta.cuentaId} className="flex flex-col gap-2 rounded-md border p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                    <span>
-                      Entrada del {formatoFecha.format(cuenta.fecha)} ·{" "}
-                      <span className="text-muted-foreground">total {formatoMoneda.format(cuenta.total)}</span>
-                    </span>
-                    <span className="font-mono font-medium">Saldo {formatoMoneda.format(cuenta.saldo)}</span>
-                  </div>
-                  <AbonoCuentaForm cuentaId={cuenta.cuentaId} saldo={cuenta.saldo} />
-                </div>
-              ))}
-            </CardContent>
+      {/* Lectura en lenguaje sencillo: qué atender primero. */}
+      {urgente.entradas > 0 ? (
+        <p
+          role="note"
+          className="-mt-2 flex items-start gap-2 rounded-lg bg-[oklch(0.75_0.15_70/0.14)] px-3 py-2 text-sm"
+        >
+          <TriangleAlert className="mt-0.5 size-4 shrink-0 text-[oklch(0.66_0.16_60)]" aria-hidden />
+          <span>
+            <b className="font-semibold">Lo más urgente:</b>{" "}
+            {urgente.entradas === 1 ? "1 entrada pasa" : `${urgente.entradas} entradas pasan`} de {DIAS_URGENTE} días y{" "}
+            {urgente.entradas === 1 ? "debe" : "suman"} <b className="font-mono font-semibold">{pesos(urgente.suma)}</b>{" "}
+            — {nombresUrgentes(urgente.proveedores)}. Para abonar, toca <b className="font-semibold">Abonar</b> en la
+            entrada que vas a pagar.
+          </span>
+        </p>
+      ) : totalCuentas > 0 ? (
+        <p
+          role="note"
+          className="-mt-2 flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-sm text-muted-foreground"
+        >
+          <span className={cn("size-1.5 shrink-0 rounded-full", PUNTO.verde)} aria-hidden />
+          Ninguna entrada pasa de {DIAS_URGENTE} días. Para abonar, toca Abonar en la entrada que vas a pagar.
+        </p>
+      ) : null}
+
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <nav aria-label="Filtro" className="flex gap-1 self-start rounded-xl border border-border bg-muted p-1">
+            <PestanaFiltro href="/cuentas-por-pagar" activa={filtro === "pendientes"} conteo={totalCuentas}>
+              Pendientes
+            </PestanaFiltro>
+            <PestanaFiltro href="/cuentas-por-pagar?tab=pagadas" activa={filtro === "pagadas"} conteo={conteoPagadas}>
+              Pagadas · 30 días
+            </PestanaFiltro>
+          </nav>
+          {filtro === "pendientes" && lista.length > 0 ? (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className={cn("size-1.5 rounded-full", PUNTO.gris)} aria-hidden />
+              Ordenado por lo que más se debe · las entradas más viejas primero
+            </span>
+          ) : null}
+        </div>
+
+        {lista.length === 0 ? (
+          <Card>
+            {filtro === "pagadas" ? (
+              <CardContent className="py-7 text-center text-sm text-muted-foreground">
+                No hay cuentas pagadas en los últimos 30 días.
+              </CardContent>
+            ) : (
+              <CardContent className="py-7 text-center text-sm text-muted-foreground">
+                <p className={cn("text-lg font-semibold", TEXTO_VERDE)}>✓ Todo está pagado</p>
+                <p>No le debes nada a ningún proveedor.</p>
+              </CardContent>
+            )}
           </Card>
-        ))
-      )}
+        ) : (
+          <AbonosProvider cajaAbierta={cajaAbierta} abonadas={abonadas}>
+            <ProveedorCuentasLista proveedores={lista} modo={filtro} abonadas={abonadas} />
+          </AbonosProvider>
+        )}
+      </div>
     </div>
+  );
+}
+
+function PestanaFiltro({
+  href,
+  activa,
+  conteo,
+  children,
+}: {
+  href: string;
+  activa: boolean;
+  conteo: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      scroll={false}
+      aria-current={activa ? "page" : undefined}
+      className={cn(
+        "inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-semibold whitespace-nowrap transition-colors",
+        activa
+          ? "bg-card shadow-sm ring-1 ring-border"
+          : "text-muted-foreground hover:bg-card/70 hover:text-foreground",
+      )}
+    >
+      {children}
+      <span className="rounded-full bg-foreground/[0.07] px-1.5 text-xs font-medium tabular-nums">{conteo}</span>
+    </Link>
   );
 }
