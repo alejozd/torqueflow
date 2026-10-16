@@ -16,21 +16,35 @@ const AbonosContext = createContext<ContextoAbonos>({ abrirCuenta: () => {} });
  * la página se vuelve a pintar sin esa fila, y si el diálogo viviera dentro de
  * ella se cerraría antes de mostrar el resultado.
  */
-export function AbonosProvider({ children }: { children: ReactNode }) {
+export function AbonosProvider({ cajaAbierta, children }: { cajaAbierta: boolean; children: ReactNode }) {
   const [cuenta, setCuenta] = useState<CuentaAbono | null>(null);
   const [abierto, setAbierto] = useState(false);
+  const [version, setVersion] = useState(0);
 
   return (
     <AbonosContext.Provider
       value={{
         abrirCuenta: (nueva) => {
           setCuenta(nueva);
+          setVersion((v) => v + 1);
           setAbierto(true);
         },
       }}
     >
       {children}
-      {cuenta ? <AbonoCuentaDialog cuenta={cuenta} open={abierto} onOpenChange={setAbierto} /> : null}
+      {cuenta ? (
+        <AbonoCuentaDialog
+          cuenta={cuenta}
+          version={version}
+          cajaAbierta={cajaAbierta}
+          open={abierto}
+          onOpenChange={setAbierto}
+          onOtroAbono={(actualizada) => {
+            setCuenta(actualizada);
+            setVersion((v) => v + 1);
+          }}
+        />
+      ) : null}
     </AbonosContext.Provider>
   );
 }

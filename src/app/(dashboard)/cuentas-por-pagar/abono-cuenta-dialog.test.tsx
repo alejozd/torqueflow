@@ -34,7 +34,19 @@ const PIRELLI: CuentaAbono = {
 };
 
 function pintar(props: Partial<Parameters<typeof AbonoCuentaDialog>[0]> = {}) {
-  render(<AbonoCuentaDialog cuenta={PIRELLI} open onOpenChange={vi.fn()} {...props} />);
+  const onOtroAbono = vi.fn();
+  const onOpenChange = vi.fn();
+  render(
+    <AbonoCuentaDialog
+      cuenta={PIRELLI}
+      cajaAbierta
+      open
+      onOpenChange={onOpenChange}
+      onOtroAbono={onOtroAbono}
+      {...props}
+    />,
+  );
+  return { onOtroAbono, onOpenChange };
 }
 
 const campoMonto = () => screen.getByLabelText("¿Cuánto vas a pagar?");
@@ -98,5 +110,83 @@ describe("AbonoCuentaDialog", () => {
     await userEvent.click(efectivo);
     expect(efectivo).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText(/El dinero sale de la caja abierta/)).toBeInTheDocument();
+  });
+
+  it("un monto mayor a lo que se debe muestra el error junto al campo y no deja enviar", async () => {
+    pintar();
+    await userEvent.type(campoMonto(), "5000000");
+
+    expect(campoMonto()).toHaveAttribute("aria-invalid", "true");
+    const error = screen.getByText(`No puedes abonar más de lo que se debe (${pesos(4873557)}).`);
+    expect(campoMonto()).toHaveAttribute("aria-describedby", error.id);
+    expect(botonConfirmar()).toBeDisabled();
+  });
+
+  it("efectivo con la caja cerrada: alerta con el enlace para abrirla y el botón desactivado", async () => {
+    pintar({ cajaAbierta: false });
+    await userEvent.click(screen.getByRole("button", { name: /Pagar todo ·/ }));
+    expect(botonConfirmar()).toBeEnabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Efectivo" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(/La caja está cerrada/);
+    expect(screen.getByRole("link", { name: /Abrir caja/ })).toHaveAttribute("href", "/caja");
+    expect(botonConfirmar()).toBeDisabled();
+
+    // Otro método no toca el cajón.
+    await userEvent.click(screen.getByRole("button", { name: "Tarjeta" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(botonConfirmar()).toBeEnabled();
+  });
+
+  it("si el servidor responde que la caja está cerrada, lo muestra en el mismo lugar", async () => {
+    mockAbonar.mockResolvedValue({ error: "Abre la caja antes de pagar en efectivo a un proveedor", success: false });
+    pintar();
+    await userEvent.type(campoMonto(), "1000");
+    await userEvent.click(screen.getByRole("button", { name: "Efectivo" }));
+    await userEvent.click(botonConfirmar());
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Abre la caja antes de pagar en efectivo a un proveedor, o elige otro método.",
+    );
+    expect(botonConfirmar()).toBeDisabled();
+  });
+
+  it("mientras registra el botón dice «Registrando…»", async () => {
+    let terminar: (valor: unknown) => void = () => {};
+    mockAbonar.mockReturnValue(new Promise((resolver) => (terminar = resolver)));
+    pintar();
+    await userEvent.type(campoMonto(), "1000");
+    await userEvent.click(botonConfirmar());
+
+    expect(await screen.findByRole("button", { name: "Registrando…" })).toBeDisabled();
+    // Una acción que nunca termina dejaría colgadas las transiciones de los tests siguientes.
+    terminar({ error: null, success: true });
+    await screen.findByRole("status");
+  });
+
+  it("éxito: ✓, lo que se pagó con su referencia y lo que queda; «Hacer otro abono» sigue con el saldo nuevo", async () => {
+    const { onOtroAbono } = pintar();
+    await userEvent.type(campoMonto(), "300000");
+    await userEvent.type(screen.getByLabelText(/Referencia/), "004581233");
+    await userEvent.click(botonConfirmar());
+
+    const estado = await screen.findByRole("status");
+    expect(estado).toHaveTextContent("Abono registrado");
+    expect(estado).toHaveTextContent(`${pesos(300000)} a Pirelli por transferencia · ref. 004581233`);
+    expect(estado).toHaveTextContent(`todavía debes ${pesos(4573557)}`);
+
+    await userEvent.click(screen.getByRole("button", { name: "Hacer otro abono" }));
+    expect(onOtroAbono).toHaveBeenCalledWith({ ...PIRELLI, pagado: 500000, saldo: 4573557 });
+  });
+
+  it("éxito pagando todo: la entrada quedó pagada y «Listo» cierra", async () => {
+    const { onOpenChange } = pintar();
+    await userEvent.click(screen.getByRole("button", { name: /Pagar todo ·/ }));
+    await userEvent.click(botonConfirmar());
+
+    expect(await screen.findByRole("status")).toHaveTextContent(/quedó pagada. La encuentras en «Pagadas»/);
+    expect(screen.queryByRole("button", { name: "Hacer otro abono" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Listo" }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });

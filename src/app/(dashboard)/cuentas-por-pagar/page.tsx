@@ -42,7 +42,7 @@ function nombresUrgentes(proveedores: { nombre: string; dias: number }[]): strin
 export default async function CuentasPorPagarPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const { tab } = await searchParams;
   const filtro: FiltroCuentasPorPagar = tab === "pagadas" ? "pagadas" : "pendientes";
-  const { proveedores, totales, pagadas, conteoPagadas } = await getCuentasPorPagar({ filtro });
+  const { proveedores, totales, pagadas, conteoPagadas, cajaAbierta } = await getCuentasPorPagar({ filtro });
   // Solo lo que tiene saldo cuenta para los KPI (una cuenta recién saldada puede seguir en la lista).
   const todas = proveedores.flatMap((proveedor) => proveedor.cuentas).filter((cuenta) => cuenta.saldo > 0);
   const totalCuentas = todas.length;
@@ -144,7 +144,7 @@ export default async function CuentasPorPagarPage({ searchParams }: { searchPara
             </CardContent>
           </Card>
         ) : (
-          <AbonosProvider>
+          <AbonosProvider cajaAbierta={cajaAbierta}>
             <ProveedorCuentasLista proveedores={lista} />
           </AbonosProvider>
         )}
