@@ -1,5 +1,6 @@
 "use client";
 
+import { IconoWhatsapp } from "@/components/icono-whatsapp";
 import { useEffect, useRef, useTransition } from "react";
 import { Check } from "lucide-react";
 import { toast } from "sonner";
@@ -129,6 +130,7 @@ export function VentaCobrada({ venta, onNuevaVenta }: { venta: VentaCobradaDatos
                 rel="noopener noreferrer"
                 className={buttonVariants({ variant: "outline" })}
               >
+                <IconoWhatsapp className="size-4" />
                 Enviar por WhatsApp
               </a>
             ) : null}

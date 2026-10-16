@@ -98,7 +98,7 @@ export function CabeceraOrden({
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 text-sm hover:underline"
             >
-              <IconoWhatsapp className="size-3.5 text-[oklch(0.55_0.15_150)]" aria-hidden />
+              <IconoWhatsapp className="size-3.5" aria-hidden />
               WhatsApp
             </a>
           ) : null}
