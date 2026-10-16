@@ -27,6 +27,15 @@ export const lineaVentaSchema = z.object({
   ),
 });
 
+export const pagoVentaSchema = z.object({
+  metodoPago: metodoPagoVentaSchema,
+  monto: z.coerce
+    .number({ error: "El monto no es válido" })
+    .refine((valor) => valor > 0, "Cada pago debe ser mayor que cero")
+    .refine((valor) => valor <= MONTO_MAXIMO_VENTA, "El monto es demasiado alto"),
+  referencia: z.preprocess(vacioComoUndefined, z.string().trim().max(120).nullish()),
+});
+
 export const ventaMostradorInputSchema = z
   .object({
     clienteId: z.preprocess(vacioComoUndefined, z.string().trim().min(1).optional()),
@@ -35,10 +44,10 @@ export const ventaMostradorInputSchema = z
       (v) => (v === "" || v === null || v === undefined ? 0 : v),
       z.coerce.number({ error: "El descuento no es válido" }).min(0, "El descuento no puede ser negativo"),
     ),
-    metodoPago: metodoPagoVentaSchema,
-    referencia: z.preprocess(vacioComoUndefined, z.string().trim().max(120).optional()),
-    /** Con cliente, puede quedar a crédito; sin cliente, la venta tiene que salir pagada. */
-    cobrarTodo: z.preprocess((v) => v === "true" || v === true, z.boolean()),
+    /** Pagos mixtos; vacío = todo a crédito (solo con cliente, lo valida la acción). */
+    pagos: z.array(pagoVentaSchema).max(10, "Demasiados pagos").default([]),
+    /** Efectivo que entregó el cliente, para calcular las vueltas. */
+    recibidoEfectivo: z.preprocess(vacioComoUndefined, z.coerce.number().min(0).max(MONTO_MAXIMO_VENTA).optional()),
   })
   .refine(
     // Sin esto un descuento mayor que el subtotal daría un total negativo, que se

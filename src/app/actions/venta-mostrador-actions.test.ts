@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const opcionesTaller = { exigirActaFirmada: false, usarControlCaja: true };
+const opcionesTaller = { exigirActaFirmada: false, usarControlCaja: true, descuentoMaxRecepcion: 10 };
 
 const mockRequireRole = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({ requireRole: (...args: unknown[]) => mockRequireRole(...args) }));
@@ -35,15 +35,18 @@ function fd(campos: Record<string, string>): FormData {
 
 const LINEA = { repuestoId: "r1", descripcion: "Filtro de aceite", cantidad: 2, precioUnitario: 25000 };
 
+const PAGO_TOTAL = [{ metodoPago: "EFECTIVO", monto: 59500 }];
+
 function venta(cambios: Record<string, string> = {}) {
   return fd({
     lineas: JSON.stringify([LINEA]),
     descuento: "",
-    metodoPago: "EFECTIVO",
-    cobrarTodo: "true",
+    pagos: JSON.stringify(PAGO_TOTAL),
     ...cambios,
   });
 }
+
+const aCredito = { pagos: "[]" };
 
 describe("crearVentaMostradorAction", () => {
   beforeEach(() => {
@@ -61,7 +64,15 @@ describe("crearVentaMostradorAction", () => {
   it("vende, descuenta stock con guarda y registra el cobro", async () => {
     const r = await crearVentaMostradorAction(inicial, venta());
 
-    expect(r).toEqual({ error: null, success: true, numero: 7 });
+    expect(r).toEqual({
+      error: null,
+      success: true,
+      numero: 7,
+      ventaId: "v1",
+      total: 59500,
+      pagos: [{ metodoPago: "EFECTIVO", monto: 59500 }],
+      vueltas: 0,
+    });
     // Vender es cobrar: el técnico no usa el mostrador (D6).
     expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
     expect(tx.repuesto.updateMany).toHaveBeenCalledWith({
@@ -120,7 +131,7 @@ describe("crearVentaMostradorAction", () => {
   it("agrega las líneas repetidas del mismo repuesto antes de tocar el stock", async () => {
     await crearVentaMostradorAction(
       inicial,
-      venta({ lineas: JSON.stringify([LINEA, { ...LINEA, cantidad: 3 }]) }),
+      venta({ lineas: JSON.stringify([LINEA, { ...LINEA, cantidad: 3 }]), clienteId: "cli1" }),
     );
 
     expect(tx.repuesto.updateMany).toHaveBeenCalledTimes(1);
@@ -160,9 +171,9 @@ describe("crearVentaMostradorAction", () => {
   it("con la caja cerrada sí vende con tarjeta o a crédito (solo el efectivo la exige)", async () => {
     db.cajaSesion.findFirst.mockResolvedValue(null);
 
-    expect((await crearVentaMostradorAction(inicial, venta({ metodoPago: "TARJETA" }))).error).toBeNull();
+    expect((await crearVentaMostradorAction(inicial, venta({ pagos: JSON.stringify([{ metodoPago: "TARJETA", monto: 59500 }]) }))).error).toBeNull();
     expect(
-      (await crearVentaMostradorAction(inicial, venta({ clienteId: "c1", cobrarTodo: "false" }))).error,
+      (await crearVentaMostradorAction(inicial, venta({ clienteId: "c1", ...aCredito }))).error,
     ).toBeNull();
   });
 
@@ -177,14 +188,14 @@ describe("crearVentaMostradorAction", () => {
   });
 
   it("sin cliente identificado la venta tiene que quedar pagada", async () => {
-    const r = await crearVentaMostradorAction(inicial, venta({ cobrarTodo: "" }));
+    const r = await crearVentaMostradorAction(inicial, venta(aCredito));
 
-    expect(r.error).toBe("Sin cliente identificado, la venta tiene que quedar pagada");
+    expect(r.error).toBe("Para dejar saldo pendiente elige un cliente registrado");
     expect(tx.ventaMostrador.create).not.toHaveBeenCalled();
   });
 
   it("con cliente puede quedar a crédito, sin cobro y con saldo", async () => {
-    const r = await crearVentaMostradorAction(inicial, venta({ clienteId: "cli1", cobrarTodo: "" }));
+    const r = await crearVentaMostradorAction(inicial, venta({ clienteId: "cli1", ...aCredito }));
 
     expect(r.success).toBe(true);
     const creada = tx.ventaMostrador.create.mock.calls[0]![0].data;
@@ -220,8 +231,96 @@ describe("crearVentaMostradorAction", () => {
     expect(tx.ventaMostrador.create).not.toHaveBeenCalled();
   });
 
+  it("pago mixto crea un pago por método y deja la venta pagada", async () => {
+    const pagos = [
+      { metodoPago: "EFECTIVO", monto: 30000 },
+      { metodoPago: "TARJETA", monto: 29500, referencia: "A1" },
+    ];
+
+    const r = await crearVentaMostradorAction(inicial, venta({ pagos: JSON.stringify(pagos) }));
+
+    expect(r.success).toBe(true);
+    expect(tx.pagoVentaMostrador.create).toHaveBeenCalledTimes(2);
+    expect(tx.pagoVentaMostrador.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ metodoPago: "TARJETA", monto: 29500, referencia: "A1" }),
+    });
+    const creada = tx.ventaMostrador.create.mock.calls[0]![0].data;
+    expect(creada).toMatchObject({ estado: "PAGADA", saldoPendiente: 0 });
+  });
+
+  it("pago parcial con cliente deja saldo pendiente; sin cliente se rechaza", async () => {
+    const parcial = JSON.stringify([{ metodoPago: "TARJETA", monto: 20000 }]);
+
+    const r = await crearVentaMostradorAction(inicial, venta({ pagos: parcial, clienteId: "cli1" }));
+    expect(r.success).toBe(true);
+    expect(tx.ventaMostrador.create.mock.calls[0]![0].data).toMatchObject({ estado: "PENDIENTE", saldoPendiente: 39500 });
+
+    tx.ventaMostrador.create.mockClear();
+    const sin = await crearVentaMostradorAction(inicial, venta({ pagos: parcial }));
+    expect(sin.error).toBe("Para dejar saldo pendiente elige un cliente registrado");
+    expect(tx.ventaMostrador.create).not.toHaveBeenCalled();
+  });
+
+  it("rechaza que los pagos sumen más que el total sin efectivo que lo cubra", async () => {
+    const r = await crearVentaMostradorAction(
+      inicial,
+      venta({ pagos: JSON.stringify([{ metodoPago: "TARJETA", monto: 70000 }]) }),
+    );
+    expect(r.error).toBe("Los pagos suman más que el total");
+  });
+
+  it("el exceso en efectivo son vueltas y al cajón entra el neto", async () => {
+    const pagos = [
+      { metodoPago: "TARJETA", monto: 40000 },
+      { metodoPago: "EFECTIVO", monto: 30000 },
+    ];
+
+    const r = await crearVentaMostradorAction(inicial, venta({ pagos: JSON.stringify(pagos) }));
+
+    expect(r.vueltas).toBe(10500);
+    expect(tx.pagoVentaMostrador.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ metodoPago: "EFECTIVO", monto: 19500 }),
+    });
+  });
+
+  it("RECEPCION no puede pasar del tope de descuento; ADMIN sí", async () => {
+    // 10 % de 50.000 = 5.000; 6.000 es 12 %. Total = (50.000 - 6.000) * 1,19 = 52.360.
+    const pagos = JSON.stringify([{ metodoPago: "TARJETA", monto: 52360 }]);
+
+    const rechazada = await crearVentaMostradorAction(inicial, venta({ descuento: "6000", pagos }));
+    expect(rechazada.error).toBe("Tu descuento máximo es 10 %");
+    expect(tx.ventaMostrador.create).not.toHaveBeenCalled();
+
+    mockRequireRole.mockResolvedValue({ user: { ...SESION.user, role: "ADMIN" } });
+    const admin = await crearVentaMostradorAction(inicial, venta({ descuento: "6000", pagos }));
+    expect(admin.error).toBeNull();
+  });
+
+  it("RECEPCION puede dar el descuento justo en el tope", async () => {
+    const pagos = JSON.stringify([{ metodoPago: "TARJETA", monto: 53550 }]);
+    const r = await crearVentaMostradorAction(inicial, venta({ descuento: "5000", pagos }));
+    expect(r.error).toBeNull();
+  });
+
+  it("solo exige caja si hay un pago en efectivo dentro del mixto", async () => {
+    db.cajaSesion.findFirst.mockResolvedValue(null);
+    const sinEfectivo = JSON.stringify([
+      { metodoPago: "TARJETA", monto: 30000 },
+      { metodoPago: "TRANSFERENCIA", monto: 29500 },
+    ]);
+    expect((await crearVentaMostradorAction(inicial, venta({ pagos: sinEfectivo }))).error).toBeNull();
+
+    const conEfectivo = JSON.stringify([
+      { metodoPago: "TARJETA", monto: 30000 },
+      { metodoPago: "EFECTIVO", monto: 29500 },
+    ]);
+    expect((await crearVentaMostradorAction(inicial, venta({ pagos: conEfectivo }))).error).toBe(
+      "Abre la caja antes de cobrar en efectivo en el mostrador",
+    );
+  });
+
   it("rechaza líneas mal formadas sin tocar la base", async () => {
-    const r = await crearVentaMostradorAction(inicial, fd({ lineas: "no es json", metodoPago: "EFECTIVO" }));
+    const r = await crearVentaMostradorAction(inicial, fd({ lineas: "no es json" }));
 
     expect(r.error).toBe("No se pudieron leer los productos de la venta");
     expect(db.cajaSesion.findFirst).not.toHaveBeenCalled();

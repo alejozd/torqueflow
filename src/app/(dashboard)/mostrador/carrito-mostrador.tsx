@@ -300,18 +300,19 @@ export function CarritoMostrador({
                 { value: "OTRO", label: "Otro" },
               ]}
             />
-            <input type="hidden" name="metodoPago" value={metodoPago} />
+            <input
+              type="hidden"
+              name="pagos"
+              value={JSON.stringify(cobrarTodo ? [{ metodoPago, monto: totales.total }] : [])}
+            />
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
-                name="cobrarTodo"
-                value="true"
                 checked={cobrarTodo}
                 onChange={(evento) => setCobrarTodo(evento.target.checked)}
               />
               Cobrar todo ahora
             </label>
-            {!cobrarTodo ? <input type="hidden" name="cobrarTodo" value="" /> : null}
           </div>
 
           <div className="flex flex-col gap-1.5">

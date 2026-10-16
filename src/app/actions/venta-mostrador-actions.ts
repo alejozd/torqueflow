@@ -8,7 +8,9 @@ import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { inicioDiaBogota } from "@/lib/fecha-bogota";
 import { comprometidoPorRepuesto } from "@/lib/inventario/comprometido";
+import { descuentoPermitido, porcentajeDescuento, resumirPagos, type PagoEntrada } from "@/lib/mostrador/cobro";
 import { calcularTotalesVenta } from "@/lib/mostrador/ventas";
+import { roundMoney } from "@/lib/money/round";
 import { scopeRepuesto } from "@/lib/sede/scope";
 import { cobroVentaSchema, ventaMostradorInputSchema, type VentaMostradorInput } from "@/lib/validation/mostrador";
 import type { Role } from "@/generated/prisma-tenant";
@@ -35,9 +37,14 @@ export interface VentaMostradorFormState {
   success: boolean;
   /** Número de la venta creada, para confirmárselo al cliente. */
   numero?: number;
+  /** Para la tarjeta de venta cobrada (solo en éxito). */
+  ventaId?: string;
+  total?: number;
+  pagos?: PagoEntrada[];
+  vueltas?: number;
 }
 
-/** Las líneas llegan como JSON en un campo `lineas`: el carrito las arma en el cliente. */
+/** Las líneas y los pagos llegan como JSON (`lineas`, `pagos`): el carrito los arma en el cliente. */
 function leerVenta(formData: FormData): { datos: VentaMostradorInput } | { error: string } {
   let lineas: unknown;
   try {
@@ -45,14 +52,19 @@ function leerVenta(formData: FormData): { datos: VentaMostradorInput } | { error
   } catch {
     return { error: "No se pudieron leer los productos de la venta" };
   }
+  let pagos: unknown;
+  try {
+    pagos = JSON.parse(String(formData.get("pagos") ?? "[]"));
+  } catch {
+    return { error: "No se pudieron leer los pagos de la venta" };
+  }
 
   const parsed = ventaMostradorInputSchema.safeParse({
     clienteId: formData.get("clienteId") ?? "",
     lineas,
     descuento: formData.get("descuento") ?? "",
-    metodoPago: formData.get("metodoPago") ?? "",
-    referencia: formData.get("referencia") ?? "",
-    cobrarTodo: formData.get("cobrarTodo") ?? "",
+    pagos,
+    recibidoEfectivo: formData.get("recibidoEfectivo") ?? "",
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   return { datos: parsed.data };
@@ -71,17 +83,14 @@ export async function crearVentaMostradorAction(
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
 
-  if (datos.cobrarTodo) {
-    const errorCaja = await exigirCajaParaEfectivo(tenantDb, sedeId, datos.metodoPago, SIN_CAJA);
-    if (errorCaja) return { error: errorCaja, success: false };
-  }
+  // Solo hay que tener caja abierta si entra efectivo al cajón (D3).
+  const hayEfectivo = datos.pagos.some((pago) => pago.metodoPago === "EFECTIVO");
+  const errorCaja = await exigirCajaParaEfectivo(tenantDb, sedeId, hayEfectivo, SIN_CAJA);
+  if (errorCaja) return { error: errorCaja, success: false };
 
   if (datos.clienteId) {
     const cliente = await tenantDb.cliente.findFirst({ where: { id: datos.clienteId }, select: { id: true } });
     if (!cliente) return { error: "Cliente no encontrado", success: false };
-  } else if (!datos.cobrarTodo) {
-    // Sin cliente identificado no hay a quién cobrarle después.
-    return { error: "Sin cliente identificado, la venta tiene que quedar pagada", success: false };
   }
 
   // Los repuestos tienen que ser de la sede activa (el id llega del formulario), y
@@ -115,6 +124,35 @@ export async function crearVentaMostradorAction(
   if (datos.descuento > subtotal) return { error: "El descuento no puede ser mayor que el subtotal", success: false };
   const totales = calcularTotalesVenta(lineas, datos.descuento);
 
+  // El tope de descuento de recepción se mide con el subtotal a precios del servidor.
+  if (session.user.role === "RECEPCION" || session.user.role === "ADMIN") {
+    const { descuentoMaxRecepcion } = await leerOpcionesTaller(tenantDb);
+    const porcentaje = porcentajeDescuento(subtotal, datos.descuento);
+    if (!descuentoPermitido(session.user.role, porcentaje, descuentoMaxRecepcion)) {
+      return { error: `Tu descuento máximo es ${descuentoMaxRecepcion} %`, success: false };
+    }
+  }
+
+  const resumen = resumirPagos(totales.total, datos.pagos, datos.recibidoEfectivo ?? null);
+  if (resumen.error) return { error: resumen.error, success: false };
+  if (resumen.saldo > 0 && !datos.clienteId) {
+    // Sin cliente identificado no hay a quién cobrarle el saldo después.
+    return { error: "Para dejar saldo pendiente elige un cliente registrado", success: false };
+  }
+
+  // Si el exceso de los pagos salió del efectivo, al cajón entra solo lo neto.
+  let excesoPorQuitar = Math.max(0, roundMoney(datos.pagos.reduce((acc, pago) => acc + pago.monto, 0) - totales.total));
+  const pagos: PagoEntrada[] = [...datos.pagos]
+    .reverse()
+    .map((pago) => {
+      if (pago.metodoPago !== "EFECTIVO" || excesoPorQuitar <= 0) return { ...pago };
+      const quitar = Math.min(excesoPorQuitar, pago.monto);
+      excesoPorQuitar -= quitar;
+      return { ...pago, monto: roundMoney(pago.monto - quitar) };
+    })
+    .reverse()
+    .filter((pago) => pago.monto > 0);
+
   // El stock se descuenta por repuesto, agregando las líneas repetidas (D8).
   const porRepuesto = new Map<string, { cantidad: number; descripcion: string }>();
   for (const linea of lineas) {
@@ -126,6 +164,7 @@ export async function crearVentaMostradorAction(
     });
   }
 
+  let ventaId: string;
   let numero: number;
   try {
     const venta = await tenantDb.$transaction(async (tx) => {
@@ -145,8 +184,8 @@ export async function crearVentaMostradorAction(
           descuento: totales.descuento,
           iva: totales.iva,
           total: totales.total,
-          saldoPendiente: datos.cobrarTodo ? 0 : totales.total,
-          estado: datos.cobrarTodo ? "PAGADA" : "PENDIENTE",
+          saldoPendiente: resumen.saldo,
+          estado: resumen.saldo === 0 ? "PAGADA" : "PENDIENTE",
           creadoPorId: session.user.id,
           items: {
             create: lineas.map((linea) => ({
@@ -160,13 +199,13 @@ export async function crearVentaMostradorAction(
         select: { id: true, numero: true },
       });
 
-      if (datos.cobrarTodo) {
+      for (const pago of pagos) {
         await tx.pagoVentaMostrador.create({
           data: {
             ventaId: creada.id,
-            monto: totales.total,
-            metodoPago: datos.metodoPago,
-            referencia: datos.referencia ?? null,
+            monto: pago.monto,
+            metodoPago: pago.metodoPago,
+            referencia: pago.referencia ?? null,
             registradoPorId: session.user.id,
           },
         });
@@ -174,6 +213,7 @@ export async function crearVentaMostradorAction(
 
       return creada;
     });
+    ventaId = venta.id;
     numero = venta.numero;
   } catch (err) {
     if (err instanceof Error && err.message.startsWith(STOCK_INSUFICIENTE)) {
@@ -185,7 +225,7 @@ export async function crearVentaMostradorAction(
 
   revalidatePath("/mostrador");
   revalidatePath("/caja");
-  return { error: null, success: true, numero };
+  return { error: null, success: true, numero, ventaId, total: totales.total, pagos, vueltas: resumen.vueltas };
 }
 
 export interface RepuestoMostrador {

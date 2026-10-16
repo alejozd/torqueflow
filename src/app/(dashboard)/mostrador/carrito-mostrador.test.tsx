@@ -94,8 +94,8 @@ describe("CarritoMostrador", () => {
     expect(JSON.parse(String(formData.get("lineas")))).toEqual([
       { repuestoId: "r1", descripcion: "Filtro de aceite", cantidad: 1, precioUnitario: 50000 },
     ]);
-    expect(formData.get("metodoPago")).toBe("EFECTIVO");
-    expect(formData.get("cobrarTodo")).toBe("true");
+    // 50.000 + 19 % de IVA, cobrado todo en efectivo.
+    expect(JSON.parse(String(formData.get("pagos")))).toEqual([{ metodoPago: "EFECTIVO", monto: 59500 }]);
   });
 
   it("sin cliente y sin cobrar todo, no deja guardar (la venta quedaría sin a quién cobrarle)", async () => {

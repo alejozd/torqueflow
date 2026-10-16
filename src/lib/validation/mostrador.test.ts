@@ -31,21 +31,20 @@ describe("ventaMostradorInputSchema", () => {
       clienteId: "",
       lineas: [linea],
       descuento: "",
-      metodoPago: "EFECTIVO",
-      cobrarTodo: "true",
+      pagos: [{ metodoPago: "EFECTIVO", monto: "1000" }],
     });
 
     expect(venta.clienteId).toBeUndefined();
     expect(venta.descuento).toBe(0);
-    expect(venta.cobrarTodo).toBe(true);
+    expect(venta.pagos).toEqual([{ metodoPago: "EFECTIVO", monto: 1000 }]);
     expect(venta.lineas).toHaveLength(1);
   });
 
   it("exige al menos una línea y rechaza métodos que no son de caja", () => {
-    expect(ventaMostradorInputSchema.safeParse({ lineas: [], metodoPago: "EFECTIVO" }).success).toBe(false);
+    expect(ventaMostradorInputSchema.safeParse({ lineas: [], pagos: [] }).success).toBe(false);
     // ANTICIPO es de la orden, no del mostrador.
     expect(
-      ventaMostradorInputSchema.safeParse({ lineas: [linea], metodoPago: "ANTICIPO", cobrarTodo: "true" }).success,
+      ventaMostradorInputSchema.safeParse({ lineas: [linea], pagos: [{ metodoPago: "ANTICIPO", monto: 1 }] }).success,
     ).toBe(false);
   });
 });
