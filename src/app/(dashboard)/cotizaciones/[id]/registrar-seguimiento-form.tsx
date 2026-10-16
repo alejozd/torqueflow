@@ -9,6 +9,7 @@ import {
   registrarSeguimientoAction,
   type SeguimientoCotizacionFormState,
 } from "@/app/actions/cotizacion-seguimiento-actions";
+import { valorFechaHoraDeDate } from "@/lib/agenda-cita";
 import { formatoDiaBogota } from "@/lib/fecha-bogota";
 import { registrarSeguimientoInputSchema } from "@/lib/validation/cotizacion-seguimiento";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -29,30 +30,11 @@ const TIPO_OPTIONS = [
   { value: "NOTA", label: "Nota" },
 ];
 
-// Same datetime-local default-value construction as citas/[id]/editar-cita-form.tsx's
-// paraInputDatetimeLocal -- the naive "YYYY-MM-DDTHH:mm" the input emits has to be
-// built from Bogota parts by hand, not toISOString (UTC, not Bogota local).
-const formatoFechaHoraBogota = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "America/Bogota",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hourCycle: "h23",
-});
-
-function paraInputDatetimeLocal(fecha: Date): string {
-  const partes = formatoFechaHoraBogota.formatToParts(fecha);
-  const obtener = (tipo: string) => partes.find((p) => p.type === tipo)?.value ?? "";
-  return `${obtener("year")}-${obtener("month")}-${obtener("day")}T${obtener("hour")}:${obtener("minute")}`;
-}
-
 function valoresIniciales() {
-  return { tipo: "LLAMADA" as const, fecha: paraInputDatetimeLocal(new Date()), resultado: "", proximoSeguimiento: "" };
+  return { tipo: "LLAMADA" as const, fecha: valorFechaHoraDeDate(new Date()), resultado: "", proximoSeguimiento: "" };
 }
 
-// An untouched date input submits "" -- .optional() alone does not treat that
+// An empty CampoFecha submits "" -- .optional() alone does not treat that
 // as absent, same note as nueva-cotizacion-form.tsx's validaHasta.
 const registrarSeguimientoFormSchema = registrarSeguimientoInputSchema.extend({
   proximoSeguimiento: z.preprocess(
