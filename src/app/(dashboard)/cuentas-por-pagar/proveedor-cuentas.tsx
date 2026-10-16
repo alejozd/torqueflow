@@ -4,23 +4,34 @@ import { TituloSeccion } from "@/components/titulo-seccion";
 import { Card } from "@/components/ui/card";
 import type { CuentaConAntiguedad, ProveedorCuentas } from "@/lib/proveedores/cuentas-por-pagar";
 import { cn } from "@/lib/utils";
-import { etiquetaAntiguedad, fechaCuenta, pesos, plural, puntoAntiguedad } from "./presentacion";
+import { HistorialAbonos } from "./historial-abonos";
+import {
+  esDeHoy,
+  etiquetaAntiguedad,
+  etiquetaMetodo,
+  fechaCuenta,
+  fechaHoraPago,
+  pesos,
+  plural,
+  puntoAntiguedad,
+} from "./presentacion";
 
 /**
  * La lista de cuentas por pagar: una tarjeta por proveedor y una fila por
  * entrada. Solo muestra datos; abonar se hace desde el diálogo de cada fila.
  */
 export function ProveedorCuentasLista({ proveedores }: { proveedores: ProveedorCuentas[] }) {
+  const ahora = new Date();
   return (
     <div className="flex flex-col gap-3">
       {proveedores.map((proveedor) => (
-        <TarjetaProveedor key={proveedor.proveedorId} proveedor={proveedor} />
+        <TarjetaProveedor key={proveedor.proveedorId} proveedor={proveedor} ahora={ahora} />
       ))}
     </div>
   );
 }
 
-function TarjetaProveedor({ proveedor }: { proveedor: ProveedorCuentas }) {
+function TarjetaProveedor({ proveedor, ahora }: { proveedor: ProveedorCuentas; ahora: Date }) {
   const porPagar = proveedor.cuentas.filter((cuenta) => cuenta.saldo > 0).length;
   return (
     <Card className="gap-0 py-0">
@@ -44,14 +55,14 @@ function TarjetaProveedor({ proveedor }: { proveedor: ProveedorCuentas }) {
       </div>
       <ul className="divide-y">
         {proveedor.cuentas.map((cuenta) => (
-          <FilaCuenta key={cuenta.cuentaId} cuenta={cuenta} />
+          <FilaCuenta key={cuenta.cuentaId} cuenta={cuenta} ahora={ahora} />
         ))}
       </ul>
     </Card>
   );
 }
 
-function FilaCuenta({ cuenta }: { cuenta: CuentaConAntiguedad }) {
+function FilaCuenta({ cuenta, ahora }: { cuenta: CuentaConAntiguedad; ahora: Date }) {
   const porcentaje = cuenta.total > 0 ? Math.min(100, Math.round((cuenta.pagado / cuenta.total) * 100)) : 100;
   return (
     <li
@@ -88,6 +99,22 @@ function FilaCuenta({ cuenta }: { cuenta: CuentaConAntiguedad }) {
       </div>
 
       <div className="col-span-2 flex justify-end md:col-span-1 max-md:order-last" />
+
+      {cuenta.pagos.length > 0 ? (
+        <div className="col-span-full max-md:order-last">
+          <HistorialAbonos
+            abonos={cuenta.pagos.map((pago) => ({
+              id: pago.id,
+              cuando: fechaHoraPago(pago.createdAt, ahora),
+              monto: pago.monto,
+              metodo: etiquetaMetodo(pago.metodoPago),
+              referencia: pago.referencia,
+              registradoPor: pago.registradoPor,
+            }))}
+            abiertoInicial={cuenta.pagos[0] ? esDeHoy(cuenta.pagos[0].createdAt, ahora) : false}
+          />
+        </div>
+      ) : null}
     </li>
   );
 }
