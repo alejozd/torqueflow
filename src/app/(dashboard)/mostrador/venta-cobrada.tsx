@@ -8,6 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { PagoEntrada } from "@/lib/mostrador/cobro";
 import { describirMetodos } from "@/lib/mostrador/comprobante";
+import { usePestanaMostrador } from "./pestanas-mostrador";
 import { estaEscribiendo } from "./use-atajos-mostrador";
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
@@ -35,14 +36,16 @@ export function urlComprobante(venta: Pick<VentaCobradaDatos, "ventaId">, imprim
  * Tarjeta de venta cobrada (spec §3.3): reemplaza al carrito tras cobrar.
  * Enter = nueva venta (el botón arranca con el foco); P o Ctrl+P = imprimir el
  * comprobante. WhatsApp solo si el cliente tiene teléfono y correo solo si
- * tiene correo (se manda por el SMTP del taller).
+ * tiene correo (se manda por el SMTP del taller). "Devolver algo de esta venta"
+ * lleva a la pestaña Ventas con su devolución abierta; allá Enter y P no aplican.
  */
 export function VentaCobrada({ venta, onNuevaVenta }: { venta: VentaCobradaDatos; onNuevaVenta: () => void }) {
   const nuevaRef = useRef<HTMLButtonElement>(null);
   const [enviando, startTransition] = useTransition();
-  const accionesRef = useRef({ onNuevaVenta, venta });
+  const { activa, abrirVenta } = usePestanaMostrador();
+  const accionesRef = useRef({ onNuevaVenta, venta, activa });
   useEffect(() => {
-    accionesRef.current = { onNuevaVenta, venta };
+    accionesRef.current = { onNuevaVenta, venta, activa };
   });
 
   useEffect(() => {
@@ -52,7 +55,8 @@ export function VentaCobrada({ venta, onNuevaVenta }: { venta: VentaCobradaDatos
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.altKey || event.metaKey) return;
-      const { onNuevaVenta: nueva, venta: actual } = accionesRef.current;
+      const { onNuevaVenta: nueva, venta: actual, activa: pestana } = accionesRef.current;
+      if (pestana !== "vender") return;
       const destino = event.target instanceof HTMLElement ? event.target : null;
       // Enter sobre otro botón o enlace hace lo suyo; en el resto de la página es "nueva venta".
       if (event.key === "Enter" && !event.ctrlKey && !estaEscribiendo(destino) && !destino?.closest("button, a")) {
@@ -133,6 +137,9 @@ export function VentaCobrada({ venta, onNuevaVenta }: { venta: VentaCobradaDatos
                 {enviando ? "Enviando..." : "Enviar por correo"}
               </Button>
             ) : null}
+            <Button type="button" variant="ghost" onClick={() => abrirVenta(venta.ventaId, "devolver")}>
+              Devolver algo de esta venta
+            </Button>
           </div>
         </div>
       </CardContent>

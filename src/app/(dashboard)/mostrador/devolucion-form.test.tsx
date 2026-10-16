@@ -7,20 +7,11 @@ vi.mock("@/app/actions/devolucion-mostrador-actions", () => ({
   crearDevolucionAction: (...args: unknown[]) => mockDevolver(...args),
 }));
 
-import { DevolucionForm } from "./devolucion-form";
-import type { VentaMostradorDia } from "@/app/actions/venta-mostrador-actions";
+import { DevolucionForm, type VentaDevolvible } from "./devolucion-form";
 
-function venta(items: VentaMostradorDia["items"]): VentaMostradorDia {
-  return {
-    id: "v1",
-    numero: 3,
-    total: 59500,
-    saldoPendiente: 0,
-    estado: "PAGADA",
-    clienteNombre: null,
-    createdAt: new Date("2026-10-17T15:00:00Z"),
-    items,
-  };
+/** Venta pagada de 2 × 25.000 con IVA = 59.500. */
+function venta(items: VentaDevolvible["items"], cambios: Partial<VentaDevolvible> = {}): VentaDevolvible {
+  return { id: "v1", subtotal: 50000, total: 59500, saldoPendiente: 0, totalDevuelto: 0, items, ...cambios };
 }
 
 const ITEM = { id: "i1", descripcion: "Filtro de aceite", cantidad: 2, devueltoCantidad: 0, precioUnitario: 25000 };
@@ -64,5 +55,27 @@ describe("DevolucionForm", () => {
     const formData = mockDevolver.mock.calls[0]![2] as FormData;
     expect(JSON.parse(String(formData.get("lineas")))).toEqual([{ ventaItemId: "i1", cantidad: 1 }]);
     expect(formData.get("metodoPago")).toBe("EFECTIVO");
+  });
+
+  it("antes de confirmar dice cuánto sale del cajón", async () => {
+    render(<DevolucionForm venta={venta([ITEM])} />);
+
+    await userEvent.type(screen.getByLabelText("Cantidad a devolver de Filtro de aceite"), "1");
+
+    // 25.000 + 19 % de IVA.
+    expect(screen.getByTestId("resumen-devolucion")).toHaveTextContent(/Sale del cajón\s*\$\s*29\.750/);
+    await userEvent.click(screen.getByRole("button", { name: "Devolver" }));
+    expect(screen.getByText(/Sale \$\s*29\.750 del cajón; 1 unidad vuelve a la bodega/)).toBeInTheDocument();
+  });
+
+  it("en una venta a crédito primero baja la deuda y no sale dinero", async () => {
+    render(<DevolucionForm venta={venta([ITEM], { saldoPendiente: 59500 })} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Devolver todo" }));
+
+    expect(screen.getByLabelText("Cantidad a devolver de Filtro de aceite")).toHaveValue(2);
+    const resumen = screen.getByTestId("resumen-devolucion");
+    expect(resumen).toHaveTextContent(/Baja de la deuda\s*\$\s*59\.500/);
+    expect(resumen).toHaveTextContent(/Sale del cajón\s*\$\s*0/);
   });
 });

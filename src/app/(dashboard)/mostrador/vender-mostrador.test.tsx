@@ -28,6 +28,7 @@ const VENTA_OK = {
 vi.mock("@/app/actions/cliente-actions", () => ({ createClienteAction: vi.fn() }));
 
 import type { RepuestoMostrador } from "@/app/actions/venta-mostrador-actions";
+import { PestanasMostrador } from "./pestanas-mostrador";
 import { VenderMostrador } from "./vender-mostrador";
 
 const REPUESTOS: RepuestoMostrador[] = [
@@ -242,5 +243,51 @@ describe("VenderMostrador", () => {
     pintar();
     await userEvent.keyboard("{F2}");
     await waitFor(() => expect(screen.getByLabelText("Buscar cliente")).toHaveFocus());
+  });
+
+  it("con la pestaña Ventas a la vista los atajos de vender no toman teclas", async () => {
+    render(
+      <PestanasMostrador
+        inicial="ventas"
+        ventasHoy={0}
+        vender={<VenderMostrador efectivoBloqueado={false} rol="RECEPCION" descuentoMaxRecepcion={10} />}
+        ventas={<p>Panel de ventas</p>}
+      />,
+    );
+
+    await userEvent.keyboard("{F2}");
+    await userEvent.click(document.body);
+    await userEvent.keyboard("?");
+
+    expect(screen.getByLabelText("Buscar cliente")).not.toHaveFocus();
+    expect(screen.queryByRole("dialog", { name: "Atajos de teclado" })).not.toBeInTheDocument();
+
+    // De vuelta en Vender, los atajos vuelven a funcionar.
+    await userEvent.click(screen.getByRole("tab", { name: "Vender" }));
+    await userEvent.keyboard("{F2}");
+    await waitFor(() => expect(screen.getByLabelText("Buscar cliente")).toHaveFocus());
+  });
+
+  it("\"Devolver algo de esta venta\" lleva a la pestaña Ventas", async () => {
+    mockCrear.mockResolvedValue(VENTA_OK);
+    render(
+      <PestanasMostrador
+        inicial="vender"
+        ventasHoy={0}
+        vender={<VenderMostrador efectivoBloqueado={false} rol="RECEPCION" descuentoMaxRecepcion={10} />}
+        ventas={<p>Panel de ventas</p>}
+      />,
+    );
+    await agregarFiltro();
+    await userEvent.type(screen.getByLabelText("Recibido"), "200000");
+    await userEvent.click(botonCobrar());
+
+    await userEvent.click(await screen.findByRole("button", { name: "Devolver algo de esta venta" }));
+
+    expect(screen.getByRole("tab", { name: /Ventas/ })).toHaveAttribute("aria-selected", "true");
+    // Enter ya no es "nueva venta": la tarjeta sigue ahí.
+    await userEvent.click(document.body);
+    await userEvent.keyboard("{Enter}");
+    expect(screen.getByRole("status", { name: /Venta #9/, hidden: true })).toBeInTheDocument();
   });
 });

@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { calcularTotalesVenta } from "@/lib/mostrador/ventas";
 import { AyudaAtajos } from "./ayuda-atajos";
+import { usePestanaMostrador } from "./pestanas-mostrador";
 import { SelectorCliente } from "./selector-cliente";
 import { TablaCarrito } from "./tabla-carrito";
 import { TarjetaCobro, type CobroListo, type TarjetaCobroHandle } from "./tarjeta-cobro";
@@ -48,6 +49,8 @@ export function VenderMostrador({
   descuentoMaxRecepcion: number;
 }) {
   const carrito = useCarrito();
+  // Los dos paneles quedan montados: en Ventas los atajos de vender no toman teclas.
+  const { activa } = usePestanaMostrador();
   const [state, formAction, isPending] = useActionState(crearVentaMostradorAction, initialState);
   const [cliente, setCliente] = useState<ClienteMostrador | null>(null);
   const [descuento, setDescuento] = useState<DescuentoLocal>(DESCUENTO_VACIO);
@@ -123,7 +126,7 @@ export function VenderMostrador({
     buscarCliente: () => clienteRef.current?.focus(),
     descuento: () => descuentoRef.current?.focus(),
     ayuda: () => setAyudaAbierta(true),
-  });
+  }, activa === "vender");
 
   const tope = rol === "ADMIN" ? null : descuentoMaxRecepcion;
   const subtotalBruto = calcularTotalesVenta(carrito.lineas, 0).subtotal;

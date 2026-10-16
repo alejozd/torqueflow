@@ -23,15 +23,19 @@ export function estaEscribiendo(destino: EventTarget | null): boolean {
  * Atajos globales del mostrador (spec §4.4). Las teclas F no chocan con escribir;
  * `/` solo cuenta fuera de un campo, para poder teclear una barra en el buscador.
  * No se toman F5, F11 ni Ctrl+N/T/W: son del navegador.
+ * Con `activo` en false (la pestaña Ventas a la vista) no toman ninguna tecla.
  */
-export function useAtajosMostrador(handlers: AtajosMostrador) {
+export function useAtajosMostrador(handlers: AtajosMostrador, activo = true) {
   const ref = useRef(handlers);
+  const activoRef = useRef(activo);
   useEffect(() => {
     ref.current = handlers;
+    activoRef.current = activo;
   });
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
+      if (!activoRef.current) return;
       const accion = (fn: () => void) => {
         event.preventDefault();
         fn();

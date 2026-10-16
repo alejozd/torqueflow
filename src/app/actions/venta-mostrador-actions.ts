@@ -19,9 +19,18 @@ import { descuentoPermitido, porcentajeDescuento, resumirPagos, type PagoEntrada
 import {
   agruparPagos,
   construirMensajeComprobante,
+  describirMetodos,
   textoComprobanteWhatsapp,
   type ComprobanteVenta,
 } from "@/lib/mostrador/comprobante";
+import {
+  estadoVentaMostrador,
+  rangoDelFiltro,
+  ventanaDelRango,
+  type EstadoVentaMostrador,
+  type RangoVentas,
+} from "@/lib/mostrador/listado-ventas";
+import { puedeDevolver, ventaEnCajaCerrada } from "@/lib/mostrador/plazo-devolucion";
 import { calcularTotalesVenta } from "@/lib/mostrador/ventas";
 import { scopeRepuesto } from "@/lib/sede/scope";
 import { cobroVentaSchema, ventaMostradorInputSchema, type VentaMostradorInput } from "@/lib/validation/mostrador";
@@ -532,14 +541,20 @@ export async function buscarClientesMostradorAction(texto: string): Promise<Clie
   }));
 }
 
-export interface VentaMostradorDia {
+/** Una venta en la pestaña Ventas (rediseño, §5): lo de la tabla, el cobro y la devolución. */
+export interface VentaMostradorFila {
   id: string;
   numero: number;
+  createdAt: Date;
+  clienteNombre: string | null;
+  subtotal: number;
   total: number;
   saldoPendiente: number;
-  estado: "PENDIENTE" | "PAGADA";
-  clienteNombre: string | null;
-  createdAt: Date;
+  /** Suma de las devoluciones ya registradas (el tope de lo que aún se puede devolver). */
+  totalDevuelto: number;
+  estado: EstadoVentaMostrador;
+  /** "Efectivo + Tarjeta" o "A crédito". */
+  metodos: string;
   items: {
     id: string;
     descripcion: string;
@@ -547,6 +562,19 @@ export interface VentaMostradorDia {
     devueltoCantidad: number;
     precioUnitario: number;
   }[];
+  /** Si quien mira puede devolverla hoy (30 días; caja cerrada solo ADMIN) y por qué no. */
+  devolucion: { permitido: boolean; motivo: string | null };
+}
+
+export interface ResumenVentasHoy {
+  vendido: number;
+  numeroVentas: number;
+  /** Efectivo cobrado hoy por el mostrador menos lo devuelto en efectivo hoy. */
+  efectivo: number;
+  /** Saldo pendiente de todas las ventas de mostrador de la sede (crédito). */
+  porCobrar: number;
+  ventasPorCobrar: number;
+  devuelto: number;
 }
 
 export interface MostradorDatos {
@@ -558,13 +586,113 @@ export interface MostradorDatos {
   /** Rol de quien vende y su tope de descuento (RECEPCION; ADMIN no tiene tope). */
   rol: "ADMIN" | "RECEPCION";
   descuentoMaxRecepcion: number;
-  ventas: VentaMostradorDia[];
+  /** Las ventas de hoy (el filtro por defecto de la pestaña Ventas). */
+  ventas: VentaMostradorFila[];
+  resumen: ResumenVentasHoy;
+}
+
+type TenantDb = ReturnType<typeof getTenantDb>;
+
+const SELECT_FILA = {
+  id: true,
+  numero: true,
+  createdAt: true,
+  subtotal: true,
+  total: true,
+  saldoPendiente: true,
+  cliente: { select: { nombre: true } },
+  items: {
+    select: { id: true, descripcion: true, cantidad: true, devueltoCantidad: true, precioUnitario: true },
+    orderBy: { createdAt: "asc" },
+  },
+  pagos: { select: { metodoPago: true, monto: true }, orderBy: { createdAt: "asc" } },
+  devoluciones: { select: { total: true } },
+} as const;
+
+/** Lo que decide si se puede devolver, leído una vez para todas las filas. */
+interface ContextoDevolucion {
+  ahora: Date;
+  rol: string;
+  usarControlCaja: boolean;
+  cajaAbiertaDesde: Date | null;
+}
+
+async function leerContextoDevolucion(tenantDb: TenantDb, sedeId: string, rol: string): Promise<ContextoDevolucion> {
+  const [opciones, sesion] = await Promise.all([leerOpcionesTaller(tenantDb), sesionDeCajaAbierta(tenantDb, sedeId)]);
+  return { ahora: new Date(), rol, usarControlCaja: opciones.usarControlCaja, cajaAbiertaDesde: sesion?.abiertaAt ?? null };
+}
+
+async function leerFilas(
+  tenantDb: TenantDb,
+  where: { sedeId: string; id?: string; createdAt?: { gte: Date; lt: Date } },
+  contexto: ContextoDevolucion,
+): Promise<VentaMostradorFila[]> {
+  const ventas = await tenantDb.ventaMostrador.findMany({ where, select: SELECT_FILA, orderBy: { createdAt: "desc" } });
+  return ventas.map((venta) => {
+    const items = venta.items.map((item) => ({
+      id: item.id,
+      descripcion: item.descripcion,
+      cantidad: item.cantidad,
+      devueltoCantidad: item.devueltoCantidad,
+      precioUnitario: Number(item.precioUnitario),
+    }));
+    const saldoPendiente = Number(venta.saldoPendiente);
+    const cajaCerrada = ventaEnCajaCerrada({
+      fechaVenta: venta.createdAt,
+      ahora: contexto.ahora,
+      usarControlCaja: contexto.usarControlCaja,
+      cajaAbiertaDesde: contexto.cajaAbiertaDesde,
+    });
+    return {
+      id: venta.id,
+      numero: venta.numero,
+      createdAt: venta.createdAt,
+      clienteNombre: venta.cliente?.nombre ?? null,
+      subtotal: Number(venta.subtotal),
+      total: Number(venta.total),
+      saldoPendiente,
+      totalDevuelto: venta.devoluciones.reduce((suma, devolucion) => suma + Number(devolucion.total), 0),
+      estado: estadoVentaMostrador(items, saldoPendiente),
+      metodos: describirMetodos(venta.pagos.map((pago) => ({ metodoPago: pago.metodoPago, monto: Number(pago.monto) }))),
+      items,
+      devolucion: puedeDevolver({ fechaVenta: venta.createdAt, ahora: contexto.ahora, rol: contexto.rol, cajaCerrada }),
+    };
+  });
+}
+
+async function resumenDeHoy(tenantDb: TenantDb, sedeId: string, ahora: Date): Promise<ResumenVentasHoy> {
+  const hoy = { gte: inicioDiaBogota(ahora) };
+  const [vendidas, efectivoCobrado, devueltas, devueltoEnEfectivo, pendientes] = await Promise.all([
+    tenantDb.ventaMostrador.aggregate({ where: { sedeId, createdAt: hoy }, _sum: { total: true }, _count: { _all: true } }),
+    tenantDb.pagoVentaMostrador.aggregate({
+      where: { metodoPago: "EFECTIVO", createdAt: hoy, venta: { sedeId } },
+      _sum: { monto: true },
+    }),
+    tenantDb.devolucionMostrador.aggregate({ where: { sedeId, createdAt: hoy }, _sum: { total: true } }),
+    tenantDb.devolucionMostrador.aggregate({
+      where: { sedeId, metodoPago: "EFECTIVO", createdAt: hoy },
+      _sum: { montoEnEfectivo: true },
+    }),
+    tenantDb.ventaMostrador.aggregate({
+      where: { sedeId, saldoPendiente: { gt: 0 } },
+      _sum: { saldoPendiente: true },
+      _count: { _all: true },
+    }),
+  ]);
+  return {
+    vendido: Number(vendidas._sum.total ?? 0),
+    numeroVentas: vendidas._count._all,
+    efectivo: Number(efectivoCobrado._sum.monto ?? 0) - Number(devueltoEnEfectivo._sum.montoEnEfectivo ?? 0),
+    porCobrar: Number(pendientes._sum.saldoPendiente ?? 0),
+    ventasPorCobrar: pendientes._count._all,
+    devuelto: Number(devueltas._sum.total ?? 0),
+  };
 }
 
 /**
  * Lo que necesita la pantalla del mostrador en una sola lectura: si hay caja
- * abierta (sin ella no se puede cobrar) y las ventas del día con lo ya devuelto.
- * Repuestos y clientes no viajan completos: se buscan en el servidor con
+ * abierta (sin ella no se puede cobrar en efectivo), las ventas de hoy y los KPI
+ * del día. Repuestos y clientes no viajan completos: se buscan en el servidor con
  * `buscarParaMostradorAction` y `buscarClientesMostradorAction`.
  */
 export async function getMostradorDatos(): Promise<MostradorDatos> {
@@ -572,48 +700,68 @@ export async function getMostradorDatos(): Promise<MostradorDatos> {
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
 
-  const [sesion, opciones, ventas] = await Promise.all([
-    sesionDeCajaAbierta(tenantDb, sedeId),
-    leerOpcionesTaller(tenantDb),
-    tenantDb.ventaMostrador.findMany({
-      where: { sedeId, createdAt: { gte: inicioDiaBogota(new Date()) } },
-      select: {
-        id: true,
-        numero: true,
-        total: true,
-        saldoPendiente: true,
-        estado: true,
-        createdAt: true,
-        cliente: { select: { nombre: true } },
-        items: { select: { id: true, descripcion: true, cantidad: true, devueltoCantidad: true, precioUnitario: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
+  const [opciones, sesion] = await Promise.all([leerOpcionesTaller(tenantDb), sesionDeCajaAbierta(tenantDb, sedeId)]);
+  const contexto: ContextoDevolucion = {
+    ahora: new Date(),
+    rol: session.user.role,
+    usarControlCaja: opciones.usarControlCaja,
+    cajaAbiertaDesde: sesion?.abiertaAt ?? null,
+  };
+  const hoy = ventanaDelRango(rangoDelFiltro("hoy", contexto.ahora));
+  if ("error" in hoy) throw new Error(hoy.error);
+  const [ventas, resumen] = await Promise.all([
+    leerFilas(tenantDb, { sedeId, createdAt: { gte: hoy.inicio, lt: hoy.fin } }, contexto),
+    resumenDeHoy(tenantDb, sedeId, contexto.ahora),
   ]);
 
   return {
-    efectivoBloqueado: opciones.usarControlCaja && sesion === null,
+    efectivoBloqueado: opciones.usarControlCaja && contexto.cajaAbiertaDesde === null,
     usarControlCaja: opciones.usarControlCaja,
-    cajaAbierta: sesion !== null,
+    cajaAbierta: contexto.cajaAbiertaDesde !== null,
     rol: session.user.role === "ADMIN" ? "ADMIN" : "RECEPCION",
     descuentoMaxRecepcion: opciones.descuentoMaxRecepcion,
-    ventas: ventas.map((venta) => ({
-      id: venta.id,
-      numero: venta.numero,
-      total: Number(venta.total),
-      saldoPendiente: Number(venta.saldoPendiente),
-      estado: venta.estado,
-      clienteNombre: venta.cliente?.nombre ?? null,
-      createdAt: venta.createdAt,
-      items: venta.items.map((item) => ({
-        id: item.id,
-        descripcion: item.descripcion,
-        cantidad: item.cantidad,
-        devueltoCantidad: item.devueltoCantidad,
-        precioUnitario: Number(item.precioUnitario),
-      })),
-    })),
+    ventas,
+    resumen,
   };
+}
+
+export interface ListadoVentasMostrador {
+  ventas: VentaMostradorFila[];
+  error: string | null;
+}
+
+/**
+ * Ventas de la sede activa entre dos días de Bogotá (ambos incluidos), de máximo
+ * 30 días: los filtros Hoy, Ayer y Últimos 30 días de la pestaña Ventas.
+ */
+export async function listarVentasMostradorAction(rango: RangoVentas): Promise<ListadoVentasMostrador> {
+  const session = await requireRole(ROLES_MOSTRADOR);
+  const ventana = ventanaDelRango({
+    desde: typeof rango?.desde === "string" ? rango.desde : "",
+    hasta: typeof rango?.hasta === "string" ? rango.hasta : "",
+  });
+  if ("error" in ventana) return { ventas: [], error: ventana.error };
+
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  const sedeId = session.user.sedeActivaId;
+  const contexto = await leerContextoDevolucion(tenantDb, sedeId, session.user.role);
+  const ventas = await leerFilas(tenantDb, { sedeId, createdAt: { gte: ventana.inicio, lt: ventana.fin } }, contexto);
+  return { ventas, error: null };
+}
+
+/**
+ * Una venta de la sede activa, sin importar su fecha: el enlace "Cobrar" de
+ * Cartera (`?tab=ventas&venta=<id>`) puede apuntar a una venta vieja, y cobrar el
+ * saldo no tiene plazo (solo la devolución lo tiene).
+ */
+export async function obtenerVentaMostradorAction(ventaId: string): Promise<VentaMostradorFila | null> {
+  const session = await requireRole(ROLES_MOSTRADOR);
+  if (typeof ventaId !== "string" || ventaId === "") return null;
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  const sedeId = session.user.sedeActivaId;
+  const contexto = await leerContextoDevolucion(tenantDb, sedeId, session.user.role);
+  const [venta] = await leerFilas(tenantDb, { sedeId, id: ventaId }, contexto);
+  return venta ?? null;
 }
 
 export async function cobrarVentaMostradorAction(

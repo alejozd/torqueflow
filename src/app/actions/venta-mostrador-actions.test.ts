@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const opcionesTaller = { exigirActaFirmada: false, usarControlCaja: true, descuentoMaxRecepcion: 10 };
 
@@ -17,7 +17,7 @@ const db = {
   cliente: { findFirst: vi.fn(), findMany: vi.fn() },
   repuesto: { findMany: vi.fn() },
   itemOrden: { groupBy: vi.fn() },
-  ventaMostrador: { findFirst: vi.fn(), groupBy: vi.fn() },
+  ventaMostrador: { findFirst: vi.fn(), findMany: vi.fn(), groupBy: vi.fn() },
   configuracionSmtp: { findUnique: vi.fn() },
   $transaction: (fn: (cliente: typeof tx) => unknown) => fn(tx),
 };
@@ -41,6 +41,8 @@ import {
   cobrarVentaMostradorAction, crearVentaMostradorAction,
   enviarComprobanteCorreoAction,
   getComprobanteVentaMostrador,
+  listarVentasMostradorAction,
+  obtenerVentaMostradorAction,
 } from "./venta-mostrador-actions";
 
 mockTenantFindUnique.mockResolvedValue({ nombre: "Taller Pérez", slug: "taller-perez" });
@@ -734,5 +736,136 @@ describe("enviarComprobanteCorreoAction", () => {
 
     expect(r.success).toBe(false);
     expect(r.error).toBe("No se pudo enviar el comprobante por correo. Revisa la configuración SMTP.");
+  });
+});
+
+/** Venta como la lee la pestaña Ventas (Decimal llega como texto). */
+function filaGuardada(cambios: Record<string, unknown> = {}) {
+  return {
+    id: "v1",
+    numero: 7,
+    createdAt: new Date("2026-10-17T15:00:00Z"),
+    subtotal: "50000",
+    total: "59500",
+    saldoPendiente: "0",
+    cliente: { nombre: "Ana Gómez" },
+    items: [{ id: "i1", descripcion: "Filtro de aceite", cantidad: 2, devueltoCantidad: 0, precioUnitario: "25000" }],
+    pagos: [
+      { metodoPago: "EFECTIVO", monto: "40000" },
+      { metodoPago: "TARJETA", monto: "19500" },
+    ],
+    devoluciones: [],
+    ...cambios,
+  };
+}
+
+describe("listarVentasMostradorAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-17T20:00:00Z"));
+    mockRequireRole.mockResolvedValue(SESION);
+    db.cajaSesion.findFirst.mockResolvedValue({ id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
+    db.ventaMostrador.findMany.mockResolvedValue([filaGuardada()]);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("lista las ventas de la sede entre dos días de Bogotá, ambos incluidos", async () => {
+    const r = await listarVentasMostradorAction({ desde: "2026-09-17", hasta: "2026-10-17" });
+
+    expect(r.error).toBeNull();
+    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(db.ventaMostrador.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          sedeId: "sede-1",
+          createdAt: { gte: new Date("2026-09-17T05:00:00Z"), lt: new Date("2026-10-18T05:00:00Z") },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+    );
+    expect(r.ventas).toEqual([
+      {
+        id: "v1",
+        numero: 7,
+        createdAt: new Date("2026-10-17T15:00:00Z"),
+        clienteNombre: "Ana Gómez",
+        subtotal: 50000,
+        total: 59500,
+        saldoPendiente: 0,
+        totalDevuelto: 0,
+        estado: "PAGADA",
+        metodos: "Efectivo + Tarjeta",
+        items: [{ id: "i1", descripcion: "Filtro de aceite", cantidad: 2, devueltoCantidad: 0, precioUnitario: 25000 }],
+        devolucion: { permitido: true, motivo: null },
+      },
+    ]);
+  });
+
+  it("rechaza un rango de más de 30 días o mal formado sin consultar", async () => {
+    expect(await listarVentasMostradorAction({ desde: "2026-09-16", hasta: "2026-10-17" })).toEqual({
+      ventas: [],
+      error: "El rango puede ser de máximo 30 días",
+    });
+    expect(await listarVentasMostradorAction({ desde: "ayer", hasta: "2026-10-17" })).toEqual({
+      ventas: [],
+      error: "Fechas inválidas",
+    });
+    expect(db.ventaMostrador.findMany).not.toHaveBeenCalled();
+  });
+
+  it("marca el estado y si quien mira puede devolver cada venta", async () => {
+    db.ventaMostrador.findMany.mockResolvedValue([
+      // De ayer: la caja abierta hoy es otra, así que RECEPCION ya no la devuelve.
+      filaGuardada({ id: "ayer", createdAt: new Date("2026-10-16T15:00:00Z"), saldoPendiente: "20000", pagos: [] }),
+      filaGuardada({
+        id: "parcial",
+        items: [{ id: "i1", descripcion: "Filtro de aceite", cantidad: 2, devueltoCantidad: 1, precioUnitario: "25000" }],
+        devoluciones: [{ total: "29750" }],
+      }),
+    ]);
+
+    const { ventas } = await listarVentasMostradorAction({ desde: "2026-10-16", hasta: "2026-10-17" });
+
+    expect(ventas[0]).toMatchObject({
+      estado: "A_CREDITO",
+      metodos: "A crédito",
+      saldoPendiente: 20000,
+      devolucion: { permitido: false, motivo: "Esta venta es de una caja ya cerrada: solo un administrador puede devolverla" },
+    });
+    expect(ventas[1]).toMatchObject({ estado: "DEVUELTA_PARCIAL", totalDevuelto: 29750, devolucion: { permitido: true } });
+  });
+
+  it("si no tiene permiso, falla antes de consultar", async () => {
+    mockRequireRole.mockRejectedValue(new Error("FORBIDDEN"));
+    await expect(listarVentasMostradorAction({ desde: "2026-10-17", hasta: "2026-10-17" })).rejects.toThrow("FORBIDDEN");
+    expect(db.ventaMostrador.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("obtenerVentaMostradorAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequireRole.mockResolvedValue(SESION);
+    db.cajaSesion.findFirst.mockResolvedValue(null);
+  });
+
+  it("trae una venta de la sede activa sin importar su fecha (para cobrar su saldo)", async () => {
+    db.ventaMostrador.findMany.mockResolvedValue([
+      filaGuardada({ createdAt: new Date("2026-06-01T15:00:00Z"), saldoPendiente: "10000" }),
+    ]);
+
+    const venta = await obtenerVentaMostradorAction("v1");
+
+    expect(db.ventaMostrador.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { sedeId: "sede-1", id: "v1" } }));
+    expect(venta).toMatchObject({ id: "v1", saldoPendiente: 10000, devolucion: { permitido: false } });
+  });
+
+  it("una venta de otra sede (o que no existe) da null", async () => {
+    db.ventaMostrador.findMany.mockResolvedValue([]);
+    expect(await obtenerVentaMostradorAction("ajena")).toBeNull();
   });
 });
