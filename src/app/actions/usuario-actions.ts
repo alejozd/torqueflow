@@ -62,6 +62,8 @@ export interface UsuarioConSedes {
   activo: boolean;
   sedeDefectoId: string | null;
   sedeIds: string[];
+  permisosAgregados: string[];
+  permisosQuitados: string[];
 }
 
 const USUARIO_CON_SEDES_SELECT = {
@@ -71,6 +73,8 @@ const USUARIO_CON_SEDES_SELECT = {
   role: true,
   activo: true,
   sedeDefectoId: true,
+  permisosAgregados: true,
+  permisosQuitados: true,
   sedes: { select: { sedeId: true } },
 } as const;
 
@@ -100,6 +104,8 @@ export async function listUsuariosConSedes(): Promise<UsuarioConSedes[]> {
     activo: usuario.activo,
     sedeDefectoId: usuario.sedeDefectoId,
     sedeIds: usuario.sedes.map((asignacion) => asignacion.sedeId),
+    permisosAgregados: usuario.permisosAgregados,
+    permisosQuitados: usuario.permisosQuitados,
   }));
 }
 
@@ -111,6 +117,8 @@ export interface UsuarioConMetricas {
   activo: boolean;
   sedeDefectoId: string | null;
   sedeIds: string[];
+  permisosAgregados: string[];
+  permisosQuitados: string[];
   ordenesActivas: number;
 }
 
@@ -151,6 +159,8 @@ export async function listUsuariosConMetricas(): Promise<UsuarioConMetricas[]> {
     activo: usuario.activo,
     sedeDefectoId: usuario.sedeDefectoId,
     sedeIds: usuario.sedes.map((asignacion) => asignacion.sedeId),
+    permisosAgregados: usuario.permisosAgregados,
+    permisosQuitados: usuario.permisosQuitados,
     ordenesActivas: ordenesMap.get(usuario.id) ?? 0,
   }));
 }

@@ -84,12 +84,20 @@ function buildColumns(sedesPorId: Map<string, string>, sedeOptions: SedeOption[]
     },
     {
       header: "Rol",
-      cell: (usuario) => (
-        <Badge className={cn("gap-1.5", ROLE_BADGE_CLASSNAME[usuario.role])}>
-          <span className="size-1.5 shrink-0 rounded-full" style={{ background: ROLE_DOT_COLOR[usuario.role] }} />
-          {ROLE_LABELS[usuario.role]}
-        </Badge>
-      ),
+      cell: (usuario) => {
+        const cambios = usuario.permisosAgregados.length + usuario.permisosQuitados.length;
+        return (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge className={cn("gap-1.5", ROLE_BADGE_CLASSNAME[usuario.role])}>
+              <span className="size-1.5 shrink-0 rounded-full" style={{ background: ROLE_DOT_COLOR[usuario.role] }} />
+              {ROLE_LABELS[usuario.role]}
+            </Badge>
+            {cambios > 0 ? (
+              <span className="text-xs text-muted-foreground">· {cambios} {cambios === 1 ? "cambio" : "cambios"}</span>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       header: "Sedes asignadas",
