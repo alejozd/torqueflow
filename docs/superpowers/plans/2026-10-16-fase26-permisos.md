@@ -749,6 +749,7 @@ Comportamiento:
 - [ ] Verificación final: `npx tsc --noEmit --incremental false`, `npm test`, `npx eslint` y `npm run build`.
 - [ ] Revisión manual: lanzar `npm run dev` en background y pedirle al usuario que entre como TECNICO, RECEPCION y un JEFE_TALLER de prueba, y que pruebe una excepción.
 - [ ] Respaldo `pg_dump` de `taller_dev` y `taller_dev_reference`, y aplicar las migraciones `20261023120000_rol_jefe_taller` y `20261024120000_permisos_usuario` a los dos schemas. `migrate diff` tiene que responder "This is an empty migration".
+- [ ] **Todos los tenants (revisión final, I6):** `requireSession` lee `permisos_agregados`/`permisos_quitados` en cada petición, así que un schema sin migrar deja a ese taller sin poder entrar. Listar los schemas con `select schema_name from public.tenants` y correr `migrate deploy` + `migrate diff` (vacío) en **todos** ellos (no solo los dos de arriba) **antes** de hacer build y reiniciar. Ver `docs/TRASPASO-AGENTES.md` §6.
 - [ ] `git merge --no-ff fase26-permisos` a `main`, actualizar `PROJECT_BRIEF.md` y `docs/TRASPASO-AGENTES.md`, y hacer push.
 
 ## Seguridad (lo que revisa la tarea 16)

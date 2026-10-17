@@ -307,6 +307,18 @@ TENANT_DATABASE_URL="${TENANT_DATABASE_BASE_URL}?schema=taller_dev" \
 
 Después, la comprobación que vale: `migrate diff` respondiendo **"This is an empty migration"**.
 
+**Todos los schemas de tenant, no solo los dos conocidos (Fase 26).** Desde la fase 26, `requireSession`
+lee columnas nuevas de `usuarios` (`permisos_agregados`, `permisos_quitados`) en **cada** petición: si el
+build nuevo arranca contra un schema sin la migración, nadie de ese taller puede entrar. Antes de hacer
+build y reiniciar:
+
+1. Listar los schemas desde la base, no de memoria:
+   `psql "${DATABASE_URL%%\?*}" -At -c "select schema_name from public.tenants order by schema_name"`.
+2. Por **cada** schema de esa lista (más `taller_dev_reference` si no aparece), correr `migrate deploy`
+   como arriba y después el `migrate diff` de §2; todos tienen que responder "This is an empty migration".
+3. Solo entonces `sudo ./deploy.sh`. Migrar antes es seguro: agregar columnas y valores a un enum no rompe
+   el código viejo.
+
 ## 7. Trampas conocidas (lecciones que costaron tiempo)
 
 - **Los tests mockean la base** (`getTenantDb`): si te falta una columna en la migración, **los tests siguen
