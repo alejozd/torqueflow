@@ -4,7 +4,7 @@
 
 **Objetivo:** llevar `/usuarios/[id]` al diseño que propuso Stitch (`docs/Evidencias/Permisos-Usuario/screen.png`, archivo del usuario: no moverlo ni commitearlo): una sola pantalla de "Editar usuario y permisos" con cabecera del usuario, datos en 3 columnas y los permisos en tarjetas por grupo con buscador, contadores y barra de cambios sin guardar.
 
-> **Estado (2026-10-17):** rama `usuario-permisos-rediseno` creada desde `main`. **Tareas 1 a 4 hechas** (ver notas en cada tarea). Siguiente: **tarea 5** (revisión visual, suite completa, build, revisión independiente y merge con aprobación). Vamos en 4 de 5.
+> **Estado (2026-10-17):** rama `usuario-permisos-rediseno` creada desde `main`. **Tareas 1 a 4 hechas** (ver notas en cada tarea). **Tarea 5 en curso** (ver su lista de avance). Vamos en 4 de 5.
 
 **Sin migraciones.** Todo sale de datos que ya existen (`Usuario.createdAt`, `activo`, `role`, `sedeIds`, `permisosAgregados`, `permisosQuitados`).
 
@@ -51,6 +51,13 @@ Tests: cambiar solo un permiso → solo se llama `guardarPermisosUsuarioAction`;
 **Hecho (tarea 4):** `usuarios/[id]/ficha-usuario.tsx` (cliente) junta título, cabecera, formulario y permisos; `page.tsx` solo carga datos y la renderiza. "Guardar cambios" arriba y en la barra fija "Tienes cambios sin guardar" (con "Descartar") corren lo que diga `decidirGuardado` (D1, función pura con test): formulario si tiene cambios; permisos si tienen cambios **y no cambió el rol** (aviso "Al cambiar el rol, los permisos vuelven a los del rol nuevo"). El formulario y el editor de permisos ganaron props opcionales de modo ficha (`controlRef` + `onEstado` / `onCambios`) que ocultan sus botones propios; el diálogo "Editar" de la lista no las usa y queda igual. Descartar remonta ambos con una clave de versión; tras guardar, la clave del formulario (con sus datos) lo remonta limpio. **Decisión:** "Volver al rol base" se queda dentro de la sección Permisos con su `ConfirmacionEnLinea` (ya probada) en vez de subir a la cabecera. 8 tests en `ficha-usuario.test.tsx`. **Pendiente para la tarea 5:** correr la suite completa y `npm run build` (en las tareas 1–4 solo se corrieron los tests de usuarios, `tsc` y eslint), y mirarlo en el navegador.
 
 ### Task 5: Revisión visual y cierre
+
+**Avance de la tarea 5 (se actualiza paso a paso):**
+- [ ] Suite completa + `npm run build`
+- [ ] Revisión en el navegador (app en 3025)
+- [ ] Revisión independiente del diff `main...usuario-permisos-rediseno` y ronda de arreglos
+- [ ] Merge `--no-ff` a `main` (solo con aprobación del usuario) y despliegue (lo hace el usuario)
+
 Lanzar `npm run dev` en segundo plano (puerto 3025; la base es la real: no guardar cambios de prueba sobre usuarios reales, usar uno de prueba), revisar a 1366 px y en móvil, y pedirle al usuario que lo mire. Verificación: `npx tsc --noEmit --incremental false`, `npm test`, `npx eslint` de lo tocado, `npm run build`. Revisión independiente del diff (otro modelo, solo lectura) y una ronda de arreglos. Merge solo con aprobación.
 
 ## Riesgos conocidos
