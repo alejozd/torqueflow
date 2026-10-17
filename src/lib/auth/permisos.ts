@@ -73,13 +73,13 @@ export const PERMISOS_SOLO_ADMIN: readonly Permiso[] = [
 
 const TECNICO: readonly Permiso[] = [
   "clientes.ver", "citas.ver", "cotizaciones.ver", "cotizaciones.editarItems",
-  "ordenes.ver", "ordenes.trabajar", "ordenes.cambiarEstado", "ordenes.anular", "ordenes.entregar",
-  "facturas.ver", "inventario.ver", "inventario.costos", "compras.ver",
+  "ordenes.ver", "ordenes.trabajar", "ordenes.cambiarEstado", "ordenes.entregar",
+  "inventario.ver",
 ];
 
 const RECEPCION: readonly Permiso[] = [
   ...TECNICO,
-  "ordenes.verTodas",
+  "ordenes.verTodas", "ordenes.anular", "facturas.ver", "inventario.costos", "compras.ver",
   "clientes.editar", "clientes.eliminar", "citas.gestionar", "cotizaciones.gestionar",
   "ordenes.crear", "ordenes.quitar", "ordenes.planificar", "vencimientos.avisar",
   "facturas.facturar", "mostrador.vender", "anticipos.registrar", "caja.usar", "cartera.ver",

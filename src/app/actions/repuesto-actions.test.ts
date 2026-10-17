@@ -5,6 +5,7 @@ const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
   requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: () => mockRequireSession(),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
 }));
 
 const mockCreate = vi.fn();
@@ -21,6 +22,7 @@ vi.mock("@/lib/db/tenant-client", () => ({
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
+import { permisosEfectivos } from "@/lib/auth/permisos";
 import {
   createRepuestoAction,
   updateRepuestoAction,
@@ -34,7 +36,12 @@ import {
 const initialState: RepuestoFormState = { error: null, success: false, repuestoId: null };
 const SESSION_ADMIN = { user: { role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 const SESSION_RECEPCION = { user: { role: "RECEPCION", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
-const SESSION_TECNICO = { user: { role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION_TECNICO = {
+  user: { role: "TECNICO", permisos: permisosEfectivos({ role: "TECNICO" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+};
+const SESSION_CON_COSTOS = {
+  user: { role: "RECEPCION", permisos: permisosEfectivos({ role: "RECEPCION" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+};
 
 function baseFormData(): FormData {
   const formData = new FormData();
@@ -265,8 +272,22 @@ describe("listRepuestos", () => {
 
 describe("listRepuestoOptions", () => {
   beforeEach(() => {
-    mockRequireSession.mockReset().mockResolvedValue(SESSION_TECNICO);
+    mockRequireSession.mockReset().mockResolvedValue(SESSION_CON_COSTOS);
     mockFindMany.mockReset().mockResolvedValue([]);
+  });
+
+  it("sin inventario.costos ni consulta ni devuelve precioCompra (D8)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION_TECNICO);
+    mockFindMany.mockResolvedValue([
+      { id: "r1", codigo: "FRN-001", nombre: "Filtro", precioVenta: { toString: () => "12.5" }, stockActual: 20, stockMinimo: 5 },
+    ]);
+
+    const result = await listRepuestoOptions();
+
+    expect(mockFindMany.mock.calls[0]![0].select).not.toHaveProperty("precioCompra");
+    expect(result[0]).not.toHaveProperty("precioCompra");
+    expect(JSON.stringify(result)).not.toContain("precioCompra");
+    expect(result[0]).toMatchObject({ id: "r1", precioVenta: 12.5, stockActual: 20 });
   });
 
   it("combines an explicit bodegaId with the sede filter in listRepuestoOptions", async () => {

@@ -32,12 +32,21 @@ const SIGUIENTE: Partial<Record<EstadoOrden, { destino: EstadoOrden; etiqueta: s
  * no se hace aquí (exige el acta), solo se lleva al acta. Anular vive en «⋯» y
  * siempre pregunta, porque deja la orden sin poder editarse.
  */
-export function AvanceFase({ ordenId, estado }: { ordenId: string; estado: EstadoOrden }) {
+export function AvanceFase({
+  ordenId,
+  estado,
+  puedeAnular = true,
+}: {
+  ordenId: string;
+  estado: EstadoOrden;
+  /** Sin `ordenes.anular` (el técnico) no se ofrece «Anular orden». */
+  puedeAnular?: boolean;
+}) {
   const cambiar = updateEstadoOrdenAction.bind(null, ordenId);
   const [state, formAction, isPending] = useActionState(cambiar, initialState);
   const [anulando, setAnulando] = useState(false);
   const siguiente = SIGUIENTE[estado];
-  const anulable = ESTADO_ORDEN_TRANSITIONS[estado].includes("ANULADA");
+  const anulable = puedeAnular && ESTADO_ORDEN_TRANSITIONS[estado].includes("ANULADA");
 
   function enviar(destino: EstadoOrden) {
     const formData = new FormData();

@@ -5,6 +5,7 @@ const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
   requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: () => mockRequireSession(),
+  puede: (session: { user: { permisos?: string[] } }, permiso: string) => (session.user.permisos ?? []).includes(permiso),
 }));
 
 const mockCreate = vi.fn();
@@ -221,7 +222,7 @@ describe("listBodegas", () => {
 describe("listBodegasConInventario", () => {
   it("lists bodegas of the sede activa with their repuestos' stock/precio for the KPI columns", async () => {
     mockRequireSession.mockReset().mockResolvedValue({
-      user: { id: "u1", role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+      user: { id: "u1", role: "RECEPCION", permisos: ["inventario.costos"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
     });
     mockFindMany.mockReset().mockResolvedValue([
       {
@@ -243,6 +244,23 @@ describe("listBodegasConInventario", () => {
     expect(mockFindMany).toHaveBeenCalledWith({
       where: { sedeId: "sede-1" },
       include: { repuestos: { select: { stockActual: true, stockMinimo: true, precioCompra: true } } },
+      orderBy: { nombre: "asc" },
+    });
+  });
+});
+
+describe("listBodegasConInventario sin inventario.costos", () => {
+  it("no consulta precioCompra (D8)", async () => {
+    mockRequireSession.mockReset().mockResolvedValue({
+      user: { id: "u1", role: "TECNICO", permisos: ["inventario.ver"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+    });
+    mockFindMany.mockReset().mockResolvedValue([{ id: "b1", nombre: "Norte", repuestos: [{ stockActual: 1, stockMinimo: 1 }] }]);
+
+    await listBodegasConInventario();
+
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: { sedeId: "sede-1" },
+      include: { repuestos: { select: { stockActual: true, stockMinimo: true } } },
       orderBy: { nombre: "asc" },
     });
   });

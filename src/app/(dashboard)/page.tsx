@@ -129,8 +129,12 @@ function subtituloCartera(facturas: number, ventas: number): string | undefined 
 }
 
 export default async function InicioPage() {
-  const [session, overview, alertasInventario, alertasTaller] = await Promise.all([
-    requireSession(),
+  const session = await requireSession();
+  // El KPI "Stock bajo" solo usa conteos; la tarjeta de alertas trae costos,
+  // proveedores y sugerencias de compra, así que solo se pinta (y se pasa al
+  // cliente) con `inventario.costos` (D8).
+  const verAlertasInventario = puede(session, "inventario.costos");
+  const [overview, alertasInventario, alertasTaller] = await Promise.all([
     getDashboardOverview(),
     getAlertasInventario(),
     getAlertasTaller(),
@@ -417,7 +421,7 @@ export default async function InicioPage() {
       <FacturacionSemanaCard resumen={overview.facturacion} />
 
       <AlertasTallerCard diasUmbral={alertasTaller.diasUmbral} alertas={alertasTaller.alertas} />
-      <AlertasInventarioCard data={alertasInventario} />
+      {verAlertasInventario ? <AlertasInventarioCard data={alertasInventario} /> : null}
     </main>
   );
 }

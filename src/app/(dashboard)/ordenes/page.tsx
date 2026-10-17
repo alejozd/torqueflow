@@ -531,7 +531,7 @@ export default async function OrdenesPage({
               headerClassName="bg-muted"
             />
           ) : (
-            <TableroOrdenes columnas={columnasTablero} />
+            <TableroOrdenes columnas={columnasTablero} puedeAnularOrdenes={puede(session, "ordenes.anular")} />
           )}
         </CardContent>
       </Card>

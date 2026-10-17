@@ -141,7 +141,8 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     loadCotizacionesPendientesSeguimiento(session),
     loadOrdenesEnTaller(session),
     loadCitasHoy(session),
-    loadFacturasPendientes(session),
+    // Sin `facturas.ver` el menú no ofrece Facturas: no se calcula la cifra.
+    puede(session, "facturas.ver") ? loadFacturasPendientes(session) : Promise.resolve(0),
     loadRepuestosStockBajo(session),
   ]);
   // Same name-or-email fallback as the Inicio page's greeting.

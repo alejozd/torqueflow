@@ -77,7 +77,7 @@ const OR_TECNICO = [{ mecanicoId: "tec-1" }, { manoDeObra: { some: { mecanicoId:
 
 const initialState: OrdenFormState = { error: null, success: false };
 const SESSION = {
-  user: { id: "u1", role: "ADMIN", permisos: ["ordenes.reasignarMecanico", "ordenes.verTodas"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+  user: { id: "u1", role: "ADMIN", permisos: ["ordenes.reasignarMecanico", "ordenes.verTodas", "ordenes.anular"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
 };
 
 describe("createOrdenAction", () => {
@@ -417,6 +417,33 @@ describe("updateEstadoOrdenAction", () => {
     expect(result.error).toBeNull();
     expect(mockRevalidatePath).toHaveBeenCalledWith("/ordenes");
     expect(mockRevalidatePath).toHaveBeenCalledWith("/ordenes/o1");
+  });
+
+  it("sin ordenes.anular, anular devuelve error y no escribe (D8)", async () => {
+    mockRequirePermiso.mockResolvedValue(TECNICO_SESSION);
+    mockOrdenFindFirst.mockResolvedValue({ ...ORDEN_BASE, estado: "EN_PROCESO" });
+    const formData = new FormData();
+    formData.set("estado", "ANULADA");
+
+    const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
+
+    expect(result).toEqual({ error: "No tienes permiso para anular órdenes" });
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockAuditLogCreate).not.toHaveBeenCalled();
+  });
+
+  it("sin ordenes.anular, el técnico sí puede cambiar a otros estados", async () => {
+    mockRequirePermiso.mockResolvedValue(TECNICO_SESSION);
+    mockOrdenFindFirst.mockResolvedValue({ ...ORDEN_BASE, estado: "EN_PROCESO" });
+    mockUpdate.mockResolvedValue({ id: "o1", estado: "TERMINADA" });
+    const formData = new FormData();
+    formData.set("estado", "TERMINADA");
+
+    const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
+
+    expect(result.error).toBeNull();
+    expect(mockUpdateMany).toHaveBeenCalled();
   });
 
   it("returns 'Orden no encontrada' when the order does not exist", async () => {

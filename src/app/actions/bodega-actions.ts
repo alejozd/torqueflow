@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requirePermiso, requireSession } from "@/lib/auth/guards";
+import { puede, requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { bodegaInputSchema } from "@/lib/validation/inventario";
@@ -16,11 +16,16 @@ export interface BodegaFormState {
 
 const NO_ENCONTRADA = "Bodega no encontrada en tu sede activa.";
 
-const BODEGA_INVENTARIO_INCLUDE = {
-  repuestos: { select: { stockActual: true, stockMinimo: true, precioCompra: true } },
-} satisfies Prisma.BodegaInclude;
+type BodegaConCostos = Prisma.BodegaGetPayload<{
+  include: { repuestos: { select: { stockActual: true; stockMinimo: true; precioCompra: true } } };
+}>;
 
-export type BodegaConInventario = Prisma.BodegaGetPayload<{ include: typeof BODEGA_INVENTARIO_INCLUDE }>;
+/** `precioCompra` solo viene con `inventario.costos`; sin él ni se consulta. */
+export type BodegaConInventario = Omit<BodegaConCostos, "repuestos"> & {
+  repuestos: Array<Omit<BodegaConCostos["repuestos"][number], "precioCompra"> & {
+    precioCompra?: BodegaConCostos["repuestos"][number]["precioCompra"];
+  }>;
+};
 
 export async function listBodegas(): Promise<Bodega[]> {
   const session = await requireSession();
@@ -41,9 +46,14 @@ export async function listBodegas(): Promise<Bodega[]> {
 export async function listBodegasConInventario(): Promise<BodegaConInventario[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
+  const verCostos = puede(session, "inventario.costos");
   return tenantDb.bodega.findMany({
     where: { ...scopeBodega(session.user.sedeActivaId) },
-    include: BODEGA_INVENTARIO_INCLUDE,
+    include: {
+      repuestos: {
+        select: { stockActual: true, stockMinimo: true, ...(verCostos ? { precioCompra: true } : {}) },
+      },
+    },
     orderBy: { nombre: "asc" },
   });
 }

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requirePermiso, requireSession } from "@/lib/auth/guards";
+import { puede, requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { repuestoInputSchema, repuestoStockInicialSchema as stockInicialSchema } from "@/lib/validation/inventario";
@@ -28,8 +28,9 @@ export interface RepuestoOption {
   nombre: string;
   precioVenta: number;
   /** Last recorded purchase cost -- prefills "costo unitario" and anchors the
-   * cost-delta/weighted-average preview when receiving a new entrada. */
-  precioCompra: number;
+   * cost-delta/weighted-average preview when receiving a new entrada.
+   * Ausente sin `inventario.costos`: el servidor ni lo consulta. */
+  precioCompra?: number;
   stockActual: number;
   stockMinimo: number;
 }
@@ -89,6 +90,7 @@ export async function getComprometidoPorRepuesto(): Promise<Record<string, numbe
 export async function listRepuestoOptions(bodegaId?: string): Promise<RepuestoOption[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
+  const verCostos = puede(session, "inventario.costos");
   const rows = await tenantDb.repuesto.findMany({
     where: {
       ...(bodegaId ? { bodegaId } : {}),
@@ -99,17 +101,20 @@ export async function listRepuestoOptions(bodegaId?: string): Promise<RepuestoOp
       codigo: true,
       nombre: true,
       precioVenta: true,
-      precioCompra: true,
+      ...(verCostos ? { precioCompra: true } : {}),
       stockActual: true,
       stockMinimo: true,
     },
     orderBy: { nombre: "asc" },
   });
-  return rows.map((row) => ({
-    ...row,
-    precioVenta: Number(row.precioVenta),
-    precioCompra: Number(row.precioCompra),
-  }));
+  return rows.map((row): RepuestoOption => {
+    const { precioCompra, ...resto } = row as typeof row & { precioCompra?: unknown };
+    return {
+      ...resto,
+      precioVenta: Number(row.precioVenta),
+      ...(verCostos ? { precioCompra: Number(precioCompra) } : {}),
+    };
+  });
 }
 
 export async function getRepuesto(id: string): Promise<RepuestoWithDetalle | null> {

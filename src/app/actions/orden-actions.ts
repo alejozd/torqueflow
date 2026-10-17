@@ -350,6 +350,10 @@ export async function updateEstadoOrdenAction(
     return { error: `No se puede cambiar de ${orden.estado} a ${parsedEstado.data}` };
   }
 
+  if (parsedEstado.data === "ANULADA" && !puede(session, "ordenes.anular")) {
+    return { error: "No tienes permiso para anular órdenes" };
+  }
+
   // Entregar no es un cambio de estado más: la orden pasa a ENTREGADA firmando el
   // acta de entrega (Fase 21, `entregarOrdenAction`), y ENTREGADA es inmutable.
   // Sin este rechazo, un POST directo a esta acción dejaría la orden entregada

@@ -13,11 +13,18 @@ import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
 import { estaBajoMinimo } from "@/lib/inventario/comprometido";
 import type { Bodega, Proveedor } from "@/generated/prisma-tenant";
-import { requirePermiso } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
+
+/**
+ * Fila de la lista. Sin `inventario.costos` (el técnico) el servidor quita
+ * `precioCompra` antes de pasar las filas al DataTable: el payload RSC lo
+ * serializaría aunque no se pintara.
+ */
+type RepuestoFila = Omit<RepuestoWithDetalle, "precioCompra"> & { precioCompra?: RepuestoWithDetalle["precioCompra"] };
 
 type EstadoStock = "ok" | "bajo" | "sin-existencias";
 
-function estadoStock(repuesto: RepuestoWithDetalle, comprometido: Comprometido): EstadoStock {
+function estadoStock(repuesto: RepuestoFila, comprometido: Comprometido): EstadoStock {
   if (repuesto.stockActual === 0) return "sin-existencias";
   if (esStockBajo(repuesto, comprometido)) return "bajo";
   return "ok";
@@ -63,23 +70,23 @@ const formatoPorcentaje = new Intl.NumberFormat("es-CO", { style: "percent", max
 /** Units on open ordenes per repuestoId; see src/lib/inventario/comprometido.ts. */
 type Comprometido = Record<string, number>;
 
-function esStockBajo(repuesto: RepuestoWithDetalle, comprometido: Comprometido): boolean {
+function esStockBajo(repuesto: RepuestoFila, comprometido: Comprometido): boolean {
   return estaBajoMinimo(repuesto, comprometido[repuesto.id] ?? 0);
 }
 
-function calcularMargen(repuesto: RepuestoWithDetalle): number | null {
+function calcularMargen(repuesto: RepuestoFila): number | null {
   const precioVenta = Number(repuesto.precioVenta);
-  if (precioVenta === 0) return null;
+  if (precioVenta === 0 || repuesto.precioCompra === undefined) return null;
   return (precioVenta - Number(repuesto.precioCompra)) / precioVenta;
 }
 
-function toEditable(repuesto: RepuestoWithDetalle): RepuestoEditable {
+function toEditable(repuesto: RepuestoFila): RepuestoEditable {
   return {
     id: repuesto.id,
     codigo: repuesto.codigo,
     nombre: repuesto.nombre,
     descripcion: repuesto.descripcion,
-    precioCompra: Number(repuesto.precioCompra),
+    precioCompra: Number(repuesto.precioCompra ?? 0),
     precioVenta: Number(repuesto.precioVenta),
     stockMinimo: repuesto.stockMinimo,
     stockMaximo: repuesto.stockMaximo,
@@ -93,7 +100,33 @@ function buildColumns(
   bodegas: Bodega[],
   proveedores: Proveedor[],
   comprometido: Comprometido,
-): DataTableColumn<RepuestoWithDetalle>[] {
+  { verCostos, puedeEditar }: { verCostos: boolean; puedeEditar: boolean },
+): DataTableColumn<RepuestoFila>[] {
+  const columnasCosto: DataTableColumn<RepuestoFila>[] = verCostos
+    ? [
+        {
+          header: "P. compra",
+          className: "text-right",
+          cell: (repuesto) => <span className="font-mono">{formatoMoneda.format(Number(repuesto.precioCompra ?? 0))}</span>,
+        },
+      ]
+    : [];
+  const columnasMargen: DataTableColumn<RepuestoFila>[] = verCostos
+    ? [
+        {
+          header: "Margen",
+          className: "text-right",
+          cell: (repuesto) => {
+            const margen = calcularMargen(repuesto);
+            return margen !== null ? (
+              <span className="font-mono text-sm">{formatoPorcentaje.format(margen)}</span>
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            );
+          },
+        },
+      ]
+    : [];
   return [
     {
       header: "Código",
@@ -104,7 +137,9 @@ function buildColumns(
       header: "Repuesto",
       cell: (repuesto) => (
         <>
-          <EditarRepuestoDialog repuesto={toEditable(repuesto)} bodegas={bodegas} proveedores={proveedores} />
+          {puedeEditar && verCostos ? (
+            <EditarRepuestoDialog repuesto={toEditable(repuesto)} bodegas={bodegas} proveedores={proveedores} />
+          ) : null}
           <span className="font-medium">{repuesto.nombre}</span>
         </>
       ),
@@ -151,28 +186,13 @@ function buildColumns(
         </span>
       ),
     },
-    {
-      header: "P. compra",
-      className: "text-right",
-      cell: (repuesto) => <span className="font-mono">{formatoMoneda.format(Number(repuesto.precioCompra))}</span>,
-    },
+    ...columnasCosto,
     {
       header: "P. venta",
       className: "text-right",
       cell: (repuesto) => <span className="font-mono">{formatoMoneda.format(Number(repuesto.precioVenta))}</span>,
     },
-    {
-      header: "Margen",
-      className: "text-right",
-      cell: (repuesto) => {
-        const margen = calcularMargen(repuesto);
-        return margen !== null ? (
-          <span className="font-mono text-sm">{formatoPorcentaje.format(margen)}</span>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        );
-      },
-    },
+    ...columnasMargen,
   ];
 }
 
@@ -181,18 +201,23 @@ export default async function RepuestosPage({
 }: {
   searchParams: Promise<{ filtro?: string }>;
 }) {
-  await requirePermiso("inventario.ver");
+  const session = await requirePermiso("inventario.ver");
+  const verCostos = puede(session, "inventario.costos");
+  const puedeEditar = puede(session, "inventario.editar");
   const { filtro } = await searchParams;
   const filtroActivo = FILTROS_VALIDOS.includes(filtro as Filtro) ? (filtro as Filtro) : undefined;
 
   // Fetched once, unfiltered: the KPI cards summarize every repuesto of la
   // sede regardless of which filtro the list below is currently applying.
-  const [repuestos, bodegas, proveedores, comprometido] = await Promise.all([
+  const [repuestosCrudos, bodegas, proveedores, comprometido] = await Promise.all([
     listRepuestos(),
     listBodegas(),
     listProveedores(),
     getComprometidoPorRepuesto(),
   ]);
+  const repuestos: RepuestoFila[] = verCostos
+    ? repuestosCrudos
+    : repuestosCrudos.map(({ precioCompra: _costo, ...sinCosto }) => sinCosto);
   const filtrados =
     filtroActivo === "stock-bajo"
       ? repuestos.filter((repuesto) => esStockBajo(repuesto, comprometido))
@@ -201,12 +226,12 @@ export default async function RepuestosPage({
         : repuestos;
 
   const valorInventario = repuestos.reduce(
-    (suma, repuesto) => suma + repuesto.stockActual * Number(repuesto.precioCompra),
+    (suma, repuesto) => suma + repuesto.stockActual * Number(repuesto.precioCompra ?? 0),
     0,
   );
   const stockBajo = repuestos.filter((repuesto) => esStockBajo(repuesto, comprometido));
   const sinExistencias = repuestos.filter((repuesto) => repuesto.stockActual === 0).length;
-  const columns = buildColumns(bodegas, proveedores, comprometido);
+  const columns = buildColumns(bodegas, proveedores, comprometido, { verCostos, puedeEditar });
 
   return (
     <main className="flex flex-col gap-6">
@@ -226,14 +251,16 @@ export default async function RepuestosPage({
           className={KPI_TONE.info.cardBg}
         />
 
-        <KpiCard
-          title="Valor inventario"
-          value={formatoMoneda.format(valorInventario)}
-          valueColor="success"
-          icon={<DollarSign className={cn("size-5", KPI_TONE.success.icon)} />}
-          iconBgColor={KPI_TONE.success.iconBg}
-          className={KPI_TONE.success.cardBg}
-        />
+        {verCostos ? (
+          <KpiCard
+            title="Valor inventario"
+            value={formatoMoneda.format(valorInventario)}
+            valueColor="success"
+            icon={<DollarSign className={cn("size-5", KPI_TONE.success.icon)} />}
+            iconBgColor={KPI_TONE.success.iconBg}
+            className={KPI_TONE.success.cardBg}
+          />
+        ) : null}
 
         <KpiCard
           title="Stock bajo"
@@ -257,9 +284,11 @@ export default async function RepuestosPage({
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
           <CardTitle>Listado</CardTitle>
-          <Link href="/repuestos/nuevo" className={buttonVariants({})}>
-            Nuevo repuesto
-          </Link>
+          {puedeEditar ? (
+            <Link href="/repuestos/nuevo" className={buttonVariants({})}>
+              Nuevo repuesto
+            </Link>
+          ) : null}
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <nav aria-label="Filtrar por stock" className="flex flex-wrap gap-2">

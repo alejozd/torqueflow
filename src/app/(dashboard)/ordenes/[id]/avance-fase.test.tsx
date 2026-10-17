@@ -52,6 +52,11 @@ describe("AvanceFase", () => {
     expect(enviado()).toBe("ANULADA");
   });
 
+  it("sin permiso de anular no ofrece el menú de anular", () => {
+    render(<AvanceFase ordenId="o1" estado="BORRADOR" puedeAnular={false} />);
+    expect(screen.queryByRole("button", { name: "Más acciones" })).toBeNull();
+  });
+
   it("muestra el error de la acción", async () => {
     mockEstado.mockResolvedValue({ error: "Transición inválida", advertencia: null });
     render(<AvanceFase ordenId="o1" estado="BORRADOR" />);

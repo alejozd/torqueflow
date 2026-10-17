@@ -31,12 +31,12 @@ function renderMenu(role: Role) {
 const visible = (name: string) => screen.queryByRole("link", { name }) !== null;
 
 describe("DashboardSidebar", () => {
-  it("TECNICO no ve Mostrador, Caja ni Usuarios, pero sí Facturas", () => {
+  it("TECNICO no ve Mostrador, Caja ni Usuarios ni Facturas (D8)", () => {
     renderMenu("TECNICO");
     expect(visible("Mostrador")).toBe(false);
     expect(visible("Caja")).toBe(false);
     expect(visible("Usuarios")).toBe(false);
-    expect(visible("Facturas")).toBe(true);
+    expect(visible("Facturas")).toBe(false);
     expect(visible("Servicios")).toBe(false);
     expect(visible("Importar")).toBe(false);
     expect(screen.queryByText("Administración")).toBeNull();

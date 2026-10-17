@@ -275,7 +275,7 @@ export default async function OrdenDetailPage({
         acciones={
           // En pantallas angostas el avance va en la franja fija de abajo.
           <div className="hidden lg:block">
-            <AvanceFase ordenId={orden.id} estado={orden.estado} />
+            <AvanceFase ordenId={orden.id} estado={orden.estado} puedeAnular={puede(session, "ordenes.anular")} />
           </div>
         }
       />
@@ -619,7 +619,7 @@ export default async function OrdenDetailPage({
           </span>
         </div>
         <div className="ml-auto">
-          <AvanceFase ordenId={orden.id} estado={orden.estado} />
+          <AvanceFase ordenId={orden.id} estado={orden.estado} puedeAnular={puede(session, "ordenes.anular")} />
         </div>
       </div>
     </main>
