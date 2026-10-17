@@ -53,7 +53,7 @@ Tests: cambiar solo un permiso → solo se llama `guardarPermisosUsuarioAction`;
 ### Task 5: Revisión visual y cierre
 
 **Avance de la tarea 5 (se actualiza paso a paso):**
-- [ ] Suite completa + `npm run build`
+- [x] Suite completa + `npm run build`: 337 archivos / 2801 tests, build OK (2026-10-17)
 - [ ] Revisión en el navegador (app en 3025)
 - [ ] Revisión independiente del diff `main...usuario-permisos-rediseno` y ronda de arreglos
 - [ ] Merge `--no-ff` a `main` (solo con aprobación del usuario) y despliegue (lo hace el usuario)
