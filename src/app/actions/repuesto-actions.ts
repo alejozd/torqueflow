@@ -51,12 +51,13 @@ function errorRepuesto(err: unknown, codigo: string, fallback: string): string {
 const BODEGA_AJENA = "La bodega seleccionada no pertenece a tu sede activa.";
 const REPUESTO_NO_ENCONTRADO = "Repuesto no encontrado en tu sede activa.";
 
-function parseRepuestoFormData(formData: FormData) {
+/** Sin `inventario.costos` el formulario no trae el costo: se valida con 0 y la acción no lo escribe. */
+function parseRepuestoFormData(formData: FormData, verCostos: boolean) {
   return repuestoInputSchema.safeParse({
     codigo: formData.get("codigo") ?? "",
     nombre: formData.get("nombre") ?? "",
     descripcion: formData.get("descripcion") ?? "",
-    precioCompra: formData.get("precioCompra"),
+    precioCompra: verCostos ? formData.get("precioCompra") : "0",
     precioVenta: formData.get("precioVenta"),
     stockMinimo: formData.get("stockMinimo"),
     stockMaximo: formData.get("stockMaximo"),
@@ -130,7 +131,9 @@ export async function createRepuestoAction(
   prevState: RepuestoFormState,
   formData: FormData,
 ): Promise<RepuestoFormState> {
-  const parsed = parseRepuestoFormData(formData);
+  const session = await requirePermiso("inventario.editar");
+  const verCostos = puede(session, "inventario.costos");
+  const parsed = parseRepuestoFormData(formData, verCostos);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false, repuestoId: null };
   }
@@ -140,7 +143,6 @@ export async function createRepuestoAction(
     return { error: parsedStock.error.issues[0]?.message ?? "Datos inválidos", success: false, repuestoId: null };
   }
 
-  const session = await requirePermiso("inventario.editar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const bodega = await tenantDb.bodega.findFirst({
@@ -158,7 +160,7 @@ export async function createRepuestoAction(
         codigo: parsed.data.codigo,
         nombre: parsed.data.nombre,
         descripcion: parsed.data.descripcion || null,
-        precioCompra: parsed.data.precioCompra,
+        precioCompra: verCostos ? parsed.data.precioCompra : 0,
         precioVenta: parsed.data.precioVenta,
         stockActual: parsedStock.data,
         stockMinimo: parsed.data.stockMinimo,
@@ -181,12 +183,13 @@ export async function updateRepuestoAction(
   prevState: RepuestoFormState,
   formData: FormData,
 ): Promise<RepuestoFormState> {
-  const parsed = parseRepuestoFormData(formData);
+  const session = await requirePermiso("inventario.editar");
+  const verCostos = puede(session, "inventario.costos");
+  const parsed = parseRepuestoFormData(formData, verCostos);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false, repuestoId: null };
   }
 
-  const session = await requirePermiso("inventario.editar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const bodega = await tenantDb.bodega.findFirst({
@@ -204,7 +207,7 @@ export async function updateRepuestoAction(
         codigo: parsed.data.codigo,
         nombre: parsed.data.nombre,
         descripcion: parsed.data.descripcion || null,
-        precioCompra: parsed.data.precioCompra,
+        ...(verCostos ? { precioCompra: parsed.data.precioCompra } : {}),
         precioVenta: parsed.data.precioVenta,
         stockMinimo: parsed.data.stockMinimo,
         stockMaximo: parsed.data.stockMaximo ?? null,

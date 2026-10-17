@@ -34,8 +34,8 @@ import {
 } from "./repuesto-actions";
 
 const initialState: RepuestoFormState = { error: null, success: false, repuestoId: null };
-const SESSION_ADMIN = { user: { role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
-const SESSION_RECEPCION = { user: { role: "RECEPCION", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION_ADMIN = { user: { role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION_RECEPCION = { user: { role: "RECEPCION", permisos: permisosEfectivos({ role: "RECEPCION" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 const SESSION_TECNICO = {
   user: { role: "TECNICO", permisos: permisosEfectivos({ role: "TECNICO" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
 };
@@ -170,6 +170,53 @@ describe("createRepuestoAction", () => {
       where: { id: "b-otra-sede", sedeId: "sede-1" },
       select: { id: true },
     });
+  });
+});
+
+describe("precioCompra sin inventario.costos", () => {
+  const SESSION_SIN_COSTOS = {
+    user: {
+      role: "RECEPCION",
+      permisos: permisosEfectivos({ role: "RECEPCION", quitados: ["inventario.costos"] }),
+      tenantSchema: "taller_perez",
+      sedeActivaId: "sede-1",
+    },
+  };
+
+  beforeEach(() => {
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_SIN_COSTOS);
+    mockCreate.mockReset().mockResolvedValue({ id: "r1" });
+    mockUpdateMany.mockReset().mockResolvedValue({ count: 1 });
+    mockBodegaFindFirst.mockReset().mockResolvedValue({ id: "b1" });
+  });
+
+  it("al crear guarda 0 aunque el formulario traiga un costo, o no lo traiga", async () => {
+    const conCosto = baseFormData();
+    conCosto.set("stockActual", "1");
+    const sinCampo = baseFormData();
+    sinCampo.delete("precioCompra");
+    sinCampo.set("stockActual", "1");
+
+    expect((await createRepuestoAction(initialState, conCosto)).success).toBe(true);
+    expect((await createRepuestoAction(initialState, sinCampo)).success).toBe(true);
+    expect(mockCreate.mock.calls[0][0].data.precioCompra).toBe(0);
+    expect(mockCreate.mock.calls[1][0].data.precioCompra).toBe(0);
+  });
+
+  it("al actualizar no toca precioCompra", async () => {
+    const formData = baseFormData();
+    formData.delete("precioCompra");
+
+    const result = await updateRepuestoAction("r1", initialState, formData);
+
+    expect(result.success).toBe(true);
+    expect(mockUpdateMany.mock.calls[0][0].data).not.toHaveProperty("precioCompra");
+  });
+
+  it("con inventario.costos sí escribe el costo enviado", async () => {
+    mockRequirePermiso.mockResolvedValue(SESSION_CON_COSTOS);
+    await updateRepuestoAction("r1", initialState, baseFormData());
+    expect(mockUpdateMany.mock.calls[0][0].data.precioCompra).toBe(8);
   });
 });
 
