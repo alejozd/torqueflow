@@ -71,10 +71,11 @@ export interface ColumnaTablero {
  */
 export function TableroOrdenes({
   columnas,
-  puedeAnularOrdenes = true,
+  puedeAnularOrdenes,
 }: {
   columnas: ColumnaTablero[];
-  puedeAnularOrdenes?: boolean;
+  /** Sin `ordenes.anular` no se ofrece anular. Obligatoria: olvidarla no la deja abierta. */
+  puedeAnularOrdenes: boolean;
 }) {
   const [arrastrando, setArrastrando] = useState<TarjetaTablero | null>(null);
   const [sobreColumna, setSobreColumna] = useState<EstadoOrden | null>(null);

@@ -35,12 +35,12 @@ const SIGUIENTE: Partial<Record<EstadoOrden, { destino: EstadoOrden; etiqueta: s
 export function AvanceFase({
   ordenId,
   estado,
-  puedeAnular = true,
+  puedeAnular,
 }: {
   ordenId: string;
   estado: EstadoOrden;
-  /** Sin `ordenes.anular` (el técnico) no se ofrece «Anular orden». */
-  puedeAnular?: boolean;
+  /** Sin `ordenes.anular` (el técnico) no se ofrece «Anular orden». Obligatoria: olvidarla no la deja abierta. */
+  puedeAnular: boolean;
 }) {
   const cambiar = updateEstadoOrdenAction.bind(null, ordenId);
   const [state, formAction, isPending] = useActionState(cambiar, initialState);
