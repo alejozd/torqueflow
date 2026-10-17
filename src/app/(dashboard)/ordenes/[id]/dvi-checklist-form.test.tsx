@@ -50,7 +50,7 @@ describe("DviChecklistForm", () => {
   });
 
   it("in soloLectura shows the saved values without any edit control", () => {
-    render(<DviChecklistForm ordenId="o1" checklist={{ frenos: "CRITICO" }} items={ITEMS} esAdmin soloLectura />);
+    render(<DviChecklistForm ordenId="o1" checklist={{ frenos: "CRITICO" }} items={ITEMS} puedeConfigurarChecklist soloLectura />);
 
     const frenos = screen.getByRole("radiogroup", { name: "Frenos" });
     expect(within(frenos).getByRole("radio", { name: "Crítico" })).toHaveAttribute("aria-checked", "true");
@@ -111,20 +111,20 @@ describe("DviChecklistForm", () => {
 
   it("only shows the add-item button and the per-item deactivate control to an ADMIN", () => {
     const { rerender } = render(
-      <DviChecklistForm ordenId="o1" checklist={null} items={ITEMS} esAdmin={false} />,
+      <DviChecklistForm ordenId="o1" checklist={null} items={ITEMS} puedeConfigurarChecklist={false} />,
     );
 
     expect(screen.queryByRole("button", { name: "Agregar ítem" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Desactivar Frenos" })).not.toBeInTheDocument();
 
-    rerender(<DviChecklistForm ordenId="o1" checklist={null} items={ITEMS} esAdmin />);
+    rerender(<DviChecklistForm ordenId="o1" checklist={null} items={ITEMS} puedeConfigurarChecklist />);
 
     expect(screen.getByRole("button", { name: "Agregar ítem" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Desactivar Frenos" })).toBeInTheDocument();
   });
 
   it("deactivates an item and refreshes the page when an ADMIN clicks its deactivate control", async () => {
-    render(<DviChecklistForm ordenId="o1" checklist={null} items={ITEMS} esAdmin />);
+    render(<DviChecklistForm ordenId="o1" checklist={null} items={ITEMS} puedeConfigurarChecklist />);
 
     await userEvent.click(screen.getByRole("button", { name: "Desactivar Frenos" }));
 
@@ -133,7 +133,7 @@ describe("DviChecklistForm", () => {
   });
 
   it("removes a deactivated item from the active rows after toggle succeeds", async () => {
-    render(<DviChecklistForm ordenId="o1" checklist={null} items={ITEMS} esAdmin />);
+    render(<DviChecklistForm ordenId="o1" checklist={null} items={ITEMS} puedeConfigurarChecklist />);
 
     // Before deactivation, Frenos select is present and has the add button
     expect(screen.getByLabelText("Frenos")).toBeInTheDocument();
@@ -156,18 +156,18 @@ describe("DviChecklistForm", () => {
     ];
 
     const { unmount: unmountNonAdmin } = render(
-      <DviChecklistForm ordenId="o1" checklist={null} items={itemsConInactivoSinValor} esAdmin={false} />,
+      <DviChecklistForm ordenId="o1" checklist={null} items={itemsConInactivoSinValor} puedeConfigurarChecklist={false} />,
     );
     expect(screen.queryByRole("button", { name: "Ver ítems desactivados (1)" })).not.toBeInTheDocument();
     unmountNonAdmin();
 
     const { unmount: unmountNoInactivos } = render(
-      <DviChecklistForm ordenId="o1" checklist={null} items={ITEMS} esAdmin />,
+      <DviChecklistForm ordenId="o1" checklist={null} items={ITEMS} puedeConfigurarChecklist />,
     );
     expect(screen.queryByText(/Ver ítems desactivados/)).not.toBeInTheDocument();
     unmountNoInactivos();
 
-    render(<DviChecklistForm ordenId="o1" checklist={null} items={itemsConInactivoSinValor} esAdmin />);
+    render(<DviChecklistForm ordenId="o1" checklist={null} items={itemsConInactivoSinValor} puedeConfigurarChecklist />);
     expect(screen.getByRole("button", { name: "Ver ítems desactivados (1)" })).toBeInTheDocument();
   });
 
@@ -177,7 +177,7 @@ describe("DviChecklistForm", () => {
       { id: "i3", key: "bateria", label: "Batería", activo: false, orden: 2, createdAt: new Date() },
     ];
 
-    render(<DviChecklistForm ordenId="o1" checklist={null} items={itemsConInactivoSinValor} esAdmin />);
+    render(<DviChecklistForm ordenId="o1" checklist={null} items={itemsConInactivoSinValor} puedeConfigurarChecklist />);
 
     expect(screen.queryByText("Batería")).not.toBeInTheDocument();
 
@@ -195,7 +195,7 @@ describe("DviChecklistForm", () => {
     ];
 
     render(
-      <DviChecklistForm ordenId="o1" checklist={{ aceite: "CRITICO" }} items={itemsConAmbos} esAdmin />,
+      <DviChecklistForm ordenId="o1" checklist={{ aceite: "CRITICO" }} items={itemsConAmbos} puedeConfigurarChecklist />,
     );
 
     expect(screen.getByRole("button", { name: "Ver ítems desactivados (2)" })).toBeInTheDocument();
@@ -214,7 +214,7 @@ describe("DviChecklistForm", () => {
       { id: "i3", key: "bateria", label: "Batería", activo: false, orden: 2, createdAt: new Date() },
     ];
 
-    render(<DviChecklistForm ordenId="o1" checklist={null} items={itemsConInactivoSinValor} esAdmin />);
+    render(<DviChecklistForm ordenId="o1" checklist={null} items={itemsConInactivoSinValor} puedeConfigurarChecklist />);
 
     await userEvent.click(screen.getByRole("button", { name: "Ver ítems desactivados (1)" }));
     await userEvent.click(screen.getByRole("button", { name: "Reactivar Batería" }));
@@ -231,7 +231,7 @@ describe("DviChecklistForm", () => {
     ];
 
     render(
-      <DviChecklistForm ordenId="o1" checklist={{ bateria: "CRITICO" }} items={itemsConArchivado} esAdmin />,
+      <DviChecklistForm ordenId="o1" checklist={{ bateria: "CRITICO" }} items={itemsConArchivado} puedeConfigurarChecklist />,
     );
 
     await userEvent.click(screen.getByRole("button", { name: "Ver ítems desactivados (1)" }));

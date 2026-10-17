@@ -9,7 +9,7 @@ import { PlantillasRecurrentesSection } from "./plantillas-recurrentes-section";
 
 export default async function GastosConfiguracionPage() {
   const session = await requirePermiso("gastos.administrar");
-  // Secuencial: cada action pasa por requireRole, que hace redirect() lanzando.
+  // Secuencial: cada action pasa por requirePermiso, que hace redirect() lanzando.
   const categorias = await listCategoriasGasto();
   const categoriasActivas = await listCategoriasGasto({ soloActivas: true });
   const plantillas = await listPlantillasRecurrentes();

@@ -21,7 +21,7 @@ const mockRedirect = vi.fn((url: string) => {
 });
 vi.mock("next/navigation", () => ({ redirect: (url: string) => mockRedirect(url) }));
 
-import { requireSession, requireRole, requirePermiso, puede } from "./guards";
+import { requireSession, requirePermiso, puede } from "./guards";
 
 describe("requireSession", () => {
   beforeEach(() => {
@@ -100,47 +100,6 @@ describe("requireSession", () => {
     mockGetTenantBySchema.mockResolvedValue({ slug: "taller-a", schemaName: "taller_a", estado: "ACTIVO" });
 
     await expect(requireSession()).rejects.toThrow("REDIRECT:/seleccionar-sede");
-  });
-});
-
-describe("requireRole", () => {
-  beforeEach(() => {
-    mockAuth.mockReset();
-    mockGetTenantBySchema.mockReset();
-    mockUsuarioFindUnique.mockReset().mockResolvedValue({ activo: true, role: "ADMIN" });
-    mockRedirect.mockClear();
-  });
-
-  it("returns the session when the user's role is allowed", async () => {
-    mockUsuarioFindUnique.mockResolvedValue({ activo: true, role: "RECEPCION" });
-    const session = {
-      user: { id: "1", role: "RECEPCION", tenantSlug: "taller-a", tenantSchema: "taller_a", sedeActivaId: "sede-1" },
-    };
-    mockAuth.mockResolvedValue(session);
-    mockGetTenantBySchema.mockResolvedValue({ slug: "taller-a", schemaName: "taller_a", estado: "ACTIVO" });
-
-    await expect(requireRole(["ADMIN", "RECEPCION"])).resolves.toBe(session);
-  });
-
-  it("redirects when the user's role is not allowed", async () => {
-    mockUsuarioFindUnique.mockResolvedValue({ activo: true, role: "TECNICO" });
-    const session = {
-      user: { id: "1", role: "TECNICO", tenantSlug: "taller-a", tenantSchema: "taller_a", sedeActivaId: "sede-1" },
-    };
-    mockAuth.mockResolvedValue(session);
-    mockGetTenantBySchema.mockResolvedValue({ slug: "taller-a", schemaName: "taller_a", estado: "ACTIVO" });
-
-    await expect(requireRole(["ADMIN"])).rejects.toThrow("REDIRECT:/login?error=forbidden");
-  });
-
-  it("forwards a requireSession failure (e.g. suspended tenant) before checking the role", async () => {
-    const session = {
-      user: { id: "1", role: "ADMIN", tenantSlug: "taller-a", tenantSchema: "taller_a", sedeActivaId: "sede-1" },
-    };
-    mockAuth.mockResolvedValue(session);
-    mockGetTenantBySchema.mockResolvedValue({ slug: "taller-a", schemaName: "taller_a", estado: "SUSPENDIDO" });
-
-    await expect(requireRole(["ADMIN"])).rejects.toThrow("REDIRECT:/login?error=tenant-suspendido");
   });
 });
 

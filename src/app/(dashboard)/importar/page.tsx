@@ -40,7 +40,7 @@ export default async function ImportarPage() {
           <ImportarForm
             bodegas={bodegas.map((bodega) => ({ value: bodega.id, label: bodega.nombre }))}
             proveedores={proveedores.map((proveedor) => ({ value: proveedor.id, label: proveedor.nombre }))}
-            esAdmin={puede(session, "servicios.gestionar")}
+            puedeGestionarServicios={puede(session, "servicios.gestionar")}
           />
         </CardContent>
       </Card>

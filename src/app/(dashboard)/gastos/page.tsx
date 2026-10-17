@@ -34,7 +34,7 @@ export default async function GastosPage({
   const puedeAdministrar = puede(session, "gastos.administrar");
   const { periodo, sedeId, categoriaId } = await searchParams;
 
-  // Sequential, never Promise.all: each one goes through requireRole, which
+  // Sequential, never Promise.all: each one goes through requirePermiso, which
   // redirect()s by throwing.
   const gastos = await listGastos({ periodo, sedeId: sedeId || undefined, categoriaId: categoriaId || undefined });
   const categorias = await listCategoriasGasto({ soloActivas: true });
@@ -66,7 +66,7 @@ export default async function GastosPage({
         </div>
       </div>
 
-      <RecurrentesPendientes pendientes={pendientes} esAdmin={puedeAdministrar} />
+      <RecurrentesPendientes pendientes={pendientes} puedeAdministrar={puedeAdministrar} />
 
       <Card>
         <CardHeader>
@@ -116,7 +116,7 @@ export default async function GastosPage({
         <CardContent>
           <GastosTable
             filas={gastos.filas}
-            esAdmin={puedeAdministrar}
+            puedeAdministrar={puedeAdministrar}
             categorias={categorias}
             sedeId={gastos.sedeId}
             sedes={sedesOpciones}

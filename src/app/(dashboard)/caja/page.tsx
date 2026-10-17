@@ -34,7 +34,7 @@ export default async function CajaPage({
     ? (periodoPedido as string)
     : periodoActualBogota(new Date());
 
-  // Sequential, never Promise.all: each one goes through requireRole, which
+  // Sequential, never Promise.all: each one goes through requirePermiso, which
   // redirect()s by throwing.
   const actual = await getCajaActual({ sedeId: sedePedida || undefined });
   const historial = await listCajasCerradas({ sedeId: actual.sedeId, periodo });

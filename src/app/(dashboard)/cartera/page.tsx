@@ -18,7 +18,7 @@ export default async function CarteraPage({ searchParams }: { searchParams: Prom
   const verTodasLasSedes = puede(session, "sedes.verTodas");
   const { sedeId } = await searchParams;
 
-  // Sequential, never Promise.all: both go through requireRole, which
+  // Sequential, never Promise.all: both go through requirePermiso, which
   // redirect()s by throwing.
   const cartera = await getCartera({ sedeId: sedeId || undefined });
   const sedes = verTodasLasSedes ? await listSedes() : undefined;

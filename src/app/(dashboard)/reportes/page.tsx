@@ -85,7 +85,7 @@ export default async function ReportesPage({
     sedeId: sedeId || undefined,
   };
 
-  // Sequential, never Promise.all: all three go through requireRole, which
+  // Sequential, never Promise.all: all three go through requirePermiso, which
   // redirect()s by throwing (Fase 5 Task 9's deliberate choice).
   const rentabilidad = await getReporteRentabilidad(filtros);
   const productividad = await getReporteProductividad(filtros);

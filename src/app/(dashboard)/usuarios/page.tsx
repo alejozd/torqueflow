@@ -146,7 +146,7 @@ export default async function UsuariosPage({
   const { rol } = await searchParams;
   const rolFiltro = ROLES_VALIDOS.includes(rol as Role) ? (rol as Role) : undefined;
 
-  // Sequential, not Promise.all: both calls go through requireRole, which
+  // Sequential, not Promise.all: both calls go through requirePermiso, which
   // redirect()s by throwing. Racing two throwing guards is the pattern Fase 5
   // Task 9 deliberately avoided on /reportes.
   const usuarios = await listUsuariosConMetricas();

@@ -457,7 +457,7 @@ export default async function OrdenDetailPage({
                       ordenId={orden.id}
                       checklist={checklist}
                       items={dviItems}
-                      esAdmin={puede(session, "configuracion.taller")}
+                      puedeConfigurarChecklist={puede(session, "configuracion.taller")}
                       soloLectura={!esOrdenMutable(orden)}
                     />
                     <DviFotoForm

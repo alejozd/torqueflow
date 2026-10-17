@@ -148,7 +148,7 @@ function OmitirBoton({ pendiente }: { pendiente: PendienteVista }) {
   );
 }
 
-export function RecurrentesPendientes({ pendientes, esAdmin }: { pendientes: PendienteVista[]; esAdmin: boolean }) {
+export function RecurrentesPendientes({ pendientes, puedeAdministrar }: { pendientes: PendienteVista[]; puedeAdministrar: boolean }) {
   if (pendientes.length === 0) return null;
   return (
     <Card>
@@ -168,7 +168,7 @@ export function RecurrentesPendientes({ pendientes, esAdmin }: { pendientes: Pen
                   {p.categoriaNombre} · {ETIQUETA_MES(p.periodo)} · {formatoMoneda.format(p.montoEstimado)}
                 </span>
               </div>
-              {esAdmin ? (
+              {puedeAdministrar ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <ConfirmarDialog pendiente={p} />
                   <OmitirBoton pendiente={p} />

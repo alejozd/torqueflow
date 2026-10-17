@@ -20,11 +20,11 @@ const SIN_PROVEEDOR: SelectFieldOption = { value: "", label: "Sin proveedor (no 
 export function ImportarForm({
   bodegas,
   proveedores,
-  esAdmin,
+  puedeGestionarServicios,
 }: {
   bodegas: SelectFieldOption[];
   proveedores: SelectFieldOption[];
-  esAdmin: boolean;
+  puedeGestionarServicios: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(importarAction, resultadoVacio());
 
@@ -60,7 +60,7 @@ export function ImportarForm({
           </div>
         </div>
 
-        {!esAdmin ? (
+        {!puedeGestionarServicios ? (
           <Alert>
             <AlertDescription>
               La hoja de Servicios solo la puede importar un administrador; si tu archivo la trae, se omitirá.

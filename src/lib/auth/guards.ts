@@ -55,14 +55,6 @@ export async function requireSession(): Promise<Session> {
   return session;
 }
 
-export async function requireRole(allowed: Role[]): Promise<Session> {
-  const session = await requireSession();
-  if (!allowed.includes(session.user.role)) {
-    redirect("/login?error=forbidden");
-  }
-  return session;
-}
-
 export function puede(session: Session, permiso: Permiso): boolean {
   return tienePermiso(session.user.permisos, permiso);
 }
