@@ -783,6 +783,9 @@ const TECNICO_D7 = { user: { id: "tec-1", role: "TECNICO", permisos: permisosEfe
 const WHERE_D7 = (id: string) => ({ id, sedeId: "sede-1", OR: [{ mecanicoId: "tec-1" }, { manoDeObra: { some: { mecanicoId: "tec-1" } } }] });
 
 describe("D7: el técnico solo trabaja en sus órdenes (recepción)", () => {
+  // Las aserciones "no se llamó" no pueden heredar llamadas de los describe de arriba.
+  beforeEach(() => vi.clearAllMocks());
+
   it("no firma el acta de una orden ajena", async () => {
     mockRequirePermiso.mockResolvedValue(TECNICO_D7);
     db.ordenTrabajo.findFirst.mockResolvedValue(null);
@@ -803,5 +806,73 @@ describe("D7: el técnico solo trabaja en sus órdenes (recepción)", () => {
     expect(r.error).toBe("Orden no encontrada");
     expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
     expect(db.ordenTrabajo.update).not.toHaveBeenCalled();
+  });
+
+  // Fase 26, I7: el resto de escrituras por id de recepción, con la misma orden ajena.
+  it("no entrega una orden ajena (la escritura que la deja inmutable)", async () => {
+    mockRequirePermiso.mockResolvedValue(TECNICO_D7);
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await entregarOrdenAction("ajena", inicial, fd({ recibidoPor: "M", firma: firmaPng() }));
+
+    expect(r.error).toBe("Orden no encontrada");
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+    expect(mockSaveOrdenArchivo).not.toHaveBeenCalled();
+    expect(tx.ordenTrabajo.updateMany).not.toHaveBeenCalled();
+    expect(tx.ordenTrabajo.update).not.toHaveBeenCalled();
+    expect(tx.actaEntrega.upsert).not.toHaveBeenCalled();
+  });
+
+  it("no borra el acta de una orden ajena", async () => {
+    mockRequirePermiso.mockResolvedValue({
+      user: { ...TECNICO_D7.user, permisos: permisosEfectivos({ role: "TECNICO", agregados: ["ordenes.quitar"] }) },
+    });
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await borrarActaAction("ajena");
+
+    expect(r.error).toBe("Orden no encontrada");
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+    expect(db.actaEntrega.delete).not.toHaveBeenCalled();
+    expect(db.actaEntrega.deleteMany).not.toHaveBeenCalled();
+    expect(mockBorrarUpload).not.toHaveBeenCalled();
+  });
+
+  it("no agrega una garantía a una orden ajena", async () => {
+    mockRequirePermiso.mockResolvedValue(TECNICO_D7);
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await agregarGarantiaAction(
+      "ajena",
+      inicial,
+      fd({ tipo: "TRABAJO", manoDeObraId: "m1", descripcion: "Pintura", cubreHasta: "2027-01-01" }),
+    );
+
+    expect(r.error).toBe("Orden no encontrada");
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+    expect(db.manoDeObra.findFirst).not.toHaveBeenCalled();
+    expect(tx.garantia.create).not.toHaveBeenCalled();
+  });
+
+  it("no marca un daño en una orden ajena", async () => {
+    mockRequirePermiso.mockResolvedValue(TECNICO_D7);
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await agregarDanioAction("ajena", inicial, fd({ zona: "CAPO", tipo: "RAYON", nota: "" }));
+
+    expect(r.error).toBe("Orden no encontrada");
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+    expect(db.danioOrden.create).not.toHaveBeenCalled();
+  });
+
+  it("no guarda el acta de una orden ajena", async () => {
+    mockRequirePermiso.mockResolvedValue(TECNICO_D7);
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await guardarActaAction("ajena", inicial, fd({ recibidoPor: "María", documentoRecibe: "", observaciones: "" }));
+
+    expect(r.error).toBe("Orden no encontrada");
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+    expect(db.actaEntrega.upsert).not.toHaveBeenCalled();
   });
 });
