@@ -34,7 +34,7 @@ export default async function EditarUsuarioPage({ params }: { params: Promise<{ 
 
       <Card>
         <CardHeader>
-          <CardTitle>Editar usuario</CardTitle>
+          <CardTitle>Datos del usuario</CardTitle>
         </CardHeader>
         <CardContent>
           <EditarUsuarioForm usuario={usuario} sedes={sedes} />

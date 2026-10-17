@@ -4,7 +4,7 @@
 
 **Objetivo:** llevar `/usuarios/[id]` al diseño que propuso Stitch (`docs/Evidencias/Permisos-Usuario/screen.png`, archivo del usuario: no moverlo ni commitearlo): una sola pantalla de "Editar usuario y permisos" con cabecera del usuario, datos en 3 columnas y los permisos en tarjetas por grupo con buscador, contadores y barra de cambios sin guardar.
 
-> **Estado (2026-10-17):** rama `usuario-permisos-rediseno` creada desde `main`. **Tarea 1 hecha** (ver nota en la tarea). Siguiente: **tarea 2**. Vamos en 1 de 5.
+> **Estado (2026-10-17):** rama `usuario-permisos-rediseno` creada desde `main`. **Tareas 1 y 2 hechas** (ver notas en cada tarea). Siguiente: **tarea 3**. Vamos en 2 de 5.
 
 **Sin migraciones.** Todo sale de datos que ya existen (`Usuario.createdAt`, `activo`, `role`, `sedeIds`, `permisosAgregados`, `permisosQuitados`).
 
@@ -35,6 +35,8 @@ Test: renderiza nombre, correo, chip con el estado correcto; el interruptor llam
 ### Task 2: Datos en tres columnas
 Reacomodar `editar-usuario-form.tsx` (sin cambiar su acción ni validación) en tres bloques con título de punto de color: "Datos personales" (nombre, correo), "Seguridad y rol" (contraseña con "Déjala en blanco para conservar la actual", rol), "Sedes" (sedes con acceso, sede predeterminada). El formulario deja de tener botón propio: expone su estado "con cambios" y su envío al contenedor (tarea 4).
 Test: los tests actuales de `editar-usuario-form.test.tsx` siguen pasando (ajustar solo selectores del botón).
+
+**Hecho (tarea 2):** `editar-usuario-form.tsx` en tres bloques `FormGroup` ("Datos personales", "Seguridad y rol", "Sedes") con **container query** (`@container` + `@4xl:grid-cols-3`): tres columnas en la ficha y apilado en el diálogo "Editar" de la lista, que usa el mismo formulario. El select "Estado" pasó a un interruptor "Estado de cuenta" (`role="switch"`, mismo campo `activo` de `updateUsuarioAction`). La tarjeta de la página se llama "Datos del usuario". **Decisión:** el formulario **conserva su botón "Guardar cambios"** hasta la tarea 4; quitarlo antes dejaría la ficha sin forma de guardar. La tarea 4 lo quita (solo en la ficha; el diálogo lo sigue necesitando) y conecta el envío al contenedor.
 
 ### Task 3: Permisos en tarjetas
 `permisos-usuario.tsx`: grilla de 3 columnas (2 en pantallas medianas, 1 en móvil), una tarjeta por `GRUPOS_PERMISO` con ícono, título y contador "N / M activos"; dentro, las casillas con su etiqueta y los chips "Agregado"/"Quitado" de hoy. Encima: aviso del rol (D2), buscador "Buscar permiso (orden, cotización, caja…)" que filtra por etiqueta sin tildes ni mayúsculas, y los botones "Solo lectura", "Marcar todos", "Desmarcar todos" (D4). Un grupo sin coincidencias se oculta.

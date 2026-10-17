@@ -21,16 +21,12 @@ import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
+import { cn } from "@/lib/utils";
 
 const initialState: UsuarioFormState = { error: null, success: false };
 
 type EditarUsuarioFormInput = z.input<typeof usuarioUpdateInputSchema>;
 type EditarUsuarioFormOutput = z.output<typeof usuarioUpdateInputSchema>;
-
-const ESTADO_ITEMS = [
-  { value: "true", label: "Activo" },
-  { value: "false", label: "Suspendido" },
-];
 
 export interface EditarUsuarioFormUsuario {
   id: string;
@@ -119,8 +115,14 @@ export function EditarUsuarioForm({
         )(evento)}
         className="flex flex-col gap-4"
       >
-        <FormGroup label="Persona">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/*
+          Tres columnas solo cuando el formulario tiene ancho de ficha
+          (container query): en el diálogo de la lista sigue apilado.
+        */}
+        <div className="@container">
+        <div className="grid grid-cols-1 gap-4 @4xl:grid-cols-3">
+        <FormGroup label="Datos personales">
+          <div className="grid grid-cols-1 gap-4 @lg:grid-cols-2 @4xl:grid-cols-1">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="nombre">Nombre</Label>
               <Input
@@ -148,8 +150,8 @@ export function EditarUsuarioForm({
           </div>
         </FormGroup>
 
-        <FormGroup label="Acceso">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <FormGroup label="Seguridad y rol">
+          <div className="grid grid-cols-1 gap-4 @lg:grid-cols-2 @4xl:grid-cols-1">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="password">Contraseña</Label>
               <Input
@@ -178,19 +180,37 @@ export function EditarUsuarioForm({
               />
             </div>
 
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <Label htmlFor="activo">Estado</Label>
-              <SelectField
-                id="activo"
-                value={activoField.value ?? "true"}
-                onValueChange={activoField.onChange}
-                items={ESTADO_ITEMS}
-              />
+            <div className="flex items-center justify-between gap-3 @lg:col-span-2 @4xl:col-span-1">
+              <Label id="activo-label" htmlFor="activo">Estado de cuenta</Label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {activoField.value === "false" ? "Suspendido" : "Activo"}
+                </span>
+                <button
+                  id="activo"
+                  type="button"
+                  role="switch"
+                  aria-checked={activoField.value !== "false"}
+                  aria-labelledby="activo-label"
+                  onClick={() => activoField.onChange(activoField.value === "false" ? "true" : "false")}
+                  className={cn(
+                    "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors",
+                    activoField.value === "false" ? "bg-muted-foreground/30" : "bg-[oklch(0.55_0.13_150)]",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "inline-block size-5 rounded-full bg-white shadow transition-transform",
+                      activoField.value === "false" ? "translate-x-0.5" : "translate-x-5",
+                    )}
+                  />
+                </button>
+              </div>
             </div>
           </div>
         </FormGroup>
 
-        <FormGroup label="Sedes asignadas">
+        <FormGroup label="Sedes">
           <div className="flex flex-col gap-4">
             {esAdmin ? (
               <p className="text-sm text-muted-foreground">
@@ -237,6 +257,8 @@ export function EditarUsuarioForm({
             </div>
           </div>
         </FormGroup>
+        </div>
+        </div>
 
         <div className="flex items-center justify-end gap-2">
           {showCancelButton ? (
