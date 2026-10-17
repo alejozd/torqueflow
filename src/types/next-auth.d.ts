@@ -1,6 +1,6 @@
 import type { DefaultSession } from "next-auth";
 
-type TorqueFlowRole = "ADMIN" | "TECNICO" | "RECEPCION";
+type TorqueFlowRole = import("@/lib/auth/permisos").Role;
 
 declare module "next-auth" {
   interface User {

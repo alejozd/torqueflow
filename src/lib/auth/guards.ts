@@ -4,7 +4,8 @@ import { auth } from "@/auth";
 import { getTenantBySchema } from "@/lib/tenant/resolve-tenant";
 import { getTenantDb } from "@/lib/db/tenant-client";
 
-export type Role = "ADMIN" | "TECNICO" | "RECEPCION";
+import type { Role } from "@/lib/auth/permisos";
+export type { Role };
 
 export async function requireSession(): Promise<Session> {
   const session = await auth();

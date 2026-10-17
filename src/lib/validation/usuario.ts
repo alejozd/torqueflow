@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { ROLES, type Role } from "@/lib/auth/permisos";
 
-const roleSchema = z.enum(["ADMIN", "TECNICO", "RECEPCION"]);
+const roleSchema = z.enum(ROLES);
 
 /**
  * "Estado" is a select ("Activo"/"Suspendido"), not a checkbox, so unlike
@@ -10,7 +11,7 @@ const roleSchema = z.enum(["ADMIN", "TECNICO", "RECEPCION"]);
 const activoSchema = z.enum(["true", "false"]).transform((valor) => valor === "true");
 
 interface SedeRuleFields {
-  role: "ADMIN" | "TECNICO" | "RECEPCION";
+  role: Role;
   sedeIds: string[];
   sedeDefectoId?: string;
 }

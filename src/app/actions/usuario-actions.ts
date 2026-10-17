@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
+import type { Role } from "@/lib/auth/permisos";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
@@ -56,7 +57,7 @@ export interface UsuarioConSedes {
   id: string;
   nombre: string;
   email: string;
-  role: "ADMIN" | "TECNICO" | "RECEPCION";
+  role: Role;
   activo: boolean;
   sedeDefectoId: string | null;
   sedeIds: string[];
@@ -105,7 +106,7 @@ export interface UsuarioConMetricas {
   id: string;
   nombre: string;
   email: string;
-  role: "ADMIN" | "TECNICO" | "RECEPCION";
+  role: Role;
   activo: boolean;
   sedeDefectoId: string | null;
   sedeIds: string[];
