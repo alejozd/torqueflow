@@ -256,7 +256,7 @@ describe("getCliente", () => {
             factura: { select: { total: true } },
           },
         },
-        facturas: { select: { total: true, saldoPendiente: true, estado: true } },
+        facturas: { where: { orden: { sedeId: "sede-1" } }, select: { total: true, saldoPendiente: true, estado: true } },
       },
     });
   });

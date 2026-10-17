@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { puede, requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
-import { scopeOrdenVisible } from "@/lib/sede/scope";
+import { scopeFactura, scopeOrdenVisible } from "@/lib/sede/scope";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { clienteInputSchema } from "@/lib/validation/cliente";
 import type { Cliente, Prisma } from "@/generated/prisma-tenant";
@@ -146,6 +146,7 @@ export async function getCliente(id: string): Promise<ClienteDetalle | null> {
       include: {
         ...CLIENTE_DETALLE_INCLUDE,
         ordenes: { where: ordenesWhere, ...CLIENTE_DETALLE_INCLUDE.ordenes },
+        facturas: { where: scopeFactura(session.user.sedeActivaId), ...CLIENTE_DETALLE_INCLUDE.facturas },
       },
     });
   }
