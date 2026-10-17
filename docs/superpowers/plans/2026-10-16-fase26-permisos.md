@@ -1,6 +1,6 @@
 # Fase 26 — Permisos por usuario: implementation plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Cambiar el control de acceso de "¿qué rol es?" a "¿tiene este permiso?". Con eso se tapan los huecos que tiene hoy el técnico, se agrega el rol **Jefe de taller** y el admin puede agregar o quitar permisos sueltos a cada usuario sin cambiarle el rol.
 
@@ -9,6 +9,8 @@
 **Tech Stack:** Next.js (versión del repo — ver `AGENTS.md`), NextAuth JWT, Prisma 6.19.3 multi-schema (`prisma/tenant`), Vitest (`npm test` = proyecto `unit`), Zod.
 
 **Spec:** Esta conversación de diseño, resumida en "Decisiones" abajo. Este documento es la referencia.
+
+> **Avance (2026-10-17):** tareas 1–16 hechas en la rama `fase26-permisos` (último arreglo de la revisión final: `f6b1687`; 334 archivos / 2782 tests). Antes de la 17 va una ronda corta de 3 residuales de la revisión (plantillas recurrentes por sede, facturas de la ficha del cliente por sede, `revalidatePath` de `/usuarios/[id]`). Las dos migraciones están **escritas y sin aplicar**; los pasos exactos están en `docs/fase26-pasos-migracion.md`. La tarea 17 espera la aprobación del usuario.
 
 ## Global Constraints
 
@@ -116,7 +118,7 @@ Lecturas que **siguen con `requireSession`** porque las usan varios módulos (la
   - `permisosEfectivos(entrada: { role: Role; agregados?: readonly string[]; quitados?: readonly string[] }): Permiso[]` (en esta tarea ignora `agregados` y `quitados`; la tarea 13 los aplica)
   - `tienePermiso(permisos: readonly Permiso[], permiso: Permiso): boolean`
 
-- [ ] **Step 1: Escribir los tests que fallan**
+- [x] **Step 1: Escribir los tests que fallan**
 
 ```ts
 // src/lib/auth/permisos.test.ts
@@ -189,12 +191,12 @@ describe("paridad de roles con requireRole de hoy", () => {
 });
 ```
 
-- [ ] **Step 2: Correrlo y verlo fallar**
+- [x] **Step 2: Correrlo y verlo fallar**
 
 Run: `npx vitest run --project unit src/lib/auth/permisos.test.ts`
 Expected: FAIL, no se puede resolver `./permisos`.
 
-- [ ] **Step 3: Implementar `permisos.ts`**
+- [x] **Step 3: Implementar `permisos.ts`**
 
 ```ts
 // src/lib/auth/permisos.ts
@@ -307,12 +309,12 @@ export function tienePermiso(permisos: readonly Permiso[], permiso: Permiso): bo
 
 Después cambiar `export type Role = …` en `guards.ts:7` por `export type { Role } from "@/lib/auth/permisos";`, y en `next-auth.d.ts` usar `type TorqueFlowRole = import("@/lib/auth/permisos").Role;`. Reemplazar las uniones literales `"ADMIN" | "TECNICO" | "RECEPCION"` de `auth.ts:60`, `usuario-actions.ts:59,108` y `validation/usuario.ts:14` por `Role`, y el `z.enum([...])` de `validation/usuario.ts:3` por `z.enum(ROLES)`.
 
-- [ ] **Step 4: Verificar**
+- [x] **Step 4: Verificar**
 
 Run: `npx vitest run --project unit src/lib/auth/permisos.test.ts`, después `npx tsc --noEmit --incremental false` y `npm test`.
 Expected: PASS y el total de tests igual que antes más los nuevos.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git checkout -b fase26-permisos main
@@ -341,7 +343,7 @@ git push -u origin fase26-permisos
   - `requirePermiso(permiso: Permiso): Promise<Session>`: si falta el permiso, hace `redirect("/sin-permiso")`
   - `requireRole` **no se toca** hasta la tarea 8
 
-- [ ] **Step 1: Tests que fallan en `guards.test.ts`**
+- [x] **Step 1: Tests que fallan en `guards.test.ts`**
 
 Cambiar el `mockResolvedValue` por defecto del `beforeEach` a `{ activo: true, role: "ADMIN" }` y agregar:
 
@@ -382,12 +384,12 @@ describe("permisos en la sesión", () => {
 });
 ```
 
-- [ ] **Step 2: Correrlo y verlo fallar**
+- [x] **Step 2: Correrlo y verlo fallar**
 
 Run: `npx vitest run --project unit src/lib/auth/guards.test.ts`
 Expected: FAIL, `requirePermiso` no está exportado.
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 En `guards.ts`, dentro de `requireSession`, cambiar la consulta y llenar la sesión antes del chequeo de sede:
 
@@ -424,8 +426,8 @@ export async function requirePermiso(permiso: Permiso): Promise<Session> {
 
 La página `sin-permiso/page.tsx` es un server component que llama a `requireSession()` y muestra la tarjeta "No tienes permiso para ver esto", el texto "Si lo necesitas, pídele al administrador del taller que te lo habilite." y un botón `Link` + `buttonVariants()` a `/` con el texto "Volver al inicio". Hay que seguir el patrón de enlaces de `7754e65`. El test renderiza la página con `requireSession` mockeado y revisa el título y el `href="/"`.
 
-- [ ] **Step 4: Verificar.** Correr la tarea completa (`tsc`, `npm test`, `eslint`). Las pruebas que mockean `findUnique` con `{ activo: true }` y luego leen `session.user.role` tienen que actualizarse para incluir `role`.
-- [ ] **Step 5: Commit** `fase26-task 2: requirePermiso, puede y página sin permiso`
+- [x] **Step 4: Verificar.** Correr la tarea completa (`tsc`, `npm test`, `eslint`). Las pruebas que mockean `findUnique` con `{ activo: true }` y luego leen `session.user.role` tienen que actualizarse para incluir `role`.
+- [x] **Step 5: Commit** `fase26-task 2: requirePermiso, puede y página sin permiso`
 
 ---
 
@@ -496,9 +498,9 @@ Mapa de props de hoy a permisos:
 - `mostrarVencimientos` y `puedeAvisar` → `vencimientos.avisar`; `puedeConfigurar` → `configuracion.taller`
 - menú: Mostrador → `mostrador.vender`, Caja → `caja.usar`, Cartera → `cartera.ver`, Cuentas por pagar → `cuentasPorPagar.usar`, Gastos → `gastos.registrar`, Facturas → `facturas.ver`, Servicios → `servicios.gestionar`, Importar → `importar.usar`, Reportes → `reportes.productividad`, Liquidaciones → `liquidaciones.gestionar`, Sedes → `sedes.gestionar`, Usuarios → `usuarios.gestionar`, Auditoría → `auditoria.ver`, SMTP → `configuracion.taller`. Clientes, Cotizaciones, Órdenes, Citas, Vencimientos e Inventario quedan sin permiso en esta tarea, como hoy.
 
-- [ ] **Step 1:** En el test del sidebar, renderizar con `permisos = permisosEfectivos({ role: "TECNICO" })` y verificar que **no** aparezcan Mostrador, Caja ni Usuarios y que **sí** aparezca Facturas, igual que hoy. Lo mismo con RECEPCION (aparece Importar, no aparece Usuarios) y con ADMIN (aparece todo). Verlo fallar.
-- [ ] **Step 2:** Implementar el menú y las páginas. Los tests de páginas existentes deben seguir pasando cambiando solo el mock de sesión (agregar `permisos`).
-- [ ] **Step 3:** Verificar y hacer commit: `fase26-task 7: pantallas y menú preguntan por permisos`
+- [x] **Step 1:** En el test del sidebar, renderizar con `permisos = permisosEfectivos({ role: "TECNICO" })` y verificar que **no** aparezcan Mostrador, Caja ni Usuarios y que **sí** aparezca Facturas, igual que hoy. Lo mismo con RECEPCION (aparece Importar, no aparece Usuarios) y con ADMIN (aparece todo). Verlo fallar.
+- [x] **Step 2:** Implementar el menú y las páginas. Los tests de páginas existentes deben seguir pasando cambiando solo el mock de sesión (agregar `permisos`).
+- [x] **Step 3:** Verificar y hacer commit: `fase26-task 7: pantallas y menú preguntan por permisos`
 
 ---
 
@@ -508,7 +510,7 @@ Mapa de props de hoy a permisos:
 - Modify: `src/lib/auth/guards.ts` (borrar `requireRole`) y `guards.test.ts` (borrar su `describe`)
 - Create: `src/lib/auth/arquitectura-permisos.test.ts`
 
-- [ ] **Step 1: Test de arquitectura** (falla mientras quede algún uso):
+- [x] **Step 1: Test de arquitectura** (falla mientras quede algún uso):
 
 ```ts
 // src/lib/auth/arquitectura-permisos.test.ts
@@ -542,8 +544,8 @@ describe("los permisos se piden por nombre, no por rol", () => {
 });
 ```
 
-- [ ] **Step 2:** Correrlo. Si aparece algún archivo, pasarlo a permisos con la tabla (o parar y reportar si no está en la tabla). Después borrar `requireRole`.
-- [ ] **Step 3:** Verificación completa y `npm run build`. Commit: `fase26-task 8: sin requireRole y candado contra decidir por rol`
+- [x] **Step 2:** Correrlo. Si aparece algún archivo, pasarlo a permisos con la tabla (o parar y reportar si no está en la tabla). Después borrar `requireRole`.
+- [x] **Step 3:** Verificación completa y `npm run build`. Commit: `fase26-task 8: sin requireRole y candado contra decidir por rol`
 
 ---
 
@@ -557,10 +559,10 @@ describe("los permisos se piden por nombre, no por rol", () => {
 
 Permiso de cada página: `/clientes*` y `/vehiculos/[id]` → `clientes.ver`; `/citas*` → `citas.ver`; `/cotizaciones*` → `cotizaciones.ver`; `/ordenes*` → `ordenes.ver`; `/vencimientos` → `clientes.ver`; `/facturas*` → `facturas.ver`; `/mostrador` → `mostrador.vender`; `/cuentas-por-pagar` → `cuentasPorPagar.usar`; `/repuestos*`, `/bodegas*` y `/proveedores` → `inventario.ver`; `/pedidos-compra*` y `/entradas-mercancia*` → `compras.ver`; `/reportes` → `reportes.productividad`; `/auditoria` → `auditoria.ver`; `/sedes` → `sedes.gestionar`; `/usuarios*` → `usuarios.gestionar`. Sin permiso quedan solo `/` (Inicio) y `/sin-permiso`.
 
-- [ ] **Step 1:** El test recorre los `page.tsx` de `(dashboard)` y falla si alguno, fuera de `page.tsx` raíz y `sin-permiso/page.tsx`, no contiene `requirePermiso(`. Verlo fallar.
-- [ ] **Step 2:** Poner `const session = await requirePermiso("…")` al principio de cada página, antes de cualquier `Promise.all`. Como `redirect` lanza, un `Promise.all` con la llamada adentro se cortaría a la mitad. Ver el comentario de `reportes/page.tsx:88`.
-- [ ] **Step 3:** En `/reportes`: llamar a `getReporteRentabilidad` solo si `puede(session, "reportes.rentabilidad")` y ocultar esa sección si no. Test: con solo `reportes.productividad`, la página no llama a rentabilidad.
-- [ ] **Step 4:** Verificar y hacer commit: `fase26-task 9: cada página exige su permiso`
+- [x] **Step 1:** El test recorre los `page.tsx` de `(dashboard)` y falla si alguno, fuera de `page.tsx` raíz y `sin-permiso/page.tsx`, no contiene `requirePermiso(`. Verlo fallar.
+- [x] **Step 2:** Poner `const session = await requirePermiso("…")` al principio de cada página, antes de cualquier `Promise.all`. Como `redirect` lanza, un `Promise.all` con la llamada adentro se cortaría a la mitad. Ver el comentario de `reportes/page.tsx:88`.
+- [x] **Step 3:** En `/reportes`: llamar a `getReporteRentabilidad` solo si `puede(session, "reportes.rentabilidad")` y ocultar esa sección si no. Test: con solo `reportes.productividad`, la página no llama a rentabilidad.
+- [x] **Step 4:** Verificar y hacer commit: `fase26-task 9: cada página exige su permiso`
 
 ---
 
@@ -579,10 +581,10 @@ Permiso de cada página: `/clientes*` y `/vehiculos/[id]` → `clientes.ver`; `/
   ```
   Antes de escribirlo, confirmar en `schema.prisma` el nombre exacto de la relación de `OrdenTrabajo` hacia `ManoDeObra`.
 
-- [ ] **Step 1:** Tests de `scopeOrdenVisible` (con y sin `ordenes.verTodas`), y en `orden-actions.test.ts` que `getOrden` use el `where` acotado para una sesión sin `ordenes.verTodas`. Para las acciones de escritura: con una sesión de técnico y una orden ajena, `findFirst` devuelve `null` y la acción no escribe. Verlo fallar.
-- [ ] **Step 2:** Implementar y reemplazar `scopeOrden(...)` por `scopeOrdenVisible(session)` **solo** en la búsqueda de la orden en esas acciones. El resto de los 37 usos son de otros módulos y no se tocan.
-- [ ] **Step 3:** Quitar `"ordenes.verTodas"` de la lista `TECNICO` en `permisos.ts` y mover ese caso del test de paridad a un `describe("cambios del bloque B")`.
-- [ ] **Step 4:** Verificar y hacer commit: `fase26-task 10: el técnico ve solo las órdenes donde trabaja`
+- [x] **Step 1:** Tests de `scopeOrdenVisible` (con y sin `ordenes.verTodas`), y en `orden-actions.test.ts` que `getOrden` use el `where` acotado para una sesión sin `ordenes.verTodas`. Para las acciones de escritura: con una sesión de técnico y una orden ajena, `findFirst` devuelve `null` y la acción no escribe. Verlo fallar.
+- [x] **Step 2:** Implementar y reemplazar `scopeOrden(...)` por `scopeOrdenVisible(session)` **solo** en la búsqueda de la orden en esas acciones. El resto de los 37 usos son de otros módulos y no se tocan.
+- [x] **Step 3:** Quitar `"ordenes.verTodas"` de la lista `TECNICO` en `permisos.ts` y mover ese caso del test de paridad a un `describe("cambios del bloque B")`.
+- [x] **Step 4:** Verificar y hacer commit: `fase26-task 10: el técnico ve solo las órdenes donde trabaja`
 
 ---
 
@@ -594,13 +596,13 @@ Permiso de cada página: `/clientes*` y `/vehiculos/[id]` → `clientes.ver`; `/
 - Modify: `src/app/(dashboard)/repuestos/page.tsx`, `repuestos/[id]` si existe, y la ficha de la orden donde se use `listRepuestoOptions`
 - Modify: `src/app/actions/repuesto-actions.ts` (`listRepuestoOptions`)
 
-- [ ] **Step 1: Tests que fallan:**
+- [x] **Step 1: Tests que fallan:**
   - `updateEstadoOrdenAction` con estado `ANULADA` y una sesión sin `ordenes.anular` devuelve `{ success: false, error: "No tienes permiso para anular órdenes" }` y no escribe. El formato de error se copia de las otras acciones del archivo.
   - Repuestos con una sesión sin `inventario.costos`: no aparecen la columna de precio de compra, el margen ni el KPI de valor del inventario, y **los objetos que se pasan a componentes de cliente no traen `precioCompra`**. El payload de RSC lo serializaría aunque no se pinte.
   - `listRepuestoOptions` sin `inventario.costos` no incluye `precioCompra`.
-- [ ] **Step 2:** Implementar. En `updateEstadoOrdenAction`, después de validar el estado: `if (parsedEstado.data === "ANULADA" && !puede(session, "ordenes.anular"))`.
-- [ ] **Step 3:** Cambiar la lista `TECNICO` de `permisos.ts` y los tests de paridad.
-- [ ] **Step 4:** Verificar y hacer commit: `fase26-task 11: el técnico no anula ni ve costos, facturas ni compras`
+- [x] **Step 2:** Implementar. En `updateEstadoOrdenAction`, después de validar el estado: `if (parsedEstado.data === "ANULADA" && !puede(session, "ordenes.anular"))`.
+- [x] **Step 3:** Cambiar la lista `TECNICO` de `permisos.ts` y los tests de paridad.
+- [x] **Step 4:** Verificar y hacer commit: `fase26-task 11: el técnico no anula ni ve costos, facturas ni compras`
 
 ---
 
@@ -615,14 +617,14 @@ Permiso de cada página: `/clientes*` y `/vehiculos/[id]` → `clientes.ver`; `/
 **Interfaces:**
 - Produces: `ROLES_MECANICO: readonly Role[] = ["TECNICO", "JEFE_TALLER"]` en `permisos.ts`. Los filtros pasan a `role: { in: [...ROLES_MECANICO] }`.
 
-- [ ] **Step 1: Migración.**
+- [x] **Step 1: Migración.**
   ```sql
   -- AlterEnum
   ALTER TYPE "Role" ADD VALUE 'JEFE_TALLER';
   ```
   Agregar `JEFE_TALLER` al enum de `schema.prisma`, correr `npx prisma generate --schema prisma/tenant/schema.prisma` y el `migrate diff` contra el **schema prisma del repo** (no aplicar a la base).
-- [ ] **Step 2: Tests que fallan:** en `permisos.test.ts`, que `JEFE_TALLER` tenga exactamente la columna **J** del catálogo (lista explícita en el test), que no tenga nada de "Dinero" ni ★, y que `listTecnicos` (en `orden-actions.test.ts`) filtre por `{ in: ["TECNICO", "JEFE_TALLER"] }`.
-- [ ] **Step 3: Implementar.**
+- [x] **Step 2: Tests que fallan:** en `permisos.test.ts`, que `JEFE_TALLER` tenga exactamente la columna **J** del catálogo (lista explícita en el test), que no tenga nada de "Dinero" ni ★, y que `listTecnicos` (en `orden-actions.test.ts`) filtre por `{ in: ["TECNICO", "JEFE_TALLER"] }`.
+- [x] **Step 3: Implementar.**
   ```ts
   export const ROLES = ["ADMIN", "JEFE_TALLER", "TECNICO", "RECEPCION"] as const;
   export const ROLES_MECANICO: readonly Role[] = ["TECNICO", "JEFE_TALLER"];
@@ -638,7 +640,7 @@ Permiso de cada página: `/clientes*` y `/vehiculos/[id]` → `clientes.ver`; `/
   ];
   ```
   Etiqueta en la UI: "Jefe de taller". El color sale de `KPI_TONE`, sin repetir el de otro rol: hay que mirar `ROLE_BADGE_CLASSNAME` y `ROLE_DOT_COLOR` en `usuarios/page.tsx`. Las reglas de sedes de `validation/usuario.ts` ya tratan a todo rol que no sea ADMIN igual, así que no cambian; agregar un test que lo confirme para JEFE_TALLER.
-- [ ] **Step 4:** Verificar y hacer commit: `fase26-task 12: rol jefe de taller`
+- [x] **Step 4:** Verificar y hacer commit: `fase26-task 12: rol jefe de taller`
 
 ---
 
@@ -651,7 +653,7 @@ Permiso de cada página: `/clientes*` y `/vehiculos/[id]` → `clientes.ver`; `/
 - Create: `prisma/tenant/migrations/20261024120000_permisos_usuario/migration.sql`
 - Modify: `src/lib/auth/permisos.ts` (+ test) y `src/lib/auth/guards.ts` (+ test)
 
-- [ ] **Step 1: Migración.**
+- [x] **Step 1: Migración.**
   ```prisma
   permisosAgregados String[] @default([]) @map("permisos_agregados")
   permisosQuitados  String[] @default([]) @map("permisos_quitados")
@@ -662,7 +664,7 @@ Permiso de cada página: `/clientes*` y `/vehiculos/[id]` → `clientes.ver`; `/
   ADD COLUMN "permisos_quitados" TEXT[] DEFAULT ARRAY[]::TEXT[];
   ```
   Correr `prisma generate` y `migrate diff` (vacío).
-- [ ] **Step 2: Tests que fallan** en `permisos.test.ts`:
+- [x] **Step 2: Tests que fallan** en `permisos.test.ts`:
   ```ts
   describe("excepciones por usuario (D1–D3)", () => {
     it("suma los agregados y resta los quitados", () => {
@@ -682,7 +684,7 @@ Permiso de cada página: `/clientes*` y `/vehiculos/[id]` → `clientes.ver`; `/
   });
   ```
   En `guards.test.ts`: `select` incluye `permisosAgregados: true, permisosQuitados: true`, y un TECNICO con `permisosAgregados: ["caja.usar"]` pasa `requirePermiso("caja.usar")`.
-- [ ] **Step 3: Implementar** `permisosEfectivos`:
+- [x] **Step 3: Implementar** `permisosEfectivos`:
   ```ts
   if (entrada.role === "ADMIN") return [...TODOS];
   const quitados = new Set(entrada.quitados ?? []);
@@ -692,7 +694,7 @@ Permiso de cada página: `/clientes*` y `/vehiculos/[id]` → `clientes.ver`; `/
   return [...new Set([...PERMISOS_POR_ROL[entrada.role], ...agregados])].filter((p) => !quitados.has(p));
   ```
   En `guards.ts`, la consulta y la llamada pasan a usar `permisosAgregados` y `permisosQuitados`.
-- [ ] **Step 4:** Verificar y hacer commit: `fase26-task 13: excepciones de permisos por usuario en la sesión`
+- [x] **Step 4:** Verificar y hacer commit: `fase26-task 13: excepciones de permisos por usuario en la sesión`
 
 ---
 
@@ -706,14 +708,14 @@ Permiso de cada página: `/clientes*` y `/vehiculos/[id]` → `clientes.ver`; `/
 - Produces: `guardarPermisosUsuarioAction(usuarioId: string, permisos: string[]): Promise<ResultadoAccion>`. `permisos` es la lista **marcada** en pantalla. La acción calcula `agregados = marcados − rol` y `quitados = rol − marcados`, y guarda solo esa diferencia. Así, si después cambia la tabla del rol, el usuario la hereda.
 - Produces: `excepcionesDesdeMarcados(role: Role, marcados: readonly Permiso[]): { agregados: Permiso[]; quitados: Permiso[] }` en `permisos.ts`
 
-- [ ] **Step 1: Tests que fallan:**
+- [x] **Step 1: Tests que fallan:**
   - `excepcionesDesdeMarcados("TECNICO", [...permisos de TECNICO, "caja.usar"])` → `{ agregados: ["caja.usar"], quitados: [] }`
   - La validación rechaza claves desconocidas y ★, con el mensaje "Ese permiso no se puede dar a este usuario".
   - La acción exige `usuarios.gestionar`, rechaza a un usuario ADMIN ("El administrador siempre tiene todos los permisos"), rechaza a un usuario de otro taller (`findUnique` → `null`) y escribe `AuditLog` con `tipo: "USUARIO_ACTUALIZAR_PERMISOS"` y `detalle: { agregados, quitados, antes: { agregados, quitados } }`. El patrón de auditoría se copia de `updateUsuarioAction` (`usuario-actions.ts:340-360`).
   - "Volver al rol base" equivale a enviar exactamente los permisos del rol, lo que deja ambas listas vacías.
-- [ ] **Step 2:** Implementar y llamar a `revalidatePath("/usuarios")` y a `revalidatePath(\`/usuarios/${usuarioId}\`)`.
-- [ ] **Step 3:** En `updateUsuarioAction`, al **cambiar el rol**, vaciar las dos listas. Las excepciones eran relativas al rol anterior. Test incluido.
-- [ ] **Step 4:** Verificar y hacer commit: `fase26-task 14: guardar permisos por usuario con auditoría`
+- [x] **Step 2:** Implementar y llamar a `revalidatePath("/usuarios")` y a `revalidatePath(\`/usuarios/${usuarioId}\`)`.
+- [x] **Step 3:** En `updateUsuarioAction`, al **cambiar el rol**, vaciar las dos listas. Las excepciones eran relativas al rol anterior. Test incluido.
+- [x] **Step 4:** Verificar y hacer commit: `fase26-task 14: guardar permisos por usuario con auditoría`
 
 ---
 
@@ -733,16 +735,16 @@ Comportamiento:
 - Botones: "Guardar permisos" y "Volver al rol base". Este último usa `ConfirmacionEnLinea` porque borra cambios.
 - Toast de éxito o de error con el `ResultadoAccion`.
 
-- [ ] **Step 1:** Tests que fallan: renderiza un TECNICO con `agregados: ["caja.usar"]` y verifica que "Abrir y cerrar caja" esté marcada con "Agregado"; al desmarcar "Entregar el vehículo" aparece "Quitado"; "Guardar" llama a la acción con la lista marcada; no aparece "Gestionar usuarios".
-- [ ] **Step 2:** Implementar.
-- [ ] **Step 3:** Verificar (más `npm run build`) y hacer commit: `fase26-task 15: pantalla de permisos en la ficha del usuario`
+- [x] **Step 1:** Tests que fallan: renderiza un TECNICO con `agregados: ["caja.usar"]` y verifica que "Abrir y cerrar caja" esté marcada con "Agregado"; al desmarcar "Entregar el vehículo" aparece "Quitado"; "Guardar" llama a la acción con la lista marcada; no aparece "Gestionar usuarios".
+- [x] **Step 2:** Implementar.
+- [x] **Step 3:** Verificar (más `npm run build`) y hacer commit: `fase26-task 15: pantalla de permisos en la ficha del usuario`
 
 ---
 
 ### Task 16: Revisión independiente y arreglos
 
-- [ ] Revisión del diff completo `main...fase26-permisos` por otro modelo, en solo lectura, con `superpowers:requesting-code-review`. Foco: acciones que se hayan quedado sin permiso, que la paridad del bloque A se respete, fuga de `precioCompra` en props de cliente, IDOR de órdenes del técnico y permisos ★.
-- [ ] Ronda de arreglos con test por hallazgo. Commits `fase26-fix: …`.
+- [x] Revisión del diff completo `main...fase26-permisos` por otro modelo, en solo lectura, con `superpowers:requesting-code-review`. Foco: acciones que se hayan quedado sin permiso, que la paridad del bloque A se respete, fuga de `precioCompra` en props de cliente, IDOR de órdenes del técnico y permisos ★.
+- [x] Ronda de arreglos con test por hallazgo. Commits `fase26-fix: …`.
 
 ### Task 17: Cierre (solo con aprobación explícita del usuario)
 

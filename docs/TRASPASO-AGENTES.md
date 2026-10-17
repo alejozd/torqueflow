@@ -367,6 +367,11 @@ build y reiniciar:
 
 ## 8. Pendientes y próximos pasos
 
+- **Fase 26 (permisos por usuario)**: tareas 1–16 hechas en la rama `fase26-permisos`, sin merge. Falta una
+  ronda corta de 3 residuales de la revisión final y la tarea 17 (cierre), que espera aprobación del usuario.
+  Las migraciones `20261023120000_rol_jefe_taller` y `20261024120000_permisos_usuario` están **sin aplicar**;
+  pasos exactos en `docs/fase26-pasos-migracion.md` (migrar **todos** los schemas antes de desplegar).
+
 - **Crons sin programar en el servidor** (verificado 2026-10-15: el crontab de `alejo` no los llama, aunque `CRON_SECRET` está en el `.env`): `/api/cron/recordatorios` (los recordatorios automáticos no salen) y `/api/cron/cotizaciones-vencidas` (ya no hace falta: las cotizaciones se vencen al consultarlas). Programarlos requiere el visto bueno del usuario.
 - **Rediseño de la cotización**: falta revisión visual del usuario, merge a `main` y despliegue. Su migración
   está aplicada en `taller_dev` y `taller_dev_reference` (`migrate diff` sin diferencias en ambos).
@@ -487,3 +492,25 @@ Merge `a86a9f0`. Plan: `docs/superpowers/plans/2026-10-16-campos-fecha.md`.
 Merge `c92e500`. Al crear una orden (desde Órdenes o desde la ficha del cliente) el diálogo ya no se cierra
 antes de navegar: el botón pasa a «Abriendo la orden...» y queda bloqueado hasta que la ficha reemplaza la
 pantalla. Antes se veía y se podía clicar el listado mientras cargaba la ficha, y cabía un doble envío.
+
+### Fase 26 — permisos por usuario (rama `fase26-permisos`, plan `docs/superpowers/plans/2026-10-16-fase26-permisos.md`)
+
+En curso (2026-10-17), **sin merge**. El acceso deja de preguntar "¿qué rol es?" y pasa a "¿tiene este
+permiso?":
+
+- **Catálogo único** en `src/lib/auth/permisos.ts` (claves `grupo.accion`, que no se renombran) y tabla
+  rol → permisos. Guards en `src/lib/auth/guards.ts`: `requirePermiso`, `requireSession`, `puede`. Si falta un
+  permiso se va a `/sin-permiso`. Un test de arquitectura exige que toda `page.tsx` de `src/app` pida su
+  permiso.
+- **Técnico**: ve solo las órdenes donde es mecánico de la orden o de alguna mano de obra
+  (`ordenes.verTodas`, `scopeOrdenVisible` en `src/lib/sede/scope.ts`, en lecturas y escrituras por id). Ya no
+  anula ni ve facturas, costos (`precioCompra`, margen, valor del inventario) ni compras.
+- **Rol nuevo `JEFE_TALLER`** ("Jefe de taller"): todo el taller, nada de plata; se puede asignar como
+  mecánico (`ROLES_MECANICO`).
+- **Excepciones por usuario**: `usuarios.permisos_agregados` / `permisos_quitados`; se editan en la ficha del
+  usuario (sección "Permisos") con `guardarPermisosUsuarioAction`, que guarda solo la diferencia con el rol y
+  deja `AuditLog`. Los 4 permisos ★ (`usuarios.gestionar`, `sedes.gestionar`, `sedes.verTodas`,
+  `configuracion.taller`) son solo del ADMIN y no se pueden dar. Cambiar el rol vacía las excepciones.
+- Permisos que antes eran solo del ADMIN (gastos, reportes) se acotan a la sede activa salvo con
+  `sedes.verTodas`, porque ahora se pueden dar por excepción.
+- **Migraciones sin aplicar**: ver `docs/fase26-pasos-migracion.md`.
