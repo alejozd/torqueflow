@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrden } from "@/app/actions/orden-actions";
+import { requirePermiso } from "@/lib/auth/guards";
 import { DiagramaDanios } from "@/app/(dashboard)/ordenes/[id]/diagrama-danios";
 import { formatoFechaCorta } from "@/lib/fecha-bogota";
 import { ETIQUETA_DANIO, etiquetaZona } from "@/lib/danos/figuras";
@@ -27,6 +28,8 @@ const NIVELES: Record<string, string> = {
  * menú lateral; el acceso lo sigue exigiendo `getOrden` (sesión + sede).
  */
 export default async function ImprimirActaPage({ params }: { params: Promise<{ id: string }> }) {
+  // Fuera de (dashboard) no hay layout que lo pida: el permiso va aquí (Fase 26, I3).
+  await requirePermiso("ordenes.ver");
   const { id } = await params;
   const orden = await getOrden(id);
 

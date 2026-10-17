@@ -11,6 +11,8 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
+const mockRequirePermiso = vi.fn();
+vi.mock("@/lib/auth/guards", () => ({ requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args) }));
 import ImprimirCotizacionPage from "./page";
 
 const KIT = { grupoKitId: "g1", grupoKitNombre: "Cambio de aceite" };
@@ -65,6 +67,13 @@ beforeEach(() => {
 });
 
 describe("ImprimirCotizacionPage", () => {
+  it("exige cotizaciones.ver antes de cargar nada (Fase 26, I3)", async () => {
+    mockRequirePermiso.mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
+    await expect(ImprimirCotizacionPage({ params: Promise.resolve({ id: "q1" }) })).rejects.toThrow("NEXT_REDIRECT");
+    expect(mockRequirePermiso).toHaveBeenCalledWith("cotizaciones.ver");
+    expect(mockGetCotizacion).not.toHaveBeenCalled();
+  });
+
   it("imprime cada kit con su nombre y subtotal como título y sus partes debajo", async () => {
     await renderizar();
 

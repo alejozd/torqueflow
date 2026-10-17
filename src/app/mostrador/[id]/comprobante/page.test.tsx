@@ -13,6 +13,8 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+const mockRequirePermiso = vi.fn();
+vi.mock("@/lib/auth/guards", () => ({ requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args) }));
 import ComprobanteVentaPage from "./page";
 
 const pesos = (n: number) =>
@@ -48,6 +50,13 @@ async function pintar(consulta: Record<string, string> = {}, id = "v1") {
 const fila = (etiqueta: string) => screen.getByText(etiqueta).parentElement!;
 
 describe("ComprobanteVentaPage", () => {
+  it("exige mostrador.vender antes de cargar nada (Fase 26, I3)", async () => {
+    mockRequirePermiso.mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
+    await expect(ComprobanteVentaPage({ params: Promise.resolve({ id: "v1" }), searchParams: Promise.resolve({}) })).rejects.toThrow("NEXT_REDIRECT");
+    expect(mockRequirePermiso).toHaveBeenCalledWith("mostrador.vender");
+    expect(mockGetComprobante).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     mockGetComprobante.mockReset().mockResolvedValue(VENTA);
     window.print = vi.fn();
