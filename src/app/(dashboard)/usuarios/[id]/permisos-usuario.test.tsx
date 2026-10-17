@@ -59,4 +59,41 @@ describe("PermisosUsuario", () => {
     const [, lista] = mockGuardar.mock.calls[0] as [string, string[]];
     expect([...lista].sort()).toEqual([...permisosEfectivos({ role: "TECNICO" })].sort());
   });
+
+  it("al cambiar el rol (y vaciarse las excepciones) vuelve a leer las props, sin conservar el rol anterior (I5)", () => {
+    const { rerender } = render(<PermisosUsuario usuarioId="u1" role="RECEPCION" agregados={[]} quitados={[]} />);
+    expect(screen.getByRole("checkbox", { name: /Abrir y cerrar caja/ })).toBeChecked();
+
+    rerender(<PermisosUsuario usuarioId="u1" role="TECNICO" agregados={[]} quitados={[]} />);
+
+    expect(screen.getByRole("checkbox", { name: /Abrir y cerrar caja/ })).not.toBeChecked();
+    expect(screen.queryByText("Agregado")).not.toBeInTheDocument();
+    expect(screen.queryByText("Quitado")).not.toBeInTheDocument();
+  });
+
+  it("si falla Volver al rol base, las casillas siguen como estaban (I5)", async () => {
+    mockGuardar.mockResolvedValue({ error: "No se pudo", success: false });
+    const user = userEvent.setup();
+    render(<PermisosUsuario usuarioId="u1" role="TECNICO" agregados={["caja.usar"]} quitados={[]} />);
+    await user.click(screen.getByRole("button", { name: "Volver al rol base" }));
+    const grupo = screen.getByRole("group", { name: /dejar los permisos del rol/ });
+    await user.click(within(grupo).getByRole("button", { name: /Sí, volver/ }));
+
+    expect(mockGuardar).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("checkbox", { name: /Abrir y cerrar caja/ })).toBeChecked();
+    expect(screen.getByText("Agregado")).toBeInTheDocument();
+  });
+
+  it("si Volver al rol base sale bien, desmarca las excepciones y cierra la confirmación (I5)", async () => {
+    const user = userEvent.setup();
+    render(<PermisosUsuario usuarioId="u1" role="TECNICO" agregados={["caja.usar"]} quitados={[]} />);
+    await user.click(screen.getByRole("button", { name: "Volver al rol base" }));
+    const grupo = screen.getByRole("group", { name: /dejar los permisos del rol/ });
+    await user.click(within(grupo).getByRole("button", { name: /Sí, volver/ }));
+
+    expect(await screen.findByRole("button", { name: "Volver al rol base" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /dejar los permisos del rol/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Abrir y cerrar caja/ })).not.toBeChecked();
+    expect(screen.queryByText("Agregado")).not.toBeInTheDocument();
+  });
 });

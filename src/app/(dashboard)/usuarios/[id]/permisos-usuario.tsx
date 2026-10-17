@@ -19,17 +19,25 @@ import {
 
 const VISIBLES = (Object.keys(PERMISOS) as Permiso[]).filter((p) => !PERMISOS_SOLO_ADMIN.includes(p));
 
-export function PermisosUsuario({
-  usuarioId,
-  role,
-  agregados,
-  quitados,
-}: {
+interface PermisosUsuarioProps {
   usuarioId: string;
   role: Role;
   agregados: readonly string[];
   quitados: readonly string[];
-}) {
+}
+
+/**
+ * Las casillas viven en estado local, así que cuando cambian el rol o las
+ * excepciones guardadas (p. ej. el formulario de arriba cambió el rol y vació
+ * las excepciones) el editor se monta de nuevo desde las props: si no, guardaría
+ * los permisos del rol anterior (Fase 26, I5).
+ */
+export function PermisosUsuario(props: PermisosUsuarioProps) {
+  const clave = `${props.usuarioId}|${props.role}|${props.agregados.join(",")}|${props.quitados.join(",")}`;
+  return <EditorPermisos key={clave} {...props} />;
+}
+
+function EditorPermisos({ usuarioId, role, agregados, quitados }: PermisosUsuarioProps) {
   const router = useRouter();
   const [pendiente, startTransition] = useTransition();
   const base = new Set<Permiso>(permisosEfectivos({ role }));
@@ -38,11 +46,12 @@ export function PermisosUsuario({
   );
   const [confirmando, setConfirmando] = useState(false);
 
-  function guardar(lista: Permiso[]) {
+  function guardar(lista: Permiso[], alGuardar?: () => void) {
     startTransition(async () => {
       const resultado = await guardarPermisosUsuarioAction(usuarioId, lista);
       if (resultado.success) {
         toast.success("Permisos guardados");
+        alGuardar?.();
         setConfirmando(false);
         router.refresh();
       } else {
@@ -60,9 +69,11 @@ export function PermisosUsuario({
     });
   }
 
+  // Las casillas cambian solo si el guardado sale bien: si falla, la pantalla
+  // sigue mostrando lo que de verdad está guardado.
   function volverAlBase() {
-    setMarcados(new Set(base));
-    guardar([...base]);
+    const lista = [...base];
+    guardar(lista, () => setMarcados(new Set(lista)));
   }
 
   return (
