@@ -1,8 +1,8 @@
 "use server";
 
-import { requireSession } from "@/lib/auth/guards";
+import { puede, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
-import { scopeCita, scopeFactura, scopeOrden } from "@/lib/sede/scope";
+import { scopeCita, scopeFactura, scopeOrdenVisible } from "@/lib/sede/scope";
 import { buildRangoFechas } from "@/lib/reportes/rango-fechas";
 import { totalOrden, ultimosNDiasIso } from "@/lib/dashboard/calculos";
 import { resumirFacturacion, type ResumenFacturacion } from "@/lib/dashboard/facturacion-semana";
@@ -71,6 +71,8 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeActivaId = session.user.sedeActivaId;
+  // D7: el técnico cuenta solo las órdenes donde trabaja.
+  const scopeOrdenes = scopeOrdenVisible(sedeActivaId, session.user.id, puede(session, "ordenes.verTodas"));
 
   const hoy = new Date();
   // 14 días: la semana del gráfico y la anterior, para compararlas.
@@ -98,10 +100,10 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     carteraMostradorAgg,
   ] = await Promise.all([
     tenantDb.ordenTrabajo.count({
-      where: { ...scopeOrden(sedeActivaId), estado: { in: ["BORRADOR", "EN_PROCESO", "TERMINADA"] } },
+      where: { ...scopeOrdenes, estado: { in: ["BORRADOR", "EN_PROCESO", "TERMINADA"] } },
     }),
     tenantDb.ordenTrabajo.count({
-      where: { ...scopeOrden(sedeActivaId), estado: "TERMINADA", updatedAt: { gte: rangoHoy.gte, lt: rangoHoy.lt } },
+      where: { ...scopeOrdenes, estado: "TERMINADA", updatedAt: { gte: rangoHoy.gte, lt: rangoHoy.lt } },
     }),
     tenantDb.cita.count({
       where: { ...scopeCita(sedeActivaId), fechaHora: { gte: rangoHoy.gte, lt: rangoHoy.lt }, estado: { not: "CANCELADA" } },
@@ -112,7 +114,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       select: { fechaHora: true, vehiculo: { select: { placa: true } } },
     }),
     tenantDb.ordenTrabajo.findMany({
-      where: { ...scopeOrden(sedeActivaId), estado: "TERMINADA", factura: null },
+      where: { ...scopeOrdenes, estado: "TERMINADA", factura: null },
       select: {
         items: { select: { cantidad: true, precioUnitario: true } },
         manoDeObra: { select: { valor: true } },
@@ -123,15 +125,15 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       _sum: { saldoPendiente: true },
     }),
     tenantDb.factura.count({ where: { ...scopeFactura(sedeActivaId), estado: "PENDIENTE" } }),
-    tenantDb.ordenTrabajo.count({ where: { ...scopeOrden(sedeActivaId), estado: "BORRADOR" } }),
-    tenantDb.ordenTrabajo.count({ where: { ...scopeOrden(sedeActivaId), estado: "EN_PROCESO" } }),
-    tenantDb.ordenTrabajo.count({ where: { ...scopeOrden(sedeActivaId), estado: "TERMINADA" } }),
+    tenantDb.ordenTrabajo.count({ where: { ...scopeOrdenes, estado: "BORRADOR" } }),
+    tenantDb.ordenTrabajo.count({ where: { ...scopeOrdenes, estado: "EN_PROCESO" } }),
+    tenantDb.ordenTrabajo.count({ where: { ...scopeOrdenes, estado: "TERMINADA" } }),
     tenantDb.ordenTrabajo.count({
-      where: { ...scopeOrden(sedeActivaId), estado: "ENTREGADA", entregadaAt: { gte: rangoHoy.gte, lt: rangoHoy.lt } },
+      where: { ...scopeOrdenes, estado: "ENTREGADA", entregadaAt: { gte: rangoHoy.gte, lt: rangoHoy.lt } },
     }),
-    tenantDb.ordenTrabajo.count({ where: { ...scopeOrden(sedeActivaId), estado: { not: "ANULADA" } } }),
+    tenantDb.ordenTrabajo.count({ where: { ...scopeOrdenes, estado: { not: "ANULADA" } } }),
     tenantDb.ordenTrabajo.findMany({
-      where: { ...scopeOrden(sedeActivaId), estado: { not: "ANULADA" } },
+      where: { ...scopeOrdenes, estado: { not: "ANULADA" } },
       orderBy: { updatedAt: "desc" },
       take: 4,
       select: {

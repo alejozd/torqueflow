@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requirePermiso } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
@@ -9,7 +9,7 @@ import { saveDviFoto } from "@/lib/storage/local-file-storage";
 import type { DviChecklist } from "@/lib/dvi/checklist-items";
 import { dviChecklistStatusSchema, dviFotoMomentoSchema } from "@/lib/validation/dvi";
 import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
-import { scopeOrden } from "@/lib/sede/scope";
+import { scopeOrdenVisible } from "@/lib/sede/scope";
 
 export interface DviFormState {
   error: string | null;
@@ -25,7 +25,7 @@ export async function updateDviChecklistAction(
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
+    where: { id: ordenId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     select: { estado: true, factura: { select: { id: true } } },
   });
   if (!orden) {
@@ -84,7 +84,7 @@ export async function addDviFotoAction(
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
+    where: { id: ordenId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     select: { estado: true, factura: { select: { id: true } } },
   });
   if (!orden) {
@@ -127,7 +127,7 @@ export async function deleteDviFotoAction(id: string, ordenId: string): Promise<
   let orden;
   try {
     orden = await tenantDb.ordenTrabajo.findFirst({
-      where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
+      where: { id: ordenId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
       select: { estado: true, factura: { select: { id: true } } },
     });
   } catch (err) {

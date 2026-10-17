@@ -48,7 +48,7 @@ describe("paridad de roles con requireRole de hoy", () => {
 
   it.each<Permiso>([
     "clientes.ver", "citas.ver", "cotizaciones.ver", "cotizaciones.editarItems", "ordenes.ver",
-    "ordenes.verTodas", "ordenes.trabajar", "ordenes.cambiarEstado", "ordenes.anular", "ordenes.entregar",
+    "ordenes.trabajar", "ordenes.cambiarEstado", "ordenes.anular", "ordenes.entregar",
     "facturas.ver", "inventario.ver", "inventario.costos", "compras.ver",
   ])("RECEPCION y TECNICO pueden %s", (permiso) => {
     expect(tienePermiso(recepcion, permiso)).toBe(true);
@@ -63,5 +63,12 @@ describe("paridad de roles con requireRole de hoy", () => {
   ])("solo ADMIN puede %s", (permiso) => {
     expect(tienePermiso(recepcion, permiso)).toBe(false);
     expect(tienePermiso(tecnico, permiso)).toBe(false);
+  });
+});
+
+describe("cambios del bloque B", () => {
+  it("TECNICO ya no ve todas las órdenes de la sede (D7) y RECEPCION sí", () => {
+    expect(tienePermiso(permisosEfectivos({ role: "TECNICO" }), "ordenes.verTodas")).toBe(false);
+    expect(tienePermiso(permisosEfectivos({ role: "RECEPCION" }), "ordenes.verTodas")).toBe(true);
   });
 });

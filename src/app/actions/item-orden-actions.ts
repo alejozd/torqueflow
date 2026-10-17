@@ -1,13 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requirePermiso } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { itemOrdenInputSchema } from "@/lib/validation/orden";
 import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
-import { scopeOrden, scopeRepuesto } from "@/lib/sede/scope";
+import { scopeOrdenVisible, scopeRepuesto } from "@/lib/sede/scope";
 
 export interface ItemOrdenFormState {
   error: string | null;
@@ -34,7 +34,7 @@ export async function addItemOrdenAction(
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
+    where: { id: ordenId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     select: { estado: true, factura: { select: { id: true } } },
   });
   if (!orden) {
@@ -84,7 +84,7 @@ export async function deleteItemOrdenAction(id: string, ordenId: string): Promis
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
+    where: { id: ordenId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     select: { estado: true, factura: { select: { id: true } } },
   });
   if (!orden) {

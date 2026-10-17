@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requirePermiso } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { roundMoney } from "@/lib/money/round";
@@ -9,7 +9,7 @@ import { assertCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
 import { recomputeCotizacionTotales } from "@/lib/cotizacion/recompute-totales";
 import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
 import { grupoKitParaServicio } from "@/lib/servicio/grupo-kit";
-import { scopeCotizacion, scopeOrden, scopeRepuesto } from "@/lib/sede/scope";
+import { scopeCotizacion, scopeOrdenVisible, scopeRepuesto } from "@/lib/sede/scope";
 import {
   CANTIDAD_MAXIMA_KIT,
   aplicarServicioInputSchema,
@@ -402,7 +402,7 @@ export async function aplicarServicioAOrdenAction(
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
+    where: { id: ordenId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     select: { estado: true, factura: { select: { id: true } }, mecanicoId: true },
   });
   if (!orden) return { error: "Orden no encontrada", success: false, agregados: null };

@@ -7,7 +7,7 @@ import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { ordenTrabajoInputSchema, estadoOrdenSchema, prioridadOrdenSchema } from "@/lib/validation/orden";
 import { isValidEstadoTransition } from "@/lib/orden/estado-transitions";
 import { assertOrdenMutable, esOrdenMutable } from "@/lib/orden/mutable-guard";
-import { scopeOrden } from "@/lib/sede/scope";
+import { scopeOrden, scopeOrdenVisible } from "@/lib/sede/scope";
 import {
   CONFIGURACION_SMTP_ID,
   descifrarConfiguracionSmtp,
@@ -80,7 +80,7 @@ export async function listOrdenes(estado?: EstadoOrden): Promise<OrdenWithDetall
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.ordenTrabajo.findMany({
-    where: { ...scopeOrden(session.user.sedeActivaId), ...(estado ? { estado } : {}) },
+    where: { ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")), ...(estado ? { estado } : {}) },
     include: ORDEN_DETAIL_INCLUDE,
     orderBy: { createdAt: "desc" },
   });
@@ -112,7 +112,7 @@ export async function listOrdenesByVehiculo(vehiculoId: string): Promise<OrdenDe
   // The Vehiculo is tenant-wide on purpose (a client may bring the same car to
   // any sede), but its órdenes belong to whichever sede opened them.
   return tenantDb.ordenTrabajo.findMany({
-    where: { vehiculoId, ...scopeOrden(session.user.sedeActivaId) },
+    where: { vehiculoId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     select: ORDEN_VEHICULO_SELECT,
     orderBy: { createdAt: "desc" },
   });
@@ -124,7 +124,7 @@ export async function getOrden(id: string): Promise<OrdenFicha | null> {
   // findFirst, not findUnique: findUnique cannot carry the sede filter, so an
   // id from another sede would resolve. This is the IDOR boundary.
   return tenantDb.ordenTrabajo.findFirst({
-    where: { id, ...scopeOrden(session.user.sedeActivaId) },
+    where: { id, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     include: ORDEN_FICHA_INCLUDE,
   });
 }
@@ -339,7 +339,7 @@ export async function updateEstadoOrdenAction(
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id, ...scopeOrden(session.user.sedeActivaId) },
+    where: { id, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     include: { cliente: true, vehiculo: true },
   });
   if (!orden) {

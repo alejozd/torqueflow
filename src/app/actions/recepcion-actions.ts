@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requirePermiso } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { registrarEventoAuditoria } from "@/lib/auditoria/registrarEvento";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb, type TenantPrismaClient } from "@/lib/db/tenant-client";
@@ -10,7 +10,7 @@ import { estadoGarantia, type EstadoGarantia } from "@/lib/garantias/vigencia";
 import type { ResultadoAccion } from "@/lib/resultado-accion";
 import { isValidEstadoTransition } from "@/lib/orden/estado-transitions";
 import { esOrdenMutable } from "@/lib/orden/mutable-guard";
-import { scopeOrden } from "@/lib/sede/scope";
+import { scopeOrdenVisible } from "@/lib/sede/scope";
 import { borrarArchivoDeOrden, saveOrdenArchivo, MAX_UPLOAD_SIZE_BYTES } from "@/lib/storage/local-file-storage";
 import {
   actaDatosSchema,
@@ -66,16 +66,17 @@ export interface EntregaFormState {
   success: boolean;
 }
 
+type Session = Awaited<ReturnType<typeof requirePermiso>>;
 type OrdenEditable = { id: string; estado: EstadoOrden };
 
 /** Carga la orden de la sede activa y comprueba que se pueda editar. */
 async function cargarOrdenEditable(
   tenantDb: TenantPrismaClient,
-  sedeActivaId: string,
+  session: Session,
   ordenId: string,
 ): Promise<{ orden: OrdenEditable } | { error: string }> {
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id: ordenId, ...scopeOrden(sedeActivaId) },
+    where: { id: ordenId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     select: { id: true, estado: true, factura: { select: { id: true } } },
   });
   if (!orden) return { error: ORDEN_NO_ENCONTRADA };
@@ -93,11 +94,11 @@ async function cargarOrdenEditable(
  */
 async function cargarOrdenParaActa(
   tenantDb: TenantPrismaClient,
-  sedeActivaId: string,
+  session: Session,
   ordenId: string,
 ): Promise<{ orden: OrdenEditable } | { error: string }> {
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id: ordenId, ...scopeOrden(sedeActivaId) },
+    where: { id: ordenId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     select: { id: true, estado: true, factura: { select: { id: true } } },
   });
   if (!orden) return { error: ORDEN_NO_ENCONTRADA };
@@ -218,7 +219,7 @@ export async function guardarRecepcionAction(
 
   const session = await requirePermiso("ordenes.trabajar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  const revisada = await cargarOrdenEditable(tenantDb, session.user.sedeActivaId, ordenId);
+  const revisada = await cargarOrdenEditable(tenantDb, session, ordenId);
   if ("error" in revisada) return { error: revisada.error, success: false };
 
   try {
@@ -251,7 +252,7 @@ export async function agregarDanioAction(
 
   const session = await requirePermiso("ordenes.trabajar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  const revisada = await cargarOrdenEditable(tenantDb, session.user.sedeActivaId, ordenId);
+  const revisada = await cargarOrdenEditable(tenantDb, session, ordenId);
   if ("error" in revisada) return { error: revisada.error, success: false };
 
   try {
@@ -313,7 +314,7 @@ export async function guardarActaAction(
 
   const session = await requirePermiso("ordenes.trabajar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  const revisada = await cargarOrdenParaActa(tenantDb, session.user.sedeActivaId, ordenId);
+  const revisada = await cargarOrdenParaActa(tenantDb, session, ordenId);
   if ("error" in revisada) return { error: revisada.error, success: false };
 
   try {
@@ -344,7 +345,7 @@ export async function firmarActaAction(
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
+    where: { id: ordenId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     select: { id: true, estado: true, acta: { select: { id: true, firmadaAt: true, firmaUrl: true, firmaFotoUrl: true } } },
   });
   if (!orden) return { error: ORDEN_NO_ENCONTRADA, success: false };
@@ -424,7 +425,7 @@ export async function borrarActaAction(ordenId: string): Promise<ResultadoAccion
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
+    where: { id: ordenId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     select: {
       id: true,
       estado: true,
@@ -489,7 +490,7 @@ export async function entregarOrdenAction(
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
+    where: { id: ordenId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     include: {
       acta: { select: { id: true, firmadaAt: true, firmaUrl: true, firmaFotoUrl: true } },
     },
@@ -630,7 +631,7 @@ export async function agregarGarantiaAction(
   const tenantDb = getTenantDb(session.user.tenantSchema);
   // Las garantías siguen la regla del acta, no la de los ítems: se registran al
   // entregar, y lo normal es facturar antes de entregar (la factura no las bloquea).
-  const revisada = await cargarOrdenParaActa(tenantDb, session.user.sedeActivaId, ordenId);
+  const revisada = await cargarOrdenParaActa(tenantDb, session, ordenId);
   if ("error" in revisada) return { error: revisada.error, success: false };
 
   // La línea cubierta tiene que ser de esta orden: si no, la garantía apuntaría

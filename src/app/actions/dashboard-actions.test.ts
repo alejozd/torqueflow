@@ -1,8 +1,10 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { permisosEfectivos } from "@/lib/auth/permisos";
 
 const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
   requireSession: () => mockRequireSession(),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
 }));
 
 const ordenTrabajo = { count: vi.fn(), findMany: vi.fn() };
@@ -20,7 +22,7 @@ const SEDE_ID = "sede-1";
 
 function resetMocks() {
   mockRequireSession.mockReset().mockResolvedValue({
-    user: { tenantSchema: "taller_perez", sedeActivaId: SEDE_ID },
+    user: { id: "u1", permisos: ["ordenes.verTodas"], tenantSchema: "taller_perez", sedeActivaId: SEDE_ID },
   });
   ordenTrabajo.count.mockReset();
   ordenTrabajo.findMany.mockReset();
@@ -263,5 +265,23 @@ describe("getDashboardOverview", () => {
     expect(facturacion.dias[0]!.fecha).toBe("2026-08-19");
     expect(facturacion.dias.at(-1)).toEqual({ fecha: "2026-08-25", total: 100, cobrado: 60, pendiente: 40, facturas: 1 });
     expect(facturacion).toMatchObject({ total: 150, pendiente: 40, totalSemanaAnterior: 30 });
+  });
+});
+
+describe("D7: el técnico cuenta solo sus órdenes", () => {
+  it("acota cada consulta de órdenes a las que trabaja", async () => {
+    resetMocks();
+    stubDefaults();
+    mockRequireSession.mockResolvedValue({
+      user: { id: "tec-1", permisos: permisosEfectivos({ role: "TECNICO" }), tenantSchema: "taller_perez", sedeActivaId: SEDE_ID },
+    });
+
+    await getDashboardOverview();
+
+    const OR = [{ mecanicoId: "tec-1" }, { manoDeObra: { some: { mecanicoId: "tec-1" } } }];
+    expect(ordenTrabajo.count.mock.calls.length).toBeGreaterThan(0);
+    for (const call of [...ordenTrabajo.count.mock.calls, ...ordenTrabajo.findMany.mock.calls]) {
+      expect(call[0].where).toMatchObject({ sedeId: SEDE_ID, OR });
+    }
   });
 });

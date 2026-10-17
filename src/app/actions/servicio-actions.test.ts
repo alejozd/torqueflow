@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { permisosEfectivos } from "@/lib/auth/permisos";
 
 const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
   requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: vi.fn(),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
 }));
 
 const tx = {
@@ -43,7 +45,7 @@ import {
 const inicial: ServicioFormState = { error: null, success: false };
 const inicialRepuesto: ServicioRepuestoFormState = { error: null, success: false, cantidad: null };
 const inicialAplicar: AplicarServicioFormState = { error: null, success: false, agregados: null };
-const ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const ADMIN = { user: { id: "u1", role: "ADMIN", permisos: ["ordenes.verTodas"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 function fd(campos: Record<string, string>): FormData {
   const f = new FormData();
@@ -682,5 +684,21 @@ describe("guardas de rol", () => {
     expect(tx.manoDeObra.create).not.toHaveBeenCalled();
     expect(tx.itemOrden.create).not.toHaveBeenCalled();
     expect(tx.itemCotizacion.create).not.toHaveBeenCalled();
+  });
+});
+
+const TECNICO_D7 = { user: { id: "tec-1", role: "TECNICO", permisos: permisosEfectivos({ role: "TECNICO" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const WHERE_D7 = (id: string) => ({ id, sedeId: "sede-1", OR: [{ mecanicoId: "tec-1" }, { manoDeObra: { some: { mecanicoId: "tec-1" } } }] });
+
+describe("D7: el técnico solo trabaja en sus órdenes (servicios)", () => {
+  it("no aplica un servicio a una orden ajena", async () => {
+    mockRequirePermiso.mockResolvedValue(TECNICO_D7);
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await aplicarServicioAOrdenAction("ajena", inicialAplicar, fd({ servicioId: "s1" }));
+
+    expect(r.error).toBe("Orden no encontrada");
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+    expect(tx.manoDeObra.create).not.toHaveBeenCalled();
   });
 });

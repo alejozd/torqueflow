@@ -52,6 +52,7 @@ vi.mock("@/lib/email/enviar-email", () => ({
 const mockRevalidatePath = vi.fn();
 vi.mock("next/cache", () => ({ revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args) }));
 
+import { permisosEfectivos } from "@/lib/auth/permisos";
 import { cifrarSecreto } from "@/lib/crypto/secret-box";
 import {
   createOrdenAction,
@@ -69,9 +70,14 @@ import {
   type PrioridadFormState,
 } from "./orden-actions";
 
+const TECNICO_SESSION = {
+  user: { id: "tec-1", role: "TECNICO", permisos: permisosEfectivos({ role: "TECNICO" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+};
+const OR_TECNICO = [{ mecanicoId: "tec-1" }, { manoDeObra: { some: { mecanicoId: "tec-1" } } }];
+
 const initialState: OrdenFormState = { error: null, success: false };
 const SESSION = {
-  user: { id: "u1", role: "ADMIN", permisos: ["ordenes.reasignarMecanico"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+  user: { id: "u1", role: "ADMIN", permisos: ["ordenes.reasignarMecanico", "ordenes.verTodas"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
 };
 
 describe("createOrdenAction", () => {
@@ -851,5 +857,56 @@ describe("cambiarPrioridadAction", () => {
     await expect(cambiarPrioridadAction("o1", inicialPrioridad, conPrioridad("ALTA"))).rejects.toThrow("NEXT_REDIRECT");
     expect(mockUpdateMany).not.toHaveBeenCalled();
     expect(mockAuditLogCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("D7: el técnico solo ve sus órdenes", () => {
+  beforeEach(() => {
+    mockRequireSession.mockReset().mockResolvedValue(TECNICO_SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(TECNICO_SESSION);
+    mockFindMany.mockReset().mockResolvedValue([]);
+    mockOrdenFindFirst.mockReset().mockResolvedValue(null);
+    mockUpdate.mockReset();
+    mockUpdateMany.mockReset();
+  });
+
+  it("listOrdenes acota por mecánico de la orden o de una línea de mano de obra", async () => {
+    await listOrdenes("EN_PROCESO");
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { sedeId: "sede-1", estado: "EN_PROCESO", OR: OR_TECNICO } }),
+    );
+  });
+
+  it("listOrdenesByVehiculo acota igual", async () => {
+    await listOrdenesByVehiculo("v1");
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { vehiculoId: "v1", sedeId: "sede-1", OR: OR_TECNICO } }),
+    );
+  });
+
+  it("getOrden de una orden ajena resuelve a null con el where acotado", async () => {
+    expect(await getOrden("ajena")).toBeNull();
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith({
+      where: { id: "ajena", sedeId: "sede-1", OR: OR_TECNICO },
+      include: expect.anything(),
+    });
+  });
+
+  it("updateEstadoOrdenAction sobre una orden ajena responde 'no encontrada' y no escribe", async () => {
+    const fd = new FormData();
+    fd.set("estado", "EN_PROCESO");
+    const result = await updateEstadoOrdenAction("ajena", { error: null, success: false } as EstadoFormState, fd);
+    expect(result).toEqual({ error: "Orden no encontrada" });
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "ajena", sedeId: "sede-1", OR: OR_TECNICO } }),
+    );
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("una sesión con verTodas conserva el scope plano de la sede", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    await getOrden("x");
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith({ where: { id: "x", sedeId: "sede-1" }, include: expect.anything() });
   });
 });

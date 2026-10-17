@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { permisosEfectivos } from "@/lib/auth/permisos";
 
 const mockRequireSession = vi.fn();
-vi.mock("@/lib/auth/guards", () => ({ requireSession: () => mockRequireSession() }));
+vi.mock("@/lib/auth/guards", () => ({
+  requireSession: () => mockRequireSession(),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
+}));
 
 const mockFindMany = vi.fn();
 const mockConfiguracionFindUnique = vi.fn();
@@ -14,7 +18,7 @@ vi.mock("@/lib/db/tenant-client", () => ({
 
 import { getAlertasTaller } from "./alertas-taller-actions";
 
-const SESSION = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION = { user: { id: "u1", role: "ADMIN", permisos: ["ordenes.verTodas"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 const HACE = (dias: number, horas = 0) => new Date(Date.now() - dias * 24 * 60 * 60 * 1000 - horas * 60 * 60 * 1000);
 
@@ -103,5 +107,22 @@ describe("getAlertasTaller", () => {
 
   it("sin órdenes vivas no hay alertas", async () => {
     expect(await getAlertasTaller()).toEqual({ diasUmbral: 3, alertas: [] });
+  });
+});
+
+describe("D7: el técnico ve alertas de sus órdenes", () => {
+  it("acota las órdenes vivas a las que trabaja", async () => {
+    mockRequireSession.mockResolvedValue({
+      user: { id: "tec-1", role: "TECNICO", permisos: permisosEfectivos({ role: "TECNICO" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+    });
+    mockConfiguracionFindUnique.mockResolvedValue({ diasOrdenEstancada: 3 });
+    mockFindMany.mockResolvedValue([]);
+
+    await getAlertasTaller();
+
+    expect(mockFindMany.mock.calls.at(-1)![0].where).toMatchObject({
+      sedeId: "sede-1",
+      OR: [{ mecanicoId: "tec-1" }, { manoDeObra: { some: { mecanicoId: "tec-1" } } }],
+    });
   });
 });

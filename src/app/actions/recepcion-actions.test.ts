@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { permisosEfectivos } from "@/lib/auth/permisos";
 
 const mockRequirePermiso = vi.fn();
-vi.mock("@/lib/auth/guards", () => ({ requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args) }));
+vi.mock("@/lib/auth/guards", () => ({
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
+}));
 
 const mockSaveOrdenArchivo = vi.fn();
 const mockBorrarUpload = vi.fn();
@@ -47,7 +51,7 @@ import {
   quitarGarantiaAction,
 } from "./recepcion-actions";
 
-const ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller", sedeActivaId: "sede-1" } };
+const ADMIN = { user: { id: "u1", role: "ADMIN", permisos: ["ordenes.verTodas"], tenantSchema: "taller", sedeActivaId: "sede-1" } };
 const inicial = { error: null, success: false };
 
 function fd(campos: Record<string, string | File>): FormData {
@@ -772,5 +776,32 @@ describe("garantías", () => {
 
     expect(await listGarantiasDeVehiculo("nope")).toEqual([]);
     expect(db.garantia.findMany).not.toHaveBeenCalled();
+  });
+});
+
+const TECNICO_D7 = { user: { id: "tec-1", role: "TECNICO", permisos: permisosEfectivos({ role: "TECNICO" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const WHERE_D7 = (id: string) => ({ id, sedeId: "sede-1", OR: [{ mecanicoId: "tec-1" }, { manoDeObra: { some: { mecanicoId: "tec-1" } } }] });
+
+describe("D7: el técnico solo trabaja en sus órdenes (recepción)", () => {
+  it("no firma el acta de una orden ajena", async () => {
+    mockRequirePermiso.mockResolvedValue(TECNICO_D7);
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await firmarActaAction("ajena", inicial, fd({ recibidoPor: "M", firma: firmaPng() }));
+
+    expect(r.error).toBe("Orden no encontrada");
+    expect(mockSaveOrdenArchivo).not.toHaveBeenCalled();
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+  });
+
+  it("no guarda la recepción de una orden ajena", async () => {
+    mockRequirePermiso.mockResolvedValue(TECNICO_D7);
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await guardarRecepcionAction("ajena", inicial, fd({ kilometrajeIngreso: "1", nivelCombustible: "" }));
+
+    expect(r.error).toBe("Orden no encontrada");
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+    expect(db.ordenTrabajo.update).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scopeBodega, scopeCita, scopeEntrada, scopeFactura, scopeOrden, scopeRepuesto } from "./scope";
+import { scopeBodega, scopeCita, scopeEntrada, scopeFactura, scopeOrden, scopeOrdenVisible, scopeRepuesto } from "./scope";
 
 describe("sede scope filters", () => {
   it("scopes órdenes on their own sedeId column", () => {
@@ -34,5 +34,18 @@ describe("sede scope filters", () => {
     const a = scopeOrden("sede-1");
     const b = scopeOrden("sede-1");
     expect(a).not.toBe(b);
+  });
+});
+
+describe("scopeOrdenVisible", () => {
+  it("con verTodas es la sede completa, sin OR", () => {
+    expect(scopeOrdenVisible("sede-1", "u1", true)).toEqual({ sedeId: "sede-1" });
+  });
+
+  it("sin verTodas acota a las órdenes del mecánico, de la orden o de una línea de mano de obra", () => {
+    expect(scopeOrdenVisible("sede-1", "u1", false)).toEqual({
+      sedeId: "sede-1",
+      OR: [{ mecanicoId: "u1" }, { manoDeObra: { some: { mecanicoId: "u1" } } }],
+    });
   });
 });

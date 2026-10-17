@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { permisosEfectivos } from "@/lib/auth/permisos";
 
 const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
@@ -23,8 +24,8 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import { addItemOrdenAction, deleteItemOrdenAction, type ItemOrdenFormState } from "./item-orden-actions";
 
 const initialState: ItemOrdenFormState = { error: null, success: false };
-const SESSION = { user: { role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
-const SESSION_ADMIN = { user: { role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION = { user: { role: "TECNICO", permisos: ["ordenes.verTodas"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION_ADMIN = { user: { role: "ADMIN", permisos: ["ordenes.verTodas"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 describe("addItemOrdenAction", () => {
   beforeEach(() => {
@@ -247,5 +248,26 @@ describe("deleteItemOrdenAction", () => {
       where: { id: "orden-de-otra-sede", sedeId: "sede-1" },
       select: { estado: true, factura: { select: { id: true } } },
     });
+  });
+});
+
+const TECNICO_D7 = { user: { id: "tec-1", role: "TECNICO", permisos: permisosEfectivos({ role: "TECNICO" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const WHERE_D7 = (id: string) => ({ id, sedeId: "sede-1", OR: [{ mecanicoId: "tec-1" }, { manoDeObra: { some: { mecanicoId: "tec-1" } } }] });
+
+describe("D7: el técnico solo trabaja en sus órdenes (ítems)", () => {
+  it("una orden ajena no se encuentra y no se crea el ítem", async () => {
+    mockRequirePermiso.mockReset().mockResolvedValue(TECNICO_D7);
+    mockOrdenFindFirst.mockReset().mockResolvedValue(null);
+    mockCreate.mockReset();
+    const formData = new FormData();
+    formData.set("descripcion", "Pastillas");
+    formData.set("cantidad", "1");
+    formData.set("precioUnitario", "15");
+
+    const result = await addItemOrdenAction("ajena", initialState, formData);
+
+    expect(result).toEqual({ error: "Orden no encontrada", success: false });
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 });

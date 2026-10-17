@@ -194,3 +194,19 @@ describe("listAnticiposDeOrden", () => {
     ]);
   });
 });
+
+describe("D7: listAnticiposDeOrden para el técnico", () => {
+  it("acota la orden a las que trabaja", async () => {
+    mockRequireSession.mockResolvedValue({
+      user: { id: "tec-1", role: "TECNICO", permisos: permisosEfectivos({ role: "TECNICO" }), tenantSchema: "t", sedeActivaId: "sede-1" },
+    });
+    mockAnticipoFindMany.mockResolvedValue([]);
+
+    await listAnticiposDeOrden("ajena");
+
+    expect(mockAnticipoFindMany.mock.calls.at(-1)![0].where).toMatchObject({
+      ordenId: "ajena",
+      orden: { sedeId: "sede-1", OR: [{ mecanicoId: "tec-1" }, { manoDeObra: { some: { mecanicoId: "tec-1" } } }] },
+    });
+  });
+});

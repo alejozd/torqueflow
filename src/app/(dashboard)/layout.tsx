@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import { Toaster } from "sonner";
-import { requireSession } from "@/lib/auth/guards";
+import { puede, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { publicDb } from "@/lib/db/public-client";
 import { esCotizacionPendienteDeSeguimiento } from "@/lib/cotizacion/seguimiento-pendiente";
 import { prismaCotizacionesVencidasGateway } from "@/lib/cotizacion/marcar-vencidas-gateway-prisma";
-import { scopeCita, scopeCotizacion, scopeFactura, scopeOrden, scopeRepuesto } from "@/lib/sede/scope";
+import { scopeCita, scopeCotizacion, scopeFactura, scopeOrdenVisible, scopeRepuesto } from "@/lib/sede/scope";
 import { comprometidoPorRepuesto, estaBajoMinimo } from "@/lib/inventario/comprometido";
 import { buildRangoFechas } from "@/lib/reportes/rango-fechas";
 import { ultimosNDiasIso } from "@/lib/dashboard/calculos";
@@ -73,7 +73,7 @@ async function loadCotizacionesPendientesSeguimiento(
 async function loadOrdenesEnTaller(session: Awaited<ReturnType<typeof requireSession>>): Promise<number> {
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.ordenTrabajo.count({
-    where: { ...scopeOrden(session.user.sedeActivaId), estado: { in: ["BORRADOR", "EN_PROCESO", "TERMINADA"] } },
+    where: { ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")), estado: { in: ["BORRADOR", "EN_PROCESO", "TERMINADA"] } },
   });
 }
 
