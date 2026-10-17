@@ -2,6 +2,7 @@
 
 import { requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
+import { resolverSede } from "@/lib/gastos/validaciones-db";
 import { reporteFiltrosSchema } from "@/lib/validation/reporte";
 import { buildRangoDias, buildRangoFechas } from "@/lib/reportes/rango-fechas";
 import { computeRentabilidad, type RentabilidadTotales } from "@/lib/reportes/rentabilidad";
@@ -48,7 +49,7 @@ export async function getReporteRentabilidad(filtros: ReporteFiltros): Promise<R
       filtros: {
         desde: filtros.desde,
         hasta: filtros.hasta,
-        sedeId: filtros.sedeId || session.user.sedeActivaId,
+        sedeId: resolverSede(session, filtros.sedeId),
       },
       error: parsed.error.issues[0]?.message ?? "Filtros inválidos",
       totales: computeRentabilidad([]),
@@ -60,10 +61,11 @@ export async function getReporteRentabilidad(filtros: ReporteFiltros): Promise<R
 
   const tenantDb = getTenantDb(session.user.tenantSchema);
   // No lookup: the sede activa comes from the validated session (Fase 1
-  // backlog #21's rule, applied to sede state). An explicit sedeId lets an
-  // ADMIN compare against another sede -- the design doc's "sede como
-  // dimensión de filtro/comparación" (§5 módulo 12).
-  const sedeId = parsed.data.sedeId || session.user.sedeActivaId;
+  // backlog #21's rule, applied to sede state). An explicit sedeId lets
+  // quien tiene `sedes.verTodas` compare against another sede -- the design
+  // doc's "sede como dimensión de filtro/comparación" (§5 módulo 12). Sin ese
+  // permiso se ignora y manda la sede activa (Fase 26, I1).
+  const sedeId = resolverSede(session, parsed.data.sedeId || undefined);
   const aplicados: ReporteFiltrosAplicados = {
     desde: parsed.data.desde,
     hasta: parsed.data.hasta,
@@ -173,7 +175,7 @@ export async function getReporteProductividad(filtros: ReporteFiltros): Promise<
       filtros: {
         desde: filtros.desde,
         hasta: filtros.hasta,
-        sedeId: filtros.sedeId || session.user.sedeActivaId,
+        sedeId: resolverSede(session, filtros.sedeId),
       },
       error: parsed.error.issues[0]?.message ?? "Filtros inválidos",
       filas: [],
@@ -181,7 +183,8 @@ export async function getReporteProductividad(filtros: ReporteFiltros): Promise<
   }
 
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  const sedeId = parsed.data.sedeId || session.user.sedeActivaId;
+  // Sin `sedes.verTodas` (p. ej. el jefe de taller) manda la sede activa (I1).
+  const sedeId = resolverSede(session, parsed.data.sedeId || undefined);
   const aplicados: ReporteFiltrosAplicados = {
     desde: parsed.data.desde,
     hasta: parsed.data.hasta,
