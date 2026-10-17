@@ -1,29 +1,75 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useImperativeHandle, useState, useTransition, type Ref } from "react";
+import {
+  CalendarDays,
+  FileText,
+  Package,
+  Search,
+  Settings,
+  Users,
+  Wallet,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { guardarPermisosUsuarioAction } from "@/app/actions/usuario-actions";
 import { ConfirmacionEnLinea } from "@/components/confirmacion-en-linea";
 import { Button } from "@/components/ui/button";
-import { KPI_TONE } from "@/components/ui/kpi-card";
+import { Input } from "@/components/ui/input";
+import { KPI_TONE, type KpiTone } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
 import {
   GRUPOS_PERMISO,
   PERMISOS,
   PERMISOS_SOLO_ADMIN,
   permisosEfectivos,
+  type GrupoPermiso,
   type Permiso,
   type Role,
 } from "@/lib/auth/permisos";
 
 const VISIBLES = (Object.keys(PERMISOS) as Permiso[]).filter((p) => !PERMISOS_SOLO_ADMIN.includes(p));
 
+const ICONO_GRUPO: Record<GrupoPermiso, { icono: LucideIcon; tono: KpiTone }> = {
+  "Clientes y vehículos": { icono: Users, tono: "info" },
+  Citas: { icono: CalendarDays, tono: "warning" },
+  Cotizaciones: { icono: FileText, tono: "success" },
+  Órdenes: { icono: Wrench, tono: "info" },
+  Dinero: { icono: Wallet, tono: "success" },
+  Inventario: { icono: Package, tono: "warning" },
+  Administración: { icono: Settings, tono: "info" },
+};
+
+const NOMBRE_ROL: Record<Role, string> = {
+  ADMIN: "Administrador",
+  JEFE_TALLER: "Jefe de taller",
+  TECNICO: "Técnico",
+  RECEPCION: "Recepción",
+};
+
+/** Minúsculas y sin tildes, para que "vehiculo" encuentre "vehículo". */
+function normalizar(texto: string): string {
+  return texto.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+}
+
+const esDeVer = (permiso: Permiso) => permiso.endsWith(".ver") || permiso.endsWith(".verTodas");
+
+/** Lo que la ficha del usuario necesita para guardar los permisos desde su propio botón. */
+export interface ControlPermisosUsuario {
+  /** true si se guardó; si falla, las casillas quedan como estaban. */
+  guardar: () => Promise<boolean>;
+}
+
 interface PermisosUsuarioProps {
   usuarioId: string;
   role: Role;
   agregados: readonly string[];
   quitados: readonly string[];
+  /** Modo ficha: sin botón "Guardar permisos"; la página guarda y cuenta los cambios. */
+  controlRef?: Ref<ControlPermisosUsuario>;
+  onCambios?: (cambios: number) => void;
 }
 
 /**
@@ -37,7 +83,7 @@ export function PermisosUsuario(props: PermisosUsuarioProps) {
   return <EditorPermisos key={clave} {...props} />;
 }
 
-function EditorPermisos({ usuarioId, role, agregados, quitados }: PermisosUsuarioProps) {
+function EditorPermisos({ usuarioId, role, agregados, quitados, controlRef, onCambios }: PermisosUsuarioProps) {
   const router = useRouter();
   const [pendiente, startTransition] = useTransition();
   const base = new Set<Permiso>(permisosEfectivos({ role }));
@@ -45,18 +91,50 @@ function EditorPermisos({ usuarioId, role, agregados, quitados }: PermisosUsuari
     () => new Set(permisosEfectivos({ role, agregados, quitados })),
   );
   const [confirmando, setConfirmando] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
+
+  const filtro = normalizar(busqueda.trim());
+  const visibles = filtro ? VISIBLES.filter((p) => normalizar(PERMISOS[p].etiqueta).includes(filtro)) : VISIBLES;
+  const cambios = VISIBLES.filter((p) => marcados.has(p) !== base.has(p)).length;
+  // Cambios contra lo guardado (no contra el rol): es lo que la ficha tiene pendiente.
+  const guardados = new Set(permisosEfectivos({ role, agregados, quitados }));
+  const sinGuardar = VISIBLES.filter((p) => marcados.has(p) !== guardados.has(p)).length;
+
+  useImperativeHandle(controlRef, () => ({ guardar: () => guardarAhora([...marcados]) }));
+
+  useEffect(() => {
+    onCambios?.(sinGuardar);
+  }, [sinGuardar, onCambios]);
+
+  // Las acciones masivas solo tocan lo que deja ver el buscador (y nunca un ★:
+  // no están en VISIBLES).
+  function aplicarAVisibles(debeMarcar: (permiso: Permiso) => boolean) {
+    setMarcados((previo) => {
+      const siguiente = new Set(previo);
+      for (const permiso of visibles) {
+        if (debeMarcar(permiso)) siguiente.add(permiso);
+        else siguiente.delete(permiso);
+      }
+      return siguiente;
+    });
+  }
+
+  async function guardarAhora(lista: Permiso[], alGuardar?: () => void): Promise<boolean> {
+    const resultado = await guardarPermisosUsuarioAction(usuarioId, lista);
+    if (resultado.success) {
+      toast.success("Permisos guardados");
+      alGuardar?.();
+      setConfirmando(false);
+      router.refresh();
+      return true;
+    }
+    toast.error(resultado.error ?? "No se pudieron guardar los permisos");
+    return false;
+  }
 
   function guardar(lista: Permiso[], alGuardar?: () => void) {
     startTransition(async () => {
-      const resultado = await guardarPermisosUsuarioAction(usuarioId, lista);
-      if (resultado.success) {
-        toast.success("Permisos guardados");
-        alGuardar?.();
-        setConfirmando(false);
-        router.refresh();
-      } else {
-        toast.error(resultado.error ?? "No se pudieron guardar los permisos");
-      }
+      await guardarAhora(lista, alGuardar);
     });
   }
 
@@ -78,13 +156,55 @@ function EditorPermisos({ usuarioId, role, agregados, quitados }: PermisosUsuari
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <span className="size-1.5 shrink-0 rounded-full bg-primary" />
+        {`Permisos del rol ${NOMBRE_ROL[role]}: ${base.size} · ${cambios} ${cambios === 1 ? "cambio" : "cambios"}`}
+      </p>
+
+      <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/50 p-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            aria-label="Buscar permiso"
+            placeholder="Buscar permiso (orden, cotización, caja…)"
+            className="pl-8"
+            value={busqueda}
+            onChange={(evento) => setBusqueda(evento.target.value)}
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" size="sm" disabled={pendiente} onClick={() => aplicarAVisibles(esDeVer)}>
+            Solo lectura
+          </Button>
+          <Button type="button" variant="outline" size="sm" disabled={pendiente} onClick={() => aplicarAVisibles(() => true)}>
+            Marcar todos
+          </Button>
+          <Button type="button" variant="outline" size="sm" disabled={pendiente} onClick={() => aplicarAVisibles(() => false)}>
+            Desmarcar todos
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {GRUPOS_PERMISO.map((grupo) => {
-          const deGrupo = VISIBLES.filter((p) => PERMISOS[p].grupo === grupo);
+          const delGrupo = VISIBLES.filter((p) => PERMISOS[p].grupo === grupo);
+          const deGrupo = visibles.filter((p) => PERMISOS[p].grupo === grupo);
           if (deGrupo.length === 0) return null;
+          const { icono: Icono, tono } = ICONO_GRUPO[grupo];
+          const activos = delGrupo.filter((p) => marcados.has(p)).length;
           return (
-            <fieldset key={grupo} className="flex flex-col gap-1.5">
-              <legend className="mb-1 text-sm font-semibold">{grupo}</legend>
+            <fieldset key={grupo} className="flex flex-col gap-1.5 rounded-xl border border-border bg-card p-4 shadow-sm">
+              <legend className="sr-only">{grupo}</legend>
+              <div aria-hidden className="mb-2 flex items-center gap-2 border-b border-border pb-2">
+                <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-md", KPI_TONE[tono].iconBg)}>
+                  <Icono className={cn("size-4", KPI_TONE[tono].icon)} />
+                </span>
+                <span className="flex-1 text-sm font-semibold">{grupo}</span>
+              </div>
+              <span className="-mt-9 mb-2 self-end rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                {`${activos} / ${delGrupo.length} activos`}
+              </span>
               {deGrupo.map((permiso) => {
                 const marcado = marcados.has(permiso);
                 const estado = marcado && !base.has(permiso) ? "Agregado" : !marcado && base.has(permiso) ? "Quitado" : null;
@@ -114,9 +234,11 @@ function EditorPermisos({ usuarioId, role, agregados, quitados }: PermisosUsuari
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" disabled={pendiente} onClick={() => guardar([...marcados])}>
-          Guardar permisos
-        </Button>
+        {controlRef ? null : (
+          <Button type="button" disabled={pendiente} onClick={() => guardar([...marcados])}>
+            Guardar permisos
+          </Button>
+        )}
         {confirmando ? (
           <ConfirmacionEnLinea
             pregunta="¿Quitar todos los cambios y dejar los permisos del rol?"

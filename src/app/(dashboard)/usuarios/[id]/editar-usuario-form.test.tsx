@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockUpdateUsuarioAction = vi.fn();
@@ -45,10 +45,24 @@ describe("EditarUsuarioForm", () => {
     expect(screen.getByLabelText("Contraseña")).toHaveValue("");
   });
 
-  it("pre-fills Estado from usuario.activo", () => {
+  it("pre-fills Estado de cuenta from usuario.activo, and the switch toggles it", () => {
     render(<EditarUsuarioForm usuario={{ ...USUARIO, activo: false }} sedes={SEDES} />);
 
-    expect(screen.getByRole("combobox", { name: "Estado" })).toHaveTextContent("Suspendido");
+    const interruptor = screen.getByRole("switch", { name: "Estado de cuenta" });
+    expect(interruptor).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByText("Suspendido")).toBeInTheDocument();
+
+    fireEvent.click(interruptor);
+    expect(interruptor).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByText("Activo")).toBeInTheDocument();
+  });
+
+  it("groups the fields as Datos personales, Seguridad y rol and Sedes", () => {
+    render(<EditarUsuarioForm usuario={USUARIO} sedes={SEDES} />);
+
+    expect(screen.getByText("Datos personales")).toBeInTheDocument();
+    expect(screen.getByText("Seguridad y rol")).toBeInTheDocument();
+    expect(screen.getByText("Sedes")).toBeInTheDocument();
   });
 
   it("pre-checks exactly the sedes the user is already assigned to", () => {

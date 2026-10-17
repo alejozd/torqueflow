@@ -64,6 +64,7 @@ export interface UsuarioConSedes {
   sedeIds: string[];
   permisosAgregados: string[];
   permisosQuitados: string[];
+  createdAt: Date;
 }
 
 const USUARIO_CON_SEDES_SELECT = {
@@ -75,6 +76,7 @@ const USUARIO_CON_SEDES_SELECT = {
   sedeDefectoId: true,
   permisosAgregados: true,
   permisosQuitados: true,
+  createdAt: true,
   sedes: { select: { sedeId: true } },
 } as const;
 
@@ -106,6 +108,7 @@ export async function listUsuariosConSedes(): Promise<UsuarioConSedes[]> {
     sedeIds: usuario.sedes.map((asignacion) => asignacion.sedeId),
     permisosAgregados: usuario.permisosAgregados,
     permisosQuitados: usuario.permisosQuitados,
+    createdAt: usuario.createdAt,
   }));
 }
 
