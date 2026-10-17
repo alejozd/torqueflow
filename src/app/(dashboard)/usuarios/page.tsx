@@ -6,6 +6,7 @@ import { NuevoUsuarioDialog } from "./nuevo-usuario-dialog";
 import { EditarUsuarioDialog } from "./editar-usuario-dialog";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPI_TONE, KpiCard, type KpiTone } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
@@ -147,6 +148,14 @@ function buildColumns(sedesPorId: Map<string, string>, sedeOptions: SedeOption[]
       cell: (usuario) => (
         <div className="flex flex-wrap items-center gap-2">
           <EditarUsuarioDialog usuario={usuario} sedes={sedeOptions} />
+          {usuario.role !== "ADMIN" ? (
+            <Link
+              href={`/usuarios/${usuario.id}`}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              Permisos
+            </Link>
+          ) : null}
         </div>
       ),
     },
