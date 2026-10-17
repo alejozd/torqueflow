@@ -380,6 +380,7 @@ export async function updateUsuarioAction(
   }
 
   revalidatePath("/usuarios");
+  revalidatePath(`/usuarios/${usuarioId}`);
   return { error: null, success: true };
 }
 

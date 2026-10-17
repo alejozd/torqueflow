@@ -40,6 +40,7 @@ vi.mock("@/lib/db/tenant-client", () => ({
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+import { revalidatePath } from "next/cache";
 
 const mockObtenerLimitesPlan = vi.fn();
 vi.mock("@/lib/planes/limites", () => ({
@@ -396,6 +397,8 @@ describe("updateUsuarioAction", () => {
     const result = await updateUsuarioAction("u2", initialUsuarioState, formData);
 
     expect(result).toEqual({ error: null, success: true });
+    expect(revalidatePath).toHaveBeenCalledWith("/usuarios");
+    expect(revalidatePath).toHaveBeenCalledWith("/usuarios/u2");
     expect(mockUsuarioUpdate).toHaveBeenCalledWith({
       where: { id: "u2" },
       data: {
