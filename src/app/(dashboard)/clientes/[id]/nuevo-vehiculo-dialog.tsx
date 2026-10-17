@@ -17,12 +17,12 @@ export function NuevoVehiculoDialog({
   clienteId,
   marcas,
   modelos,
-  esAdmin,
+  puedeAgregarCatalogo,
 }: {
   clienteId: string;
   marcas: MarcaVehiculo[];
   modelos: ModeloVehiculo[];
-  esAdmin: boolean;
+  puedeAgregarCatalogo: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -41,7 +41,7 @@ export function NuevoVehiculoDialog({
           clienteId={clienteId}
           marcas={marcas}
           modelos={modelos}
-          esAdmin={esAdmin}
+          puedeAgregarCatalogo={puedeAgregarCatalogo}
           onCreated={() => setOpen(false)}
         />
       </DialogContent>

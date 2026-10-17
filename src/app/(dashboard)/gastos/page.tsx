@@ -4,7 +4,7 @@ import { listCategoriasGasto } from "@/app/actions/categoria-gasto-actions";
 import { listGastos } from "@/app/actions/gasto-actions";
 import { listRecurrentesPendientes } from "@/app/actions/gasto-recurrente-actions";
 import { listSedes } from "@/app/actions/sede-actions";
-import { requireRole } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { ETIQUETA_MES } from "@/lib/gastos/periodo";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,8 +29,9 @@ export default async function GastosPage({
 }: {
   searchParams: Promise<{ periodo?: string; sedeId?: string; categoriaId?: string }>;
 }) {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
-  const esAdmin = session.user.role === "ADMIN";
+  const session = await requirePermiso("gastos.registrar");
+  const verTodasLasSedes = puede(session, "sedes.verTodas");
+  const puedeAdministrar = puede(session, "gastos.administrar");
   const { periodo, sedeId, categoriaId } = await searchParams;
 
   // Sequential, never Promise.all: each one goes through requireRole, which
@@ -38,7 +39,7 @@ export default async function GastosPage({
   const gastos = await listGastos({ periodo, sedeId: sedeId || undefined, categoriaId: categoriaId || undefined });
   const categorias = await listCategoriasGasto({ soloActivas: true });
   const pendientes = await listRecurrentesPendientes({ sedeId: gastos.sedeId });
-  const sedes = esAdmin ? await listSedes() : undefined;
+  const sedes = verTodasLasSedes ? await listSedes() : undefined;
   const sedesOpciones = sedes?.map((s) => ({ id: s.id, nombre: s.nombre }));
 
   const nombreSede =
@@ -55,7 +56,7 @@ export default async function GastosPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {esAdmin ? (
+          {puedeAdministrar ? (
             <Link href="/gastos/configuracion" className={buttonVariants({ variant: "outline" })}>
               <Settings />
               Configuración
@@ -65,7 +66,7 @@ export default async function GastosPage({
         </div>
       </div>
 
-      <RecurrentesPendientes pendientes={pendientes} esAdmin={esAdmin} />
+      <RecurrentesPendientes pendientes={pendientes} esAdmin={puedeAdministrar} />
 
       <Card>
         <CardHeader>
@@ -115,7 +116,7 @@ export default async function GastosPage({
         <CardContent>
           <GastosTable
             filas={gastos.filas}
-            esAdmin={esAdmin}
+            esAdmin={puedeAdministrar}
             categorias={categorias}
             sedeId={gastos.sedeId}
             sedes={sedesOpciones}

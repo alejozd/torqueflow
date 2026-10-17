@@ -11,7 +11,7 @@ import { NuevaOrdenDialog } from "../../clientes/[id]/nueva-orden-dialog";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireSession } from "@/lib/auth/guards";
+import { puede, requireSession } from "@/lib/auth/guards";
 import { totalOrden } from "@/lib/dashboard/calculos";
 import { VencimientoBadge } from "@/components/vencimiento-badge";
 import { GarantiasCard } from "./garantias-card";
@@ -96,7 +96,7 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
     getDiasAvisoVencimiento(),
     listGarantiasDeVehiculo(id),
   ]);
-  const esAdmin = session.user.role === "ADMIN";
+  const puedeAgregarCatalogo = puede(session, "vehiculos.catalogo");
 
   const ahora = new Date();
 
@@ -178,7 +178,7 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <EditarVehiculoDialog vehiculo={vehiculo} marcas={marcas} modelos={modelos} esAdmin={esAdmin} />
+          <EditarVehiculoDialog vehiculo={vehiculo} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={puedeAgregarCatalogo} />
           <NuevaOrdenDialog
             clienteId={vehiculo.clienteId}
             vehiculoId={vehiculo.id}

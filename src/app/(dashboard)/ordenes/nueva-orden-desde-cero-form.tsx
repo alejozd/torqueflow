@@ -41,7 +41,7 @@ export function NuevaOrdenDesdeCeroForm({
   tecnicos,
   marcas,
   modelos,
-  esAdmin,
+  puedeAgregarCatalogo,
   diasAviso,
   onCreated,
 }: {
@@ -49,7 +49,7 @@ export function NuevaOrdenDesdeCeroForm({
   tecnicos: TecnicoOption[];
   marcas: MarcaVehiculo[];
   modelos: ModeloVehiculo[];
-  esAdmin: boolean;
+  puedeAgregarCatalogo: boolean;
   diasAviso: number;
   /**
    * Fired synchronously right after a successful create -- not driven by
@@ -144,7 +144,7 @@ export function NuevaOrdenDesdeCeroForm({
             vehiculoError={errors.vehiculoId?.message}
             marcas={marcas}
             modelos={modelos}
-            esAdmin={esAdmin}
+            puedeAgregarCatalogo={puedeAgregarCatalogo}
           />
 
           {vehiculoSeleccionado ? (

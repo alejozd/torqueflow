@@ -21,14 +21,14 @@ export function EditarVehiculoDialog({
   vehiculo,
   marcas,
   modelos,
-  esAdmin,
+  puedeAgregarCatalogo,
   triggerClassName,
   puedeEliminar = false,
 }: {
   vehiculo: Vehiculo;
   marcas: MarcaVehiculo[];
   modelos: ModeloVehiculo[];
-  esAdmin: boolean;
+  puedeAgregarCatalogo: boolean;
   /** ADMIN/RECEPCION only, same roles as deleteVehiculoAction. */
   puedeEliminar?: boolean;
   /** Overrides the trigger's default outline look -- e.g. clientes/[id]'s vehicle cards use a soft amber style. */
@@ -53,7 +53,7 @@ export function EditarVehiculoDialog({
           vehiculo={vehiculo}
           marcas={marcas}
           modelos={modelos}
-          esAdmin={esAdmin}
+          puedeAgregarCatalogo={puedeAgregarCatalogo}
           onUpdated={() => setOpen(false)}
         />
         {puedeEliminar ? (

@@ -3,12 +3,12 @@ import { listCategoriasGasto } from "@/app/actions/categoria-gasto-actions";
 import { listPlantillasRecurrentes } from "@/app/actions/gasto-recurrente-actions";
 import { listSedes } from "@/app/actions/sede-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { CategoriasGastoSection } from "./categorias-gasto-section";
 import { PlantillasRecurrentesSection } from "./plantillas-recurrentes-section";
 
 export default async function GastosConfiguracionPage() {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("gastos.administrar");
   // Secuencial: cada action pasa por requireRole, que hace redirect() lanzando.
   const categorias = await listCategoriasGasto();
   const categoriasActivas = await listCategoriasGasto({ soloActivas: true });

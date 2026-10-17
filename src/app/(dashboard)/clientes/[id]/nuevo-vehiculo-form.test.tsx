@@ -54,7 +54,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("renders placa, marca, modelo, anio fields", () => {
-    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} />);
 
     expect(screen.getByLabelText("Placa")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Marca" })).toBeInTheDocument();
@@ -63,7 +63,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("la placa se escribe siempre en mayúsculas, aunque el teclado esté en minúsculas", async () => {
-    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} />);
 
     await userEvent.type(screen.getByLabelText("Placa"), "abc12d");
 
@@ -71,7 +71,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("does not render free-text Marca/Modelo inputs -- catalog selection only", () => {
-    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} />);
 
     // The Combobox's own input has role="combobox", not "textbox" -- asserting
     // there's no plain text field left for either label pins down that the
@@ -81,7 +81,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("disables the Modelo combobox until a marca is selected", async () => {
-    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} />);
 
     expect(screen.getByRole("combobox", { name: "Modelo" })).toBeDisabled();
 
@@ -92,7 +92,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("renders the vehicle detail fields (combustible, kilometraje, proximo mantenimiento, transmision, observaciones)", () => {
-    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} />);
 
     expect(screen.getByLabelText("Combustible")).toBeInTheDocument();
     expect(screen.getByLabelText("Kilometraje")).toBeInTheDocument();
@@ -102,7 +102,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("submits the detail fields to createVehiculoAction when filled", { timeout: 20_000 }, async () => {
-    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} />);
 
     await userEvent.type(screen.getByLabelText("Placa"), "ABC123");
     await seleccionarMarcaYModelo();
@@ -132,7 +132,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("shows a success message after a successful submit", async () => {
-    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} />);
 
     await userEvent.type(screen.getByLabelText("Placa"), "ABC123");
     await seleccionarMarcaYModelo();
@@ -144,7 +144,7 @@ describe("NuevoVehiculoForm", () => {
   it("calls onCreated instead of rendering the inline status message when a successful submit provides it", async () => {
     const onCreated = vi.fn();
     renderInDialog(
-      <NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} onCreated={onCreated} />,
+      <NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} onCreated={onCreated} />,
     );
 
     await userEvent.type(screen.getByLabelText("Placa"), "ABC123");
@@ -157,7 +157,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("blocks submission and shows field errors when required fields are empty, without calling the server", async () => {
-    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Agregar vehículo" }));
 
@@ -166,7 +166,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("muestra aviso no bloqueante si la placa no tiene el formato del tipo", async () => {
-    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} />);
 
     await userEvent.type(screen.getByLabelText("Placa"), "ABC12D");
 
@@ -176,7 +176,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("no muestra el aviso con una placa de carro habitual", async () => {
-    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} />);
 
     await userEvent.type(screen.getByLabelText("Placa"), "ABC123");
 
@@ -186,7 +186,7 @@ describe("NuevoVehiculoForm", () => {
   });
 
   it("envía tipo, VIN y vencimientos", async () => {
-    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} esAdmin={false} />);
+    renderInDialog(<NuevoVehiculoForm clienteId="c1" marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} />);
 
     await userEvent.type(screen.getByLabelText("Placa"), "ABC123");
     await seleccionarMarcaYModelo();

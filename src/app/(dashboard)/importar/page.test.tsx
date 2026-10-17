@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { permisosEfectivos } from "@/lib/auth/permisos";
 import userEvent from "@testing-library/user-event";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
   requireSession: vi.fn(),
 }));
 vi.mock("@/app/actions/bodega-actions", () => ({
@@ -19,13 +21,15 @@ import ImportarPage from "./page";
 
 describe("ImportarPage", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { id: "u1", role: "ADMIN" } });
+    mockRequirePermiso
+      .mockReset()
+      .mockResolvedValue({ user: { id: "u1", role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }) } });
   });
 
-  it("exige ADMIN o RECEPCION y arma el formulario con bodegas y proveedores", async () => {
+  it("exige el permiso de importar y arma el formulario con bodegas y proveedores", async () => {
     render(await ImportarPage());
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("importar.usar");
     expect(screen.getByRole("heading", { name: "Importar desde Excel" })).toBeInTheDocument();
     // Los dos selectores se llenan con lo que devuelven las actions de la página.
     expect(screen.getByLabelText("Bodega de los repuestos")).toBeInTheDocument();
@@ -44,7 +48,9 @@ describe("ImportarPage", () => {
   });
 
   it("avisa a recepción de que la hoja de servicios se omitirá", async () => {
-    mockRequireRole.mockResolvedValue({ user: { id: "u2", role: "RECEPCION" } });
+    mockRequirePermiso.mockResolvedValue({
+      user: { id: "u2", role: "RECEPCION", permisos: permisosEfectivos({ role: "RECEPCION" }) },
+    });
 
     render(await ImportarPage());
 

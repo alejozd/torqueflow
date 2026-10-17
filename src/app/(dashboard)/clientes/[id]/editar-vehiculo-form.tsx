@@ -21,13 +21,13 @@ export function EditarVehiculoForm({
   vehiculo,
   marcas,
   modelos,
-  esAdmin,
+  puedeAgregarCatalogo,
   onUpdated,
 }: {
   vehiculo: Vehiculo;
   marcas: MarcaVehiculo[];
   modelos: ModeloVehiculo[];
-  esAdmin: boolean;
+  puedeAgregarCatalogo: boolean;
   /**
    * Fired synchronously right after a successful update -- mirrors
    * NuevaCitaForm's onCreated: updateVehiculoAction's revalidatePath can
@@ -100,7 +100,7 @@ export function EditarVehiculoForm({
         setValue={setValue}
         marcas={marcas}
         modelos={modelos}
-        esAdmin={esAdmin}
+        puedeAgregarCatalogo={puedeAgregarCatalogo}
       />
 
       {state.error ? (

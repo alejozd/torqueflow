@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AlertCircle, CalendarCheck, Car, ChevronRight, FileText, Package, ShieldAlert, Wrench } from "lucide-react";
-import { requireSession } from "@/lib/auth/guards";
+import { puede, requireSession } from "@/lib/auth/guards";
 import { getDashboardOverview } from "@/app/actions/dashboard-actions";
 import { getAlertasInventario } from "@/app/actions/alertas-inventario-actions";
 import { getAlertasTaller } from "@/app/actions/alertas-taller-actions";
@@ -136,7 +136,7 @@ export default async function InicioPage() {
     getAlertasTaller(),
   ]);
   // El KPI de vencimientos es solo para ADMIN y RECEPCION (spec §4).
-  const mostrarVencimientos = session.user.role !== "TECNICO";
+  const mostrarVencimientos = puede(session, "vencimientos.avisar");
   const vencimientos = mostrarVencimientos ? await listVencimientos() : [];
   const kpiVencimientos = resumenKpiVencimientos(vencimientos);
   const kpiCartera = (

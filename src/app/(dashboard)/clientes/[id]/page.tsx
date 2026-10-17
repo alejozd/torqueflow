@@ -4,7 +4,7 @@ import { ArrowLeft, Car, CheckCircle2, Clock, Gauge, IdCard, Mail, Phone, Wrench
 import { getCliente } from "@/app/actions/cliente-actions";
 import { listTecnicos } from "@/app/actions/orden-actions";
 import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/vehiculo-marca-modelo-actions";
-import { requireSession } from "@/lib/auth/guards";
+import { puede, requireSession } from "@/lib/auth/guards";
 import { EditarClienteDialog } from "./editar-cliente-dialog";
 import { NuevoVehiculoDialog } from "./nuevo-vehiculo-dialog";
 import { EditarVehiculoDialog } from "./editar-vehiculo-dialog";
@@ -113,9 +113,9 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
     notFound();
   }
 
-  const esAdmin = session.user.role === "ADMIN";
+  const puedeAgregarCatalogo = puede(session, "vehiculos.catalogo");
   // Same roles as deleteClienteAction/deleteVehiculoAction.
-  const puedeEliminar = session.user.role !== "TECNICO";
+  const puedeEliminar = puede(session, "clientes.eliminar");
 
   // EditarClienteDialog is a Client Component: it may only receive plain,
   // serializable props. `cliente` itself carries `ordenes`/`facturas` with
@@ -210,7 +210,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Vehículos · {cliente.vehiculos.length}</CardTitle>
-              <NuevoVehiculoDialog clienteId={cliente.id} marcas={marcas} modelos={modelos} esAdmin={esAdmin} />
+              <NuevoVehiculoDialog clienteId={cliente.id} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={puedeAgregarCatalogo} />
             </CardHeader>
             <CardContent>
               {vehiculosResumen.length === 0 ? (
@@ -256,7 +256,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
                             vehiculo={vehiculo}
                             marcas={marcas}
                             modelos={modelos}
-                            esAdmin={esAdmin}
+                            puedeAgregarCatalogo={puedeAgregarCatalogo}
                             puedeEliminar={puedeEliminar}
                             triggerClassName="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20"
                           />

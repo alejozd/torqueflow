@@ -59,7 +59,7 @@ describe("EditarVehiculoForm", () => {
   });
 
   it("prefills every field with the vehiculo's current values", () => {
-    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} marcas={marcas} modelos={modelos} esAdmin={false} />);
+    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} />);
 
     expect(screen.getByLabelText("Placa")).toHaveValue("ABC123");
     expect(screen.getByRole("combobox", { name: "Marca" })).toHaveValue("Toyota");
@@ -73,7 +73,7 @@ describe("EditarVehiculoForm", () => {
   });
 
   it("shows a success message after a successful submit", async () => {
-    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} marcas={marcas} modelos={modelos} esAdmin={false} />);
+    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
 
@@ -87,7 +87,7 @@ describe("EditarVehiculoForm", () => {
         vehiculo={vehiculo}
         marcas={marcas}
         modelos={modelos}
-        esAdmin={false}
+        puedeAgregarCatalogo={false}
         onUpdated={onUpdated}
       />,
     );
@@ -100,7 +100,7 @@ describe("EditarVehiculoForm", () => {
 
   it("shows the error message when the action returns one", async () => {
     mockUpdateVehiculoAction.mockResolvedValue({ error: "Ya existe un registro con ese valor.", success: false });
-    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} marcas={marcas} modelos={modelos} esAdmin={false} />);
+    renderInDialog(<EditarVehiculoForm vehiculo={vehiculo} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
 
@@ -119,7 +119,7 @@ describe("EditarVehiculoForm", () => {
         }}
         marcas={marcas}
         modelos={modelos}
-        esAdmin={false}
+        puedeAgregarCatalogo={false}
       />,
     );
 

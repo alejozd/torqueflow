@@ -75,7 +75,7 @@ describe("NuevaOrdenDesdeCeroForm", () => {
   });
 
   it("renders cliente, vehiculo, kilometraje, sintomas, and mecanico fields", async () => {
-    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} esAdmin={false} diasAviso={30} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} diasAviso={30} />);
 
     expect(screen.getByLabelText("Cliente")).toBeInTheDocument();
     expect(screen.getByLabelText("Vehículo")).toBeInTheDocument();
@@ -88,13 +88,13 @@ describe("NuevaOrdenDesdeCeroForm", () => {
   });
 
   it("disables the vehiculo select until a cliente is chosen", () => {
-    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} esAdmin={false} diasAviso={30} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} diasAviso={30} />);
 
     expect(screen.getByLabelText("Vehículo")).toBeDisabled();
   });
 
   it("narrows the vehiculo options to the selected cliente's own vehiculos", async () => {
-    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} esAdmin={false} diasAviso={30} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} diasAviso={30} />);
 
     await selectCombobox("Cliente", /Ana Pérez/);
 
@@ -104,7 +104,7 @@ describe("NuevaOrdenDesdeCeroForm", () => {
   });
 
   it("shows the vehículo's last known kilometraje once it is selected, as a hint for kilometraje de ingreso", async () => {
-    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} esAdmin={false} diasAviso={30} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} diasAviso={30} />);
 
     expect(screen.queryByText(/Último kilometraje registrado/)).not.toBeInTheDocument();
 
@@ -136,7 +136,7 @@ describe("NuevaOrdenDesdeCeroForm", () => {
         },
       ];
       renderInDialog(
-        <NuevaOrdenDesdeCeroForm clientes={conSoatVencido} tecnicos={tecnicos} marcas={marcas} modelos={modelos} esAdmin={false} diasAviso={30} />,
+        <NuevaOrdenDesdeCeroForm clientes={conSoatVencido} tecnicos={tecnicos} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} diasAviso={30} />,
       );
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
 
@@ -150,7 +150,7 @@ describe("NuevaOrdenDesdeCeroForm", () => {
   });
 
   it("shows a warning and a way to create a vehiculo instead of a dead end when the selected cliente has none", async () => {
-    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} esAdmin={false} diasAviso={30} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} diasAviso={30} />);
 
     await selectCombobox("Cliente", /María Gómez/);
 
@@ -159,7 +159,7 @@ describe("NuevaOrdenDesdeCeroForm", () => {
   });
 
   it("blocks submission without a cliente/vehiculo selection, without calling the server", async () => {
-    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} esAdmin={false} diasAviso={30} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} diasAviso={30} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Crear orden" }));
 
@@ -169,7 +169,7 @@ describe("NuevaOrdenDesdeCeroForm", () => {
 
   it("submits the selected vehiculo and calls onCreated instead of leaving a stale form behind", async () => {
     const onCreated = vi.fn();
-    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} esAdmin={false} diasAviso={30} onCreated={onCreated} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} diasAviso={30} onCreated={onCreated} />);
 
     await selectCombobox("Cliente", /Ana Pérez/);
     await selectCombobox("Vehículo", "ABC123 · Toyota Corolla");
@@ -186,7 +186,7 @@ describe("NuevaOrdenDesdeCeroForm", () => {
   it("al crear la orden lleva a su ficha, donde siguen recepción, ítems, DVI y el resto", async () => {
     mockCreateOrdenDesdeVehiculoAction.mockResolvedValue({ error: null, success: true, ordenId: "o9" });
     const onCreated = vi.fn();
-    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} esAdmin={false} diasAviso={30} onCreated={onCreated} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} diasAviso={30} onCreated={onCreated} />);
 
     await selectCombobox("Cliente", /Ana Pérez/);
     await selectCombobox("Vehículo", "ABC123 · Toyota Corolla");
@@ -200,7 +200,7 @@ describe("NuevaOrdenDesdeCeroForm", () => {
   });
 
   it("falls back to a visible success message when rendered without onCreated", async () => {
-    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} esAdmin={false} diasAviso={30} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} diasAviso={30} />);
 
     await selectCombobox("Cliente", /Ana Pérez/);
     await selectCombobox("Vehículo", "ABC123 · Toyota Corolla");
@@ -211,7 +211,7 @@ describe("NuevaOrdenDesdeCeroForm", () => {
 
   it("shows the error message when the action returns one", async () => {
     mockCreateOrdenDesdeVehiculoAction.mockResolvedValue({ error: "El vehículo seleccionado no existe.", success: false });
-    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} esAdmin={false} diasAviso={30} />);
+    renderInDialog(<NuevaOrdenDesdeCeroForm clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={false} diasAviso={30} />);
 
     await selectCombobox("Cliente", /Ana Pérez/);
     await selectCombobox("Vehículo", "ABC123 · Toyota Corolla");

@@ -5,7 +5,7 @@ import { PestanasOrden } from "./pestanas-orden";
 import { AgregarAlTrabajo } from "./agregar-al-trabajo";
 import { notFound } from "next/navigation";
 import { getOrden, listTecnicos } from "@/app/actions/orden-actions";
-import { requireSession } from "@/lib/auth/guards";
+import { puede, requireSession } from "@/lib/auth/guards";
 import { listRepuestoOptions } from "@/app/actions/repuesto-actions";
 import { listBodegas } from "@/app/actions/bodega-actions";
 import { listProveedores } from "@/app/actions/proveedor-actions";
@@ -146,8 +146,8 @@ const MANO_OBRA_COLUMNS: DataTableColumn<ManoObraRow>[] = [
 ];
 
 // Remove column only while the orden is still editable and for the roles the
-// delete actions accept: `esOrdenMutable(orden) && role !== "TECNICO"`, mirroring
-// their requireRole(ADMIN/RECEPCION). The add forms are looser (only gated by
+// delete actions accept: `esOrdenMutable(orden) && puede(session, "ordenes.quitar")`,
+// mirroring their requirePermiso. The add forms are looser (only gated by
 // `!orden.factura`; the add actions allow TECNICO).
 function conColumnaQuitar<T extends { id: string }>(
   columns: DataTableColumn<T>[],
@@ -191,8 +191,7 @@ export default async function OrdenDetailPage({
     notFound();
   }
 
-  const esAdmin = session.user.role === "ADMIN";
-  const puedeQuitar = esOrdenMutable(orden) && session.user.role !== "TECNICO";
+  const puedeQuitar = esOrdenMutable(orden) && puede(session, "ordenes.quitar");
   const itemsColumns = conColumnaQuitar(ITEMS_COLUMNS, puedeQuitar, (item) => ({
     etiqueta: `Quitar ${item.descripcion}`,
     pregunta: `¿Quitar ${item.descripcion} de la orden?`,
@@ -231,7 +230,7 @@ export default async function OrdenDetailPage({
     .filter((a) => a.estado !== "DEVUELTO")
     .reduce((suma, a) => suma + a.monto, 0);
   const mostrarAnticipos = !orden.factura || anticipos.length > 0;
-  const puedeGestionarAnticipos = session.user.role !== "TECNICO";
+  const puedeGestionarAnticipos = puede(session, "anticipos.registrar");
   const total = totalOrden({
     items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
     manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor) })),
@@ -269,7 +268,7 @@ export default async function OrdenDetailPage({
             tecnicos={tecnicos}
             editable={
               esOrdenMutable(orden) &&
-              (session.user.role === "ADMIN" || (session.user.role === "RECEPCION" && !orden.mecanico))
+              (puede(session, "ordenes.reasignarMecanico") || (puede(session, "ordenes.planificar") && !orden.mecanico))
             }
           />
         }
@@ -382,7 +381,7 @@ export default async function OrdenDetailPage({
                                   repuestos={repuestos}
                                   bodegas={bodegas}
                                   proveedores={proveedores}
-                                  puedeCrearRepuesto={session.user.role !== "TECNICO"}
+                                  puedeCrearRepuesto={puede(session, "inventario.editar")}
                                 />
                               ),
                             },
@@ -458,7 +457,7 @@ export default async function OrdenDetailPage({
                       ordenId={orden.id}
                       checklist={checklist}
                       items={dviItems}
-                      esAdmin={esAdmin}
+                      esAdmin={puede(session, "configuracion.taller")}
                       soloLectura={!esOrdenMutable(orden)}
                     />
                     <DviFotoForm
@@ -505,7 +504,7 @@ export default async function OrdenDetailPage({
                         puedeBorrar={
                           orden.estado !== "ENTREGADA" &&
                           orden.estado !== "ANULADA" &&
-                          session.user.role !== "TECNICO"
+                          puede(session, "ordenes.quitar")
                         }
                         acta={
                           orden.acta
@@ -558,7 +557,7 @@ export default async function OrdenDetailPage({
                           ordenId={orden.id}
                           anticipos={anticipos}
                           puedeRegistrar={puedeGestionarAnticipos && !orden.factura && orden.estado !== "ANULADA"}
-                          puedeDevolver={esAdmin}
+                          puedeDevolver={puede(session, "anticipos.devolver")}
                           ordenAnulada={orden.estado === "ANULADA"}
                         />
                       </CardContent>

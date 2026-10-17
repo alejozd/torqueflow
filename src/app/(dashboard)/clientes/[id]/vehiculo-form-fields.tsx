@@ -49,7 +49,7 @@ export function VehiculoFormFields({
   setValue,
   marcas,
   modelos,
-  esAdmin,
+  puedeAgregarCatalogo,
 }: {
   register: UseFormRegister<VehiculoFormInput>;
   errors: FieldErrors<VehiculoFormInput>;
@@ -57,7 +57,7 @@ export function VehiculoFormFields({
   setValue: UseFormSetValue<VehiculoFormInput>;
   marcas: MarcaVehiculo[];
   modelos: ModeloVehiculo[];
-  esAdmin: boolean;
+  puedeAgregarCatalogo: boolean;
 }) {
   const { field: combustibleField } = useController({ name: "combustible", control });
   const { field: transmisionField } = useController({ name: "transmision", control });
@@ -188,7 +188,7 @@ export function VehiculoFormFields({
                 aria-invalid={errors.marca ? true : undefined}
                 aria-describedby={errors.marca ? "marca-error" : undefined}
               />
-              {esAdmin ? (
+              {puedeAgregarCatalogo ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -219,7 +219,7 @@ export function VehiculoFormFields({
                 aria-invalid={errors.modelo ? true : undefined}
                 aria-describedby={errors.modelo ? "modelo-error" : undefined}
               />
-              {esAdmin && marcaIdField.value ? (
+              {puedeAgregarCatalogo && marcaIdField.value ? (
                 <Button
                   type="button"
                   variant="outline"

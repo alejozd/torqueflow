@@ -5,7 +5,7 @@ import { getAlertasTaller, type AlertaTaller } from "@/app/actions/alertas-talle
 import { listClientesParaOrden } from "@/app/actions/cliente-actions";
 import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/vehiculo-marca-modelo-actions";
 import { getDiasAvisoVencimiento } from "@/app/actions/configuracion-taller-actions";
-import { requireSession } from "@/lib/auth/guards";
+import { puede, requireSession } from "@/lib/auth/guards";
 import { NuevaOrdenDialog } from "./nueva-orden-dialog";
 import { PrioridadBadge } from "./prioridad-badge";
 import { ESTADO_BADGE_CLASSNAME, ESTADO_BADGE_VARIANT, ESTADO_DOT_COLOR, ESTADO_LABELS } from "./estado-tono";
@@ -299,7 +299,7 @@ export default async function OrdenesPage({
     getDiasAvisoVencimiento(),
     getAlertasTaller(),
   ]);
-  const esAdmin = session.user.role === "ADMIN";
+  const puedeAgregarCatalogo = puede(session, "vehiculos.catalogo");
   // Las alertas se cruzan por id (una sola lectura con select mínimo): el listado
   // no carga ítems, mano de obra, DVI ni daños solo para pintar la marca.
   const alertas = new Map(alertasTaller.alertas.map((item) => [item.ordenId, item]));
@@ -367,7 +367,7 @@ export default async function OrdenesPage({
             {ordenesMes} {ordenesMes === 1 ? "orden" : "órdenes"} este mes
           </Badge>
         </div>
-        <NuevaOrdenDialog clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} esAdmin={esAdmin} diasAviso={diasAviso} />
+        <NuevaOrdenDialog clientes={clientes} tecnicos={tecnicos} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={puedeAgregarCatalogo} diasAviso={diasAviso} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
