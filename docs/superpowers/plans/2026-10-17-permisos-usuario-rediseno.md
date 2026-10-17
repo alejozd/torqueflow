@@ -4,6 +4,8 @@
 
 **Objetivo:** llevar `/usuarios/[id]` al diseño que propuso Stitch (`docs/Evidencias/Permisos-Usuario/screen.png`, archivo del usuario: no moverlo ni commitearlo): una sola pantalla de "Editar usuario y permisos" con cabecera del usuario, datos en 3 columnas y los permisos en tarjetas por grupo con buscador, contadores y barra de cambios sin guardar.
 
+> **Estado (2026-10-17):** rama `usuario-permisos-rediseno` creada desde `main`. **Tarea 1 hecha** (ver nota en la tarea). Siguiente: **tarea 2**. Vamos en 1 de 5.
+
 **Sin migraciones.** Todo sale de datos que ya existen (`Usuario.createdAt`, `activo`, `role`, `sedeIds`, `permisosAgregados`, `permisosQuitados`).
 
 ## Lo que ya existe (no reescribir)
@@ -27,6 +29,8 @@
 ### Task 1: Cabecera del usuario
 `page.tsx`: tarjeta superior con iniciales en cuadro de color, nombre, chip "Activo"/"Suspendido" (con punto), correo y "Miembro desde <mes año>" (D3), y a la derecha el interruptor "Estado de cuenta" conectado a la acción existente de activar/suspender. Arriba de todo: título "Editar usuario y permisos", subtítulo corto, y los botones "Volver al rol base" y "Guardar cambios" (este último se cablea en la tarea 4). ADMIN: sin "Volver al rol base".
 Test: renderiza nombre, correo, chip con el estado correcto; el interruptor llama a la acción.
+
+**Hecho (tarea 1):** `usuarios/[id]/cabecera-usuario.tsx` (+ test) con iniciales, nombre, chip Activo/Suspendido, correo y "Miembro desde"; `createdAt` agregado a `listUsuariosConSedes` (sin migración); título "Editar usuario y permisos" con subtítulo. **Movido a otras tareas (decisión):** el interruptor "Estado de cuenta" pasa a la **tarea 2**, porque no existe una acción aparte para activar/suspender: `activo` es un campo de `updateUsuarioAction`, así que el interruptor debe ser ese campo del formulario. Los botones superiores "Volver al rol base" y "Guardar cambios" pasan a la **tarea 4**, donde se cablean (no se dejan botones sin función).
 
 ### Task 2: Datos en tres columnas
 Reacomodar `editar-usuario-form.tsx` (sin cambiar su acción ni validación) en tres bloques con título de punto de color: "Datos personales" (nombre, correo), "Seguridad y rol" (contraseña con "Déjala en blanco para conservar la actual", rol), "Sedes" (sedes con acceso, sede predeterminada). El formulario deja de tener botón propio: expone su estado "con cambios" y su envío al contenedor (tarea 4).

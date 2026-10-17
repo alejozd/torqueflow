@@ -4,6 +4,7 @@ import { listSedes } from "@/app/actions/sede-actions";
 import { EditarUsuarioForm } from "./editar-usuario-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PermisosUsuario } from "./permisos-usuario";
+import { CabeceraUsuario } from "./cabecera-usuario";
 import { KeyRound } from "lucide-react";
 import { TituloSeccion } from "@/components/titulo-seccion";
 import { requirePermiso } from "@/lib/auth/guards";
@@ -19,7 +20,17 @@ export default async function EditarUsuarioPage({ params }: { params: Promise<{ 
 
   return (
     <main className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Editar usuario</h1>
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-semibold">Editar usuario y permisos</h1>
+        <p className="text-sm text-muted-foreground">Datos de acceso, sedes y lo que puede hacer en el sistema.</p>
+      </div>
+
+      <CabeceraUsuario
+        nombre={usuario.nombre}
+        email={usuario.email}
+        activo={usuario.activo}
+        createdAt={usuario.createdAt}
+      />
 
       <Card>
         <CardHeader>
