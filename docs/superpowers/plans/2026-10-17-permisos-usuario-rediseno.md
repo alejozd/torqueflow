@@ -54,8 +54,8 @@ Tests: cambiar solo un permiso → solo se llama `guardarPermisosUsuarioAction`;
 
 **Avance de la tarea 5 (se actualiza paso a paso):**
 - [x] Suite completa + `npm run build`: 337 archivos / 2801 tests, build OK (2026-10-17)
-- [ ] Revisión en el navegador (app en 3025)
-- [ ] Revisión independiente del diff `main...usuario-permisos-rediseno` y ronda de arreglos
+- [ ] Revisión en el navegador (app en 3025): **app levantada, esperando que el usuario la mire** (`http://localhost:3025/usuarios` → botón "Permisos" de un usuario de prueba)
+- [ ] Revisión independiente del diff `main...usuario-permisos-rediseno` y ronda de arreglos: **en curso** (informe en `.superpowers/sdd/2026-10-17-permisos-usuario-rediseno/review-report.md`, fuera de git)
 - [ ] Merge `--no-ff` a `main` (solo con aprobación del usuario) y despliegue (lo hace el usuario)
 
 Lanzar `npm run dev` en segundo plano (puerto 3025; la base es la real: no guardar cambios de prueba sobre usuarios reales, usar uno de prueba), revisar a 1366 px y en móvil, y pedirle al usuario que lo mire. Verificación: `npx tsc --noEmit --incremental false`, `npm test`, `npx eslint` de lo tocado, `npm run build`. Revisión independiente del diff (otro modelo, solo lectura) y una ronda de arreglos. Merge solo con aprobación.
