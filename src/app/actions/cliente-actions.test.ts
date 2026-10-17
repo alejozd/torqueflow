@@ -5,7 +5,9 @@ const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
   requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: () => mockRequireSession(),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
 }));
+import { permisosEfectivos } from "@/lib/auth/permisos";
 
 const mockCreate = vi.fn();
 const mockFindMany = vi.fn();
@@ -191,9 +193,44 @@ describe("listClientesParaOrden", () => {
 });
 
 describe("getCliente", () => {
+  const ADMIN = {
+    user: { id: "adm-1", role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+  };
+  const TECNICO = {
+    user: { id: "tec-1", role: "TECNICO", permisos: permisosEfectivos({ role: "TECNICO" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+  };
   beforeEach(() => {
-    mockRequireSession.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequireSession.mockReset().mockResolvedValue(ADMIN);
     mockFindUnique.mockReset();
+  });
+
+  it("el técnico solo recibe sus órdenes de la sede activa y nada de plata (I4: D7 y D8)", async () => {
+    mockRequireSession.mockResolvedValue(TECNICO);
+    mockFindUnique.mockResolvedValue({
+      id: "c1",
+      nombre: "Ana",
+      vehiculos: [],
+      ordenes: [{ id: "o1", estado: "EN_PROCESO", vehiculoId: "v1", kilometrajeIngreso: null, sintomas: "Ruido", createdAt: new Date(0) }],
+    });
+
+    const result = await getCliente("c1");
+
+    expect(mockFindUnique).toHaveBeenCalledWith({
+      where: { id: "c1" },
+      include: {
+        vehiculos: true,
+        ordenes: {
+          where: {
+            sedeId: "sede-1",
+            OR: [{ mecanicoId: "tec-1" }, { manoDeObra: { some: { mecanicoId: "tec-1" } } }],
+          },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, estado: true, vehiculoId: true, kilometrajeIngreso: true, sintomas: true, createdAt: true },
+        },
+      },
+    });
+    expect(result?.facturas).toEqual([]);
+    expect(result?.ordenes[0].factura).toBeNull();
   });
 
   it("fetches the cliente with vehiculos, ordenes (for historial/kilometraje/estado) and facturas (for the resumen financiero)", async () => {
@@ -207,6 +244,7 @@ describe("getCliente", () => {
       include: {
         vehiculos: true,
         ordenes: {
+          where: { sedeId: "sede-1" },
           orderBy: { createdAt: "desc" },
           select: {
             id: true,

@@ -116,6 +116,9 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
   const puedeAgregarCatalogo = puede(session, "vehiculos.catalogo");
   // Same roles as deleteClienteAction/deleteVehiculoAction.
   const puedeEliminar = puede(session, "clientes.eliminar");
+  // Sin `facturas.ver` (técnico, jefe de taller) no se muestra ninguna cifra de
+  // plata; `getCliente` tampoco la trae (Fase 26, I4).
+  const verFacturas = puede(session, "facturas.ver");
 
   // EditarClienteDialog is a Client Component: it may only receive plain,
   // serializable props. `cliente` itself carries `ordenes`/`facturas` with
@@ -169,16 +172,20 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
         </Badge>
       ),
     },
-    {
-      header: "Total",
-      cell: (orden) =>
-        orden.factura ? (
-          <span className="font-mono font-medium">{formatoMoneda.format(Number(orden.factura.total))}</span>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        ),
-      className: "text-right",
-    },
+    ...(verFacturas
+      ? [
+          {
+            header: "Total",
+            cell: (orden: OrdenDeCliente) =>
+              orden.factura ? (
+                <span className="font-mono font-medium">{formatoMoneda.format(Number(orden.factura.total))}</span>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              ),
+            className: "text-right",
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -340,22 +347,26 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
                 <p className="text-xs text-muted-foreground">Órdenes</p>
                 <p className="font-mono text-lg font-semibold">{cliente.ordenes.length}</p>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Facturado</p>
-                <p className="font-mono text-lg font-semibold">{formatoMoneda.format(facturado)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Saldo</p>
-                <p className={cn("font-mono text-lg font-semibold", saldo > 0 && "text-[oklch(0.5_0.2_27)]")}>
-                  {formatoMoneda.format(saldo)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Ticket medio</p>
-                <p className="font-mono text-lg font-semibold">
-                  {ticketMedio !== null ? formatoMoneda.format(ticketMedio) : "—"}
-                </p>
-              </div>
+              {verFacturas && (
+                <>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Facturado</p>
+                    <p className="font-mono text-lg font-semibold">{formatoMoneda.format(facturado)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Saldo</p>
+                    <p className={cn("font-mono text-lg font-semibold", saldo > 0 && "text-[oklch(0.5_0.2_27)]")}>
+                      {formatoMoneda.format(saldo)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Ticket medio</p>
+                    <p className="font-mono text-lg font-semibold">
+                      {ticketMedio !== null ? formatoMoneda.format(ticketMedio) : "—"}
+                    </p>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
