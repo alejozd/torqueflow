@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { requirePermiso, requireSession } from "@/lib/auth/guards";
 import { exigirCajaParaEfectivo } from "@/lib/caja/sesion";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
@@ -48,7 +48,7 @@ export async function registrarAnticipoAction(
   prevState: AnticipoFormState,
   formData: FormData,
 ): Promise<AnticipoFormState> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("anticipos.registrar");
   const parsed = anticipoInputSchema.safeParse({
     monto: formData.get("monto") ?? "",
     metodoPago: formData.get("metodoPago") ?? "",
@@ -100,7 +100,7 @@ export async function devolverAnticipoAction(
   prevState: AnticipoFormState,
   formData: FormData,
 ): Promise<AnticipoFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("anticipos.devolver");
   const parsed = devolverAnticipoInputSchema.safeParse({ metodoDevolucion: formData.get("metodoDevolucion") ?? "" });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
 

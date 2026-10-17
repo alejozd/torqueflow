@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockRequireRole = vi.fn();
-vi.mock("@/lib/auth/guards", () => ({ requireRole: (...a: unknown[]) => mockRequireRole(...a), requireSession: vi.fn() }));
+const mockRequirePermiso = vi.fn();
+import { permisosEfectivos } from "@/lib/auth/permisos";
+vi.mock("@/lib/auth/guards", () => ({ requirePermiso: (...a: unknown[]) => mockRequirePermiso(...a),
+  requireSession: vi.fn(),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso), }));
 const db = { factura: { findMany: vi.fn() }, ventaMostrador: { findMany: vi.fn() }, sede: { findUnique: vi.fn() } };
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
 vi.mock("@/lib/db/public-client", () => ({
@@ -10,8 +13,8 @@ vi.mock("@/lib/db/public-client", () => ({
 
 import { getCartera } from "./cartera-actions";
 
-const RECEPCION = { user: { id: "u2", role: "RECEPCION", tenantSchema: "t", sedeActivaId: "s1" } };
-const ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "t", sedeActivaId: "s1" } };
+const RECEPCION = { user: { id: "u2", role: "RECEPCION", permisos: permisosEfectivos({ role: "RECEPCION" }), tenantSchema: "t", sedeActivaId: "s1" } };
+const ADMIN = { user: { id: "u1", role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }), tenantSchema: "t", sedeActivaId: "s1" } };
 
 function factura(id: string, numero: number, clienteId: string, nombre: string, telefono: string | null, emitida: string, saldo: string) {
   return {
@@ -39,7 +42,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-15T15:00:00Z"));
-  mockRequireRole.mockResolvedValue(RECEPCION);
+  mockRequirePermiso.mockResolvedValue(RECEPCION);
   db.factura.findMany.mockResolvedValue([]);
   db.ventaMostrador.findMany.mockResolvedValue([]);
 });
@@ -49,7 +52,7 @@ afterEach(() => vi.useRealTimers());
 describe("getCartera", () => {
   it("exige ADMIN o RECEPCION y consulta solo facturas pendientes con saldo de la sede", async () => {
     await getCartera({});
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("cartera.ver");
     expect(db.factura.findMany.mock.calls[0][0].where).toEqual({
       estado: "PENDIENTE",
       saldoPendiente: { gt: 0 },
@@ -63,7 +66,7 @@ describe("getCartera", () => {
   });
 
   it("ADMIN puede consultar otra sede", async () => {
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     await getCartera({ sedeId: "s2" });
     expect(db.factura.findMany.mock.calls[0][0].where.orden).toEqual({ sedeId: "s2" });
   });
@@ -97,7 +100,7 @@ describe("getCartera", () => {
       saldoPendiente: { gt: 0 },
       sedeId: "s1",
     });
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     await getCartera({ sedeId: "s2" });
     expect(db.ventaMostrador.findMany.mock.calls[1][0].where.sedeId).toBe("s2");
   });

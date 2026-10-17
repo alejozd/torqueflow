@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { categoriaGastoInputSchema } from "@/lib/validation/gasto";
@@ -41,7 +41,7 @@ function revalidar() {
 }
 
 export async function listCategoriasGasto(opciones: { soloActivas?: boolean } = {}): Promise<CategoriaGastoVista[]> {
-  const session = await requireRole(opciones.soloActivas ? ["ADMIN", "RECEPCION"] : ["ADMIN"]);
+  const session = await requirePermiso(opciones.soloActivas ? "gastos.registrar" : "gastos.administrar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const filas = await tenantDb.categoriaGasto.findMany({
     where: opciones.soloActivas ? { activo: true } : {},
@@ -54,7 +54,7 @@ export async function crearCategoriaGastoAction(
   prevState: CategoriaGastoFormState,
   formData: FormData,
 ): Promise<CategoriaGastoFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("gastos.administrar");
   const parsed = categoriaGastoInputSchema.safeParse({ nombre: formData.get("nombre") ?? "" });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
 
@@ -75,7 +75,7 @@ export async function renombrarCategoriaGastoAction(
   prevState: CategoriaGastoFormState,
   formData: FormData,
 ): Promise<CategoriaGastoFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("gastos.administrar");
   const parsed = categoriaGastoInputSchema.safeParse({ nombre: formData.get("nombre") ?? "" });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
 
@@ -91,7 +91,7 @@ export async function renombrarCategoriaGastoAction(
 }
 
 export async function toggleCategoriaGastoActivaAction(categoriaId: string): Promise<{ error: string | null }> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("gastos.administrar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const categoria = await tenantDb.categoriaGasto.findUnique({ where: { id: categoriaId } });
   if (!categoria) return { error: "Categoría no encontrada" };

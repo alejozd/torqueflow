@@ -2,10 +2,12 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const opcionesTaller = { exigirActaFirmada: false, usarControlCaja: true };
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 const mockRequireSession = vi.fn();
+import { permisosEfectivos } from "@/lib/auth/permisos";
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
   requireSession: () => mockRequireSession(),
 }));
 
@@ -41,7 +43,7 @@ import {
 } from "./anticipo-actions";
 
 const initial: AnticipoFormState = { error: null, success: false };
-const SESSION = { user: { id: "u1", role: "RECEPCION", tenantSchema: "t", sedeActivaId: "sede-1" } };
+const SESSION = { user: { id: "u1", role: "RECEPCION", permisos: permisosEfectivos({ role: "RECEPCION" }), tenantSchema: "t", sedeActivaId: "sede-1" } };
 
 function fd(values: Record<string, string>) {
   const f = new FormData();
@@ -51,7 +53,7 @@ function fd(values: Record<string, string>) {
 
 describe("registrarAnticipoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockOrdenFindFirst.mockReset().mockResolvedValue({ id: "o1", sedeId: "sede-1", estado: "EN_PROCESO", factura: null });
     mockAnticipoCreate.mockReset().mockResolvedValue({ id: "a1" });
     mockCajaFindFirst.mockReset().mockResolvedValue({ id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
@@ -83,7 +85,7 @@ describe("registrarAnticipoAction", () => {
   it("creates a PENDIENTE anticipo with the sede of the orden and revalidates", async () => {
     const r = await registrarAnticipoAction("o1", initial, fd({ monto: "50000", metodoPago: "EFECTIVO", referencia: " r1 " }));
     expect(r).toEqual({ error: null, success: true });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("anticipos.registrar");
     expect(mockOrdenFindFirst.mock.calls[0][0].where).toMatchObject({ id: "o1", sedeId: "sede-1" });
     expect(mockAnticipoCreate.mock.calls[0][0].data).toMatchObject({
       ordenId: "o1",
@@ -126,7 +128,7 @@ describe("registrarAnticipoAction", () => {
 
 describe("devolverAnticipoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { ...SESSION.user, role: "ADMIN" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { ...SESSION.user, role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }) } });
     mockAnticipoFindFirst.mockReset().mockResolvedValue({ id: "a1", ordenId: "o1" });
     mockAnticipoUpdateMany.mockReset().mockResolvedValue({ count: 1 });
     mockRevalidate.mockReset();
@@ -135,7 +137,7 @@ describe("devolverAnticipoAction", () => {
   it("marks a PENDIENTE anticipo as DEVUELTO (ADMIN only)", async () => {
     const r = await devolverAnticipoAction("a1", initial, fd({ metodoDevolucion: "EFECTIVO" }));
     expect(r).toEqual({ error: null, success: true });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("anticipos.devolver");
     expect(mockAnticipoFindFirst.mock.calls[0][0].where).toMatchObject({ id: "a1", orden: { sedeId: "sede-1" } });
     const call = mockAnticipoUpdateMany.mock.calls[0][0];
     expect(call.where).toMatchObject({ id: "a1", estado: "PENDIENTE" });

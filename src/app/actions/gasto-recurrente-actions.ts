@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { ETIQUETA_MES, periodoActualBogota } from "@/lib/gastos/periodo";
@@ -54,7 +54,7 @@ function leerCamposPlantilla(formData: FormData) {
 }
 
 export async function listPlantillasRecurrentes(): Promise<PlantillaVista[]> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("gastos.administrar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const filas = await tenantDb.gastoRecurrente.findMany({
     include: { sede: { select: { nombre: true } }, categoria: { select: { nombre: true } } },
@@ -78,7 +78,7 @@ export async function crearGastoRecurrenteAction(
   prevState: RecurrenteFormState,
   formData: FormData,
 ): Promise<RecurrenteFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("gastos.administrar");
   const parsed = leerCamposPlantilla(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   const { categoriaId, descripcion, montoEstimado, diaDelMes, desde } = parsed.data;
@@ -106,7 +106,7 @@ export async function actualizarGastoRecurrenteAction(
   prevState: RecurrenteFormState,
   formData: FormData,
 ): Promise<RecurrenteFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("gastos.administrar");
   const parsed = leerCamposPlantilla(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   const { categoriaId, descripcion, montoEstimado, diaDelMes, desde } = parsed.data;
@@ -134,7 +134,7 @@ export async function actualizarGastoRecurrenteAction(
 }
 
 export async function toggleGastoRecurrenteActivoAction(id: string): Promise<{ error: string | null }> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("gastos.administrar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const plantilla = await tenantDb.gastoRecurrente.findUnique({ where: { id }, select: { activo: true } });
   if (!plantilla) return { error: "Plantilla no encontrada" };
@@ -148,7 +148,7 @@ export async function toggleGastoRecurrenteActivoAction(id: string): Promise<{ e
 }
 
 export async function listRecurrentesPendientes(filtros: { sedeId?: string }): Promise<RecurrentePendiente[]> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("gastos.registrar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = resolverSede(session, filtros.sedeId);
   const plantillas = await cargarPlantillasParaPendientes(tenantDb, sedeId);
@@ -161,7 +161,7 @@ export async function confirmarRecurrenteAction(
   prevState: RecurrenteFormState,
   formData: FormData,
 ): Promise<RecurrenteFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("gastos.administrar");
   if (!periodoSchema.safeParse(periodo).success) return { error: "Periodo inválido", success: false };
   const parsed = confirmarRecurrenteInputSchema.safeParse({
     monto: formData.get("monto") ?? "",
@@ -202,7 +202,7 @@ export async function confirmarRecurrenteAction(
 }
 
 export async function omitirRecurrenteAction(recurrenteId: string, periodo: string): Promise<{ error: string | null }> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("gastos.administrar");
   if (!periodoSchema.safeParse(periodo).success) return { error: "Periodo inválido" };
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const plantilla = await tenantDb.gastoRecurrente.findUnique({ where: { id: recurrenteId } });

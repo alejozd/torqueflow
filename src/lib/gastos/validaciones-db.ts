@@ -1,12 +1,12 @@
-import type { requireRole } from "@/lib/auth/guards";
+import { puede, type requireSession } from "@/lib/auth/guards";
 import type { getTenantDb } from "@/lib/db/tenant-client";
 
-type Session = Awaited<ReturnType<typeof requireRole>>;
+type Session = Awaited<ReturnType<typeof requireSession>>;
 type TenantDb = ReturnType<typeof getTenantDb>;
 
-/** RECEPCION siempre opera en su sede activa; ADMIN puede elegir otra. */
+/** Quien no puede trabajar con todas las sedes opera en su sede activa; el resto puede elegir otra. */
 export function resolverSede(session: Session, pedida: string | undefined): string {
-  if (session.user.role === "RECEPCION") return session.user.sedeActivaId;
+  if (!puede(session, "sedes.verTodas")) return session.user.sedeActivaId;
   return pedida || session.user.sedeActivaId;
 }
 

@@ -40,12 +40,11 @@ const textoPesos = (n: number) =>
     .format(n)
     .replace(/\s/g, " ");
 
-function pintar(rol: "ADMIN" | "RECEPCION" = "RECEPCION") {
+function pintar(topeDescuento: number | null = 10) {
   render(
     <VenderMostrador
       efectivoBloqueado={false}
-      rol={rol}
-      descuentoMaxRecepcion={10}
+      topeDescuento={topeDescuento}
     />,
   );
 }
@@ -206,8 +205,8 @@ describe("VenderMostrador", () => {
     expect(botonCobrar()).toBeDisabled();
   });
 
-  it("ADMIN no tiene tope", async () => {
-    pintar("ADMIN");
+  it("sin tope (descuento sin tope)", async () => {
+    pintar(null);
     await agregarFiltro();
     expect(screen.queryByText(/Máximo/)).not.toBeInTheDocument();
     await userEvent.type(screen.getByLabelText("Descuento"), "15");
@@ -251,7 +250,7 @@ describe("VenderMostrador", () => {
       <PestanasMostrador
         inicial="ventas"
         ventasHoy={0}
-        vender={<VenderMostrador efectivoBloqueado={false} rol="RECEPCION" descuentoMaxRecepcion={10} />}
+        vender={<VenderMostrador efectivoBloqueado={false} topeDescuento={10} />}
         ventas={<p>Panel de ventas</p>}
       />,
     );
@@ -275,7 +274,7 @@ describe("VenderMostrador", () => {
       <PestanasMostrador
         inicial="vender"
         ventasHoy={0}
-        vender={<VenderMostrador efectivoBloqueado={false} rol="RECEPCION" descuentoMaxRecepcion={10} />}
+        vender={<VenderMostrador efectivoBloqueado={false} topeDescuento={10} />}
         ventas={<p>Panel de ventas</p>}
       />,
     );

@@ -12,7 +12,7 @@ export default async function MostradorPage({
   searchParams: Promise<{ tab?: string; venta?: string }>;
 }) {
   const { tab, venta } = await searchParams;
-  const { efectivoBloqueado, usarControlCaja, cajaAbierta, rol, descuentoMaxRecepcion, ventas, resumen } =
+  const { efectivoBloqueado, usarControlCaja, cajaAbierta, topeDescuento, ventas, resumen } =
     await getMostradorDatos();
 
   // `?venta=<id>` (Cartera → Cobrar) abre el cobro de esa venta en la pestaña Ventas,
@@ -60,8 +60,7 @@ export default async function MostradorPage({
         vender={
           <VenderMostrador
             efectivoBloqueado={efectivoBloqueado}
-            rol={rol}
-            descuentoMaxRecepcion={descuentoMaxRecepcion}
+            topeDescuento={topeDescuento}
           />
         }
         ventas={<PanelVentas ventasHoy={ventas} resumen={resumen} ventaEnlazada={ventaEnlazada} />}

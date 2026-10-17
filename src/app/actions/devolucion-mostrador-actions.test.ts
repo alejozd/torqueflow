@@ -2,8 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const opcionesTaller = { exigirActaFirmada: false, usarControlCaja: true };
 
-const mockRequireRole = vi.fn();
-vi.mock("@/lib/auth/guards", () => ({ requireRole: (...args: unknown[]) => mockRequireRole(...args) }));
+const mockRequirePermiso = vi.fn();
+import { permisosEfectivos } from "@/lib/auth/permisos";
+vi.mock("@/lib/auth/guards", () => ({
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
+}));
 
 const tx = {
   repuesto: { update: vi.fn() },
@@ -27,7 +31,7 @@ import { crearDevolucionAction } from "./devolucion-mostrador-actions";
 let cajaAbierta: { id: string; abiertaAt: Date } | null = null;
 let cierres: Date[] = [];
 
-const SESION = { user: { id: "u1", role: "RECEPCION", tenantSchema: "taller", sedeActivaId: "sede-1" } };
+const SESION = { user: { id: "u1", role: "RECEPCION", permisos: permisosEfectivos({ role: "RECEPCION" }), tenantSchema: "taller", sedeActivaId: "sede-1" } };
 const inicial = { error: null, success: false };
 
 function fd(campos: Record<string, string>): FormData {
@@ -79,7 +83,7 @@ describe("crearDevolucionAction", () => {
     // "Ahora" es la tarde del mismo día de la venta.
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-17T20:00:00Z"));
-    mockRequireRole.mockResolvedValue(SESION);
+    mockRequirePermiso.mockResolvedValue(SESION);
     cajaAbierta = { id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") };
     cierres = [];
     // La misma tabla responde dos preguntas: la caja abierta y el último cierre (posterior a una fecha).
@@ -105,7 +109,7 @@ describe("crearDevolucionAction", () => {
     const r = await crearDevolucionAction("v1", inicial, devolucion());
 
     expect(r).toEqual({ error: null, success: true, numero: 3 });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("mostrador.vender");
     expect(tx.repuesto.update).toHaveBeenCalledWith({
       where: { id: "r1" },
       data: { stockActual: { increment: 1 } },
@@ -231,7 +235,7 @@ describe("crearDevolucionAction", () => {
   });
 
   it("una venta de más de 30 días no se devuelve, ni siquiera ADMIN", async () => {
-    mockRequireRole.mockResolvedValue({ user: { ...SESION.user, role: "ADMIN" } });
+    mockRequirePermiso.mockResolvedValue({ user: { ...SESION.user, role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }) } });
     db.ventaMostrador.findFirst.mockResolvedValue(venta({ createdAt: new Date("2026-09-17T19:00:00Z") }));
 
     const r = await crearDevolucionAction("v1", inicial, devolucion());
@@ -266,12 +270,12 @@ describe("crearDevolucionAction", () => {
     });
     expect(tx.devolucionMostrador.create).not.toHaveBeenCalled();
 
-    mockRequireRole.mockResolvedValue({ user: { ...SESION.user, role: "ADMIN" } });
+    mockRequirePermiso.mockResolvedValue({ user: { ...SESION.user, role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }) } });
     expect(await crearDevolucionAction("v1", inicial, devolucion())).toEqual({ error: null, success: true, numero: 3 });
   });
 
   it("ADMIN devuelve dentro de los 30 días aunque la venta sea de una caja cerrada hace semanas", async () => {
-    mockRequireRole.mockResolvedValue({ user: { ...SESION.user, role: "ADMIN" } });
+    mockRequirePermiso.mockResolvedValue({ user: { ...SESION.user, role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }) } });
     db.ventaMostrador.findFirst.mockResolvedValue(venta({ createdAt: new Date("2026-09-20T15:00:00Z") }));
     cierres = [new Date("2026-09-21T01:00:00Z")];
 

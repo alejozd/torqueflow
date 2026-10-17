@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { facturarOrdenInputSchema } from "@/lib/validation/factura";
@@ -40,7 +40,7 @@ const FACTURA_DETAIL_INCLUDE = {
 export type FacturaWithDetalle = Prisma.FacturaGetPayload<{ include: typeof FACTURA_DETAIL_INCLUDE }>;
 
 export async function listFacturas(estado?: EstadoFactura): Promise<FacturaWithDetalle[]> {
-  const session = await requireSession();
+  const session = await requirePermiso("facturas.ver");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.factura.findMany({
     where: { ...scopeFactura(session.user.sedeActivaId), ...(estado ? { estado } : {}) },
@@ -50,7 +50,7 @@ export async function listFacturas(estado?: EstadoFactura): Promise<FacturaWithD
 }
 
 export async function getFactura(id: string): Promise<FacturaWithDetalle | null> {
-  const session = await requireSession();
+  const session = await requirePermiso("facturas.ver");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.factura.findFirst({
     where: { id, ...scopeFactura(session.user.sedeActivaId) },
@@ -65,7 +65,7 @@ export async function getFactura(id: string): Promise<FacturaWithDetalle | null>
  * out here keeps the picker from listing dead ends.
  */
 export async function listOrdenesFacturables(): Promise<OrdenFacturableOption[]> {
-  const session = await requireSession();
+  const session = await requirePermiso("facturas.ver");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const ordenes = await tenantDb.ordenTrabajo.findMany({
     where: {
@@ -108,7 +108,7 @@ export async function crearFacturaAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false, facturaId: null };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("facturas.facturar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({

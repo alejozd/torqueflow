@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { exigirCajaParaEfectivo } from "@/lib/caja/sesion";
 import { leerOpcionesTaller } from "@/lib/configuracion/opciones-taller";
 import { getTenantDb } from "@/lib/db/tenant-client";
@@ -60,7 +60,7 @@ function leerPagadoEnEfectivo(formData: FormData): boolean {
 }
 
 export async function crearGastoAction(prevState: GastoFormState, formData: FormData): Promise<GastoFormState> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("gastos.registrar");
   const parsed = leerCampos(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   const { categoriaId, descripcion, monto, fecha, referencia } = parsed.data;
@@ -107,7 +107,7 @@ export async function actualizarGastoAction(
   prevState: GastoFormState,
   formData: FormData,
 ): Promise<GastoFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("gastos.administrar");
   const parsed = leerCampos(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   const { categoriaId, descripcion, monto, fecha, referencia } = parsed.data;
@@ -165,7 +165,7 @@ export async function actualizarGastoAction(
 }
 
 export async function eliminarGastoAction(gastoId: string): Promise<{ error: string | null }> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("gastos.administrar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   try {
     await tenantDb.gasto.delete({ where: { id: gastoId } });
@@ -181,7 +181,7 @@ export async function listGastos(filtros: {
   sedeId?: string;
   categoriaId?: string;
 }): Promise<GastosDelMes> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("gastos.registrar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const periodo = periodoSchema.safeParse(filtros.periodo).success
     ? (filtros.periodo as string)

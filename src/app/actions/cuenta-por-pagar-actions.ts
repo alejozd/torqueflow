@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { exigirCajaParaEfectivo, sesionDeCajaAbierta } from "@/lib/caja/sesion";
 import { leerOpcionesTaller } from "@/lib/configuracion/opciones-taller";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
@@ -16,14 +16,13 @@ import {
 } from "@/lib/proveedores/cuentas-por-pagar";
 import { repartirAbono } from "@/lib/proveedores/repartir-abono";
 import { abonoAProveedorSchema, abonoProveedorSchema } from "@/lib/validation/compras";
-import type { Prisma, Role } from "@/generated/prisma-tenant";
+import type { Prisma } from "@/generated/prisma-tenant";
 
 /**
  * Cuentas por pagar (Fase 24, D5/D6): la deuda la crea la entrada de mercancía
  * (`sincronizarCuentaPorPagar`); aquí solo se abona y se consulta.
  */
 
-const ROLES_ABONO: Role[] = ["ADMIN", "RECEPCION"];
 
 export interface AbonoFormState {
   error: string | null;
@@ -50,7 +49,7 @@ export async function abonarCuentaPorPagarAction(
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
 
-  const session = await requireRole(ROLES_ABONO);
+  const session = await requirePermiso("cuentasPorPagar.usar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   // La cuenta se alcanza por su entrada, que pertenece a una bodega de la sede.
@@ -143,7 +142,7 @@ export async function abonarProveedorAction(
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
 
-  const session = await requireRole(ROLES_ABONO);
+  const session = await requirePermiso("cuentasPorPagar.usar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
 
@@ -316,7 +315,7 @@ export async function getCuentasPorPagar({
 }: { filtro?: FiltroCuentasPorPagar; abonadas?: string[] } = {}): Promise<CuentasPorPagarDatos> {
   // Lo que el taller debe es información financiera: la ven ADMIN y RECEPCION,
   // igual que la caja y la cartera (hallazgo B6).
-  const session = await requireRole(ROLES_ABONO);
+  const session = await requirePermiso("cuentasPorPagar.usar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
   const deLaSede = { entrada: { bodega: { sedeId } } };

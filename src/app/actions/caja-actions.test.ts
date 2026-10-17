@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockRequireRole = vi.fn();
-vi.mock("@/lib/auth/guards", () => ({ requireRole: (...a: unknown[]) => mockRequireRole(...a), requireSession: vi.fn() }));
+const mockRequirePermiso = vi.fn();
+import { permisosEfectivos } from "@/lib/auth/permisos";
+vi.mock("@/lib/auth/guards", () => ({ requirePermiso: (...a: unknown[]) => mockRequirePermiso(...a),
+  requireSession: vi.fn(),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso), }));
 const db = {
   cajaSesion: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), updateMany: vi.fn(), findMany: vi.fn() },
   pago: { findMany: vi.fn() },
@@ -18,8 +21,8 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import { abrirCajaAction, cerrarCajaAction, getCajaActual, listCajasCerradas } from "./caja-actions";
 
 const inicial = { error: null, success: false };
-const RECEPCION = { user: { id: "u2", role: "RECEPCION", tenantSchema: "t", sedeActivaId: "s1" } };
-const ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "t", sedeActivaId: "s1" } };
+const RECEPCION = { user: { id: "u2", role: "RECEPCION", permisos: permisosEfectivos({ role: "RECEPCION" }), tenantSchema: "t", sedeActivaId: "s1" } };
+const ADMIN = { user: { id: "u1", role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }), tenantSchema: "t", sedeActivaId: "s1" } };
 const ABIERTA_AT = new Date("2026-10-15T13:00:00Z");
 
 function form(obj: Record<string, string>) {
@@ -49,16 +52,16 @@ beforeEach(() => {
   db.cajaSesion.updateMany.mockResolvedValue({ count: 1 });
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-10-15T20:00:00Z"));
-  mockRequireRole.mockResolvedValue(RECEPCION);
+  mockRequirePermiso.mockResolvedValue(RECEPCION);
   movimientosVacios();
 });
 afterEach(() => vi.useRealTimers());
 
 describe("getCajaActual", () => {
-  it("rechaza TECNICO (requireRole lanza)", async () => {
-    mockRequireRole.mockRejectedValue(new Error("redirect"));
+  it("rechaza TECNICO (requirePermiso lanza)", async () => {
+    mockRequirePermiso.mockRejectedValue(new Error("redirect"));
     await expect(getCajaActual({})).rejects.toThrow();
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("caja.usar");
   });
 
   it("sin caja abierta devuelve caja null", async () => {
@@ -75,7 +78,7 @@ describe("getCajaActual", () => {
   });
 
   it("ADMIN puede consultar otra sede", async () => {
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     db.cajaSesion.findFirst.mockResolvedValue(null);
     const r = await getCajaActual({ sedeId: "s2" });
     expect(r.sedeId).toBe("s2");
@@ -194,7 +197,7 @@ describe("abrirCajaAction", () => {
   });
 
   it("ADMIN valida que la sede exista", async () => {
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     db.sede.findUnique.mockResolvedValue(null);
     const r = await abrirCajaAction(inicial, form({ baseInicial: "0", sedeId: "zz" }));
     expect(r.error).toBe("Sede no encontrada");
@@ -244,7 +247,7 @@ describe("cerrarCajaAction", () => {
   });
 
   it("ADMIN sí puede cerrar la caja de otra sede", async () => {
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     db.cajaSesion.findUnique.mockResolvedValue(sesionAbierta({ sedeId: "s2" }));
     const r = await cerrarCajaAction("c1", inicial, form({ efectivoContado: "100000" }));
     expect(r.success).toBe(true);

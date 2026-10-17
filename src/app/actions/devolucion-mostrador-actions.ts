@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { registrarEventoAuditoria } from "@/lib/auditoria/registrarEvento";
 import { exigirCajaParaEfectivo, ultimoCierreDeCaja } from "@/lib/caja/sesion";
 import { leerOpcionesTaller } from "@/lib/configuracion/opciones-taller";
@@ -15,7 +15,6 @@ import {
   totalDevolucion,
 } from "@/lib/mostrador/ventas";
 import { devolucionMostradorInputSchema } from "@/lib/validation/mostrador";
-import type { Role } from "@/generated/prisma-tenant";
 
 /**
  * Devolución de una venta de mostrador (Fase 24, D4/D9/D12): devuelve el dinero,
@@ -32,7 +31,6 @@ import type { Role } from "@/generated/prisma-tenant";
  * (`puedeDevolver`), comprobado aquí aunque la pantalla ya lo avise.
  */
 
-const ROLES_DEVOLUCION: Role[] = ["ADMIN", "RECEPCION"];
 
 const SIN_CAJA = "Abre la caja antes de devolver dinero en efectivo en el mostrador";
 const DEVOLUCION_YA_REGISTRADA = "DEVOLUCION_YA_REGISTRADA";
@@ -72,7 +70,7 @@ export async function crearDevolucionAction(
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
 
-  const session = await requireRole(ROLES_DEVOLUCION);
+  const session = await requirePermiso("mostrador.vender");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
 
@@ -98,7 +96,7 @@ export async function crearDevolucionAction(
   const plazo = puedeDevolver({
     fechaVenta: venta.createdAt,
     ahora,
-    rol: session.user.role,
+    puedeConCajaCerrada: puede(session, "mostrador.devolverConCajaCerrada"),
     cajaCerrada: ventaEnCajaCerrada({ fechaVenta: venta.createdAt, ahora, usarControlCaja, ultimoCierreCaja }),
   });
   if (!plazo.permitido) return { error: plazo.motivo, success: false };

@@ -1,6 +1,6 @@
 "use server";
 
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { publicDb } from "@/lib/db/public-client";
 import { agruparCartera, CONSUMIDOR_FINAL_ID, type FacturaCartera, type ClienteCartera, type RangoAntiguedad } from "@/lib/cartera/antiguedad";
@@ -44,7 +44,7 @@ function textoCobro(cliente: ClienteCartera, tallerNombre: string): string {
  * aquí, en el servidor: el cliente solo recibe el enlace wa.me ya listo.
  */
 export async function getCartera(filtros: { sedeId?: string }): Promise<CarteraVista> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("cartera.ver");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = resolverSede(session, filtros.sedeId);
 

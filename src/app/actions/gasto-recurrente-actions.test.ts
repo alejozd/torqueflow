@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockRequireRole = vi.fn();
-vi.mock("@/lib/auth/guards", () => ({ requireRole: (...a: unknown[]) => mockRequireRole(...a), requireSession: vi.fn() }));
+const mockRequirePermiso = vi.fn();
+import { permisosEfectivos } from "@/lib/auth/permisos";
+vi.mock("@/lib/auth/guards", () => ({ requirePermiso: (...a: unknown[]) => mockRequirePermiso(...a),
+  requireSession: vi.fn(),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso), }));
 const db = {
   gastoRecurrente: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   gasto: { create: vi.fn() },
@@ -21,13 +24,13 @@ import {
 } from "./gasto-recurrente-actions";
 
 const inicial = { error: null, success: false };
-const ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "t", sedeActivaId: "s1" } };
+const ADMIN = { user: { id: "u1", role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }), tenantSchema: "t", sedeActivaId: "s1" } };
 
 beforeEach(() => {
   vi.resetAllMocks();
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-10-15T15:00:00Z"));
-  mockRequireRole.mockResolvedValue(ADMIN);
+  mockRequirePermiso.mockResolvedValue(ADMIN);
 });
 afterEach(() => vi.useRealTimers());
 
@@ -83,15 +86,15 @@ describe("gastos recurrentes", () => {
   it("confirmar/omitir/plantillas exigen ADMIN; pendientes admite RECEPCION", async () => {
     db.gastoRecurrente.findMany.mockResolvedValue([]);
     await listRecurrentesPendientes({});
-    expect(mockRequireRole).toHaveBeenLastCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenLastCalledWith("gastos.registrar");
 
     db.gastoRecurrente.findUnique.mockResolvedValue(null);
     await omitirRecurrenteAction("r1", "2026-10");
-    expect(mockRequireRole).toHaveBeenLastCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenLastCalledWith("gastos.administrar");
     await confirmarRecurrenteAction("r1", "2026-10", inicial, new FormData());
-    expect(mockRequireRole).toHaveBeenLastCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenLastCalledWith("gastos.administrar");
     await toggleGastoRecurrenteActivoAction("r1");
-    expect(mockRequireRole).toHaveBeenLastCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenLastCalledWith("gastos.administrar");
   });
 
   it("crearGastoRecurrenteAction valida categoría activa y sede", async () => {

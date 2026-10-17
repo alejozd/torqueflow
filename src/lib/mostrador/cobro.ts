@@ -55,6 +55,6 @@ export function porcentajeDescuento(subtotal: number, descuento: number): number
 }
 
 /** ADMIN no tiene tope; RECEPCION puede hasta el tope inclusive. */
-export function descuentoPermitido(rol: "ADMIN" | "RECEPCION", porcentaje: number, tope: number): boolean {
-  return rol === "ADMIN" || porcentaje <= tope;
+export function descuentoPermitido(sinTope: boolean, porcentaje: number, tope: number): boolean {
+  return sinTope || porcentaje <= tope;
 }
