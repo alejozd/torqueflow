@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: vi.fn(),
 }));
 
@@ -27,7 +27,7 @@ const vehiculoSinHistorial = { _count: { historial: 0 } };
 
 describe("deleteClienteAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { tenantSchema: "taller_perez" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { tenantSchema: "taller_perez" } });
     mockFindUnique.mockReset();
     mockTransaction.mockReset().mockResolvedValue([]);
     mockClienteDelete.mockClear();
@@ -39,7 +39,7 @@ describe("deleteClienteAction", () => {
 
     await deleteClienteAction("c1");
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("clientes.eliminar");
     expect(mockTransaction).toHaveBeenCalledWith([
       { op: "vehiculo.deleteMany", args: { where: { clienteId: "c1" } } },
       { op: "cliente.delete", args: { where: { id: "c1" } } },

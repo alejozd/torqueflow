@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { clienteInputSchema } from "@/lib/validation/cliente";
@@ -139,7 +139,7 @@ export async function createClienteAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("clientes.editar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   let cliente: Cliente;
@@ -170,7 +170,7 @@ export async function updateClienteAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("clientes.editar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   try {
@@ -200,7 +200,7 @@ export async function updateClienteAction(
  * Its history-free vehículos go with it, in the same transaction.
  */
 export async function deleteClienteAction(id: string): Promise<void> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("clientes.eliminar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const cliente = await tenantDb.cliente.findUnique({

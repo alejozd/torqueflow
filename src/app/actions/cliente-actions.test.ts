@@ -1,9 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: () => mockRequireSession(),
 }));
 
@@ -28,7 +28,7 @@ const initialState: ClienteFormState = { error: null, success: false };
 
 describe("createClienteAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockCreate.mockReset();
   });
 
@@ -54,7 +54,7 @@ describe("createClienteAction", () => {
     const result = await createClienteAction(initialState, formData);
 
     expect(result).toEqual({ error: null, success: true, cliente: { id: "c1", nombre: "Juan Pérez" } });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("clientes.editar");
     expect(mockCreate).toHaveBeenCalledWith({
       data: { nombre: "Juan Pérez", telefono: "555-1234", email: null, documento: null },
     });
@@ -78,8 +78,8 @@ describe("createClienteAction", () => {
     expect(result.error).not.toContain("Unique constraint");
   });
 
-  it("propagates the redirect rejection and never touches the database when requireRole rejects (unauthorized)", async () => {
-    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+  it("propagates the redirect rejection and never touches the database when requirePermiso rejects (unauthorized)", async () => {
+    mockRequirePermiso.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
     const formData = new FormData();
     formData.set("nombre", "Juan Pérez");
     formData.set("telefono", "");

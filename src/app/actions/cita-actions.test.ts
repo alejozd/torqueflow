@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: () => mockRequireSession(),
 }));
 
@@ -58,7 +58,7 @@ function formularioValido(): FormData {
 }
 
 beforeEach(() => {
-  mockRequireRole.mockReset().mockResolvedValue(RECEPCION);
+  mockRequirePermiso.mockReset().mockResolvedValue(RECEPCION);
   mockRequireSession.mockReset().mockResolvedValue(RECEPCION);
   mockCitaFindMany.mockReset().mockResolvedValue([]);
   mockCitaFindFirst.mockReset().mockResolvedValue(null);
@@ -124,11 +124,11 @@ describe("createCitaAction", () => {
   it("is limited to ADMIN and RECEPCION", async () => {
     await createCitaAction(initialState, formularioValido());
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("citas.gestionar");
   });
 
   it("calls the guard before validating, so an invalid form from a forbidden role still redirects", async () => {
-    mockRequireRole.mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+    mockRequirePermiso.mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
 
     await expect(createCitaAction(initialState, new FormData())).rejects.toThrow(
       "REDIRECT:/login?error=forbidden",
@@ -208,7 +208,7 @@ describe("cambiarEstadoCitaAction", () => {
 
     const resultado = await cambiarEstadoCitaAction("cita-1", initialState, formData);
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("citas.gestionar");
     expect(resultado).toEqual({ error: null, success: true });
     expect(mockCitaUpdateMany).toHaveBeenCalledWith({
       where: { id: "cita-1", sedeId: "sede-1" },
@@ -240,23 +240,23 @@ describe("cambiarEstadoCitaAction", () => {
 
 describe("deleteCitaAction", () => {
   it("is ADMIN-only, stricter than booking", async () => {
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
 
     await deleteCitaAction("cita-1");
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("citas.eliminar");
     expect(mockCitaDeleteMany).toHaveBeenCalledWith({ where: { id: "cita-1", sedeId: "sede-1" } });
   });
 
   it("throws instead of silently doing nothing when the cita is in another sede", async () => {
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     mockCitaDeleteMany.mockResolvedValue({ count: 0 });
 
     await expect(deleteCitaAction("cita-ajena")).rejects.toThrow("Cita no encontrada");
   });
 
   it("hides raw database errors behind a friendly message", async () => {
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     mockCitaDeleteMany.mockRejectedValue(new Error("Can't reach database server at db:5432"));
 
     await expect(deleteCitaAction("cita-1")).rejects.toThrow("No se pudo eliminar la cita");

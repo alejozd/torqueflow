@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { vehiculoInputSchema } from "@/lib/validation/vehiculo";
@@ -62,7 +62,7 @@ export async function createVehiculoAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("clientes.editar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   let vehiculo: Vehiculo;
@@ -125,7 +125,7 @@ export async function updateVehiculoAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("clientes.editar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   let clienteId: string;
@@ -165,7 +165,7 @@ export async function updateVehiculoAction(
 
 /** A vehículo can only be deleted while it has no history (historial, órdenes, citas, cotizaciones). */
 export async function deleteVehiculoAction(id: string, clienteId: string): Promise<void> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("clientes.eliminar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const vehiculo = await tenantDb.vehiculo.findFirst({

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso, requireRole } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { roundMoney } from "@/lib/money/round";
@@ -466,7 +466,7 @@ export async function aplicarServicioACotizacionAction(
   prevState: AplicarServicioFormState,
   formData: FormData,
 ): Promise<AplicarServicioFormState> {
-  const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
+  const session = await requirePermiso("cotizaciones.editarItems");
   const parsed = aplicarServicioInputSchema.safeParse({ servicioId: formData.get("servicioId") ?? "" });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false, agregados: null };

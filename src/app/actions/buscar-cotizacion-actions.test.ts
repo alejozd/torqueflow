@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
 }));
 
 const mockServicioFindMany = vi.fn();
@@ -19,7 +19,7 @@ import { buscarParaCotizacionAction } from "./buscar-cotizacion-actions";
 const SESSION = { user: { id: "u1", role: "RECEPCION", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 beforeEach(() => {
-  mockRequireRole.mockReset().mockResolvedValue(SESSION);
+  mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
   mockServicioFindMany.mockReset().mockResolvedValue([]);
   mockRepuestoFindMany.mockReset().mockResolvedValue([]);
 });
@@ -116,6 +116,6 @@ describe("buscarParaCotizacionAction", () => {
   it("exige un rol que pueda cotizar", async () => {
     await buscarParaCotizacionAction("x");
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION", "TECNICO"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("cotizaciones.editarItems");
   });
 });

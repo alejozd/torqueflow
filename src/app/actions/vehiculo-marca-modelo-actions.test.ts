@@ -1,9 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: () => mockRequireSession(),
 }));
 
@@ -87,7 +87,7 @@ describe("listTodosLosModelosVehiculo", () => {
 
 describe("crearMarcaVehiculoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockMarcaCreate.mockReset();
   });
 
@@ -99,7 +99,7 @@ describe("crearMarcaVehiculoAction", () => {
     expect(result.success).toBe(false);
     expect(result.error).toBe("El nombre es obligatorio");
     expect(mockMarcaCreate).not.toHaveBeenCalled();
-    expect(mockRequireRole).not.toHaveBeenCalled();
+    expect(mockRequirePermiso).not.toHaveBeenCalled();
   });
 
   it("creates the marca and returns it on valid input", async () => {
@@ -111,7 +111,7 @@ describe("crearMarcaVehiculoAction", () => {
 
     expect(result).toEqual({ error: null, success: true, marca: { id: "m1", nombre: "Toyota" } });
     expect(mockMarcaCreate).toHaveBeenCalledWith({ data: { nombre: "Toyota" } });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("vehiculos.catalogo");
   });
 
   it("returns a friendly Spanish message instead of the raw Prisma error on a duplicate nombre", async () => {
@@ -128,8 +128,8 @@ describe("crearMarcaVehiculoAction", () => {
     expect(result.error).toBe("Ya existe un registro con ese valor.");
   });
 
-  it("propagates the redirect rejection and never touches the database when requireRole rejects (not ADMIN)", async () => {
-    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+  it("propagates the redirect rejection and never touches the database when requirePermiso rejects (not ADMIN)", async () => {
+    mockRequirePermiso.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
     const formData = new FormData();
     formData.set("nombre", "Toyota");
 
@@ -142,7 +142,7 @@ describe("crearMarcaVehiculoAction", () => {
 
 describe("crearModeloVehiculoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockModeloCreate.mockReset();
   });
 
@@ -199,8 +199,8 @@ describe("crearModeloVehiculoAction", () => {
     expect(result.error).toBe("Ya existe un registro con ese valor.");
   });
 
-  it("propagates the redirect rejection and never touches the database when requireRole rejects (not ADMIN)", async () => {
-    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+  it("propagates the redirect rejection and never touches the database when requirePermiso rejects (not ADMIN)", async () => {
+    mockRequirePermiso.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
     const formData = new FormData();
     formData.set("marcaId", "m1");
     formData.set("nombre", "Corolla");

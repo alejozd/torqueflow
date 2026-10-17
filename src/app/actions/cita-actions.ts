@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
@@ -105,7 +105,7 @@ export async function createCitaAction(
   prevState: CitaFormState,
   formData: FormData,
 ): Promise<CitaFormState> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("citas.gestionar");
 
   const parsed = parseCitaFormData(formData);
   if (!parsed.success) {
@@ -149,7 +149,7 @@ export async function updateCitaAction(
   prevState: CitaFormState,
   formData: FormData,
 ): Promise<CitaFormState> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("citas.gestionar");
 
   const parsed = parseCitaFormData(formData);
   if (!parsed.success) {
@@ -200,7 +200,7 @@ export async function cambiarEstadoCitaAction(
   prevState: CitaFormState,
   formData: FormData,
 ): Promise<CitaFormState> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("citas.gestionar");
 
   const parsed = estadoCitaSchema.safeParse(formData.get("estado") ?? "");
   if (!parsed.success) {
@@ -232,7 +232,7 @@ export async function cambiarEstadoCitaAction(
  * 6 applied to reportes and sedes.
  */
 export async function deleteCitaAction(id: string): Promise<void> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("citas.eliminar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   let count: number;

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { registrarSeguimientoInputSchema } from "@/lib/validation/cotizacion-seguimiento";
@@ -31,7 +31,7 @@ export async function registrarSeguimientoAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
+  const session = await requirePermiso("cotizaciones.editarItems");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   // findFirst, not findUnique: same IDOR boundary as every other cotización

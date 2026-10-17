@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
 }));
 
 const mockCreate = vi.fn();
@@ -26,7 +26,7 @@ const SESSION = { user: { id: "u1", role: "TECNICO", tenantSchema: "taller_perez
 
 describe("registrarSeguimientoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockCreate.mockReset();
     mockCotizacionFindFirst.mockReset().mockResolvedValue({ id: "c1" });
   });
@@ -123,7 +123,7 @@ describe("registrarSeguimientoAction", () => {
 
     await registrarSeguimientoAction("c1", initialState, formData);
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION", "TECNICO"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("cotizaciones.editarItems");
   });
 
   it("refuses to touch a cotización from another sede", async () => {

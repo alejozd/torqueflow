@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
   requireRole: (...a: unknown[]) => mockRequireRole(...a),
+  requirePermiso: (...a: unknown[]) => mockRequirePermiso(...a),
   requireSession: vi.fn(),
 }));
 
@@ -54,6 +56,7 @@ function fd(campos: Record<string, string>): FormData {
 beforeEach(() => {
   vi.clearAllMocks();
   mockRequireRole.mockResolvedValue(ADMIN);
+  mockRequirePermiso.mockResolvedValue(ADMIN);
   db.servicio.findFirst.mockResolvedValue(null);
   db.servicio.findUnique.mockResolvedValue({ id: "s1", nombre: "Cambio de aceite", activo: true });
   db.repuesto.findFirst.mockResolvedValue({ id: "r1", nombre: "Filtro de aceite" });
@@ -523,7 +526,7 @@ describe("aplicarServicioACotizacionAction", () => {
   it("crea las líneas de la cotización y recomputa sus totales en la misma transacción", async () => {
     const r = await aplicarServicioACotizacionAction("c1", inicialAplicar, fd({ servicioId: " s1 " }));
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION", "TECNICO"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("cotizaciones.editarItems");
     expect(db.cotizacion.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "c1", sedeId: "sede-1" } }),
     );
@@ -642,6 +645,7 @@ describe("aplicarServicioACotizacionAction", () => {
 describe("guardas de rol", () => {
   beforeEach(() => {
     mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+    mockRequirePermiso.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
   });
 
   // Una lista de roles pasada a requireRole no prueba nada por sí sola: lo que
@@ -667,7 +671,7 @@ describe("guardas de rol", () => {
     ],
   ];
 
-  it.each(acciones)("%s propaga el redirect de requireRole y no escribe nada", async (_nombre, accion) => {
+  it.each(acciones)("%s propaga el redirect del guard y no escribe nada", async (_nombre, accion) => {
     await expect(accion()).rejects.toThrow("REDIRECT:/login?error=forbidden");
 
     expect(db.servicio.create).not.toHaveBeenCalled();
