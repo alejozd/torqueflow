@@ -350,7 +350,7 @@ describe("aplicarServicioAOrdenAction", () => {
 
     const r = await aplicarServicioAOrdenAction("o1", inicialAplicar, fd({ servicioId: " s1 " }));
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION", "TECNICO"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.trabajar");
     expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "o1", sedeId: "sede-1" } }),
     );

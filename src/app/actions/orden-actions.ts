@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { puede, requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb, type TenantPrismaClient } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { ordenTrabajoInputSchema, estadoOrdenSchema, prioridadOrdenSchema } from "@/lib/validation/orden";
@@ -176,7 +176,7 @@ export async function createOrdenAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("ordenes.crear");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const { error, ordenId } = await crearOrdenTrabajo(tenantDb, {
@@ -225,7 +225,7 @@ export async function createOrdenDesdeVehiculoAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("ordenes.crear");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const vehiculo = await tenantDb.vehiculo.findUnique({
@@ -335,7 +335,7 @@ export async function updateEstadoOrdenAction(
     return { error: "Estado inválido" };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
+  const session = await requirePermiso("ordenes.cambiarEstado");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
@@ -435,7 +435,7 @@ export async function cambiarPrioridadAction(
   const parsed = prioridadOrdenSchema.safeParse(formData.get("prioridad") ?? "");
   if (!parsed.success) return { error: "Prioridad inválida", success: false };
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("ordenes.planificar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
@@ -490,7 +490,7 @@ export async function asignarMecanicoAction(
   prevState: AsignarMecanicoFormState,
   formData: FormData,
 ): Promise<AsignarMecanicoFormState> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("ordenes.planificar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
@@ -505,7 +505,7 @@ export async function asignarMecanicoAction(
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Orden no modificable", success: false };
   }
-  if (orden.mecanicoId && session.user.role !== "ADMIN") {
+  if (orden.mecanicoId && !puede(session, "ordenes.reasignarMecanico")) {
     return { error: "Esta orden ya tiene un mecánico asignado y no se puede modificar.", success: false };
   }
 

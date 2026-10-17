@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { registrarEventoAuditoria } from "@/lib/auditoria/registrarEvento";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb, type TenantPrismaClient } from "@/lib/db/tenant-client";
@@ -20,7 +20,7 @@ import {
   garantiaInputSchema,
   recepcionInputSchema,
 } from "@/lib/validation/recepcion";
-import type { EstadoOrden, Role } from "@/generated/prisma-tenant";
+import type { EstadoOrden } from "@/generated/prisma-tenant";
 
 /**
  * Fase 21: recepción del vehículo (kilometraje, combustible y daños), acta de
@@ -32,8 +32,6 @@ import type { EstadoOrden, Role } from "@/generated/prisma-tenant";
  * como única excepción, y solo mientras el acta siga sin firmar.
  */
 
-const ROLES_ORDEN: Role[] = ["ADMIN", "RECEPCION", "TECNICO"];
-const ROLES_BORRAR: Role[] = ["ADMIN", "RECEPCION"];
 
 const ORDEN_NO_ENCONTRADA = "Orden no encontrada";
 const ORDEN_INMUTABLE = "La orden ya no se puede modificar";
@@ -218,7 +216,7 @@ export async function guardarRecepcionAction(
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
 
-  const session = await requireRole(ROLES_ORDEN);
+  const session = await requirePermiso("ordenes.trabajar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const revisada = await cargarOrdenEditable(tenantDb, session.user.sedeActivaId, ordenId);
   if ("error" in revisada) return { error: revisada.error, success: false };
@@ -251,7 +249,7 @@ export async function agregarDanioAction(
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
 
-  const session = await requireRole(ROLES_ORDEN);
+  const session = await requirePermiso("ordenes.trabajar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const revisada = await cargarOrdenEditable(tenantDb, session.user.sedeActivaId, ordenId);
   if ("error" in revisada) return { error: revisada.error, success: false };
@@ -278,7 +276,7 @@ export async function agregarDanioAction(
 }
 
 export async function quitarDanioAction(danioId: string): Promise<ResultadoAccion> {
-  const session = await requireRole(ROLES_BORRAR);
+  const session = await requirePermiso("ordenes.quitar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const danio = await tenantDb.danioOrden.findFirst({
@@ -313,7 +311,7 @@ export async function guardarActaAction(
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
 
-  const session = await requireRole(ROLES_ORDEN);
+  const session = await requirePermiso("ordenes.trabajar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const revisada = await cargarOrdenParaActa(tenantDb, session.user.sedeActivaId, ordenId);
   if ("error" in revisada) return { error: revisada.error, success: false };
@@ -342,7 +340,7 @@ export async function firmarActaAction(
   prevState: ActaFormState,
   formData: FormData,
 ): Promise<ActaFormState> {
-  const session = await requireRole(ROLES_ORDEN);
+  const session = await requirePermiso("ordenes.trabajar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
@@ -422,7 +420,7 @@ export async function firmarActaAction(
 
 /** Borra el borrador del acta (solo si la orden sigue editable y sin firmar). */
 export async function borrarActaAction(ordenId: string): Promise<ResultadoAccion> {
-  const session = await requireRole(ROLES_BORRAR);
+  const session = await requirePermiso("ordenes.quitar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
@@ -487,7 +485,7 @@ export async function entregarOrdenAction(
   prevState: EntregaFormState,
   formData: FormData,
 ): Promise<EntregaFormState> {
-  const session = await requireRole(ROLES_ORDEN);
+  const session = await requirePermiso("ordenes.entregar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
@@ -628,7 +626,7 @@ export async function agregarGarantiaAction(
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
 
-  const session = await requireRole(ROLES_ORDEN);
+  const session = await requirePermiso("ordenes.trabajar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   // Las garantías siguen la regla del acta, no la de los ítems: se registran al
   // entregar, y lo normal es facturar antes de entregar (la factura no las bloquea).
@@ -689,7 +687,7 @@ export async function agregarGarantiaAction(
 }
 
 export async function quitarGarantiaAction(garantiaId: string): Promise<ResultadoAccion> {
-  const session = await requireRole(ROLES_BORRAR);
+  const session = await requirePermiso("ordenes.quitar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const garantia = await tenantDb.garantia.findFirst({
@@ -739,7 +737,7 @@ export interface GarantiaVista {
  * reclamada en otra sede tiene que verse igual.
  */
 export async function listGarantiasDeVehiculo(vehiculoId: string): Promise<GarantiaVista[]> {
-  const session = await requireRole(ROLES_ORDEN);
+  const session = await requirePermiso("ordenes.trabajar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const vehiculo = await tenantDb.vehiculo.findFirst({

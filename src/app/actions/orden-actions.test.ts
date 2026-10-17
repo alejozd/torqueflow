@@ -1,9 +1,10 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
   requireSession: () => mockRequireSession(),
 }));
 
@@ -70,12 +71,12 @@ import {
 
 const initialState: OrdenFormState = { error: null, success: false };
 const SESSION = {
-  user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+  user: { id: "u1", role: "ADMIN", permisos: ["ordenes.reasignarMecanico"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
 };
 
 describe("createOrdenAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockCreate.mockReset();
     mockSedeFindFirst.mockReset();
   });
@@ -100,6 +101,7 @@ describe("createOrdenAction", () => {
     const result = await createOrdenAction("c1", "v1", initialState, formData);
 
     expect(result).toEqual({ error: null, success: true, ordenId: "o1" });
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.crear");
     expect(mockSedeFindFirst).not.toHaveBeenCalled();
     expect(mockCreate).toHaveBeenCalledWith({
       data: {
@@ -114,8 +116,8 @@ describe("createOrdenAction", () => {
     });
   });
 
-  it("propagates the redirect rejection and never touches the database when requireRole rejects (unauthorized)", async () => {
-    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+  it("propagates the redirect rejection and never touches the database when requirePermiso rejects (unauthorized)", async () => {
+    mockRequirePermiso.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
     const formData = new FormData();
 
     await expect(createOrdenAction("c1", "v1", initialState, formData)).rejects.toThrow(
@@ -127,7 +129,7 @@ describe("createOrdenAction", () => {
 
 describe("createOrdenDesdeVehiculoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockCreate.mockReset();
     mockVehiculoFindUnique.mockReset();
   });
@@ -184,8 +186,8 @@ describe("createOrdenDesdeVehiculoAction", () => {
     });
   });
 
-  it("propagates the redirect rejection and never touches the database when requireRole rejects (unauthorized)", async () => {
-    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+  it("propagates the redirect rejection and never touches the database when requirePermiso rejects (unauthorized)", async () => {
+    mockRequirePermiso.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
     const formData = new FormData();
     formData.set("vehiculoId", "v1");
 
@@ -341,7 +343,7 @@ describe("updateEstadoOrdenAction", () => {
 
   beforeEach(() => {
     process.env.SMTP_ENCRYPTION_KEY = CLAVE_VALIDA;
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockOrdenFindFirst.mockReset();
     mockUpdate.mockReset();
     mockUpdateMany.mockReset().mockResolvedValue({ count: 1 });
@@ -620,7 +622,7 @@ describe("asignarMecanicoAction", () => {
   const initialAsignarState: AsignarMecanicoFormState = { error: null, success: false };
 
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockOrdenFindFirst.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null, mecanicoId: null });
     mockUsuarioFindFirst.mockReset().mockResolvedValue({ id: "t1" });
     mockUpdate.mockReset().mockResolvedValue({ id: "o1" });
@@ -632,7 +634,7 @@ describe("asignarMecanicoAction", () => {
 
     await asignarMecanicoAction("o1", initialAsignarState, formData);
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.planificar");
   });
 
   it("assigns the chosen técnico after confirming they belong to the sede activa", async () => {
@@ -675,8 +677,8 @@ describe("asignarMecanicoAction", () => {
   });
 
   it("blocks RECEPCION from changing an already-assigned mecánico", async () => {
-    mockRequireRole.mockResolvedValue({
-      user: { id: "u1", role: "RECEPCION", tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+    mockRequirePermiso.mockResolvedValue({
+      user: { id: "u1", role: "RECEPCION", permisos: [], tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
     });
     mockOrdenFindFirst.mockResolvedValue({ estado: "EN_PROCESO", factura: null, mecanicoId: "t1" });
     const formData = new FormData();
@@ -755,7 +757,7 @@ describe("cambiarPrioridadAction", () => {
   }
 
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockOrdenFindFirst.mockReset().mockResolvedValue({
       id: "o1",
       estado: "EN_PROCESO",
@@ -770,7 +772,7 @@ describe("cambiarPrioridadAction", () => {
     const result = await cambiarPrioridadAction("o1", inicialPrioridad, conPrioridad("URGENTE"));
 
     expect(result).toEqual({ error: null, success: true });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.planificar");
     expect(mockOrdenFindFirst).toHaveBeenCalledWith({
       where: { id: "o1", sedeId: "sede-1" },
       select: { id: true, estado: true, prioridad: true, factura: { select: { id: true } } },
@@ -844,7 +846,7 @@ describe("cambiarPrioridadAction", () => {
 
   it("un rol sin permiso no llega a tocar la orden", async () => {
     // El guard real lanza (redirect); la acción no debe atraparlo ni escribir nada.
-    mockRequireRole.mockRejectedValue(new Error("NEXT_REDIRECT"));
+    mockRequirePermiso.mockRejectedValue(new Error("NEXT_REDIRECT"));
 
     await expect(cambiarPrioridadAction("o1", inicialPrioridad, conPrioridad("ALTA"))).rejects.toThrow("NEXT_REDIRECT");
     expect(mockUpdateMany).not.toHaveBeenCalled();

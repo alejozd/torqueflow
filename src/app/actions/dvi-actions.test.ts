@@ -1,8 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
 }));
 
 const mockUpsert = vi.fn();
@@ -40,7 +41,7 @@ const SESSION_ADMIN = { user: { role: "ADMIN", tenantSchema: "taller_perez", sed
 
 describe("updateDviChecklistAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockUpsert.mockReset();
     mockDviFindUnique.mockReset().mockResolvedValue(null);
     mockChecklistItemFindMany.mockReset().mockResolvedValue([
@@ -127,7 +128,7 @@ describe("updateDviChecklistAction", () => {
 
 describe("addDviFotoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockDviFindUnique.mockReset();
     mockFotoCreate.mockReset();
     mockSaveDviFoto.mockReset();
@@ -221,7 +222,7 @@ describe("addDviFotoAction", () => {
 
 describe("deleteDviFotoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockFotoDeleteMany.mockReset();
     mockOrdenFindFirst.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
   });
@@ -231,7 +232,7 @@ describe("deleteDviFotoAction", () => {
 
     await deleteDviFotoAction("f1", "o1");
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.quitar");
     expect(mockFotoDeleteMany).toHaveBeenCalledWith({ where: { id: "f1", dvi: { ordenId: "o1" } } });
   });
 

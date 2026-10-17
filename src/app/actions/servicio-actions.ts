@@ -393,7 +393,7 @@ export async function aplicarServicioAOrdenAction(
   prevState: AplicarServicioFormState,
   formData: FormData,
 ): Promise<AplicarServicioFormState> {
-  const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
+  const session = await requirePermiso("ordenes.trabajar");
   const parsed = aplicarServicioInputSchema.safeParse({ servicioId: formData.get("servicioId") ?? "" });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false, agregados: null };

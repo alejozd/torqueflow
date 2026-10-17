@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
@@ -21,7 +21,7 @@ export async function updateDviChecklistAction(
   prevState: DviFormState,
   formData: FormData,
 ): Promise<DviFormState> {
-  const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
+  const session = await requirePermiso("ordenes.trabajar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
@@ -80,7 +80,7 @@ export async function addDviFotoAction(
     return { error: "Selecciona un archivo de imagen", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
+  const session = await requirePermiso("ordenes.trabajar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
@@ -121,7 +121,7 @@ export async function addDviFotoAction(
 }
 
 export async function deleteDviFotoAction(id: string, ordenId: string): Promise<void> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("ordenes.quitar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   let orden;

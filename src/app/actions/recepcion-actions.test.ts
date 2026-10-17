@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockRequireRole = vi.fn();
-vi.mock("@/lib/auth/guards", () => ({ requireRole: (...args: unknown[]) => mockRequireRole(...args) }));
+const mockRequirePermiso = vi.fn();
+vi.mock("@/lib/auth/guards", () => ({ requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args) }));
 
 const mockSaveOrdenArchivo = vi.fn();
 const mockBorrarUpload = vi.fn();
@@ -71,7 +71,7 @@ const ORDEN_MUTABLE = {
 describe("guardarRecepcionAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     db.ordenTrabajo.findFirst.mockResolvedValue({ id: "o1", estado: "EN_PROCESO", factura: null });
     db.ordenTrabajo.update.mockResolvedValue({});
     mockSaveOrdenArchivo.mockResolvedValue({ relativePath: "taller/ordenes/o1/firma/f.png", url: "/api/uploads/taller/ordenes/o1/firma/f.png" });
@@ -121,7 +121,7 @@ describe("guardarRecepcionAction", () => {
 describe("marcas del diagrama", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     db.ordenTrabajo.findFirst.mockResolvedValue({ id: "o1", estado: "EN_PROCESO", factura: null });
     db.danioOrden.create.mockResolvedValue({ id: "d1" });
     db.danioOrden.delete.mockResolvedValue({});
@@ -154,7 +154,7 @@ describe("marcas del diagrama", () => {
     const r = await quitarDanioAction("d1");
 
     expect(r).toEqual({ error: null, success: true });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.quitar");
     expect(db.danioOrden.findFirst).toHaveBeenCalledWith({
       where: { id: "d1", orden: { sedeId: "sede-1" } },
       select: { id: true, ordenId: true, orden: { select: { estado: true, factura: { select: { id: true } } } } },
@@ -173,7 +173,7 @@ describe("marcas del diagrama", () => {
 describe("acta de entrega", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     db.ordenTrabajo.findFirst.mockResolvedValue({ id: "o1", estado: "EN_PROCESO", factura: null });
     db.actaEntrega.upsert.mockResolvedValue({ id: "a1" });
     db.actaEntrega.deleteMany.mockResolvedValue({ count: 1 });
@@ -300,7 +300,7 @@ describe("acta de entrega", () => {
     const r = await quitarGarantiaAction("g-ajena");
 
     expect(r.error).toBe("Garantía no encontrada");
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.quitar");
     expect(db.garantia.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "g-ajena", orden: { sedeId: "sede-1" } } }),
     );
@@ -403,7 +403,7 @@ describe("acta de entrega", () => {
   it("borrar el acta pide rol de borrado y respeta la sede", async () => {
     await borrarActaAction("o1");
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.quitar");
     expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "o1", sedeId: "sede-1" } }),
     );
@@ -413,7 +413,7 @@ describe("acta de entrega", () => {
 describe("entregarOrdenAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     // Sin fila de configuración: el taller no exige la firma (valor por defecto).
     db.configuracionTaller.findUnique.mockResolvedValue(null);
     db.ordenTrabajo.findFirst.mockResolvedValue(ORDEN_MUTABLE);
@@ -433,6 +433,7 @@ describe("entregarOrdenAction", () => {
       fd({ recibidoPor: "María", documentoRecibe: "1.020", observaciones: "Todo bien", firma: firmaPng() }),
     );
 
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.entregar");
     expect(r).toEqual({ error: null, success: true });
     expect(tx.ordenTrabajo.updateMany).toHaveBeenCalledWith({
       where: { id: "o1", estado: "TERMINADA" },
@@ -633,7 +634,7 @@ describe("entregarOrdenAction", () => {
 describe("garantías", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     db.ordenTrabajo.findFirst.mockResolvedValue({ id: "o1", estado: "EN_PROCESO", factura: null });
     db.manoDeObra.findFirst.mockResolvedValue({ id: "m1" });
     db.itemOrden.findFirst.mockResolvedValue({ id: "i1" });
