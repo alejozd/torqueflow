@@ -10,7 +10,7 @@
 
 **Spec:** Esta conversación de diseño, resumida en "Decisiones" abajo. Este documento es la referencia.
 
-> **Avance (2026-10-17):** tareas 1–16 hechas en la rama `fase26-permisos` (arreglos de la revisión final hasta `f6b1687`). Ronda de 3 residuales hecha y revisada (`0a5ff83`, 334 archivos / 2783 tests). Las dos migraciones están **escritas y sin aplicar**; los pasos exactos están en `docs/fase26-pasos-migracion.md`. La tarea 17 espera la aprobación del usuario.
+> **Avance (2026-10-17):** tareas 1–16 hechas en la rama `fase26-permisos` (arreglos de la revisión final hasta `f6b1687`). Ronda de 3 residuales hecha y revisada (`0a5ff83`, 334 archivos / 2783 tests). Las dos migraciones están **escritas y sin aplicar**; los pasos exactos están en `docs/fase26-pasos-migracion.md`. Tarea 17: migraciones aplicadas a `taller_dev` y `taller_dev_reference` (respaldo `~/backups/torqueflow_20261017_1302_pre_fase26.sql`, `migrate diff` vacío) y merge a `main`.
 
 ## Global Constraints
 

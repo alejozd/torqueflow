@@ -367,9 +367,9 @@ build y reiniciar:
 
 ## 8. Pendientes y próximos pasos
 
-- **Fase 26 (permisos por usuario)**: tareas 1–16 hechas en la rama `fase26-permisos`, sin merge, con la ronda de 3 residuales de la revisión final hecha (`0a5ff83`). Falta la
-  tarea 17 (cierre), que espera aprobación del usuario.
-  Las migraciones `20261023120000_rol_jefe_taller` y `20261024120000_permisos_usuario` están **sin aplicar**;
+- **Fase 26 (permisos por usuario)**: tareas 1–16 hechas en la rama `fase26-permisos`, **mergeada a `main`**; migraciones aplicadas a `taller_dev` y `taller_dev_reference` (respaldo
+  `~/backups/torqueflow_20261017_1302_pre_fase26.sql`). Falta desplegar en el servidor (`sudo ./deploy.sh`).
+  Las migraciones `20261023120000_rol_jefe_taller` y `20261024120000_permisos_usuario` están aplicadas;
   pasos exactos en `docs/fase26-pasos-migracion.md` (migrar **todos** los schemas antes de desplegar).
 
 - **Crons sin programar en el servidor** (verificado 2026-10-15: el crontab de `alejo` no los llama, aunque `CRON_SECRET` está en el `.env`): `/api/cron/recordatorios` (los recordatorios automáticos no salen) y `/api/cron/cotizaciones-vencidas` (ya no hace falta: las cotizaciones se vencen al consultarlas). Programarlos requiere el visto bueno del usuario.
@@ -493,9 +493,9 @@ Merge `c92e500`. Al crear una orden (desde Órdenes o desde la ficha del cliente
 antes de navegar: el botón pasa a «Abriendo la orden...» y queda bloqueado hasta que la ficha reemplaza la
 pantalla. Antes se veía y se podía clicar el listado mientras cargaba la ficha, y cabía un doble envío.
 
-### Fase 26 — permisos por usuario (rama `fase26-permisos`, plan `docs/superpowers/plans/2026-10-16-fase26-permisos.md`)
+### Fase 26 — permisos por usuario (rama `fase26-permisos`, mergeada 2026-10-17; plan `docs/superpowers/plans/2026-10-16-fase26-permisos.md`)
 
-En curso (2026-10-17), **sin merge**. El acceso deja de preguntar "¿qué rol es?" y pasa a "¿tiene este
+El acceso deja de preguntar "¿qué rol es?" y pasa a "¿tiene este
 permiso?":
 
 - **Catálogo único** en `src/lib/auth/permisos.ts` (claves `grupo.accion`, que no se renombran) y tabla
@@ -513,4 +513,4 @@ permiso?":
   `configuracion.taller`) son solo del ADMIN y no se pueden dar. Cambiar el rol vacía las excepciones.
 - Permisos que antes eran solo del ADMIN (gastos, reportes) se acotan a la sede activa salvo con
   `sedes.verTodas`, porque ahora se pueden dar por excepción.
-- **Migraciones sin aplicar**: ver `docs/fase26-pasos-migracion.md`.
+- **Migraciones aplicadas** a `taller_dev` y `taller_dev_reference`; para otros entornos, `docs/fase26-pasos-migracion.md`.
