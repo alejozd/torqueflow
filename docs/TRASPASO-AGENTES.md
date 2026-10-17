@@ -371,6 +371,11 @@ build y reiniciar:
   `~/backups/torqueflow_20261017_1302_pre_fase26.sql`). Falta desplegar en el servidor (`sudo ./deploy.sh`).
   Las migraciones `20261023120000_rol_jefe_taller` y `20261024120000_permisos_usuario` están aplicadas;
   pasos exactos en `docs/fase26-pasos-migracion.md` (migrar **todos** los schemas antes de desplegar).
+- **Backlog de la Fase 26** (revisado, sin fuga hoy; solo aparece con excepciones raras): lecturas con solo
+  `requireSession` que devuelven `precioCompra` (`listRepuestos`, `getRepuesto`, `getEntrada`); `compras.*`
+  implica ver costos (la vista previa de `entradas/[id]` da NaN sin `inventario.costos`); la ruta de uploads
+  valida solo el tenant; la auditoría de permisos se escribe aunque no cambie nada; las etiquetas del select de
+  rol (ADMIN/TECNICO/RECEPCION en crudo junto a "Jefe de taller").
 
 - **Crons sin programar en el servidor** (verificado 2026-10-15: el crontab de `alejo` no los llama, aunque `CRON_SECRET` está en el `.env`): `/api/cron/recordatorios` (los recordatorios automáticos no salen) y `/api/cron/cotizaciones-vencidas` (ya no hace falta: las cotizaciones se vencen al consultarlas). Programarlos requiere el visto bueno del usuario.
 - **Rediseño de la cotización**: falta revisión visual del usuario, merge a `main` y despliegue. Su migración
