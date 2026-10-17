@@ -22,7 +22,7 @@ const SEDE_ID = "sede-1";
 
 function resetMocks() {
   mockRequireSession.mockReset().mockResolvedValue({
-    user: { id: "u1", permisos: ["ordenes.verTodas"], tenantSchema: "taller_perez", sedeActivaId: SEDE_ID },
+    user: { id: "u1", permisos: ["ordenes.verTodas", "cartera.ver", "facturas.ver"], tenantSchema: "taller_perez", sedeActivaId: SEDE_ID },
   });
   ordenTrabajo.count.mockReset();
   ordenTrabajo.findMany.mockReset();
@@ -82,8 +82,8 @@ describe("getDashboardOverview", () => {
 
     const overview = await getDashboardOverview();
 
-    expect(overview.cartera.saldoPendiente).toBe(1250);
-    expect(overview.cartera.ventasMostradorPendientes).toBe(2);
+    expect(overview.cartera!.saldoPendiente).toBe(1250);
+    expect(overview.cartera!.ventasMostradorPendientes).toBe(2);
     expect(ventaMostrador.aggregate).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { sedeId: SEDE_ID, estado: "PENDIENTE", saldoPendiente: { gt: 0 } },
@@ -144,8 +144,8 @@ describe("getDashboardOverview", () => {
 
     const overview = await getDashboardOverview();
 
-    expect(overview.porFacturar.count).toBe(2);
-    expect(overview.porFacturar.monto).toBe(2 * 10 + 20 + 30);
+    expect(overview.porFacturar!.count).toBe(2);
+    expect(overview.porFacturar!.monto).toBe(2 * 10 + 20 + 30);
   });
 
   it("computes cartera from Factura.saldoPendiente sum and pending count, defaulting a null sum to 0", async () => {
@@ -261,9 +261,9 @@ describe("getDashboardOverview", () => {
       }),
     );
     const { facturacion } = overview;
-    expect(facturacion.dias).toHaveLength(7);
-    expect(facturacion.dias[0]!.fecha).toBe("2026-08-19");
-    expect(facturacion.dias.at(-1)).toEqual({ fecha: "2026-08-25", total: 100, cobrado: 60, pendiente: 40, facturas: 1 });
+    expect(facturacion!.dias).toHaveLength(7);
+    expect(facturacion!.dias[0]!.fecha).toBe("2026-08-19");
+    expect(facturacion!.dias.at(-1)).toEqual({ fecha: "2026-08-25", total: 100, cobrado: 60, pendiente: 40, facturas: 1 });
     expect(facturacion).toMatchObject({ total: 150, pendiente: 40, totalSemanaAnterior: 30 });
   });
 });
@@ -283,5 +283,37 @@ describe("D7: el técnico cuenta solo sus órdenes", () => {
     for (const call of [...ordenTrabajo.count.mock.calls, ...ordenTrabajo.findMany.mock.calls]) {
       expect(call[0].where).toMatchObject({ sedeId: SEDE_ID, OR });
     }
+  });
+
+  describe("plata según permisos (D8)", () => {
+    const sesion = (role: "TECNICO" | "RECEPCION") => ({
+      user: { id: "u1", permisos: permisosEfectivos({ role }), tenantSchema: "taller_perez", sedeActivaId: SEDE_ID },
+    });
+
+    it("TECNICO: cartera, por facturar y facturación son null y no se consultan", async () => {
+      mockRequireSession.mockResolvedValue(sesion("TECNICO"));
+
+      const overview = await getDashboardOverview();
+
+      expect(overview.cartera).toBeNull();
+      expect(overview.porFacturar).toBeNull();
+      expect(overview.facturacion).toBeNull();
+      expect(factura.aggregate).not.toHaveBeenCalled();
+      expect(factura.count).not.toHaveBeenCalled();
+      expect(factura.findMany).not.toHaveBeenCalled();
+      expect(ventaMostrador.aggregate).not.toHaveBeenCalled();
+      expect(JSON.stringify(overview)).not.toContain("saldoPendiente");
+    });
+
+    it("RECEPCION: devuelve cartera, por facturar y facturación", async () => {
+      mockRequireSession.mockResolvedValue(sesion("RECEPCION"));
+
+      const overview = await getDashboardOverview();
+
+      expect(overview.cartera).not.toBeNull();
+      expect(overview.porFacturar).not.toBeNull();
+      expect(overview.facturacion).not.toBeNull();
+      expect(factura.aggregate).toHaveBeenCalled();
+    });
   });
 });

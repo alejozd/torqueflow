@@ -34,10 +34,18 @@ function calcularValorInventario(bodega: BodegaConInventario): number {
 }
 
 function construirColumnas(verCostos: boolean): DataTableColumn<BodegaRow>[] {
-  return COLUMNS.filter((columna) => verCostos || columna.header !== "Valor inventario");
-}
-
-const COLUMNS: DataTableColumn<BodegaRow>[] = [
+  const columnaValor: DataTableColumn<BodegaRow>[] = verCostos
+    ? [
+        {
+          header: "Valor inventario",
+          className: "text-right",
+          cell: (bodega) => (
+            <span className="font-mono font-medium">{formatoMoneda.format(calcularValorInventario(bodega))}</span>
+          ),
+        },
+      ]
+    : [];
+  return [
   {
     header: "Bodega",
     cell: (bodega) => (
@@ -63,11 +71,7 @@ const COLUMNS: DataTableColumn<BodegaRow>[] = [
     className: "text-right",
     cell: (bodega) => <span className="font-mono">{sumarUnidades(bodega)}</span>,
   },
-  {
-    header: "Valor inventario",
-    className: "text-right",
-    cell: (bodega) => <span className="font-mono font-medium">{formatoMoneda.format(calcularValorInventario(bodega))}</span>,
-  },
+  ...columnaValor,
   {
     header: "Stock bajo",
     className: "text-right",
@@ -81,6 +85,7 @@ const COLUMNS: DataTableColumn<BodegaRow>[] = [
     },
   },
 ];
+}
 
 export default async function BodegasPage() {
   const session = await requirePermiso("inventario.ver");

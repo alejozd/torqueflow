@@ -143,19 +143,20 @@ export default async function InicioPage() {
   const mostrarVencimientos = puede(session, "vencimientos.avisar");
   const vencimientos = mostrarVencimientos ? await listVencimientos() : [];
   const kpiVencimientos = resumenKpiVencimientos(vencimientos);
-  const kpiCartera = (
+  const cartera = overview.cartera;
+  const kpiCartera = cartera ? (
     <KpiCard
       title="Cartera"
-      value={formatoMoneda.format(overview.cartera.saldoPendiente)}
+      value={formatoMoneda.format(cartera.saldoPendiente)}
       valueColor="warning"
-      subtitle={subtituloCartera(overview.cartera.facturasPendientes, overview.cartera.ventasMostradorPendientes)}
+      subtitle={subtituloCartera(cartera.facturasPendientes, cartera.ventasMostradorPendientes)}
       subtitleColor="warning"
-      highlight={overview.cartera.facturasPendientes + overview.cartera.ventasMostradorPendientes > 0}
+      highlight={cartera.facturasPendientes + cartera.ventasMostradorPendientes > 0}
       icon={<AlertCircle className={cn("size-5", KPI_TONE.warning.icon)} />}
       iconBgColor={KPI_TONE.warning.iconBg}
       className={KPI_TONE.warning.cardBg}
     />
-  );
+  ) : null;
 
   const nombre = session.user.name ?? session.user.email;
   const flujoTotal =
@@ -220,17 +221,19 @@ export default async function InicioPage() {
           className={KPI_TONE.info.cardBg}
         />
 
-        <KpiCard
-          title="Por facturar"
-          value={overview.porFacturar.count}
-          valueColor="warning"
-          subtitle={overview.porFacturar.count > 0 ? formatoMoneda.format(overview.porFacturar.monto) : undefined}
-          subtitleColor="warning"
-          highlight={overview.porFacturar.count > 0}
-          icon={<FileText className={cn("size-5", KPI_TONE.warning.icon)} />}
-          iconBgColor={KPI_TONE.warning.iconBg}
-          className={KPI_TONE.warning.cardBg}
-        />
+        {overview.porFacturar ? (
+          <KpiCard
+            title="Por facturar"
+            value={overview.porFacturar.count}
+            valueColor="warning"
+            subtitle={overview.porFacturar.count > 0 ? formatoMoneda.format(overview.porFacturar.monto) : undefined}
+            subtitleColor="warning"
+            highlight={overview.porFacturar.count > 0}
+            icon={<FileText className={cn("size-5", KPI_TONE.warning.icon)} />}
+            iconBgColor={KPI_TONE.warning.iconBg}
+            className={KPI_TONE.warning.cardBg}
+          />
+        ) : null}
 
         {/* TECNICO cannot open /cartera, so only ADMIN/RECEPCION get the link. */}
         {mostrarVencimientos ? (
@@ -418,7 +421,7 @@ export default async function InicioPage() {
         </Card>
       </div>
 
-      <FacturacionSemanaCard resumen={overview.facturacion} />
+      {overview.facturacion ? <FacturacionSemanaCard resumen={overview.facturacion} /> : null}
 
       <AlertasTallerCard diasUmbral={alertasTaller.diasUmbral} alertas={alertasTaller.alertas} />
       {verAlertasInventario ? <AlertasInventarioCard data={alertasInventario} /> : null}
