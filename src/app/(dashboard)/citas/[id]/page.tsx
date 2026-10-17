@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { notFound } from "next/navigation";
-import { requireSession } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { getCita, listCitas, listVehiculosParaCita } from "@/app/actions/cita-actions";
 import type { EstadoCita } from "@/generated/prisma-tenant";
 import { CambiarEstadoCitaForm } from "./cambiar-estado-cita-form";
@@ -67,7 +67,7 @@ const formatoDiaBogota = new Intl.DateTimeFormat("en-CA", { timeZone: "America/B
 
 export default async function CitaDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await requireSession();
+  const session = await requirePermiso("citas.ver");
 
   // getCita is a sede-scoped findFirst, so a cita from another sede arrives here
   // as null and this 404s. That is the whole IDOR boundary for this route:
@@ -177,7 +177,7 @@ export default async function CitaDetallePage({ params }: { params: Promise<{ id
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <CambiarEstadoCitaForm citaId={cita.id} estadoActual={cita.estado} />
-              {session.user.role === "ADMIN" ? (
+              {puede(session, "citas.eliminar") ? (
                 <EliminarCitaButton
                   citaId={cita.id}
                   descripcion={`${cita.vehiculo.placa} · ${formatoFechaCorta.format(cita.fechaHora)} ${formatoHora.format(cita.fechaHora)}`}

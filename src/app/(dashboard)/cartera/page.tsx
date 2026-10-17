@@ -1,7 +1,7 @@
 import { AlertCircle, Clock, Wallet } from "lucide-react";
 import { getCartera } from "@/app/actions/cartera-actions";
 import { listSedes } from "@/app/actions/sede-actions";
-import { requireRole } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { Button } from "@/components/ui/button";
 import { BotonExportar } from "@/components/boton-exportar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,14 +14,14 @@ import { CarteraTable } from "./cartera-table";
 const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
 export default async function CarteraPage({ searchParams }: { searchParams: Promise<{ sedeId?: string }> }) {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
-  const esAdmin = session.user.role === "ADMIN";
+  const session = await requirePermiso("cartera.ver");
+  const verTodasLasSedes = puede(session, "sedes.verTodas");
   const { sedeId } = await searchParams;
 
-  // Sequential, never Promise.all: both go through requireRole, which
+  // Sequential, never Promise.all: both go through requirePermiso, which
   // redirect()s by throwing.
   const cartera = await getCartera({ sedeId: sedeId || undefined });
-  const sedes = esAdmin ? await listSedes() : undefined;
+  const sedes = verTodasLasSedes ? await listSedes() : undefined;
   const nombreSede = sedes?.find((s) => s.id === cartera.sedeId)?.nombre ?? session.user.sedeActivaNombre ?? "";
   const { totales } = cartera;
 

@@ -149,6 +149,7 @@ export function NuevoUsuarioForm({
               onValueChange={roleField.onChange}
               items={[
                 { value: "ADMIN", label: "ADMIN" },
+                { value: "JEFE_TALLER", label: "Jefe de taller" },
                 { value: "TECNICO", label: "TECNICO" },
                 { value: "RECEPCION", label: "RECEPCION" },
               ]}

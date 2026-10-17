@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { sedeInputSchema } from "@/lib/validation/sede";
@@ -31,13 +31,13 @@ function parseSedeFormData(formData: FormData) {
  * see all of them, not just the one they happen to be logged into.
  */
 export async function listSedes(): Promise<Sede[]> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("sedes.verTodas");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.sede.findMany({ orderBy: { nombre: "asc" } });
 }
 
 export async function getSede(id: string): Promise<Sede | null> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("sedes.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.sede.findUnique({ where: { id } });
 }
@@ -56,7 +56,7 @@ export interface SedeConMetricas extends Sede {
  * /ordenes.
  */
 export async function listSedesConMetricas(): Promise<SedeConMetricas[]> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("sedes.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const [sedes, usuariosPorSede, ordenesPorSede] = await Promise.all([
@@ -88,7 +88,7 @@ export async function createSedeAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("sedes.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const { maxSedes } = await obtenerLimitesPlan(session.user.tenantSchema);
@@ -124,7 +124,7 @@ export async function updateSedeAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("sedes.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   try {
@@ -148,7 +148,7 @@ export async function updateSedeAction(
  * neither and nobody can log in.
  */
 export async function deleteSedeAction(id: string): Promise<void> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("sedes.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const sede = await tenantDb.sede.findUnique({ where: { id }, select: { id: true } });

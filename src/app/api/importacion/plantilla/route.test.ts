@@ -1,19 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockRequireRole = vi.fn();
-vi.mock("@/lib/auth/guards", () => ({ requireRole: (...args: unknown[]) => mockRequireRole(...args) }));
+const mockRequirePermiso = vi.fn();
+vi.mock("@/lib/auth/guards", () => ({ requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args) }));
 
 import { GET } from "./route";
 
 describe("GET /api/importacion/plantilla", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { id: "u1", role: "ADMIN" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { id: "u1", role: "ADMIN" } });
   });
 
   it("exige ADMIN o RECEPCION antes de generar nada", async () => {
     await GET();
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("importar.usar");
   });
 
   it("devuelve el xlsx como descarga con su nombre de archivo", async () => {

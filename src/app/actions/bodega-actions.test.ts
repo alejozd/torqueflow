@@ -1,10 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: () => mockRequireSession(),
+  puede: (session: { user: { permisos?: string[] } }, permiso: string) => (session.user.permisos ?? []).includes(permiso),
 }));
 
 const mockCreate = vi.fn();
@@ -55,7 +56,7 @@ const SESSION_RECEPCION = { user: { role: "RECEPCION", tenantSchema: "taller_per
 
 describe("createBodegaAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockCreate.mockReset();
     mockSedeFindFirst.mockReset();
   });
@@ -82,8 +83,8 @@ describe("createBodegaAction", () => {
     expect(mockCreate).toHaveBeenCalledWith({ data: { nombre: "Bodega norte", sedeId: "sede-1" } });
   });
 
-  it("propagates the redirect rejection and never touches the database when requireRole rejects (unauthorized)", async () => {
-    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+  it("propagates the redirect rejection and never touches the database when requirePermiso rejects (unauthorized)", async () => {
+    mockRequirePermiso.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
     const formData = new FormData();
     formData.set("nombre", "Bodega norte");
 
@@ -94,7 +95,7 @@ describe("createBodegaAction", () => {
 
 describe("updateBodegaAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION_RECEPCION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_RECEPCION);
     mockUpdateMany.mockReset();
   });
 
@@ -125,7 +126,7 @@ describe("updateBodegaAction", () => {
 
 describe("deleteBodegaAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockDeleteMany.mockReset();
     mockAuditLogCreate.mockReset();
     mockTransaction.mockClear();
@@ -136,7 +137,7 @@ describe("deleteBodegaAction", () => {
 
     await deleteBodegaAction("b1");
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("inventario.editar");
     expect(mockDeleteMany).toHaveBeenCalledWith({ where: { id: "b1", sedeId: "sede-1" } });
   });
 
@@ -149,7 +150,7 @@ describe("deleteBodegaAction", () => {
   });
 
   it("registers a BODEGA_ELIMINAR audit event when the delete actually removes a row", async () => {
-    mockRequireRole.mockResolvedValue(SESSION_ADMIN);
+    mockRequirePermiso.mockResolvedValue(SESSION_ADMIN);
     mockDeleteMany.mockResolvedValue({ count: 1 });
 
     await deleteBodegaAction("b1");
@@ -161,7 +162,7 @@ describe("deleteBodegaAction", () => {
   });
 
   it("fails closed and does not report success when the audit write itself rejects", async () => {
-    mockRequireRole.mockResolvedValue(SESSION_ADMIN);
+    mockRequirePermiso.mockResolvedValue(SESSION_ADMIN);
     mockDeleteMany.mockResolvedValue({ count: 1 });
     mockAuditLogCreate.mockRejectedValue(new Error("db down"));
 
@@ -169,7 +170,7 @@ describe("deleteBodegaAction", () => {
   });
 
   it("does not register an audit event when nothing matched the scoped delete", async () => {
-    mockRequireRole.mockResolvedValue(SESSION_ADMIN);
+    mockRequirePermiso.mockResolvedValue(SESSION_ADMIN);
     mockDeleteMany.mockResolvedValue({ count: 0 });
 
     await expect(deleteBodegaAction("b1")).rejects.toThrow();
@@ -180,7 +181,7 @@ describe("deleteBodegaAction", () => {
 
 describe("deleteBodegaFormAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockDeleteMany.mockReset();
   });
 
@@ -221,7 +222,7 @@ describe("listBodegas", () => {
 describe("listBodegasConInventario", () => {
   it("lists bodegas of the sede activa with their repuestos' stock/precio for the KPI columns", async () => {
     mockRequireSession.mockReset().mockResolvedValue({
-      user: { id: "u1", role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+      user: { id: "u1", role: "RECEPCION", permisos: ["inventario.costos"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
     });
     mockFindMany.mockReset().mockResolvedValue([
       {
@@ -243,6 +244,23 @@ describe("listBodegasConInventario", () => {
     expect(mockFindMany).toHaveBeenCalledWith({
       where: { sedeId: "sede-1" },
       include: { repuestos: { select: { stockActual: true, stockMinimo: true, precioCompra: true } } },
+      orderBy: { nombre: "asc" },
+    });
+  });
+});
+
+describe("listBodegasConInventario sin inventario.costos", () => {
+  it("no consulta precioCompra (D8)", async () => {
+    mockRequireSession.mockReset().mockResolvedValue({
+      user: { id: "u1", role: "TECNICO", permisos: ["inventario.ver"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+    });
+    mockFindMany.mockReset().mockResolvedValue([{ id: "b1", nombre: "Norte", repuestos: [{ stockActual: 1, stockMinimo: 1 }] }]);
+
+    await listBodegasConInventario();
+
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: { sedeId: "sede-1" },
+      include: { repuestos: { select: { stockActual: true, stockMinimo: true } } },
       orderBy: { nombre: "asc" },
     });
   });

@@ -13,6 +13,7 @@ import { inferirColorVehiculo } from "@/lib/color-vehiculo";
 import { esCotizacionPendienteDeSeguimiento } from "@/lib/cotizacion/seguimiento-pendiente";
 import { formatoFechaCorta, formatoFechaRelativa, inicioMesBogota } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
+import { requirePermiso } from "@/lib/auth/guards";
 
 const ESTADOS_VALIDOS: EstadoCotizacion[] = ["BORRADOR", "ENVIADA", "APROBADA", "RECHAZADA", "VENCIDA"];
 
@@ -172,6 +173,7 @@ export default async function CotizacionesPage({
 }: {
   searchParams: Promise<{ estado?: string; q?: string; pendientes?: string }>;
 }) {
+  await requirePermiso("cotizaciones.ver");
   const { estado, q, pendientes } = await searchParams;
   const estadoFiltro = ESTADOS_VALIDOS.includes(estado as EstadoCotizacion) ? (estado as EstadoCotizacion) : undefined;
   const busqueda = q?.trim().toLowerCase() ?? "";

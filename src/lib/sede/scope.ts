@@ -20,6 +20,22 @@ export function scopeOrden(sedeActivaId: string): { sedeId: string } {
   return { sedeId: sedeActivaId };
 }
 
+/**
+ * Orden visible para quien consulta (D7). Con `ordenes.verTodas` (RECEPCION,
+ * ADMIN) es la sede completa; sin él (TECNICO) solo las órdenes donde es el
+ * mecánico de la orden o de alguna línea de mano de obra.
+ *
+ * Trae su propio `OR`: quien lo combine con otro `OR` debe usar `AND`, porque
+ * un spread lo pisaría en silencio.
+ */
+export function scopeOrdenVisible(sedeActivaId: string, usuarioId: string, verTodas: boolean) {
+  if (verTodas) return scopeOrden(sedeActivaId);
+  return {
+    ...scopeOrden(sedeActivaId),
+    OR: [{ mecanicoId: usuarioId }, { manoDeObra: { some: { mecanicoId: usuarioId } } }],
+  };
+}
+
 /** Cita.sedeId is a required, indexed column -- an appointment is made *at* a sede. */
 export function scopeCita(sedeActivaId: string): { sedeId: string } {
   return { sedeId: sedeActivaId };

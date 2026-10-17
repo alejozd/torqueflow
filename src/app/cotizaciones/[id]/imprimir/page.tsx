@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCotizacion } from "@/app/actions/cotizacion-actions";
+import { requirePermiso } from "@/lib/auth/guards";
 import type { EstadoCotizacion } from "@/generated/prisma-tenant";
 import { formatoFechaCorta } from "@/lib/fecha-bogota";
 import { agruparConceptos, conceptosDesdeItems, importeConcepto, type ConceptoVista } from "@/lib/cotizacion/agrupar-conceptos";
@@ -42,6 +43,8 @@ function FilaConcepto({ concepto, dentroDeKit }: { concepto: ConceptoVista; dent
 }
 
 export default async function ImprimirCotizacionPage({ params }: { params: Promise<{ id: string }> }) {
+  // `getCotizacion` solo pide sesión: el permiso va aquí (Fase 26, I3).
+  await requirePermiso("cotizaciones.ver");
   const { id } = await params;
   const cotizacion = await getCotizacion(id);
 

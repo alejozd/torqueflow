@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { puede, requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
+import { scopeFactura, scopeOrdenVisible } from "@/lib/sede/scope";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { clienteInputSchema } from "@/lib/validation/cliente";
 import type { Cliente, Prisma } from "@/generated/prisma-tenant";
@@ -103,17 +104,21 @@ export async function listClientesParaOrden(): Promise<ClienteParaOrden[]> {
 // its historial de servicio table needs one row per orden, and its resumen
 // financiero needs both the total invoiced and the still-pending balance --
 // all derived client-side in the page from this single fetch.
+const ORDEN_DE_CLIENTE_SELECT = {
+  id: true,
+  estado: true,
+  vehiculoId: true,
+  kilometrajeIngreso: true,
+  sintomas: true,
+  createdAt: true,
+} satisfies Prisma.OrdenTrabajoSelect;
+
 const CLIENTE_DETALLE_INCLUDE = {
   vehiculos: true,
   ordenes: {
     orderBy: { createdAt: "desc" },
     select: {
-      id: true,
-      estado: true,
-      vehiculoId: true,
-      kilometrajeIngreso: true,
-      sintomas: true,
-      createdAt: true,
+      ...ORDEN_DE_CLIENTE_SELECT,
       // Only a ya-facturada orden has a committed total; an orden still in
       // progress has none to show yet.
       factura: { select: { total: true } },
@@ -124,10 +129,37 @@ const CLIENTE_DETALLE_INCLUDE = {
 
 export type ClienteDetalle = Prisma.ClienteGetPayload<{ include: typeof CLIENTE_DETALLE_INCLUDE }>;
 
+/**
+ * Fase 26, I4: las órdenes van acotadas como en el resto de la app (sede activa
+ * y, sin `ordenes.verTodas`, solo las propias; D7), y la plata (facturas y el
+ * total de cada orden) solo se pide a la base con `facturas.ver` (D8). Sin ese
+ * permiso vuelven `facturas: []` y `factura: null`, y la página no muestra cifras.
+ */
 export async function getCliente(id: string): Promise<ClienteDetalle | null> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  return tenantDb.cliente.findUnique({ where: { id }, include: CLIENTE_DETALLE_INCLUDE });
+  const ordenesWhere = scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas"));
+
+  if (puede(session, "facturas.ver")) {
+    return tenantDb.cliente.findUnique({
+      where: { id },
+      include: {
+        ...CLIENTE_DETALLE_INCLUDE,
+        ordenes: { where: ordenesWhere, ...CLIENTE_DETALLE_INCLUDE.ordenes },
+        facturas: { where: scopeFactura(session.user.sedeActivaId), ...CLIENTE_DETALLE_INCLUDE.facturas },
+      },
+    });
+  }
+
+  const cliente = await tenantDb.cliente.findUnique({
+    where: { id },
+    include: {
+      vehiculos: true,
+      ordenes: { where: ordenesWhere, orderBy: { createdAt: "desc" }, select: ORDEN_DE_CLIENTE_SELECT },
+    },
+  });
+  if (!cliente) return null;
+  return { ...cliente, ordenes: cliente.ordenes.map((orden) => ({ ...orden, factura: null })), facturas: [] };
 }
 
 export async function createClienteAction(
@@ -139,7 +171,7 @@ export async function createClienteAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("clientes.editar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   let cliente: Cliente;
@@ -170,7 +202,7 @@ export async function updateClienteAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("clientes.editar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   try {
@@ -200,7 +232,7 @@ export async function updateClienteAction(
  * Its history-free vehículos go with it, in the same transaction.
  */
 export async function deleteClienteAction(id: string): Promise<void> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("clientes.eliminar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const cliente = await tenantDb.cliente.findUnique({

@@ -194,3 +194,28 @@ describe("usuarioUpdateInputSchema", () => {
     expect(result.success).toBe(false);
   });
 });
+
+describe("sedes para JEFE_TALLER", () => {
+  const base = {
+    nombre: "Jefe Uno",
+    email: "jefe@taller.test",
+    password: "contraseña-larga",
+    role: "JEFE_TALLER",
+    activo: "true",
+    sedeDefectoId: "",
+  };
+
+  it("exige al menos una sede, como cualquier rol que no sea ADMIN", () => {
+    const result = usuarioCreateInputSchema.safeParse({ ...base, sedeIds: [] });
+    expect(result.success).toBe(false);
+  });
+
+  it("acepta un jefe de taller con sede", () => {
+    expect(usuarioCreateInputSchema.safeParse({ ...base, sedeIds: ["sede-1"] }).success).toBe(true);
+  });
+
+  it("rechaza una sede por defecto que no esté entre sus sedes", () => {
+    const result = usuarioCreateInputSchema.safeParse({ ...base, sedeIds: ["sede-1"], sedeDefectoId: "sede-2" });
+    expect(result.success).toBe(false);
+  });
+});

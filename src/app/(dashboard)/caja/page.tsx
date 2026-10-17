@@ -2,7 +2,7 @@ import { Banknote, CreditCard, Landmark, TrendingDown } from "lucide-react";
 import { getCajaActual, listCajasCerradas } from "@/app/actions/caja-actions";
 import { getOpcionesTaller } from "@/app/actions/configuracion-taller-actions";
 import { listSedes } from "@/app/actions/sede-actions";
-import { requireRole } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { periodoActualBogota } from "@/lib/gastos/periodo";
 import { periodoSchema } from "@/lib/validation/gasto";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -27,19 +27,19 @@ export default async function CajaPage({
 }: {
   searchParams: Promise<{ sedeId?: string; periodo?: string }>;
 }) {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
-  const esAdmin = session.user.role === "ADMIN";
+  const session = await requirePermiso("caja.usar");
+  const verTodasLasSedes = puede(session, "sedes.verTodas");
   const { sedeId: sedePedida, periodo: periodoPedido } = await searchParams;
   const periodo = periodoSchema.safeParse(periodoPedido).success
     ? (periodoPedido as string)
     : periodoActualBogota(new Date());
 
-  // Sequential, never Promise.all: each one goes through requireRole, which
+  // Sequential, never Promise.all: each one goes through requirePermiso, which
   // redirect()s by throwing.
   const actual = await getCajaActual({ sedeId: sedePedida || undefined });
   const historial = await listCajasCerradas({ sedeId: actual.sedeId, periodo });
   const { usarControlCaja } = await getOpcionesTaller();
-  const sedes = esAdmin ? await listSedes() : undefined;
+  const sedes = verTodasLasSedes ? await listSedes() : undefined;
   const sedesOpciones = sedes?.map((s) => ({ id: s.id, nombre: s.nombre }));
   const nombreSede = sedes?.find((s) => s.id === actual.sedeId)?.nombre ?? session.user.sedeActivaNombre ?? "";
   const { caja, resumen } = actual;

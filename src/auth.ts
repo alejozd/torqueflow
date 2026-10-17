@@ -3,7 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { authorizeCredentials } from "@/lib/auth/authorize-credentials";
 import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth/session-timing";
 import { resolveSedeActiva } from "@/lib/auth/sede-access";
-import type { Role } from "@/lib/auth/guards";
+import type { Role } from "@/lib/auth/permisos";
 import { getTenantDb } from "@/lib/db/tenant-client";
 
 export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
@@ -57,7 +57,8 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
     },
     async session({ session, token }) {
       session.user.id = token.sub as string;
-      session.user.role = token.role as "ADMIN" | "TECNICO" | "RECEPCION";
+      session.user.role = token.role as Role;
+      session.user.permisos = [];
       session.user.tenantSlug = token.tenantSlug as string;
       session.user.tenantSchema = token.tenantSchema as string;
       // JWT.sedeActivaId is optional; Session.user.sedeActivaId is a string

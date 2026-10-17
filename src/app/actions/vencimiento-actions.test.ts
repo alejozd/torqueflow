@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: () => mockRequireSession(),
 }));
 const mockVehiculoFindMany = vi.fn();
@@ -29,7 +29,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-10-10T15:00:00Z"));
   mockRequireSession.mockReset().mockResolvedValue(SESION);
-  mockRequireRole.mockReset().mockResolvedValue(SESION);
+  mockRequirePermiso.mockReset().mockResolvedValue(SESION);
   mockVehiculoFindMany.mockReset();
   mockVehiculoFindUnique.mockReset();
   mockAvisoUpsert.mockReset().mockResolvedValue({});
@@ -97,7 +97,7 @@ describe("registrarAvisoWhatsappAction", () => {
   it("exige ADMIN o RECEPCION", async () => {
     mockVehiculoFindUnique.mockResolvedValue(null);
     await registrarAvisoWhatsappAction("v1", "SOAT");
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("vencimientos.avisar");
   });
 
   it("registra el aviso WHATSAPP con el usuario que lo envió", async () => {

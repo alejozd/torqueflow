@@ -51,13 +51,13 @@ export function DviChecklistForm({
   ordenId,
   checklist,
   items: initialItems,
-  esAdmin = false,
+  puedeConfigurarChecklist = false,
   soloLectura = false,
 }: {
   ordenId: string;
   checklist: DviChecklist | null;
   items: DviChecklistItem[];
-  esAdmin?: boolean;
+  puedeConfigurarChecklist?: boolean;
   /** Invoiced/closed orden: show the saved values, offer no edit controls (the actions would refuse them). */
   soloLectura?: boolean;
 }) {
@@ -161,7 +161,7 @@ export function DviChecklistForm({
                     </button>
                   ))}
                 </div>
-                {esAdmin && !soloLectura ? (
+                {puedeConfigurarChecklist && !soloLectura ? (
                   <Button
                     type="button"
                     variant="ghost"
@@ -180,14 +180,14 @@ export function DviChecklistForm({
           })}
         </div>
 
-        {esAdmin && !soloLectura ? (
+        {puedeConfigurarChecklist && !soloLectura ? (
           <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => setNuevoItemOpen(true)}>
             <Plus className="size-3.5" />
             Agregar ítem
           </Button>
         ) : null}
 
-        {esAdmin && !soloLectura && itemsInactivos.length > 0 ? (
+        {puedeConfigurarChecklist && !soloLectura && itemsInactivos.length > 0 ? (
           <div className="flex flex-col gap-2">
             <Button
               type="button"
@@ -252,7 +252,7 @@ export function DviChecklistForm({
         <p className="text-xs text-muted-foreground">La orden ya está facturada o cerrada: el checklist queda solo de consulta.</p>
       ) : null}
 
-      {esAdmin ? (
+      {puedeConfigurarChecklist ? (
         <NuevoDviChecklistItemDialog
           open={nuevoItemOpen}
           onOpenChange={setNuevoItemOpen}

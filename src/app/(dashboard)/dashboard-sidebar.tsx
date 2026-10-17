@@ -45,12 +45,15 @@ import {
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { tienePermiso, type Permiso } from "@/lib/auth/permisos";
 
 interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
   badgeCount?: number | null;
+  /** Sin permiso, el ítem lo ve cualquier usuario. */
+  permiso?: Permiso;
 }
 
 interface NavGroup {
@@ -62,6 +65,19 @@ interface NavGroup {
 // sits at "/" itself, not under any of the labeled groups below.
 const INICIO: NavItem = { href: "/", label: "Inicio", icon: Home };
 
+// Los ítems con `permiso` se filtran por los permisos del usuario; un grupo
+// que se queda sin ítems no se pinta.
+const MOSTRADOR: NavItem = { href: "/mostrador", label: "Mostrador", icon: Store, permiso: "mostrador.vender" };
+
+const GASTOS: NavItem = { href: "/gastos", label: "Gastos", icon: Wallet, permiso: "gastos.registrar" };
+const CAJA: NavItem = { href: "/caja", label: "Caja", icon: Landmark, permiso: "caja.usar" };
+const CARTERA: NavItem = { href: "/cartera", label: "Cartera", icon: HandCoins, permiso: "cartera.ver" };
+const CUENTAS_POR_PAGAR: NavItem = {
+  href: "/cuentas-por-pagar", label: "Cuentas por pagar", icon: CreditCard, permiso: "cuentasPorPagar.usar",
+};
+const SERVICIOS: NavItem = { href: "/servicios", label: "Servicios", icon: ListChecks, permiso: "servicios.gestionar" };
+const IMPORTAR: NavItem = { href: "/importar", label: "Importar", icon: FileSpreadsheet, permiso: "importar.usar" };
+
 const OPERACION: NavGroup = {
   label: "Operación",
   items: [
@@ -70,24 +86,14 @@ const OPERACION: NavGroup = {
     { href: "/ordenes", label: "Órdenes", icon: Wrench },
     { href: "/citas", label: "Citas", icon: CalendarDays },
     { href: "/vencimientos", label: "Vencimientos", icon: ShieldAlert },
-    { href: "/facturas", label: "Facturas", icon: Receipt },
+    { href: "/facturas", label: "Facturas", icon: Receipt, permiso: "facturas.ver" },
+    MOSTRADOR,
+    CAJA,
+    CARTERA,
+    CUENTAS_POR_PAGAR,
+    GASTOS,
   ],
 };
-
-// Vender en el mostrador es cobrar: lo ven ADMIN y RECEPCION, como la caja
-// (fase de consolidación, D6).
-const MOSTRADOR: NavItem = { href: "/mostrador", label: "Mostrador", icon: Store };
-
-const GASTOS: NavItem = { href: "/gastos", label: "Gastos", icon: Wallet };
-const CAJA: NavItem = { href: "/caja", label: "Caja", icon: Landmark };
-const CARTERA: NavItem = { href: "/cartera", label: "Cartera", icon: HandCoins };
-const CUENTAS_POR_PAGAR: NavItem = { href: "/cuentas-por-pagar", label: "Cuentas por pagar", icon: CreditCard };
-// El catálogo de servicios se administra solo como ADMIN, pero el grupo
-// Inventario lo ve todo el mundo: el ítem se agrega condicionalmente abajo.
-const SERVICIOS: NavItem = { href: "/servicios", label: "Servicios", icon: ListChecks };
-// Importar desde Excel lo hacen ADMIN y RECEPCION (carga inicial de datos); el
-// ítem vive en Administración, que se arma según el rol en el componente.
-const IMPORTAR: NavItem = { href: "/importar", label: "Importar", icon: FileSpreadsheet };
 
 const INVENTARIO: NavGroup = {
   label: "Inventario",
@@ -97,18 +103,20 @@ const INVENTARIO: NavGroup = {
     { href: "/repuestos", label: "Repuestos", icon: Package },
     { href: "/pedidos-compra", label: "Pedidos", icon: ClipboardList },
     { href: "/entradas-mercancia", label: "Entradas", icon: PackagePlus },
+    SERVICIOS,
   ],
 };
 
 const ADMINISTRACION: NavGroup = {
   label: "Administración",
   items: [
-    { href: "/reportes", label: "Reportes", icon: BarChart3 },
-    { href: "/liquidaciones", label: "Liquidaciones", icon: Coins },
-    { href: "/sedes", label: "Sedes", icon: MapPin },
-    { href: "/usuarios", label: "Usuarios", icon: UserCog },
-    { href: "/auditoria", label: "Auditoría", icon: History },
-    { href: "/configuracion-smtp", label: "SMTP", icon: Mail },
+    { href: "/reportes", label: "Reportes", icon: BarChart3, permiso: "reportes.productividad" },
+    { href: "/liquidaciones", label: "Liquidaciones", icon: Coins, permiso: "liquidaciones.gestionar" },
+    { href: "/sedes", label: "Sedes", icon: MapPin, permiso: "sedes.gestionar" },
+    { href: "/usuarios", label: "Usuarios", icon: UserCog, permiso: "usuarios.gestionar" },
+    { href: "/auditoria", label: "Auditoría", icon: History, permiso: "auditoria.ver" },
+    { href: "/configuracion-smtp", label: "SMTP", icon: Mail, permiso: "configuracion.taller" },
+    IMPORTAR,
   ],
 };
 
@@ -184,9 +192,7 @@ export interface SidebarPlanInfo {
 }
 
 export function DashboardSidebar({
-  esAdmin,
-  puedeVerFinanzas,
-  puedeImportar,
+  permisos,
   tenantSlug,
   plan,
   cotizacionesPendientesSeguimiento,
@@ -195,9 +201,7 @@ export function DashboardSidebar({
   facturasPendientes,
   repuestosStockBajo,
 }: {
-  esAdmin: boolean;
-  puedeVerFinanzas: boolean;
-  puedeImportar: boolean;
+  permisos: Permiso[];
   tenantSlug: string;
   plan: SidebarPlanInfo | null;
   cotizacionesPendientesSeguimiento?: number;
@@ -207,16 +211,13 @@ export function DashboardSidebar({
   repuestosStockBajo?: number;
 }) {
   const pathname = usePathname();
-  const operacion = puedeVerFinanzas
-    ? { ...OPERACION, items: [...OPERACION.items, MOSTRADOR, CAJA, CARTERA, CUENTAS_POR_PAGAR, GASTOS] }
-    : OPERACION;
-  const inventario = esAdmin ? { ...INVENTARIO, items: [...INVENTARIO.items, SERVICIOS] } : INVENTARIO;
-  // Administración es de ADMIN, pero "Importar" también lo ve RECEPCION: para
-  // ese rol el grupo queda con ese único ítem (y con ninguno, no se pinta).
-  const administracion: NavGroup = {
-    ...ADMINISTRACION,
-    items: esAdmin ? [...ADMINISTRACION.items, IMPORTAR] : puedeImportar ? [IMPORTAR] : [],
-  };
+  const visibles = (grupo: NavGroup): NavGroup => ({
+    ...grupo,
+    items: grupo.items.filter((item) => !item.permiso || tienePermiso(permisos, item.permiso)),
+  });
+  const operacion = visibles(OPERACION);
+  const inventario = visibles(INVENTARIO);
+  const administracion = visibles(ADMINISTRACION);
 
   return (
     <div className="dark">
@@ -244,21 +245,25 @@ export function DashboardSidebar({
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-          <NavGroupSection
-            group={operacion}
-            pathname={pathname}
-            badgeCountByHref={{
-              "/cotizaciones": cotizacionesPendientesSeguimiento,
-              "/ordenes": ordenesEnTaller,
-              "/citas": citasHoy,
-              "/facturas": facturasPendientes,
-            }}
-          />
-          <NavGroupSection
-            group={inventario}
-            pathname={pathname}
-            badgeCountByHref={{ "/repuestos": repuestosStockBajo }}
-          />
+          {operacion.items.length > 0 ? (
+            <NavGroupSection
+              group={operacion}
+              pathname={pathname}
+              badgeCountByHref={{
+                "/cotizaciones": cotizacionesPendientesSeguimiento,
+                "/ordenes": ordenesEnTaller,
+                "/citas": citasHoy,
+                "/facturas": facturasPendientes,
+              }}
+            />
+          ) : null}
+          {inventario.items.length > 0 ? (
+            <NavGroupSection
+              group={inventario}
+              pathname={pathname}
+              badgeCountByHref={{ "/repuestos": repuestosStockBajo }}
+            />
+          ) : null}
           {administracion.items.length > 0 ? (
             <NavGroupSection group={administracion} pathname={pathname} />
           ) : null}

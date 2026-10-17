@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockRequireRole = vi.fn();
-vi.mock("@/lib/auth/guards", () => ({ requireRole: (...a: unknown[]) => mockRequireRole(...a), requireSession: vi.fn() }));
+const mockRequirePermiso = vi.fn();
+import { permisosEfectivos } from "@/lib/auth/permisos";
+vi.mock("@/lib/auth/guards", () => ({ requirePermiso: (...a: unknown[]) => mockRequirePermiso(...a),
+  requireSession: vi.fn(),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso), }));
 const db = {
   gastoRecurrente: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   gasto: { create: vi.fn() },
@@ -13,25 +16,68 @@ vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import {
+  actualizarGastoRecurrenteAction,
   confirmarRecurrenteAction,
   crearGastoRecurrenteAction,
+  listPlantillasRecurrentes,
   listRecurrentesPendientes,
   omitirRecurrenteAction,
   toggleGastoRecurrenteActivoAction,
 } from "./gasto-recurrente-actions";
 
 const inicial = { error: null, success: false };
-const ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "t", sedeActivaId: "s1" } };
+const ADMIN = { user: { id: "u1", role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }), tenantSchema: "t", sedeActivaId: "s1" } };
+const RECEPCION_ADMINISTRA = {
+  user: {
+    id: "u2",
+    role: "RECEPCION",
+    permisos: permisosEfectivos({ role: "RECEPCION", agregados: ["gastos.administrar"] }),
+    tenantSchema: "t",
+    sedeActivaId: "s1",
+  },
+};
 
 beforeEach(() => {
   vi.resetAllMocks();
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-10-15T15:00:00Z"));
-  mockRequireRole.mockResolvedValue(ADMIN);
+  mockRequirePermiso.mockResolvedValue(ADMIN);
 });
 afterEach(() => vi.useRealTimers());
 
 describe("gastos recurrentes", () => {
+  it("listPlantillasRecurrentes acota a la sede activa sin sedes.verTodas y no filtra con ella", async () => {
+    db.gastoRecurrente.findMany.mockResolvedValue([]);
+    mockRequirePermiso.mockResolvedValue(RECEPCION_ADMINISTRA);
+    await listPlantillasRecurrentes();
+    expect(db.gastoRecurrente.findMany.mock.calls[0][0].where).toEqual({ sedeId: "s1" });
+
+    mockRequirePermiso.mockResolvedValue(ADMIN);
+    await listPlantillasRecurrentes();
+    expect(db.gastoRecurrente.findMany.mock.calls[1][0].where).toBeUndefined();
+  });
+
+  it("con gastos.administrar pero sin sedes.verTodas no toca plantillas de otra sede (I2)", async () => {
+    mockRequirePermiso.mockResolvedValue(RECEPCION_ADMINISTRA);
+    db.gastoRecurrente.findUnique.mockResolvedValue({ id: "r2", sedeId: "s2", categoriaId: "c", descripcion: "A", desde: "2026-08", activo: true });
+    db.categoriaGasto.findUnique.mockResolvedValue({ id: "c", activo: true });
+    const plantilla = new FormData();
+    for (const [k, v] of Object.entries({ categoriaId: "c", descripcion: "A", montoEstimado: "1000", diaDelMes: "5", desde: "2026-08" })) {
+      plantilla.set(k, v);
+    }
+    const confirmar = new FormData();
+    confirmar.set("monto", "1000");
+    confirmar.set("fecha", "2026-10-05");
+
+    expect(await toggleGastoRecurrenteActivoAction("r2")).toEqual({ error: "Plantilla no encontrada" });
+    expect(await omitirRecurrenteAction("r2", "2026-10")).toEqual({ error: "Plantilla no encontrada" });
+    expect(await confirmarRecurrenteAction("r2", "2026-10", inicial, confirmar)).toEqual({ error: "Plantilla no encontrada", success: false });
+    expect(await actualizarGastoRecurrenteAction("r2", inicial, plantilla)).toEqual({ error: "Plantilla no encontrada", success: false });
+    expect(db.gastoRecurrente.update).not.toHaveBeenCalled();
+    expect(db.gasto.create).not.toHaveBeenCalled();
+    expect(db.gastoRecurrenteOmitido.create).not.toHaveBeenCalled();
+  });
+
   it("listRecurrentesPendientes arma periodos resueltos con gastos y omisiones", async () => {
     db.gastoRecurrente.findMany.mockResolvedValue([
       { id: "r1", descripcion: "Arriendo", categoria: { nombre: "Arriendo" }, montoEstimado: { toString: () => "1500000" },
@@ -83,15 +129,15 @@ describe("gastos recurrentes", () => {
   it("confirmar/omitir/plantillas exigen ADMIN; pendientes admite RECEPCION", async () => {
     db.gastoRecurrente.findMany.mockResolvedValue([]);
     await listRecurrentesPendientes({});
-    expect(mockRequireRole).toHaveBeenLastCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenLastCalledWith("gastos.registrar");
 
     db.gastoRecurrente.findUnique.mockResolvedValue(null);
     await omitirRecurrenteAction("r1", "2026-10");
-    expect(mockRequireRole).toHaveBeenLastCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenLastCalledWith("gastos.administrar");
     await confirmarRecurrenteAction("r1", "2026-10", inicial, new FormData());
-    expect(mockRequireRole).toHaveBeenLastCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenLastCalledWith("gastos.administrar");
     await toggleGastoRecurrenteActivoAction("r1");
-    expect(mockRequireRole).toHaveBeenLastCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenLastCalledWith("gastos.administrar");
   });
 
   it("crearGastoRecurrenteAction valida categoría activa y sede", async () => {

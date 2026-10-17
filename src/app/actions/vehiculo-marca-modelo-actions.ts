@@ -1,6 +1,6 @@
 "use server";
 
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { marcaVehiculoInputSchema, modeloVehiculoInputSchema } from "@/lib/validation/vehiculo-marca-modelo";
@@ -58,7 +58,7 @@ export async function crearMarcaVehiculoAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("vehiculos.catalogo");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   try {
@@ -82,7 +82,7 @@ export async function crearModeloVehiculoAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("vehiculos.catalogo");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   try {

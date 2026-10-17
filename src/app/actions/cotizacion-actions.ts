@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
@@ -187,7 +187,7 @@ export async function crearCotizacionAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false, cotizacionId: null };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("cotizaciones.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const vehiculo = await tenantDb.vehiculo.findUnique({
@@ -217,7 +217,7 @@ export async function crearCotizacionAction(
 }
 
 export async function eliminarItemCotizacionAction(id: string, cotizacionId: string): Promise<void> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("cotizaciones.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const cotizacion = await tenantDb.cotizacion.findFirst({
@@ -265,7 +265,7 @@ export async function actualizarDescuentoCotizacionAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("cotizaciones.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const cotizacion = await tenantDb.cotizacion.findFirst({
@@ -315,7 +315,7 @@ export async function enviarCotizacionAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("cotizaciones.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const cotizacion = await tenantDb.cotizacion.findFirst({
@@ -418,7 +418,7 @@ export async function aprobarCotizacionAction(
   _prevState: AprobarCotizacionFormState,
   _formData: FormData,
 ): Promise<AprobarCotizacionFormState> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("cotizaciones.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   // Una pantalla abierta antes del vencimiento no debe poder aprobarla después.
   await vencerCotizacionesPasadas(session.user.tenantSchema);
@@ -501,7 +501,7 @@ export async function rechazarCotizacionAction(
   _prevState: RechazarCotizacionFormState,
   _formData: FormData,
 ): Promise<RechazarCotizacionFormState> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("cotizaciones.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const cotizacion = await tenantDb.cotizacion.findFirst({

@@ -45,7 +45,7 @@ describe("TableroOrdenes", () => {
   });
 
   it("un clic en cualquier parte de la tarjeta abre la orden", async () => {
-    render(<TableroOrdenes columnas={columnas(tarjeta())} />);
+    render(<TableroOrdenes columnas={columnas(tarjeta())} puedeAnularOrdenes />);
 
     await userEvent.click(screen.getByText("Ana", { exact: false }));
 
@@ -53,7 +53,7 @@ describe("TableroOrdenes", () => {
   });
 
   it("abrir el menú o elegir en él no abre la orden", async () => {
-    render(<TableroOrdenes columnas={columnas(tarjeta())} />);
+    render(<TableroOrdenes columnas={columnas(tarjeta())} puedeAnularOrdenes />);
 
     await userEvent.click(screen.getByRole("button", { name: "Mover la orden ABC123" }));
     await userEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "Terminada" }));
@@ -62,7 +62,7 @@ describe("TableroOrdenes", () => {
   });
 
   it("pinta las columnas con su conteo y las tarjetas", () => {
-    render(<TableroOrdenes columnas={columnas(tarjeta(), tarjeta({ id: "o2", placa: "XYZ789", estado: "TERMINADA" }))} />);
+    render(<TableroOrdenes columnas={columnas(tarjeta(), tarjeta({ id: "o2", placa: "XYZ789", estado: "TERMINADA" }))} puedeAnularOrdenes />);
 
     expect(screen.getByText("En proceso")).toBeInTheDocument();
     expect(screen.getByText("Terminada")).toBeInTheDocument();
@@ -75,6 +75,7 @@ describe("TableroOrdenes", () => {
     render(
       <TableroOrdenes
         columnas={columnas(tarjeta({ prioridad: "URGENTE", alertaDias: 6, alertaMotivo: "ESTANCADA" }))}
+        puedeAnularOrdenes
       />,
     );
 
@@ -83,7 +84,7 @@ describe("TableroOrdenes", () => {
   });
 
   it("ofrece el menú de mover con la prioridad y la alerta visibles", () => {
-    render(<TableroOrdenes columnas={columnas(tarjeta())} />);
+    render(<TableroOrdenes columnas={columnas(tarjeta())} puedeAnularOrdenes />);
 
     expect(screen.getByRole("button", { name: "Mover la orden ABC123" })).toBeInTheDocument();
   });
@@ -91,7 +92,7 @@ describe("TableroOrdenes", () => {
   it("al abrir el menú muestra 'Mover a…' con los destinos y anular (antes rompía la página)", async () => {
     // Base UI exige que el título del menú vaya dentro de un grupo: suelto, abrir
     // el menú lanzaba "MenuGroupContext is missing" y la página quedaba en negro.
-    render(<TableroOrdenes columnas={columnas(tarjeta())} />);
+    render(<TableroOrdenes columnas={columnas(tarjeta())} puedeAnularOrdenes />);
 
     await userEvent.click(screen.getByRole("button", { name: "Mover la orden ABC123" }));
 
@@ -102,7 +103,7 @@ describe("TableroOrdenes", () => {
   });
 
   it("elegir un destino en el menú mueve la orden", async () => {
-    render(<TableroOrdenes columnas={columnas(tarjeta())} />);
+    render(<TableroOrdenes columnas={columnas(tarjeta())} puedeAnularOrdenes />);
 
     await userEvent.click(screen.getByRole("button", { name: "Mover la orden ABC123" }));
     await userEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "Terminada" }));
@@ -113,7 +114,7 @@ describe("TableroOrdenes", () => {
   });
 
   it("anular desde el menú pide confirmación antes de anular", async () => {
-    render(<TableroOrdenes columnas={columnas(tarjeta())} />);
+    render(<TableroOrdenes columnas={columnas(tarjeta())} puedeAnularOrdenes />);
 
     await userEvent.click(screen.getByRole("button", { name: "Mover la orden ABC123" }));
     await userEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "Anular" }));
@@ -125,7 +126,7 @@ describe("TableroOrdenes", () => {
   });
 
   it("el menú de una orden terminada ofrece ir al acta para entregarla", async () => {
-    render(<TableroOrdenes columnas={columnas(tarjeta({ estado: "TERMINADA" }))} />);
+    render(<TableroOrdenes columnas={columnas(tarjeta({ estado: "TERMINADA" }))} puedeAnularOrdenes />);
 
     await userEvent.click(screen.getByRole("button", { name: "Mover la orden ABC123" }));
 
@@ -138,13 +139,13 @@ describe("TableroOrdenes", () => {
 
   it("una orden terminada sigue ofreciendo el menú, aunque no tenga destinos de arrastre", () => {
     // Su único camino es firmar el acta, así que el menú no puede desaparecer.
-    render(<TableroOrdenes columnas={columnas(tarjeta({ estado: "TERMINADA" }))} />);
+    render(<TableroOrdenes columnas={columnas(tarjeta({ estado: "TERMINADA" }))} puedeAnularOrdenes />);
 
     expect(screen.getByRole("button", { name: "Mover la orden ABC123" })).toBeInTheDocument();
   });
 
   it("arrastrar a una columna válida mueve la orden", async () => {
-    render(<TableroOrdenes columnas={columnas(tarjeta())} />);
+    render(<TableroOrdenes columnas={columnas(tarjeta())} puedeAnularOrdenes />);
 
     const origen = screen.getByText("ABC123").closest("[draggable]")!;
     const destino = screen.getByText("Terminada").closest("[data-columna]")!;
@@ -158,7 +159,7 @@ describe("TableroOrdenes", () => {
   });
 
   it("no deja soltar en una columna inválida ni en Entregada", async () => {
-    render(<TableroOrdenes columnas={columnas(tarjeta({ estado: "BORRADOR" }))} />);
+    render(<TableroOrdenes columnas={columnas(tarjeta({ estado: "BORRADOR" }))} puedeAnularOrdenes />);
 
     const origen = screen.getByText("ABC123").closest("[draggable]")!;
     fireEvent.dragStart(origen);
@@ -173,7 +174,7 @@ describe("TableroOrdenes", () => {
   });
 
   it("soltar en la misma columna no hace nada", async () => {
-    render(<TableroOrdenes columnas={columnas(tarjeta({ estado: "BORRADOR" }))} />);
+    render(<TableroOrdenes columnas={columnas(tarjeta({ estado: "BORRADOR" }))} puedeAnularOrdenes />);
 
     const origen = screen.getByText("ABC123").closest("[draggable]")!;
     const misma = screen.getByText("Borrador").closest("[data-columna]")!;
@@ -185,7 +186,7 @@ describe("TableroOrdenes", () => {
   });
 
   it("una orden ya no editable no se arrastra ni ofrece menú", () => {
-    render(<TableroOrdenes columnas={columnas(tarjeta({ estado: "ENTREGADA", movible: false }))} />);
+    render(<TableroOrdenes columnas={columnas(tarjeta({ estado: "ENTREGADA", movible: false }))} puedeAnularOrdenes />);
 
     expect(screen.queryByRole("button", { name: "Mover la orden ABC123" })).not.toBeInTheDocument();
     expect(screen.getByText("ABC123").closest("[draggable='false']")).not.toBeNull();
@@ -194,7 +195,7 @@ describe("TableroOrdenes", () => {
   it("muestra el error de la acción sin romper el tablero", async () => {
     const { toast } = await import("sonner");
     mockUpdateEstado.mockResolvedValue({ error: "No se puede cambiar de BORRADOR a TERMINADA", advertencia: null });
-    render(<TableroOrdenes columnas={columnas(tarjeta({ estado: "BORRADOR" }))} />);
+    render(<TableroOrdenes columnas={columnas(tarjeta({ estado: "BORRADOR" }))} puedeAnularOrdenes />);
 
     const origen = screen.getByText("ABC123").closest("[draggable]")!;
     const destino = screen.getByText("En proceso").closest("[data-columna]")!;
@@ -204,5 +205,11 @@ describe("TableroOrdenes", () => {
 
     // El aviso llega después de esperar la acción, así que hay que darle turno.
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("No se puede cambiar de BORRADOR a TERMINADA"));
+  });
+
+  it("puedeAnularOrdenes es obligatorio: si se olvida no compila, en vez de quedar abierto (M4)", () => {
+    // @ts-expect-error -- sin puedeAnularOrdenes el tablero no debe compilar.
+    const elemento = <TableroOrdenes columnas={columnas(tarjeta())} />;
+    expect(elemento).toBeTruthy();
   });
 });

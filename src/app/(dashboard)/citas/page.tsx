@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Calendar, Car, CheckCircle, Clock, XCircle } from "lucide-react";
-import { requireSession } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import {
   listCitas,
   listVehiculosParaCita,
@@ -320,7 +320,7 @@ export default async function CitasPage({
   // requireSession() here is redundant with the one inside listCitas/listVehiculosParaCita
   // (same cheap auth() + tenant lookup, no extra query) -- needed to read
   // sedeActivaNombre for the page subtitle, which those actions don't return.
-  const session = await requireSession();
+  const session = await requirePermiso("citas.ver");
 
   // Both reads go through the actions module, so the guard and the sede filter
   // are applied in exactly one place instead of being restated here. Fetched

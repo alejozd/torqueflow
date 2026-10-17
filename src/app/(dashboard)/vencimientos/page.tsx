@@ -3,21 +3,21 @@ import { AlertTriangle, Clock, Settings, ShieldAlert } from "lucide-react";
 import { getDiasAvisoVencimiento } from "@/app/actions/configuracion-taller-actions";
 import { listVencimientos } from "@/app/actions/vencimiento-actions";
 import { DIAS_PROXIMO } from "@/lib/vencimientos/estado-vencimiento";
-import { requireSession } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { buttonVariants } from "@/components/ui/button";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
 import { VencimientosTable } from "./vencimientos-table";
 
 export default async function VencimientosPage() {
-  const [session, filas, diasAviso] = await Promise.all([
-    requireSession(),
+  const session = await requirePermiso("clientes.ver");
+  const [filas, diasAviso] = await Promise.all([
     listVencimientos(),
     getDiasAvisoVencimiento(),
   ]);
-  const puedeAvisar = session.user.role !== "TECNICO";
-  // /configuracion-smtp exige ADMIN (getConfiguracionSmtp -> requireRole(["ADMIN"])).
-  const puedeConfigurar = session.user.role === "ADMIN";
+  const puedeAvisar = puede(session, "vencimientos.avisar");
+  // /configuracion-smtp exige configuracion.taller (getConfiguracionSmtp -> requirePermiso).
+  const puedeConfigurar = puede(session, "configuracion.taller");
 
   const vencidos = filas.filter((fila) => fila.estado === "VENCIDO").length;
   const proximos = filas.filter((fila) => fila.estado === "PROXIMO").length;

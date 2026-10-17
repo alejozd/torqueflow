@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AlertCircle, CalendarCheck, Car, ChevronRight, FileText, Package, ShieldAlert, Wrench } from "lucide-react";
-import { requireSession } from "@/lib/auth/guards";
+import { puede, requireSession } from "@/lib/auth/guards";
 import { getDashboardOverview } from "@/app/actions/dashboard-actions";
 import { getAlertasInventario } from "@/app/actions/alertas-inventario-actions";
 import { getAlertasTaller } from "@/app/actions/alertas-taller-actions";
@@ -129,29 +129,35 @@ function subtituloCartera(facturas: number, ventas: number): string | undefined 
 }
 
 export default async function InicioPage() {
-  const [session, overview, alertasInventario, alertasTaller] = await Promise.all([
-    requireSession(),
+  const session = await requireSession();
+  // El KPI "Stock bajo" solo usa conteos; la tarjeta de alertas trae costos,
+  // proveedores y sugerencias de compra, así que solo se pinta (y se pasa al
+  // cliente) con `inventario.costos` (D8).
+  const verAlertasInventario = puede(session, "inventario.costos");
+  const [overview, alertasInventario, alertasTaller] = await Promise.all([
     getDashboardOverview(),
     getAlertasInventario(),
     getAlertasTaller(),
   ]);
   // El KPI de vencimientos es solo para ADMIN y RECEPCION (spec §4).
-  const mostrarVencimientos = session.user.role !== "TECNICO";
+  const mostrarVencimientos = puede(session, "vencimientos.avisar");
   const vencimientos = mostrarVencimientos ? await listVencimientos() : [];
   const kpiVencimientos = resumenKpiVencimientos(vencimientos);
-  const kpiCartera = (
+  const verCartera = puede(session, "cartera.ver");
+  const cartera = overview.cartera;
+  const kpiCartera = cartera ? (
     <KpiCard
       title="Cartera"
-      value={formatoMoneda.format(overview.cartera.saldoPendiente)}
+      value={formatoMoneda.format(cartera.saldoPendiente)}
       valueColor="warning"
-      subtitle={subtituloCartera(overview.cartera.facturasPendientes, overview.cartera.ventasMostradorPendientes)}
+      subtitle={subtituloCartera(cartera.facturasPendientes, cartera.ventasMostradorPendientes)}
       subtitleColor="warning"
-      highlight={overview.cartera.facturasPendientes + overview.cartera.ventasMostradorPendientes > 0}
+      highlight={cartera.facturasPendientes + cartera.ventasMostradorPendientes > 0}
       icon={<AlertCircle className={cn("size-5", KPI_TONE.warning.icon)} />}
       iconBgColor={KPI_TONE.warning.iconBg}
       className={KPI_TONE.warning.cardBg}
     />
-  );
+  ) : null;
 
   const nombre = session.user.name ?? session.user.email;
   const flujoTotal =
@@ -216,20 +222,22 @@ export default async function InicioPage() {
           className={KPI_TONE.info.cardBg}
         />
 
-        <KpiCard
-          title="Por facturar"
-          value={overview.porFacturar.count}
-          valueColor="warning"
-          subtitle={overview.porFacturar.count > 0 ? formatoMoneda.format(overview.porFacturar.monto) : undefined}
-          subtitleColor="warning"
-          highlight={overview.porFacturar.count > 0}
-          icon={<FileText className={cn("size-5", KPI_TONE.warning.icon)} />}
-          iconBgColor={KPI_TONE.warning.iconBg}
-          className={KPI_TONE.warning.cardBg}
-        />
+        {overview.porFacturar ? (
+          <KpiCard
+            title="Por facturar"
+            value={overview.porFacturar.count}
+            valueColor="warning"
+            subtitle={overview.porFacturar.count > 0 ? formatoMoneda.format(overview.porFacturar.monto) : undefined}
+            subtitleColor="warning"
+            highlight={overview.porFacturar.count > 0}
+            icon={<FileText className={cn("size-5", KPI_TONE.warning.icon)} />}
+            iconBgColor={KPI_TONE.warning.iconBg}
+            className={KPI_TONE.warning.cardBg}
+          />
+        ) : null}
 
-        {/* TECNICO cannot open /cartera, so only ADMIN/RECEPCION get the link. */}
-        {mostrarVencimientos ? (
+        {/* El KPI solo existe con `cartera.ver` (lo decide getDashboardOverview); el enlace usa el mismo permiso. */}
+        {kpiCartera && verCartera ? (
           <Link href="/cartera" className="block h-full rounded-xl focus-visible:outline-2">
             {kpiCartera}
           </Link>
@@ -414,10 +422,10 @@ export default async function InicioPage() {
         </Card>
       </div>
 
-      <FacturacionSemanaCard resumen={overview.facturacion} />
+      {overview.facturacion ? <FacturacionSemanaCard resumen={overview.facturacion} /> : null}
 
       <AlertasTallerCard diasUmbral={alertasTaller.diasUmbral} alertas={alertasTaller.alertas} />
-      <AlertasInventarioCard data={alertasInventario} />
+      {verAlertasInventario ? <AlertasInventarioCard data={alertasInventario} /> : null}
     </main>
   );
 }

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { requirePermiso, requireSession } from "@/lib/auth/guards";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import {
@@ -68,7 +68,7 @@ export async function guardarOpcionesTallerAction(
   formData: FormData,
 ): Promise<ConfiguracionTallerFormState> {
   void prevState;
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("configuracion.taller");
   const crudoTope = formData.get("descuentoMaxRecepcion");
   const tope = crudoTope === null || crudoTope === "" ? null : descuentoMaxSchema.safeParse(crudoTope);
   if (!tope || !tope.success) return { error: MENSAJE_DESCUENTO_MAX, success: false };
@@ -103,7 +103,7 @@ export async function guardarDiasEstancadaAction(
   formData: FormData,
 ): Promise<ConfiguracionTallerFormState> {
   void prevState;
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("configuracion.taller");
   const crudo = formData.get("diasOrdenEstancada");
   // Un campo vacío nunca debe leerse como "0 días" (mismo cuidado que arriba).
   const parsed = crudo === null || crudo === "" ? null : diasEstancadaSchema.safeParse(crudo);
@@ -132,7 +132,7 @@ export async function guardarDiasAvisoAction(
   formData: FormData,
 ): Promise<ConfiguracionTallerFormState> {
   void prevState;
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("configuracion.taller");
   const crudo = formData.get("diasAvisoVencimiento");
   // z.coerce.number turns "" into 0, which the min() check rejects -- but be
   // explicit so an empty field never reads as "0 días".

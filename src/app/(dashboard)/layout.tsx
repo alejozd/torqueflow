@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import { Toaster } from "sonner";
-import { requireSession } from "@/lib/auth/guards";
+import { puede, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { publicDb } from "@/lib/db/public-client";
 import { esCotizacionPendienteDeSeguimiento } from "@/lib/cotizacion/seguimiento-pendiente";
 import { prismaCotizacionesVencidasGateway } from "@/lib/cotizacion/marcar-vencidas-gateway-prisma";
-import { scopeCita, scopeCotizacion, scopeFactura, scopeOrden, scopeRepuesto } from "@/lib/sede/scope";
+import { scopeCita, scopeCotizacion, scopeFactura, scopeOrdenVisible, scopeRepuesto } from "@/lib/sede/scope";
 import { comprometidoPorRepuesto, estaBajoMinimo } from "@/lib/inventario/comprometido";
 import { buildRangoFechas } from "@/lib/reportes/rango-fechas";
 import { ultimosNDiasIso } from "@/lib/dashboard/calculos";
@@ -73,7 +73,7 @@ async function loadCotizacionesPendientesSeguimiento(
 async function loadOrdenesEnTaller(session: Awaited<ReturnType<typeof requireSession>>): Promise<number> {
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.ordenTrabajo.count({
-    where: { ...scopeOrden(session.user.sedeActivaId), estado: { in: ["BORRADOR", "EN_PROCESO", "TERMINADA"] } },
+    where: { ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")), estado: { in: ["BORRADOR", "EN_PROCESO", "TERMINADA"] } },
   });
 }
 
@@ -124,8 +124,6 @@ async function loadRepuestosStockBajo(session: Awaited<ReturnType<typeof require
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const session = await requireSession();
-  const esAdmin = session.user.role === "ADMIN";
-  const puedeVerFinanzas = session.user.role !== "TECNICO";
   // Remembers the sidebar's collapsed/expanded state per browser (SidebarProvider
   // writes this cookie on every toggle), so a preference set on a smaller screen
   // doesn't reset to expanded on the next page load.
@@ -143,7 +141,8 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     loadCotizacionesPendientesSeguimiento(session),
     loadOrdenesEnTaller(session),
     loadCitasHoy(session),
-    loadFacturasPendientes(session),
+    // Sin `facturas.ver` el menú no ofrece Facturas: no se calcula la cifra.
+    puede(session, "facturas.ver") ? loadFacturasPendientes(session) : Promise.resolve(0),
     loadRepuestosStockBajo(session),
   ]);
   // Same name-or-email fallback as the Inicio page's greeting.
@@ -155,9 +154,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         <Toaster richColors position="top-right" />
         <SidebarProvider defaultOpen={sidebarOpen}>
           <DashboardSidebar
-            esAdmin={esAdmin}
-            puedeVerFinanzas={puedeVerFinanzas}
-            puedeImportar={session.user.role === "ADMIN" || session.user.role === "RECEPCION"}
+            permisos={session.user.permisos}
             tenantSlug={session.user.tenantSlug}
             plan={plan}
             cotizacionesPendientesSeguimiento={cotizacionesPendientesSeguimiento}

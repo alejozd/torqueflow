@@ -6,6 +6,7 @@ import {
   type ReporteFiltros,
 } from "@/app/actions/reporte-actions";
 import { listSedes } from "@/app/actions/sede-actions";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { rangoMesActual } from "@/lib/reportes/rango-fechas";
 import { montoPorTrabajo } from "@/lib/liquidaciones/calculo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -72,25 +73,9 @@ const COLUMNS_GASTOS: DataTableColumn<FilaGasto>[] = [
   },
 ];
 
-export default async function ReportesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ desde?: string; hasta?: string; sedeId?: string }>;
-}) {
-  const { desde, hasta, sedeId } = await searchParams;
-  const porDefecto = rangoMesActual(new Date());
-  const filtros: ReporteFiltros = {
-    desde: desde || porDefecto.desde,
-    hasta: hasta || porDefecto.hasta,
-    sedeId: sedeId || undefined,
-  };
+type Rentabilidad = Awaited<ReturnType<typeof getReporteRentabilidad>>;
 
-  // Sequential, never Promise.all: all three go through requireRole, which
-  // redirect()s by throwing (Fase 5 Task 9's deliberate choice).
-  const rentabilidad = await getReporteRentabilidad(filtros);
-  const productividad = await getReporteProductividad(filtros);
-  const sedes = await listSedes();
-
+function SeccionRentabilidad({ rentabilidad, filtros }: { rentabilidad: Rentabilidad; filtros: ReporteFiltros }) {
   const neta = rentabilidad.neta;
   const utilidadPositiva = neta.utilidadNeta >= 0;
   const tonoUtilidad = utilidadPositiva ? KPI_TONE.success : KPI_TONE.danger;
@@ -105,57 +90,6 @@ export default async function ReportesPage({
         } ${formatoMoneda.format(Math.abs(neta.diferenciaEquilibrio))}`;
 
   return (
-    <main className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-2.5">
-        <h1 className="text-2xl font-semibold">Reportes</h1>
-        <Badge variant="outline" className="font-normal text-muted-foreground">
-          {productividad.filas.length} {productividad.filas.length === 1 ? "técnico" : "técnicos"} ·{" "}
-          {productividad.filas.reduce((suma, fila) => suma + fila.trabajos, 0)} trabajos
-        </Badge>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Filtros</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form method="get" action="/reportes" className="flex flex-wrap items-end gap-4">
-            <div className="flex w-full flex-col gap-1.5 sm:w-72">
-              <Label htmlFor="periodo">Periodo</Label>
-              <RangoFechas key={`${filtros.desde}|${filtros.hasta}`} id="periodo" defaultDesde={filtros.desde} defaultHasta={filtros.hasta} />
-            </div>
-
-            {/*
-              Fase 6: a real selector replaces Fase 5's hidden input. It defaults to
-              whatever the actions resolved (the sede activa when the URL carries
-              none), so an ADMIN can compare any sede without re-logging-in --
-              reading another sede's numbers is safe in a way that operating in it
-              is not.
-
-              This selector now renders via SelectField (shadcn/Base UI select)
-              instead of a native <select>.
-            */}
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="sedeId">Sede</Label>
-              <SelectField
-                id="sedeId"
-                name="sedeId"
-                defaultValue={rentabilidad.filtros.sedeId}
-                items={sedes.map((sede) => ({ value: sede.id, label: sede.nombre }))}
-              />
-            </div>
-
-            <Button type="submit">Aplicar</Button>
-          </form>
-
-          {rentabilidad.error ? (
-            <Alert variant="destructive" className="mt-4">
-              <AlertDescription>{rentabilidad.error}</AlertDescription>
-            </Alert>
-          ) : null}
-        </CardContent>
-      </Card>
-
       <Card>
         <CardHeader>
           <CardTitle>Rentabilidad</CardTitle>
@@ -280,6 +214,85 @@ export default async function ReportesPage({
           </div>
         </CardContent>
       </Card>
+  );
+}
+
+export default async function ReportesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ desde?: string; hasta?: string; sedeId?: string }>;
+}) {
+  const { desde, hasta, sedeId } = await searchParams;
+  const porDefecto = rangoMesActual(new Date());
+  const filtros: ReporteFiltros = {
+    desde: desde || porDefecto.desde,
+    hasta: hasta || porDefecto.hasta,
+    sedeId: sedeId || undefined,
+  };
+
+  // Sequential, never Promise.all: the calls go through requirePermiso, which
+  // redirect()s by throwing (Fase 5 Task 9's deliberate choice).
+  const session = await requirePermiso("reportes.productividad");
+  const rentabilidad = puede(session, "reportes.rentabilidad") ? await getReporteRentabilidad(filtros) : null;
+  const productividad = await getReporteProductividad(filtros);
+  // listSedes exige sedes.verTodas: sin él no hay selector de sede.
+  const sedes = puede(session, "sedes.verTodas") ? await listSedes() : null;
+
+  return (
+    <main className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center gap-2.5">
+        <h1 className="text-2xl font-semibold">Reportes</h1>
+        <Badge variant="outline" className="font-normal text-muted-foreground">
+          {productividad.filas.length} {productividad.filas.length === 1 ? "técnico" : "técnicos"} ·{" "}
+          {productividad.filas.reduce((suma, fila) => suma + fila.trabajos, 0)} trabajos
+        </Badge>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Filtros</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form method="get" action="/reportes" className="flex flex-wrap items-end gap-4">
+            <div className="flex w-full flex-col gap-1.5 sm:w-72">
+              <Label htmlFor="periodo">Periodo</Label>
+              <RangoFechas key={`${filtros.desde}|${filtros.hasta}`} id="periodo" defaultDesde={filtros.desde} defaultHasta={filtros.hasta} />
+            </div>
+
+            {/*
+              Fase 6: a real selector replaces Fase 5's hidden input. It defaults to
+              whatever the actions resolved (the sede activa when the URL carries
+              none), so an ADMIN can compare any sede without re-logging-in --
+              reading another sede's numbers is safe in a way that operating in it
+              is not.
+
+              This selector now renders via SelectField (shadcn/Base UI select)
+              instead of a native <select>.
+            */}
+            {sedes ? (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="sedeId">Sede</Label>
+                <SelectField
+                  id="sedeId"
+                  name="sedeId"
+                  defaultValue={(rentabilidad ?? productividad).filtros.sedeId}
+                  items={sedes.map((sede) => ({ value: sede.id, label: sede.nombre }))}
+                />
+              </div>
+            ) : null}
+
+            <Button type="submit">Aplicar</Button>
+          </form>
+
+          {rentabilidad?.error ? (
+            <Alert variant="destructive" className="mt-4">
+              <AlertDescription>{rentabilidad.error}</AlertDescription>
+            </Alert>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {rentabilidad ? <SeccionRentabilidad rentabilidad={rentabilidad} filtros={filtros} /> : null}
 
       <Card>
         <CardHeader>

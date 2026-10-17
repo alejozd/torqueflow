@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { sincronizarCuentaPorPagar } from "@/lib/proveedores/sincronizar-cuenta";
@@ -27,7 +27,7 @@ const ENTRADA_DETAIL_INCLUDE = {
 export type EntradaWithDetalle = Prisma.EntradaMercanciaGetPayload<{ include: typeof ENTRADA_DETAIL_INCLUDE }>;
 
 export async function listEntradas(): Promise<EntradaWithDetalle[]> {
-  const session = await requireSession();
+  const session = await requirePermiso("compras.ver");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.entradaMercancia.findMany({
     where: { ...scopeEntrada(session.user.sedeActivaId) },
@@ -37,7 +37,7 @@ export async function listEntradas(): Promise<EntradaWithDetalle[]> {
 }
 
 export async function getEntrada(id: string): Promise<EntradaWithDetalle | null> {
-  const session = await requireSession();
+  const session = await requirePermiso("compras.ver");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.entradaMercancia.findFirst({
     where: { id, ...scopeEntrada(session.user.sedeActivaId) },
@@ -58,7 +58,7 @@ export async function createEntradaMercanciaAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false, entradaId: null };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("compras.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const bodega = await tenantDb.bodega.findFirst({
@@ -105,7 +105,7 @@ export async function addEntradaItemAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false, entradaId };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("compras.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const [entrada, repuesto] = await Promise.all([

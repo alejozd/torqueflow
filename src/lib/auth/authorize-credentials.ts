@@ -4,12 +4,13 @@ import { verifyCredentials } from "@/lib/auth/verify-credentials";
 import { resolveSedeInicial } from "@/lib/auth/sede-access";
 import { compararConHashDeRelleno } from "@/lib/auth/hash-de-relleno";
 import { claveIp, crearLimitadorIntentos, type LimitadorIntentos } from "@/lib/auth/limitador-intentos";
+import type { Role } from "@/lib/auth/permisos";
 
 export interface AuthorizedUser {
   id: string;
   email: string;
   name: string;
-  role: "ADMIN" | "TECNICO" | "RECEPCION";
+  role: Role;
   tenantSlug: string;
   tenantSchema: string;
   sedeActivaId: string;

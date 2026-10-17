@@ -16,12 +16,14 @@ export function NuevoRepuestoDialog({
   bodegas,
   proveedores,
   onCreated,
+  verCostos,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   bodegas: Bodega[];
   proveedores: Proveedor[];
   onCreated: (repuestoId: string) => void;
+  verCostos: boolean;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -35,6 +37,7 @@ export function NuevoRepuestoDialog({
           proveedores={proveedores}
           onCreated={onCreated}
           showCancelButton
+          verCostos={verCostos}
         />
       </DialogContent>
     </Dialog>

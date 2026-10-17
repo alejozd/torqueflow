@@ -9,6 +9,7 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/componen
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { formatoFechaCorta, inicioMesBogota } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
+import { requirePermiso } from "@/lib/auth/guards";
 
 type Entrada = NonNullable<Awaited<ReturnType<typeof getEntrada>>>;
 type ItemRow = Entrada["items"][number];
@@ -63,6 +64,7 @@ const ITEMS_COLUMNS: DataTableColumn<ItemRow>[] = [
 ];
 
 export default async function EntradaMercanciaDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePermiso("compras.ver");
   const { id } = await params;
   const entrada = await getEntrada(id);
 

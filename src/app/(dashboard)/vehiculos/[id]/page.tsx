@@ -11,7 +11,7 @@ import { NuevaOrdenDialog } from "../../clientes/[id]/nueva-orden-dialog";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireSession } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { totalOrden } from "@/lib/dashboard/calculos";
 import { VencimientoBadge } from "@/components/vencimiento-badge";
 import { GarantiasCard } from "./garantias-card";
@@ -81,22 +81,24 @@ function calcularTotalOrden(orden: OrdenDeVehiculo): number {
 
 export default async function VehiculoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const session = await requirePermiso("clientes.ver");
   const vehiculo = await getVehiculo(id);
 
   if (!vehiculo) {
     notFound();
   }
 
-  const [ordenes, tecnicos, session, marcas, modelos, diasAviso, garantias] = await Promise.all([
+  // listGarantiasDeVehiculo exige ordenes.trabajar: sin él ni se pide ni se muestra la tarjeta.
+  const verGarantias = puede(session, "ordenes.trabajar");
+  const [ordenes, tecnicos, marcas, modelos, diasAviso, garantias] = await Promise.all([
     listOrdenesByVehiculo(id),
     listTecnicos(),
-    requireSession(),
     listMarcasVehiculo(),
     listTodosLosModelosVehiculo(),
     getDiasAvisoVencimiento(),
-    listGarantiasDeVehiculo(id),
+    verGarantias ? listGarantiasDeVehiculo(id) : Promise.resolve(null),
   ]);
-  const esAdmin = session.user.role === "ADMIN";
+  const puedeAgregarCatalogo = puede(session, "vehiculos.catalogo");
 
   const ahora = new Date();
 
@@ -178,7 +180,7 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <EditarVehiculoDialog vehiculo={vehiculo} marcas={marcas} modelos={modelos} esAdmin={esAdmin} />
+          <EditarVehiculoDialog vehiculo={vehiculo} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={puedeAgregarCatalogo} />
           <NuevaOrdenDialog
             clienteId={vehiculo.clienteId}
             vehiculoId={vehiculo.id}
@@ -212,7 +214,7 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
         </div>
 
         <div className="flex flex-col gap-6">
-          <GarantiasCard garantias={garantias} sedeActivaId={session.user.sedeActivaId} />
+          {garantias ? <GarantiasCard garantias={garantias} sedeActivaId={session.user.sedeActivaId} /> : null}
           <Card>
             <CardHeader>
               <CardTitle>Vehículo</CardTitle>

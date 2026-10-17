@@ -79,7 +79,7 @@ function Harness({
       }}
       marcas={marcas}
       modelos={modelos}
-      esAdmin={false}
+      puedeAgregarCatalogo={false}
     />
   );
 }

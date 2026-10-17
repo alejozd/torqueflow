@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: vi.fn(),
 }));
 
@@ -40,6 +40,7 @@ vi.mock("@/lib/db/tenant-client", () => ({
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+import { revalidatePath } from "next/cache";
 
 const mockObtenerLimitesPlan = vi.fn();
 vi.mock("@/lib/planes/limites", () => ({
@@ -63,6 +64,7 @@ import {
   listUsuariosConMetricas,
   createUsuarioAction,
   updateUsuarioAction,
+  guardarPermisosUsuarioAction,
   deleteUsuarioAction,
   type UsuarioFormState,
 } from "./usuario-actions";
@@ -86,7 +88,7 @@ function stubSedeFindMany(existingIds: string[]) {
 
 describe("listUsuariosConSedes", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(ADMIN);
     mockUsuarioFindMany.mockReset();
   });
 
@@ -95,7 +97,7 @@ describe("listUsuariosConSedes", () => {
 
     await listUsuariosConSedes();
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("usuarios.gestionar");
     expect(mockUsuarioFindMany).toHaveBeenCalledWith({
       select: {
         id: true,
@@ -104,6 +106,8 @@ describe("listUsuariosConSedes", () => {
         role: true,
         activo: true,
         sedeDefectoId: true,
+        permisosAgregados: true,
+        permisosQuitados: true,
         sedes: { select: { sedeId: true } },
       },
       orderBy: { nombre: "asc" },
@@ -141,7 +145,7 @@ describe("listUsuariosConSedes", () => {
 
 describe("listUsuariosConMetricas", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(ADMIN);
     mockUsuarioFindMany.mockReset();
     mockOrdenGroupBy.mockReset();
   });
@@ -152,7 +156,7 @@ describe("listUsuariosConMetricas", () => {
 
     await listUsuariosConMetricas();
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("usuarios.gestionar");
     expect(mockUsuarioFindMany).toHaveBeenCalledWith({
       select: {
         id: true,
@@ -161,6 +165,8 @@ describe("listUsuariosConMetricas", () => {
         role: true,
         activo: true,
         sedeDefectoId: true,
+        permisosAgregados: true,
+        permisosQuitados: true,
         sedes: { select: { sedeId: true } },
       },
       orderBy: { nombre: "asc" },
@@ -254,7 +260,7 @@ function buildUsuarioFormData(overrides: Record<string, string | string[]> = {})
 
 describe("createUsuarioAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(ADMIN);
     mockObtenerLimitesPlan.mockReset().mockResolvedValue({ maxUsuarios: null, maxSedes: null });
     mockUsuarioCount.mockReset();
     mockUsuarioCreate.mockReset();
@@ -371,7 +377,7 @@ describe("createUsuarioAction", () => {
 
 describe("updateUsuarioAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(ADMIN);
     mockUsuarioFindUnique
       .mockReset()
       .mockResolvedValue({ role: "RECEPCION", email: "ana@taller.test", activo: true, sedes: [] });
@@ -391,6 +397,8 @@ describe("updateUsuarioAction", () => {
     const result = await updateUsuarioAction("u2", initialUsuarioState, formData);
 
     expect(result).toEqual({ error: null, success: true });
+    expect(revalidatePath).toHaveBeenCalledWith("/usuarios");
+    expect(revalidatePath).toHaveBeenCalledWith("/usuarios/u2");
     expect(mockUsuarioUpdate).toHaveBeenCalledWith({
       where: { id: "u2" },
       data: {
@@ -400,8 +408,21 @@ describe("updateUsuarioAction", () => {
         activo: true,
         sedeDefectoId: null,
         sedes: { deleteMany: {}, create: [{ sedeId: "sede-1" }] },
+        permisosAgregados: [],
+        permisosQuitados: [],
       },
     });
+  });
+
+  it("no toca las excepciones cuando el rol no cambia", async () => {
+    mockUsuarioUpdate.mockResolvedValue({ id: "u2" });
+    const formData = buildUsuarioFormData({ password: "", role: "RECEPCION" });
+
+    await updateUsuarioAction("u2", initialUsuarioState, formData);
+
+    const data = mockUsuarioUpdate.mock.calls[0][0].data;
+    expect(data).not.toHaveProperty("permisosAgregados");
+    expect(data).not.toHaveProperty("permisosQuitados");
   });
 
   it("rehashes the password only when a new one is submitted", async () => {
@@ -655,7 +676,7 @@ describe("updateUsuarioAction", () => {
 
 describe("deleteUsuarioAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(ADMIN);
     mockUsuarioFindUnique.mockReset();
     mockUsuarioCount.mockReset();
     mockUsuarioDelete.mockReset();
@@ -732,5 +753,82 @@ describe("deleteUsuarioAction", () => {
 
     await expect(deleteUsuarioAction("u2")).rejects.toThrow("Error al eliminar el usuario");
     expect(mockUsuarioDelete).not.toHaveBeenCalled();
+  });
+});
+
+describe("guardarPermisosUsuarioAction", () => {
+  const TECNICO_ACTUAL = {
+    role: "TECNICO",
+    permisosAgregados: ["gastos.registrar"],
+    permisosQuitados: ["clientes.ver"],
+  };
+
+  beforeEach(() => {
+    mockRequirePermiso.mockReset().mockResolvedValue(ADMIN);
+    mockUsuarioFindUnique.mockReset().mockResolvedValue(TECNICO_ACTUAL);
+    mockUsuarioUpdate.mockReset().mockResolvedValue({ id: "u2" });
+    mockAuditLogCreate.mockReset();
+    mockTransaction.mockClear();
+  });
+
+  it("exige usuarios.gestionar", async () => {
+    await guardarPermisosUsuarioAction("u2", ["caja.usar"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("usuarios.gestionar");
+  });
+
+  it("guarda solo la diferencia con el rol y audita antes y después", async () => {
+    const base = ["clientes.ver", "citas.ver", "cotizaciones.ver", "cotizaciones.editarItems", "ordenes.ver",
+      "ordenes.trabajar", "ordenes.cambiarEstado", "ordenes.entregar", "inventario.ver"];
+    const marcados = [...base.filter((p) => p !== "ordenes.entregar"), "caja.usar"];
+
+    const result = await guardarPermisosUsuarioAction("u2", marcados);
+
+    expect(result).toEqual({ error: null, success: true });
+    expect(mockUsuarioUpdate).toHaveBeenCalledWith({
+      where: { id: "u2" },
+      data: { permisosAgregados: ["caja.usar"], permisosQuitados: ["ordenes.entregar"] },
+    });
+    expect(mockAuditLogCreate).toHaveBeenCalledWith({
+      data: {
+        tipo: "USUARIO_ACTUALIZAR_PERMISOS",
+        actorId: "u1",
+        entidadTipo: "Usuario",
+        entidadId: "u2",
+        detalle: {
+          agregados: ["caja.usar"],
+          quitados: ["ordenes.entregar"],
+          antes: { agregados: ["gastos.registrar"], quitados: ["clientes.ver"] },
+        },
+      },
+    });
+  });
+
+  it("volver al rol base deja ambas listas vacías", async () => {
+    const base = ["clientes.ver", "citas.ver", "cotizaciones.ver", "cotizaciones.editarItems", "ordenes.ver",
+      "ordenes.trabajar", "ordenes.cambiarEstado", "ordenes.entregar", "inventario.ver"];
+    await guardarPermisosUsuarioAction("u2", base);
+    expect(mockUsuarioUpdate.mock.calls[0][0].data).toEqual({ permisosAgregados: [], permisosQuitados: [] });
+  });
+
+  it("rechaza claves desconocidas y permisos solo de administrador", async () => {
+    for (const mala of ["no.existe", "usuarios.gestionar"]) {
+      const result = await guardarPermisosUsuarioAction("u2", [mala]);
+      expect(result).toEqual({ error: "Ese permiso no se puede dar a este usuario", success: false });
+    }
+    expect(mockUsuarioUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rechaza a un administrador", async () => {
+    mockUsuarioFindUnique.mockResolvedValue({ role: "ADMIN", permisosAgregados: [], permisosQuitados: [] });
+    const result = await guardarPermisosUsuarioAction("u1", ["caja.usar"]);
+    expect(result).toEqual({ error: "El administrador siempre tiene todos los permisos", success: false });
+    expect(mockUsuarioUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rechaza a un usuario de otro taller (no existe en este esquema)", async () => {
+    mockUsuarioFindUnique.mockResolvedValue(null);
+    const result = await guardarPermisosUsuarioAction("ajeno", ["caja.usar"]);
+    expect(result).toEqual({ error: "Usuario no encontrado", success: false });
+    expect(mockUsuarioUpdate).not.toHaveBeenCalled();
   });
 });

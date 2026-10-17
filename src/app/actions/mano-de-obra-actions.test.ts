@@ -1,8 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { permisosEfectivos } from "@/lib/auth/permisos";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
 }));
 
 const mockCreate = vi.fn();
@@ -22,12 +24,12 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import { addManoDeObraAction, deleteManoDeObraAction, type ManoDeObraFormState } from "./mano-de-obra-actions";
 
 const initialState: ManoDeObraFormState = { error: null, success: false };
-const SESSION = { user: { role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
-const SESSION_ADMIN = { user: { role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION = { user: { role: "TECNICO", permisos: ["ordenes.verTodas"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION_ADMIN = { user: { role: "ADMIN", permisos: ["ordenes.verTodas"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 describe("addManoDeObraAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockCreate.mockReset();
     mockOrdenFindFirst.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
     mockUsuarioFindFirst.mockReset().mockResolvedValue({ id: "t1" });
@@ -83,7 +85,7 @@ describe("addManoDeObraAction", () => {
 
     expect(result).toEqual({ error: null, success: true });
     expect(mockUsuarioFindFirst).toHaveBeenCalledWith({
-      where: { id: "t1", role: "TECNICO", sedes: { some: { sedeId: "sede-1" } } },
+      where: { id: "t1", role: { in: ["TECNICO", "JEFE_TALLER"] }, sedes: { some: { sedeId: "sede-1" } } },
       select: { id: true },
     });
     expect(mockCreate).toHaveBeenCalledWith({
@@ -151,7 +153,7 @@ describe("addManoDeObraAction", () => {
 
 describe("deleteManoDeObraAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockDeleteMany.mockReset();
     mockOrdenFindFirst.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
   });
@@ -161,7 +163,7 @@ describe("deleteManoDeObraAction", () => {
 
     await deleteManoDeObraAction("m1", "o1");
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.quitar");
     expect(mockDeleteMany).toHaveBeenCalledWith({ where: { id: "m1", ordenId: "o1" } });
   });
 
@@ -197,5 +199,25 @@ describe("deleteManoDeObraAction", () => {
       where: { id: "orden-de-otra-sede", sedeId: "sede-1" },
       select: { estado: true, factura: { select: { id: true } } },
     });
+  });
+});
+
+const TECNICO_D7 = { user: { id: "tec-1", role: "TECNICO", permisos: permisosEfectivos({ role: "TECNICO" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const WHERE_D7 = (id: string) => ({ id, sedeId: "sede-1", OR: [{ mecanicoId: "tec-1" }, { manoDeObra: { some: { mecanicoId: "tec-1" } } }] });
+
+describe("D7: el técnico solo trabaja en sus órdenes (mano de obra)", () => {
+  it("una orden ajena no se encuentra y no se crea la línea", async () => {
+    mockRequirePermiso.mockReset().mockResolvedValue(TECNICO_D7);
+    mockOrdenFindFirst.mockReset().mockResolvedValue(null);
+    mockCreate.mockReset();
+    const formData = new FormData();
+    formData.set("descripcion", "Cambio de pastillas");
+    formData.set("valor", "30000");
+
+    const result = await addManoDeObraAction("ajena", initialState, formData);
+
+    expect(result).toEqual({ error: "Orden no encontrada", success: false });
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 });

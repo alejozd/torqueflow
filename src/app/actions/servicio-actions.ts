@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { roundMoney } from "@/lib/money/round";
@@ -9,7 +9,7 @@ import { assertCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
 import { recomputeCotizacionTotales } from "@/lib/cotizacion/recompute-totales";
 import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
 import { grupoKitParaServicio } from "@/lib/servicio/grupo-kit";
-import { scopeCotizacion, scopeOrden, scopeRepuesto } from "@/lib/sede/scope";
+import { scopeCotizacion, scopeOrdenVisible, scopeRepuesto } from "@/lib/sede/scope";
 import {
   CANTIDAD_MAXIMA_KIT,
   aplicarServicioInputSchema,
@@ -18,6 +18,7 @@ import {
   servicioRepuestoInputSchema,
 } from "@/lib/validation/servicio";
 import type { Prisma } from "@/generated/prisma-tenant";
+import { ROLES_MECANICO } from "@/lib/auth/permisos";
 
 export interface ServicioRepuestoVista {
   repuestoId: string;
@@ -141,7 +142,7 @@ async function mecanicoDeLaSede(
 ): Promise<string | null> {
   if (!mecanicoId) return null;
   const tecnico = await tenantDb.usuario.findFirst({
-    where: { id: mecanicoId, role: "TECNICO", sedes: { some: { sedeId: sedeActivaId } } },
+    where: { id: mecanicoId, role: { in: [...ROLES_MECANICO] }, sedes: { some: { sedeId: sedeActivaId } } },
     select: { id: true },
   });
   return tecnico?.id ?? null;
@@ -157,7 +158,7 @@ export async function listServicios(opciones: { soloActivos?: boolean } = {}): P
   // De `soloActivos` depende qué rol se exige, así que se valida en vez de
   // confiar en cualquier valor "truthy" que llegue por la server action.
   const { soloActivos } = listarServiciosInputSchema.parse(opciones);
-  const session = await requireRole(soloActivos ? ["ADMIN", "RECEPCION", "TECNICO"] : ["ADMIN"]);
+  const session = await requirePermiso(soloActivos ? "ordenes.ver" : "servicios.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const filas = await tenantDb.servicio.findMany({
@@ -208,7 +209,7 @@ export async function crearServicioAction(
   prevState: ServicioFormState,
   formData: FormData,
 ): Promise<ServicioFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("servicios.gestionar");
   const parsed = servicioInputSchema.safeParse({
     nombre: formData.get("nombre") ?? "",
     descripcion: formData.get("descripcion") ?? "",
@@ -238,7 +239,7 @@ export async function actualizarServicioAction(
   prevState: ServicioFormState,
   formData: FormData,
 ): Promise<ServicioFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("servicios.gestionar");
   const parsed = servicioInputSchema.safeParse({
     nombre: formData.get("nombre") ?? "",
     descripcion: formData.get("descripcion") ?? "",
@@ -265,7 +266,7 @@ export async function actualizarServicioAction(
 }
 
 export async function toggleServicioActivoAction(servicioId: string): Promise<{ error: string | null }> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("servicios.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const servicio = await tenantDb.servicio.findUnique({ where: { id: servicioId }, select: { activo: true } });
@@ -290,7 +291,7 @@ export async function agregarRepuestoAServicioAction(
   prevState: ServicioRepuestoFormState,
   formData: FormData,
 ): Promise<ServicioRepuestoFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("servicios.gestionar");
   const parsed = servicioRepuestoInputSchema.safeParse({
     repuestoId: formData.get("repuestoId") ?? "",
     cantidad: formData.get("cantidad"),
@@ -343,7 +344,7 @@ export async function actualizarCantidadRepuestoServicioAction(
   repuestoId: string,
   cantidad: number,
 ): Promise<{ error: string | null }> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("servicios.gestionar");
   const parsed = servicioRepuestoInputSchema.safeParse({ repuestoId, cantidad });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
 
@@ -365,7 +366,7 @@ export async function quitarRepuestoDeServicioAction(
   servicioId: string,
   repuestoId: string,
 ): Promise<{ error: string | null }> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("servicios.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   try {
@@ -393,7 +394,7 @@ export async function aplicarServicioAOrdenAction(
   prevState: AplicarServicioFormState,
   formData: FormData,
 ): Promise<AplicarServicioFormState> {
-  const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
+  const session = await requirePermiso("ordenes.trabajar");
   const parsed = aplicarServicioInputSchema.safeParse({ servicioId: formData.get("servicioId") ?? "" });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false, agregados: null };
@@ -402,7 +403,7 @@ export async function aplicarServicioAOrdenAction(
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
+    where: { id: ordenId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     select: { estado: true, factura: { select: { id: true } }, mecanicoId: true },
   });
   if (!orden) return { error: "Orden no encontrada", success: false, agregados: null };
@@ -466,7 +467,7 @@ export async function aplicarServicioACotizacionAction(
   prevState: AplicarServicioFormState,
   formData: FormData,
 ): Promise<AplicarServicioFormState> {
-  const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
+  const session = await requirePermiso("cotizaciones.editarItems");
   const parsed = aplicarServicioInputSchema.safeParse({ servicioId: formData.get("servicioId") ?? "" });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false, agregados: null };

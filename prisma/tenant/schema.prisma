@@ -12,6 +12,7 @@ enum Role {
   ADMIN
   TECNICO
   RECEPCION
+  JEFE_TALLER
 }
 
 enum TipoEventoAuditoria {
@@ -128,6 +129,8 @@ model Usuario {
   nombre                        String
   role                          Role                    @default(RECEPCION)
   activo                        Boolean                 @default(true) @map("activo")
+  permisosAgregados             String[]                @default([]) @map("permisos_agregados")
+  permisosQuitados              String[]                @default([]) @map("permisos_quitados")
   sedeDefectoId                 String?                 @map("sede_defecto_id")
   sedeDefecto                   Sede?                   @relation("UsuarioSedeDefecto", fields: [sedeDefectoId], references: [id], onDelete: SetNull)
   historialEntries              HistorialVehiculo[]

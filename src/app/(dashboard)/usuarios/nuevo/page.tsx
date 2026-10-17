@@ -1,8 +1,10 @@
 import { NuevoUsuarioForm } from "./nuevo-usuario-form";
 import { listSedes } from "@/app/actions/sede-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { requirePermiso } from "@/lib/auth/guards";
 
 export default async function NuevoUsuarioPage() {
+  await requirePermiso("usuarios.gestionar");
   const sedes = await listSedes();
 
   return (

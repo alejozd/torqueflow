@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getFrecuenciaLiquidacion, listLiquidacionesDelPeriodo } from "@/app/actions/liquidacion-actions";
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { frecuenciaDePeriodo, periodoActual, periodoAnterior, periodoSiguiente } from "@/lib/liquidaciones/periodo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
@@ -17,7 +17,7 @@ export default async function LiquidacionesPage({
 }: {
   searchParams: Promise<{ periodo?: string }>;
 }) {
-  await requireRole(["ADMIN"]);
+  await requirePermiso("liquidaciones.gestionar");
   const { periodo: pedido } = await searchParams;
 
   const frecuenciaConfigurada = await getFrecuenciaLiquidacion();

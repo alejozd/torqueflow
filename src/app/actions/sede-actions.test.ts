@@ -1,9 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: () => mockRequireSession(),
 }));
 
@@ -55,7 +55,7 @@ const ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", s
 
 describe("createSedeAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(ADMIN);
     mockCreate.mockReset();
     mockObtenerLimitesPlan.mockReset().mockResolvedValue({ maxUsuarios: null, maxSedes: null });
     mockSedeCount.mockReset();
@@ -67,7 +67,7 @@ describe("createSedeAction", () => {
 
     await createSedeAction(initialState, formData);
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("sedes.gestionar");
   });
 
   it("returns a validation error when nombre is missing", async () => {
@@ -90,8 +90,8 @@ describe("createSedeAction", () => {
     expect(mockCreate).toHaveBeenCalledWith({ data: { nombre: "Sede norte", direccion: null } });
   });
 
-  it("propagates the redirect rejection and never writes when requireRole rejects", async () => {
-    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+  it("propagates the redirect rejection and never writes when requirePermiso rejects", async () => {
+    mockRequirePermiso.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
     const formData = new FormData();
     formData.set("nombre", "Sede norte");
 
@@ -140,7 +140,7 @@ describe("createSedeAction", () => {
 
 describe("updateSedeAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(ADMIN);
     mockUpdate.mockReset();
   });
 
@@ -162,7 +162,7 @@ describe("updateSedeAction", () => {
 
 describe("deleteSedeAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(ADMIN);
     mockDelete.mockReset();
     mockFindUnique.mockReset().mockResolvedValue({ id: "sede-2", nombre: "Sede norte" });
     mockSedeCount.mockReset().mockResolvedValue(2);
@@ -174,7 +174,7 @@ describe("deleteSedeAction", () => {
   it("deletes an empty, non-last sede", async () => {
     await deleteSedeAction("sede-2");
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("sedes.gestionar");
     expect(mockDelete).toHaveBeenCalledWith({ where: { id: "sede-2" } });
   });
 
@@ -233,20 +233,20 @@ describe("deleteSedeAction", () => {
 
 describe("listSedes", () => {
   it("is ADMIN-only and lists sedes by nombre", async () => {
-    mockRequireRole.mockReset().mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(ADMIN);
     mockFindMany.mockReset().mockResolvedValue([{ id: "sede-1", nombre: "Sede principal" }]);
 
     const result = await listSedes();
 
     expect(result).toEqual([{ id: "sede-1", nombre: "Sede principal" }]);
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("sedes.verTodas");
     expect(mockFindMany).toHaveBeenCalledWith({ orderBy: { nombre: "asc" } });
   });
 });
 
 describe("listSedesConMetricas", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(ADMIN);
     mockFindMany.mockReset();
     mockUsuarioSedeGroupBy.mockReset();
     mockOrdenGroupBy.mockReset();
@@ -262,7 +262,7 @@ describe("listSedesConMetricas", () => {
 
     const result = await listSedesConMetricas();
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("sedes.gestionar");
     expect(result).toEqual([
       { id: "sede-1", nombre: "Sede principal", direccion: "Calle 1", usuariosAsignados: 3, ordenesAbiertas: 0 },
       { id: "sede-2", nombre: "Sede norte", direccion: null, usuariosAsignados: 0, ordenesAbiertas: 5 },

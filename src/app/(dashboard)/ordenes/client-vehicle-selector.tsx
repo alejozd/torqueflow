@@ -32,7 +32,7 @@ export function ClientVehicleSelector({
   vehiculoError,
   marcas,
   modelos,
-  esAdmin,
+  puedeAgregarCatalogo,
 }: {
   clientes: ClienteParaOrden[];
   /** Applied by the caller (owns the list) whenever a create-dialog below adds a cliente/vehículo. */
@@ -45,7 +45,7 @@ export function ClientVehicleSelector({
   vehiculoError?: string;
   marcas: MarcaVehiculo[];
   modelos: ModeloVehiculo[];
-  esAdmin: boolean;
+  puedeAgregarCatalogo: boolean;
 }) {
   const [crearClienteOpen, setCrearClienteOpen] = useState(false);
   const [crearVehiculoOpen, setCrearVehiculoOpen] = useState(false);
@@ -199,7 +199,7 @@ export function ClientVehicleSelector({
               clienteId={clienteSeleccionado.id}
               marcas={marcas}
               modelos={modelos}
-              esAdmin={esAdmin}
+              puedeAgregarCatalogo={puedeAgregarCatalogo}
               onCreated={(vehiculo) => {
                 onClientesChange((prev) =>
                   prev.map((cliente) =>

@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const opcionesTaller = { exigirActaFirmada: false, usarControlCaja: true };
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 const mockRequireSession = vi.fn();
+import { permisosEfectivos } from "@/lib/auth/permisos";
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
   requireSession: () => mockRequireSession(),
 }));
 
@@ -25,7 +27,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { abonarCuentaPorPagarAction, abonarProveedorAction, getCuentasPorPagar } from "./cuenta-por-pagar-actions";
 
-const SESION = { user: { id: "u1", role: "RECEPCION", tenantSchema: "taller", sedeActivaId: "sede-1" } };
+const SESION = { user: { id: "u1", role: "RECEPCION", permisos: permisosEfectivos({ role: "RECEPCION" }), tenantSchema: "taller", sedeActivaId: "sede-1" } };
 const inicial = { error: null, success: false };
 
 function fd(campos: Record<string, string>): FormData {
@@ -37,7 +39,7 @@ function fd(campos: Record<string, string>): FormData {
 describe("abonarCuentaPorPagarAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(SESION);
+    mockRequirePermiso.mockResolvedValue(SESION);
     mockRequireSession.mockResolvedValue(SESION);
     db.cuentaPorPagar.findFirst.mockResolvedValue({ id: "c1", saldoPendiente: "170000" });
     db.cajaSesion.findFirst.mockResolvedValue({ id: "s1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
@@ -50,7 +52,7 @@ describe("abonarCuentaPorPagarAction", () => {
     const r = await abonarCuentaPorPagarAction("c1", inicial, fd({ monto: "170000", metodoPago: "TRANSFERENCIA" }));
 
     expect(r).toEqual({ error: null, success: true, montoRegistrado: 170000, saldoRestante: 0, cuentaId: "c1" });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("cuentasPorPagar.usar");
     expect(tx.cuentaPorPagar.updateMany).toHaveBeenCalledWith({
       where: { id: "c1", saldoPendiente: { gte: 170000 } },
       data: { saldoPendiente: { decrement: 170000 } },
@@ -135,7 +137,7 @@ describe("abonarCuentaPorPagarAction", () => {
 describe("getCuentasPorPagar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(SESION);
+    mockRequirePermiso.mockResolvedValue(SESION);
     db.cuentaPorPagar.count.mockResolvedValue(0);
     db.cajaSesion.findFirst.mockResolvedValue({ id: "s1", abiertaAt: new Date() });
   });
@@ -145,7 +147,7 @@ describe("getCuentasPorPagar", () => {
 
     await getCuentasPorPagar();
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("cuentasPorPagar.usar");
   });
 
   it("agrupa por proveedor y calcula la antigüedad, solo lo pendiente y de la sede", async () => {
@@ -277,7 +279,7 @@ describe("abonarProveedorAction", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(SESION);
+    mockRequirePermiso.mockResolvedValue(SESION);
     db.cajaSesion.findFirst.mockResolvedValue({ id: "s1", abiertaAt: new Date() });
     tx.cuentaPorPagar.findMany.mockResolvedValue([
       { id: "g1", fecha: dia("2026-08-07"), saldoPendiente: "3948632" },
@@ -306,7 +308,7 @@ describe("abonarProveedorAction", () => {
       cuentaIds: ["g1", "g2"],
       saldoRestante: 4793986,
     });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("cuentasPorPagar.usar");
     // Solo lo pendiente del proveedor en la sede activa, de la más vieja a la más nueva.
     expect(tx.cuentaPorPagar.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -386,6 +388,6 @@ describe("abonarProveedorAction", () => {
     const r = await abonarProveedorAction("prov-gates", { error: null, success: false }, fd({ monto: "" }));
 
     expect(r.error).toBe("El monto es obligatorio");
-    expect(mockRequireRole).not.toHaveBeenCalled();
+    expect(mockRequirePermiso).not.toHaveBeenCalled();
   });
 });

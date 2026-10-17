@@ -41,12 +41,11 @@ const formatoPorcentaje = new Intl.NumberFormat("es-CO", { maximumFractionDigits
  */
 export function VenderMostrador({
   efectivoBloqueado,
-  rol,
-  descuentoMaxRecepcion,
+  topeDescuento,
 }: {
   efectivoBloqueado: boolean;
-  rol: "ADMIN" | "RECEPCION";
-  descuentoMaxRecepcion: number;
+  /** Tope de descuento en %, calculado por el servidor; null = sin tope. */
+  topeDescuento: number | null;
 }) {
   const carrito = useCarrito();
   // Los dos paneles quedan montados: en Ventas los atajos de vender no toman teclas.
@@ -128,7 +127,7 @@ export function VenderMostrador({
     ayuda: () => setAyudaAbierta(true),
   }, activa === "vender");
 
-  const tope = rol === "ADMIN" ? null : descuentoMaxRecepcion;
+  const tope = topeDescuento;
   const subtotalBruto = calcularTotalesVenta(carrito.lineas, 0).subtotal;
   const evaluacion = evaluarDescuento(subtotalBruto, descuento, tope);
   const totales = calcularTotalesVenta(carrito.lineas, evaluacion.error ? 0 : evaluacion.monto);

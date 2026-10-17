@@ -1,12 +1,12 @@
 import { listRepuestoOptions } from "@/app/actions/repuesto-actions";
 import { listServicios } from "@/app/actions/servicio-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { ServiciosSection } from "./servicios-section";
 
 export default async function ServiciosPage() {
-  await requireRole(["ADMIN"]);
-  // Secuencial, no Promise.all: cada action pasa por requireRole, que hace redirect() lanzando.
+  await requirePermiso("servicios.gestionar");
+  // Secuencial, no Promise.all: cada action pasa por requirePermiso, que hace redirect() lanzando.
   const servicios = await listServicios();
   const repuestos = await listRepuestoOptions();
 

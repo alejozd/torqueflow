@@ -69,7 +69,14 @@ export interface ColumnaTablero {
  * terminada ofrece ese enlace. Anular tampoco se arrastra (es destructivo): pasa
  * por el menú, con confirmación.
  */
-export function TableroOrdenes({ columnas }: { columnas: ColumnaTablero[] }) {
+export function TableroOrdenes({
+  columnas,
+  puedeAnularOrdenes,
+}: {
+  columnas: ColumnaTablero[];
+  /** Sin `ordenes.anular` no se ofrece anular. Obligatoria: olvidarla no la deja abierta. */
+  puedeAnularOrdenes: boolean;
+}) {
   const [arrastrando, setArrastrando] = useState<TarjetaTablero | null>(null);
   const [sobreColumna, setSobreColumna] = useState<EstadoOrden | null>(null);
   const [confirmando, setConfirmando] = useState<{ tarjeta: TarjetaTablero; destino: EstadoOrden } | null>(null);
@@ -166,6 +173,7 @@ export function TableroOrdenes({ columnas }: { columnas: ColumnaTablero[] }) {
                       key={tarjeta.id}
                       tarjeta={tarjeta}
                       pendiente={pendiente}
+                      puedeAnularOrdenes={puedeAnularOrdenes}
                       onArrastrar={() => setArrastrando(tarjeta)}
                       onSoltarArrastre={() => {
                         setArrastrando(null);
@@ -187,12 +195,14 @@ export function TableroOrdenes({ columnas }: { columnas: ColumnaTablero[] }) {
 function Tarjeta({
   tarjeta,
   pendiente,
+  puedeAnularOrdenes,
   onArrastrar,
   onSoltarArrastre,
   onMover,
 }: {
   tarjeta: TarjetaTablero;
   pendiente: boolean;
+  puedeAnularOrdenes: boolean;
   onArrastrar: () => void;
   onSoltarArrastre: () => void;
   onMover: (destino: EstadoOrden) => void;
@@ -201,7 +211,7 @@ function Tarjeta({
   // El menú también sale cuando no hay nada que arrastrar pero sí algo que
   // ofrecer: una orden TERMINADA se entrega desde el acta de su ficha.
   const muestraMenu = ofreceMenu(tarjeta.estado, tarjeta.movible);
-  const anulable = puedeAnular(tarjeta.estado, tarjeta.movible);
+  const anulable = puedeAnularOrdenes && puedeAnular(tarjeta.estado, tarjeta.movible);
   const entregable = puedeEntregar(tarjeta.estado);
   const movible = tarjeta.movible && destinos.length > 0;
   const router = useRouter();

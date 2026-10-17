@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { exigirCajaParaEfectivo, sesionDeCajaAbierta, ultimoCierreDeCaja } from "@/lib/caja/sesion";
 import { leerOpcionesTaller } from "@/lib/configuracion/opciones-taller";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
@@ -37,7 +37,6 @@ import { roundMoney } from "@/lib/money/round";
 import { scopeRepuesto } from "@/lib/sede/scope";
 import { cobroVentaSchema, ventaMostradorInputSchema, type VentaMostradorInput } from "@/lib/validation/mostrador";
 import { urlWhatsapp } from "@/lib/whatsapp/url";
-import type { Role } from "@/generated/prisma-tenant";
 
 /**
  * Venta de mostrador (Fase 24, D1/D2/D8): documento propio, sin orden de trabajo,
@@ -48,9 +47,6 @@ import type { Role } from "@/generated/prisma-tenant";
  * el control de caja (fase de consolidación, D3): así ningún efectivo queda fuera
  * del arqueo. Una venta a crédito no mueve dinero y no la exige.
  */
-
-/** Vender es cobrar: el mostrador es de ADMIN y RECEPCION (fase de consolidación, D6). */
-const ROLES_MOSTRADOR: Role[] = ["ADMIN", "RECEPCION"];
 
 const SIN_CAJA = "Abre la caja antes de cobrar en efectivo en el mostrador";
 const SALDO_INSUFICIENTE = "SALDO_INSUFICIENTE";
@@ -111,7 +107,7 @@ export async function crearVentaMostradorAction(
   if ("error" in leida) return { error: leida.error, success: false };
   const datos = leida.datos;
 
-  const session = await requireRole(ROLES_MOSTRADOR);
+  const session = await requirePermiso("mostrador.vender");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
 
@@ -167,10 +163,10 @@ export async function crearVentaMostradorAction(
   }
 
   // El tope de descuento de recepción se mide con el subtotal a precios del servidor.
-  if (session.user.role === "RECEPCION") {
+  if (!puede(session, "mostrador.descuentoSinTope")) {
     const { descuentoMaxRecepcion } = await leerOpcionesTaller(tenantDb);
     const porcentaje = porcentajeDescuento(subtotal, datos.descuento);
-    if (!descuentoPermitido("RECEPCION", porcentaje, descuentoMaxRecepcion)) {
+    if (!descuentoPermitido(false, porcentaje, descuentoMaxRecepcion)) {
       return { error: `Tu descuento máximo es ${descuentoMaxRecepcion} %`, success: false };
     }
   }
@@ -373,7 +369,7 @@ async function cargarComprobante(
  * solo ADMIN y RECEPCION, y solo ventas de la sede activa del tenant.
  */
 export async function getComprobanteVentaMostrador(ventaId: string): Promise<ComprobanteVenta | null> {
-  const session = await requireRole(ROLES_MOSTRADOR);
+  const session = await requirePermiso("mostrador.vender");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return cargarComprobante(session.user.tenantSchema, tenantDb, session.user.sedeActivaId, ventaId);
 }
@@ -385,7 +381,7 @@ export interface EnviarComprobanteState {
 
 /** Manda el comprobante al correo del cliente por el SMTP del taller (como la cotización). */
 export async function enviarComprobanteCorreoAction(ventaId: string): Promise<EnviarComprobanteState> {
-  const session = await requireRole(ROLES_MOSTRADOR);
+  const session = await requirePermiso("mostrador.vender");
   if (typeof ventaId !== "string" || ventaId === "") return { error: "Venta no encontrada", success: false };
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
@@ -448,7 +444,7 @@ function aRepuestoMostrador(
  * Un código exacto va primero y se marca `exacto`. Sin texto no devuelve nada.
  */
 export async function buscarParaMostradorAction(texto: string): Promise<ResultadoRepuestoMostrador[]> {
-  const session = await requireRole(ROLES_MOSTRADOR);
+  const session = await requirePermiso("mostrador.vender");
   const q = (typeof texto === "string" ? texto : "").trim().slice(0, 80);
   if (q === "") return [];
   const tenantDb = getTenantDb(session.user.tenantSchema);
@@ -503,7 +499,7 @@ const MAX_CLIENTES_MOSTRADOR = 10;
  * devuelve nada.
  */
 export async function buscarClientesMostradorAction(texto: string): Promise<ClienteMostrador[]> {
-  const session = await requireRole(ROLES_MOSTRADOR);
+  const session = await requirePermiso("mostrador.vender");
   const q = (typeof texto === "string" ? texto : "").trim().slice(0, 80);
   if (q === "") return [];
   const tenantDb = getTenantDb(session.user.tenantSchema);
@@ -593,9 +589,8 @@ export interface MostradorDatos {
   /** Para el chip de la cabecera: solo se muestra si el taller usa control de caja. */
   usarControlCaja: boolean;
   cajaAbierta: boolean;
-  /** Rol de quien vende y su tope de descuento (RECEPCION; ADMIN no tiene tope). */
-  rol: "ADMIN" | "RECEPCION";
-  descuentoMaxRecepcion: number;
+  /** Tope de descuento en % para quien vende; null = sin tope (decidido en el servidor). */
+  topeDescuento: number | null;
   /** Las ventas de hoy (el filtro por defecto de la pestaña Ventas). */
   ventas: VentaMostradorFila[];
   resumen: ResumenVentasHoy;
@@ -622,7 +617,7 @@ const SELECT_FILA = {
 /** Lo que decide si se puede devolver, leído una vez para todas las filas. */
 interface ContextoDevolucion {
   ahora: Date;
-  rol: string;
+  puedeConCajaCerrada: boolean;
   usarControlCaja: boolean;
   /** Último cierre de caja de la sede: las ventas anteriores a él ya pasaron por un arqueo. */
   ultimoCierreCaja: Date | null;
@@ -631,16 +626,16 @@ interface ContextoDevolucion {
 async function contextoDevolucion(
   tenantDb: TenantDb,
   sedeId: string,
-  rol: string,
+  puedeConCajaCerrada: boolean,
   usarControlCaja: boolean,
 ): Promise<ContextoDevolucion> {
   const ultimoCierreCaja = usarControlCaja ? await ultimoCierreDeCaja(tenantDb, sedeId) : null;
-  return { ahora: new Date(), rol, usarControlCaja, ultimoCierreCaja };
+  return { ahora: new Date(), puedeConCajaCerrada, usarControlCaja, ultimoCierreCaja };
 }
 
-async function leerContextoDevolucion(tenantDb: TenantDb, sedeId: string, rol: string): Promise<ContextoDevolucion> {
+async function leerContextoDevolucion(tenantDb: TenantDb, sedeId: string, puedeConCajaCerrada: boolean): Promise<ContextoDevolucion> {
   const { usarControlCaja } = await leerOpcionesTaller(tenantDb);
-  return contextoDevolucion(tenantDb, sedeId, rol, usarControlCaja);
+  return contextoDevolucion(tenantDb, sedeId, puedeConCajaCerrada, usarControlCaja);
 }
 
 
@@ -683,7 +678,7 @@ async function leerFilas(
       estado: estadoVentaMostrador(items, saldoPendiente),
       metodos: describirMetodos(venta.pagos.map((pago) => ({ metodoPago: pago.metodoPago, monto: Number(pago.monto) }))),
       items,
-      devolucion: puedeDevolver({ fechaVenta: venta.createdAt, ahora: contexto.ahora, rol: contexto.rol, cajaCerrada }),
+      devolucion: puedeDevolver({ fechaVenta: venta.createdAt, ahora: contexto.ahora, puedeConCajaCerrada: contexto.puedeConCajaCerrada, cajaCerrada }),
     };
   });
 }
@@ -724,14 +719,14 @@ async function resumenDeHoy(tenantDb: TenantDb, sedeId: string, ahora: Date): Pr
  * `buscarParaMostradorAction` y `buscarClientesMostradorAction`.
  */
 export async function getMostradorDatos(): Promise<MostradorDatos> {
-  const session = await requireRole(ROLES_MOSTRADOR);
+  const session = await requirePermiso("mostrador.vender");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
 
   const opciones = await leerOpcionesTaller(tenantDb);
   const [sesion, contexto] = await Promise.all([
     sesionDeCajaAbierta(tenantDb, sedeId),
-    contextoDevolucion(tenantDb, sedeId, session.user.role, opciones.usarControlCaja),
+    contextoDevolucion(tenantDb, sedeId, puede(session, "mostrador.devolverConCajaCerrada"), opciones.usarControlCaja),
   ]);
   const hoy = ventanaDelRango(rangoDelFiltro("hoy", contexto.ahora));
   if ("error" in hoy) throw new Error(hoy.error);
@@ -744,8 +739,7 @@ export async function getMostradorDatos(): Promise<MostradorDatos> {
     efectivoBloqueado: opciones.usarControlCaja && sesion === null,
     usarControlCaja: opciones.usarControlCaja,
     cajaAbierta: sesion !== null,
-    rol: session.user.role === "ADMIN" ? "ADMIN" : "RECEPCION",
-    descuentoMaxRecepcion: opciones.descuentoMaxRecepcion,
+    topeDescuento: puede(session, "mostrador.descuentoSinTope") ? null : opciones.descuentoMaxRecepcion,
     ventas,
     resumen,
   };
@@ -763,7 +757,7 @@ export interface ListadoVentasMostrador {
  * 30 días: los filtros Hoy, Ayer y Últimos 30 días de la pestaña Ventas.
  */
 export async function listarVentasMostradorAction(rango: RangoVentas): Promise<ListadoVentasMostrador> {
-  const session = await requireRole(ROLES_MOSTRADOR);
+  const session = await requirePermiso("mostrador.vender");
   const ventana = ventanaDelRango({
     desde: typeof rango?.desde === "string" ? rango.desde : "",
     hasta: typeof rango?.hasta === "string" ? rango.hasta : "",
@@ -772,7 +766,7 @@ export async function listarVentasMostradorAction(rango: RangoVentas): Promise<L
 
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
-  const contexto = await leerContextoDevolucion(tenantDb, sedeId, session.user.role);
+  const contexto = await leerContextoDevolucion(tenantDb, sedeId, puede(session, "mostrador.devolverConCajaCerrada"));
   // Se pide una de más para saber si hubo que cortar.
   const ventas = await leerFilas(
     tenantDb,
@@ -790,11 +784,11 @@ export async function listarVentasMostradorAction(rango: RangoVentas): Promise<L
  * saldo no tiene plazo (solo la devolución lo tiene).
  */
 export async function obtenerVentaMostradorAction(ventaId: string): Promise<VentaMostradorFila | null> {
-  const session = await requireRole(ROLES_MOSTRADOR);
+  const session = await requirePermiso("mostrador.vender");
   if (typeof ventaId !== "string" || ventaId === "") return null;
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
-  const contexto = await leerContextoDevolucion(tenantDb, sedeId, session.user.role);
+  const contexto = await leerContextoDevolucion(tenantDb, sedeId, puede(session, "mostrador.devolverConCajaCerrada"));
   const [venta] = await leerFilas(tenantDb, { sedeId, id: ventaId }, contexto);
   return venta ?? null;
 }
@@ -812,7 +806,7 @@ export async function cobrarVentaMostradorAction(
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
 
-  const session = await requireRole(ROLES_MOSTRADOR);
+  const session = await requirePermiso("mostrador.vender");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
 

@@ -13,7 +13,7 @@ vi.mock("@/app/actions/liquidacion-actions", () => ({
   anularLiquidacionAction: vi.fn(),
   pagarLiquidacionAction: vi.fn(),
 }));
-vi.mock("@/lib/auth/guards", () => ({ requireRole: vi.fn(), requireSession: vi.fn() }));
+vi.mock("@/lib/auth/guards", () => ({ requirePermiso: vi.fn(), requireSession: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import LiquidacionesPage from "./page";

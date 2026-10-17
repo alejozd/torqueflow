@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...a: unknown[]) => mockRequireRole(...a),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: vi.fn(),
 }));
 
@@ -67,7 +67,7 @@ function fd(campos: Record<string, string>): FormData {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockRequireRole.mockResolvedValue(ADMIN);
+  mockRequirePermiso.mockResolvedValue(ADMIN);
   db.usuario.findFirst.mockResolvedValue({ id: "t1" });
   db.usuario.findMany.mockResolvedValue([]);
   db.configuracionTaller.findUnique.mockResolvedValue({ frecuenciaLiquidacion: "MENSUAL" });
@@ -94,9 +94,9 @@ describe("guardarEsquemaLiquidacionAction", () => {
   it("guarda un esquema por porcentaje y limpia el monto base", async () => {
     const r = await guardarEsquemaLiquidacionAction("t1", inicial, fd({ tipo: "PORCENTAJE", porcentaje: "40", montoFijo: "800000" }));
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("liquidaciones.gestionar");
     expect(db.usuario.findFirst).toHaveBeenCalledWith({
-      where: { id: "t1", role: "TECNICO", sedes: { some: { sedeId: "sede-1" } } },
+      where: { id: "t1", role: { in: ["TECNICO", "JEFE_TALLER"] }, sedes: { some: { sedeId: "sede-1" } } },
       select: { id: true },
     });
     expect(tx.esquemaLiquidacion.upsert).toHaveBeenCalledWith({
@@ -154,7 +154,7 @@ describe("guardarEsquemaLiquidacionAction", () => {
 describe("getFrecuenciaLiquidacion", () => {
   it("devuelve la frecuencia guardada y exige ADMIN", async () => {
     await expect(getFrecuenciaLiquidacion()).resolves.toBe("MENSUAL");
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("liquidaciones.gestionar");
   });
 
   it("cae en el valor por defecto si el taller nunca guardó la configuración", async () => {
@@ -232,7 +232,7 @@ describe("listLiquidacionesDelPeriodo", () => {
   it("cruza la producción del periodo con el esquema vigente; sin pago, la fila está por pagar", async () => {
     const r = await listLiquidacionesDelPeriodo("2026-10");
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("liquidaciones.gestionar");
     // La ventana corta a medianoche de Bogotá (B2).
     expect(db.ordenTrabajo.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -321,7 +321,7 @@ describe("listLiquidacionesDelPeriodo", () => {
 
     expect(db.usuario.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { OR: [{ role: "TECNICO", sedes: { some: { sedeId: "sede-1" } } }, { id: { in: ["t1"] } }] },
+        where: { OR: [{ role: { in: ["TECNICO", "JEFE_TALLER"] }, sedes: { some: { sedeId: "sede-1" } } }, { id: { in: ["t1"] } }] },
       }),
     );
   });
@@ -610,7 +610,7 @@ describe("quitarEsquemaLiquidacionAction", () => {
 
     expect(r).toEqual({ error: null });
     expect(db.usuario.findFirst).toHaveBeenCalledWith({
-      where: { id: "t1", role: "TECNICO", sedes: { some: { sedeId: "sede-1" } } },
+      where: { id: "t1", role: { in: ["TECNICO", "JEFE_TALLER"] }, sedes: { some: { sedeId: "sede-1" } } },
       select: { id: true },
     });
     expect(tx.esquemaLiquidacion.deleteMany).toHaveBeenCalledWith({ where: { usuarioId: "t1" } });

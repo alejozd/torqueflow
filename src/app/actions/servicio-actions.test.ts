@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { permisosEfectivos } from "@/lib/auth/permisos";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...a: unknown[]) => mockRequireRole(...a),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: vi.fn(),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
 }));
 
 const tx = {
@@ -43,7 +45,7 @@ import {
 const inicial: ServicioFormState = { error: null, success: false };
 const inicialRepuesto: ServicioRepuestoFormState = { error: null, success: false, cantidad: null };
 const inicialAplicar: AplicarServicioFormState = { error: null, success: false, agregados: null };
-const ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const ADMIN = { user: { id: "u1", role: "ADMIN", permisos: ["ordenes.verTodas"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 function fd(campos: Record<string, string>): FormData {
   const f = new FormData();
@@ -53,7 +55,8 @@ function fd(campos: Record<string, string>): FormData {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockRequireRole.mockResolvedValue(ADMIN);
+  mockRequirePermiso.mockResolvedValue(ADMIN);
+  mockRequirePermiso.mockResolvedValue(ADMIN);
   db.servicio.findFirst.mockResolvedValue(null);
   db.servicio.findUnique.mockResolvedValue({ id: "s1", nombre: "Cambio de aceite", activo: true });
   db.repuesto.findFirst.mockResolvedValue({ id: "r1", nombre: "Filtro de aceite" });
@@ -83,7 +86,7 @@ describe("listServicios", () => {
 
     const r = await listServicios();
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("servicios.gestionar");
     expect(db.servicio.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: {}, orderBy: { nombre: "asc" } }),
     );
@@ -98,7 +101,7 @@ describe("listServicios", () => {
 
     await listServicios({ soloActivos: true });
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION", "TECNICO"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.ver");
     expect(db.servicio.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { activo: true },
@@ -138,7 +141,7 @@ describe("crearServicioAction", () => {
       fd({ nombre: "  Cambio de aceite ", descripcion: "  Aceite y filtro  ", precioManoObra: "45000" }),
     );
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("servicios.gestionar");
     expect(r).toEqual({ error: null, success: true });
     expect(db.servicio.create).toHaveBeenCalledWith({
       data: { nombre: "Cambio de aceite", descripcion: "Aceite y filtro", precioManoObra: 45000 },
@@ -170,7 +173,7 @@ describe("crearServicioAction", () => {
 
     expect(r.error).toBe("El nombre es obligatorio");
     expect(db.servicio.create).not.toHaveBeenCalled();
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("servicios.gestionar");
   });
 });
 
@@ -347,7 +350,7 @@ describe("aplicarServicioAOrdenAction", () => {
 
     const r = await aplicarServicioAOrdenAction("o1", inicialAplicar, fd({ servicioId: " s1 " }));
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION", "TECNICO"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.trabajar");
     expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "o1", sedeId: "sede-1" } }),
     );
@@ -365,7 +368,7 @@ describe("aplicarServicioAOrdenAction", () => {
     });
     // El mecánico heredado se revalida contra la sede activa, como en addManoDeObraAction.
     expect(db.usuario.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "m1", role: "TECNICO", sedes: { some: { sedeId: "sede-1" } } } }),
+      expect.objectContaining({ where: { id: "m1", role: { in: ["TECNICO", "JEFE_TALLER"] }, sedes: { some: { sedeId: "sede-1" } } } }),
     );
     // El precio sale del precioVenta actual de cada repuesto, no del kit.
     expect(tx.itemOrden.create).toHaveBeenNthCalledWith(1, {
@@ -523,7 +526,7 @@ describe("aplicarServicioACotizacionAction", () => {
   it("crea las líneas de la cotización y recomputa sus totales en la misma transacción", async () => {
     const r = await aplicarServicioACotizacionAction("c1", inicialAplicar, fd({ servicioId: " s1 " }));
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION", "TECNICO"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("cotizaciones.editarItems");
     expect(db.cotizacion.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "c1", sedeId: "sede-1" } }),
     );
@@ -641,10 +644,10 @@ describe("aplicarServicioACotizacionAction", () => {
 
 describe("guardas de rol", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+    mockRequirePermiso.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
   });
 
-  // Una lista de roles pasada a requireRole no prueba nada por sí sola: lo que
+  // Una lista de roles pasada a requirePermiso no prueba nada por sí sola: lo que
   // hay que comprobar es que el rechazo (redirect) corta la action antes de
   // escribir. Mismo patrón que bodega-actions.test.ts / cliente-actions.test.ts.
   const acciones: [string, () => Promise<unknown>][] = [
@@ -667,7 +670,7 @@ describe("guardas de rol", () => {
     ],
   ];
 
-  it.each(acciones)("%s propaga el redirect de requireRole y no escribe nada", async (_nombre, accion) => {
+  it.each(acciones)("%s propaga el redirect del guard y no escribe nada", async (_nombre, accion) => {
     await expect(accion()).rejects.toThrow("REDIRECT:/login?error=forbidden");
 
     expect(db.servicio.create).not.toHaveBeenCalled();
@@ -681,5 +684,21 @@ describe("guardas de rol", () => {
     expect(tx.manoDeObra.create).not.toHaveBeenCalled();
     expect(tx.itemOrden.create).not.toHaveBeenCalled();
     expect(tx.itemCotizacion.create).not.toHaveBeenCalled();
+  });
+});
+
+const TECNICO_D7 = { user: { id: "tec-1", role: "TECNICO", permisos: permisosEfectivos({ role: "TECNICO" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const WHERE_D7 = (id: string) => ({ id, sedeId: "sede-1", OR: [{ mecanicoId: "tec-1" }, { manoDeObra: { some: { mecanicoId: "tec-1" } } }] });
+
+describe("D7: el técnico solo trabaja en sus órdenes (servicios)", () => {
+  it("no aplica un servicio a una orden ajena", async () => {
+    mockRequirePermiso.mockResolvedValue(TECNICO_D7);
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await aplicarServicioAOrdenAction("ajena", inicialAplicar, fd({ servicioId: "s1" }));
+
+    expect(r.error).toBe("Orden no encontrada");
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+    expect(tx.manoDeObra.create).not.toHaveBeenCalled();
   });
 });

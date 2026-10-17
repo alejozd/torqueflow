@@ -1,3 +1,4 @@
+import { requirePermiso } from "@/lib/auth/guards";
 import { getConfiguracionSmtp, getUltimosEnviosSmtp } from "@/app/actions/smtp-actions";
 import { getDiasAvisoVencimiento, getDiasEstancada, getOpcionesTaller } from "@/app/actions/configuracion-taller-actions";
 import { ConfiguracionSmtpForm } from "./configuracion-smtp-form";
@@ -14,8 +15,8 @@ import { cn } from "@/lib/utils";
 const ESTADO_BADGE_CLASSNAME = "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]";
 
 export default async function ConfiguracionSmtpPage() {
-  // getConfiguracionSmtp calls requireRole(["ADMIN"]), so a TECNICO/RECEPCION
-  // reaching this URL is redirected before anything renders.
+  // Quien no tenga el permiso es redirigido a /sin-permiso antes de renderizar.
+  await requirePermiso("configuracion.taller");
   const [configuracion, envios, diasAviso, diasEstancada, opcionesTaller] = await Promise.all([
     getConfiguracionSmtp(),
     getUltimosEnviosSmtp(),

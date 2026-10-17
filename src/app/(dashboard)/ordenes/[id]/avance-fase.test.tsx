@@ -17,7 +17,7 @@ describe("AvanceFase", () => {
   });
 
   it("en borrador ofrece pasar a En proceso, en un solo clic", async () => {
-    render(<AvanceFase ordenId="o1" estado="BORRADOR" />);
+    render(<AvanceFase ordenId="o1" estado="BORRADOR" puedeAnular />);
     await userEvent.click(screen.getByRole("button", { name: /Pasar a En proceso/ }));
     expect(mockEstado).toHaveBeenCalledTimes(1);
     expect(mockEstado.mock.calls[0]![0]).toBe("o1");
@@ -25,26 +25,26 @@ describe("AvanceFase", () => {
   });
 
   it("en proceso ofrece marcarla como terminada", async () => {
-    render(<AvanceFase ordenId="o1" estado="EN_PROCESO" />);
+    render(<AvanceFase ordenId="o1" estado="EN_PROCESO" puedeAnular />);
     await userEvent.click(screen.getByRole("button", { name: /Marcar como terminada/ }));
     expect(enviado()).toBe("TERMINADA");
   });
 
   it("terminada lleva al acta en vez de entregar directo", () => {
-    render(<AvanceFase ordenId="o1" estado="TERMINADA" />);
+    render(<AvanceFase ordenId="o1" estado="TERMINADA" puedeAnular />);
     expect(screen.getByRole("link", { name: /Ir a la entrega/ })).toHaveAttribute("href", "?tab=entrega");
     expect(screen.getByText("Falta el acta firmada")).toBeInTheDocument();
   });
 
   it("entregada o anulada no ofrece nada", () => {
-    const { container, rerender } = render(<AvanceFase ordenId="o1" estado="ENTREGADA" />);
+    const { container, rerender } = render(<AvanceFase ordenId="o1" estado="ENTREGADA" puedeAnular />);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    rerender(<AvanceFase ordenId="o1" estado="ANULADA" />);
+    rerender(<AvanceFase ordenId="o1" estado="ANULADA" puedeAnular />);
     expect(container.querySelector("button, a")).toBeNull();
   });
 
   it("anular pide confirmación antes de enviar", async () => {
-    render(<AvanceFase ordenId="o1" estado="BORRADOR" />);
+    render(<AvanceFase ordenId="o1" estado="BORRADOR" puedeAnular />);
     await userEvent.click(screen.getByRole("button", { name: "Más acciones" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: /Anular orden/ }));
     expect(mockEstado).not.toHaveBeenCalled();
@@ -52,10 +52,21 @@ describe("AvanceFase", () => {
     expect(enviado()).toBe("ANULADA");
   });
 
+  it("sin permiso de anular no ofrece el menú de anular", () => {
+    render(<AvanceFase ordenId="o1" estado="BORRADOR" puedeAnular={false} />);
+    expect(screen.queryByRole("button", { name: "Más acciones" })).toBeNull();
+  });
+
   it("muestra el error de la acción", async () => {
     mockEstado.mockResolvedValue({ error: "Transición inválida", advertencia: null });
-    render(<AvanceFase ordenId="o1" estado="BORRADOR" />);
+    render(<AvanceFase ordenId="o1" estado="BORRADOR" puedeAnular />);
     await userEvent.click(screen.getByRole("button", { name: /Pasar a En proceso/ }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Transición inválida");
+  });
+
+  it("puedeAnular es obligatorio: si se olvida no compila, en vez de quedar abierto (M4)", () => {
+    // @ts-expect-error -- sin puedeAnular el componente no debe compilar.
+    const elemento = <AvanceFase ordenId="o1" estado="BORRADOR" />;
+    expect(elemento).toBeTruthy();
   });
 });

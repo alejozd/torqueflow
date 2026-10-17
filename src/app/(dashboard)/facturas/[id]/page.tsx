@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPI_TONE } from "@/components/ui/kpi-card";
 import { formatoFechaCorta } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
+import { requirePermiso } from "@/lib/auth/guards";
 
 const METODO_PAGO_LABELS: Record<MetodoPago, string> = {
   EFECTIVO: "Efectivo",
@@ -143,6 +144,7 @@ const PAGOS_COLUMNS: DataTableColumn<PagoRow>[] = [
 ];
 
 export default async function FacturaDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePermiso("facturas.ver");
   const { id } = await params;
   const factura = await getFactura(id);
 

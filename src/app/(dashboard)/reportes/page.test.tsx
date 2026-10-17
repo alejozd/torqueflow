@@ -7,7 +7,19 @@ vi.mock("@/app/actions/reporte-actions", () => ({
   getReporteRentabilidad: (...args: unknown[]) => mockRentabilidad(...args),
   getReporteProductividad: (...args: unknown[]) => mockProductividad(...args),
 }));
-vi.mock("@/app/actions/sede-actions", () => ({ listSedes: () => Promise.resolve([]) }));
+const mockListSedes = vi.fn();
+vi.mock("@/app/actions/sede-actions", () => ({ listSedes: () => mockListSedes() }));
+
+import { permisosEfectivos, tienePermiso, type Permiso, type Role } from "@/lib/auth/permisos";
+
+let permisosActuales: Permiso[] = [];
+function conPermisos(role: Role) {
+  permisosActuales = permisosEfectivos({ role });
+}
+vi.mock("@/lib/auth/guards", () => ({
+  requirePermiso: vi.fn(async () => ({ user: {} })),
+  puede: (_s: unknown, p: Permiso) => tienePermiso(permisosActuales, p),
+}));
 
 import ReportesPage from "./page";
 
@@ -46,6 +58,8 @@ async function renderPage() {
 
 describe("ReportesPage", () => {
   beforeEach(() => {
+    conPermisos("ADMIN");
+    mockListSedes.mockReset().mockResolvedValue([]);
     mockRentabilidad.mockReset().mockResolvedValue(RENTABILIDAD);
     mockProductividad.mockReset().mockResolvedValue({ filtros: FILTROS, error: null, filas: [] });
   });
@@ -137,5 +151,23 @@ describe("ReportesPage", () => {
     expect(filas[2]!.textContent).toContain("—");
     // El encabezado suma los trabajos del periodo.
     expect(screen.getByText("2 técnicos · 4 trabajos")).toBeInTheDocument();
+  });
+
+  it("exige reportes.productividad al entrar", async () => {
+    const { requirePermiso } = await import("@/lib/auth/guards");
+    await renderPage();
+    expect(requirePermiso).toHaveBeenCalledWith("reportes.productividad");
+  });
+
+  it("sin reportes.rentabilidad ni sedes.verTodas no pide rentabilidad ni sedes y oculta esa sección", async () => {
+    permisosActuales = ["reportes.productividad"];
+
+    await renderPage();
+
+    expect(mockRentabilidad).not.toHaveBeenCalled();
+    expect(mockListSedes).not.toHaveBeenCalled();
+    expect(screen.queryByText("Utilidad neta")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sede")).not.toBeInTheDocument();
+    expect(screen.getByText("Productividad por técnico")).toBeInTheDocument();
   });
 });

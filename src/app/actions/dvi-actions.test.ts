@@ -1,8 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { permisosEfectivos } from "@/lib/auth/permisos";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
 }));
 
 const mockUpsert = vi.fn();
@@ -35,12 +37,12 @@ import {
 } from "./dvi-actions";
 
 const initialState: DviFormState = { error: null, success: false };
-const SESSION = { user: { id: "u1", role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
-const SESSION_ADMIN = { user: { role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION = { user: { id: "u1", role: "TECNICO", permisos: ["ordenes.verTodas"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION_ADMIN = { user: { role: "ADMIN", permisos: ["ordenes.verTodas"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 describe("updateDviChecklistAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockUpsert.mockReset();
     mockDviFindUnique.mockReset().mockResolvedValue(null);
     mockChecklistItemFindMany.mockReset().mockResolvedValue([
@@ -127,7 +129,7 @@ describe("updateDviChecklistAction", () => {
 
 describe("addDviFotoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockDviFindUnique.mockReset();
     mockFotoCreate.mockReset();
     mockSaveDviFoto.mockReset();
@@ -221,7 +223,7 @@ describe("addDviFotoAction", () => {
 
 describe("deleteDviFotoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockFotoDeleteMany.mockReset();
     mockOrdenFindFirst.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
   });
@@ -231,7 +233,7 @@ describe("deleteDviFotoAction", () => {
 
     await deleteDviFotoAction("f1", "o1");
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.quitar");
     expect(mockFotoDeleteMany).toHaveBeenCalledWith({ where: { id: "f1", dvi: { ordenId: "o1" } } });
   });
 
@@ -273,5 +275,23 @@ describe("deleteDviFotoAction", () => {
       where: { id: "orden-de-otra-sede", sedeId: "sede-1" },
       select: { estado: true, factura: { select: { id: true } } },
     });
+  });
+});
+
+const TECNICO_D7 = { user: { id: "tec-1", role: "TECNICO", permisos: permisosEfectivos({ role: "TECNICO" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const WHERE_D7 = (id: string) => ({ id, sedeId: "sede-1", OR: [{ mecanicoId: "tec-1" }, { manoDeObra: { some: { mecanicoId: "tec-1" } } }] });
+
+describe("D7: el técnico solo trabaja en sus órdenes (dvi)", () => {
+  it("una orden ajena no se encuentra y no se escribe nada", async () => {
+    mockRequirePermiso.mockReset().mockResolvedValue(TECNICO_D7);
+    mockOrdenFindFirst.mockReset().mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("frenos", "OK");
+
+    const result = await updateDviChecklistAction("ajena", initialState, formData);
+
+    expect(result).toEqual({ error: "Orden no encontrada", success: false });
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+    expect(mockUpsert).not.toHaveBeenCalled();
   });
 });

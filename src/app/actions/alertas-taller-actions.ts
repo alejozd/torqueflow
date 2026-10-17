@@ -1,6 +1,6 @@
 "use server";
 
-import { requireSession } from "@/lib/auth/guards";
+import { puede, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { leerDiasEstancada } from "@/lib/orden/configuracion-estancada";
 import {
@@ -10,7 +10,7 @@ import {
   limiteHistorialAlertas,
   type MotivoAlerta,
 } from "@/lib/orden/flujo";
-import { scopeOrden } from "@/lib/sede/scope";
+import { scopeOrdenVisible } from "@/lib/sede/scope";
 import type { PrioridadOrden } from "@/generated/prisma-tenant";
 
 export interface AlertaTaller {
@@ -47,7 +47,7 @@ export async function getAlertasTaller(): Promise<AlertasTaller> {
     leerDiasEstancada(tenantDb),
     tenantDb.ordenTrabajo.findMany({
       where: {
-        ...scopeOrden(session.user.sedeActivaId),
+        ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")),
         estado: { in: ["EN_PROCESO", "TERMINADA"] },
         // Acotado a un año (D16): sin esto se recorrería todo el histórico de
         // órdenes terminadas de la sede en cada carga del Inicio.

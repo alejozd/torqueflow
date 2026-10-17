@@ -3,9 +3,13 @@ import { escribirLibro } from "@/lib/importacion/xlsx";
 import { resultadoVacio } from "@/lib/importacion/resultado";
 import { MAX_BYTES_ARCHIVO } from "@/lib/importacion/hojas";
 import { armarZip } from "@/lib/importacion/test-utils";
+import { permisosEfectivos } from "@/lib/auth/permisos";
 
-const mockRequireRole = vi.fn();
-vi.mock("@/lib/auth/guards", () => ({ requireRole: (...args: unknown[]) => mockRequireRole(...args) }));
+const mockRequirePermiso = vi.fn();
+vi.mock("@/lib/auth/guards", () => ({
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
+}));
 
 const tx = {
   cliente: { create: vi.fn() },
@@ -34,8 +38,8 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { importarAction } from "./importacion-actions";
 
-const ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller", sedeActivaId: "sede-1" } };
-const RECEPCION = { user: { id: "u2", role: "RECEPCION", tenantSchema: "taller", sedeActivaId: "sede-1" } };
+const ADMIN = { user: { id: "u1", role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }), tenantSchema: "taller", sedeActivaId: "sede-1" } };
+const RECEPCION = { user: { id: "u2", role: "RECEPCION", permisos: permisosEfectivos({ role: "RECEPCION" }), tenantSchema: "taller", sedeActivaId: "sede-1" } };
 
 const CABECERAS_CLIENTES = ["Nombre", "Documento", "Teléfono", "Correo"];
 const CABECERAS_VEHICULOS = ["Placa", "Marca", "Modelo", "Documento cliente"];
@@ -61,7 +65,7 @@ const resumenDe = (resultado: Awaited<ReturnType<typeof importarAction>>, hoja: 
 describe("importarAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     db.cliente.findMany.mockResolvedValue([]);
     db.vehiculo.findMany.mockResolvedValue([]);
     db.repuesto.findMany.mockResolvedValue([]);
@@ -82,7 +86,7 @@ describe("importarAction", () => {
   it("exige ADMIN o RECEPCION", async () => {
     await importarAction(resultadoVacio(), enviar());
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("importar.usar");
   });
 
   it("exige un archivo .xlsx que no pese más de 5 MB", async () => {
@@ -332,7 +336,7 @@ describe("importarAction", () => {
   it("solo deja importar servicios a un ADMIN", async () => {
     const libro = await archivo([{ nombre: "Servicios", filas: [CABECERAS_SERVICIOS, ["Alineación", "30.000"]] }]);
 
-    mockRequireRole.mockResolvedValue(RECEPCION);
+    mockRequirePermiso.mockResolvedValue(RECEPCION);
     const comoRecepcion = await importarAction(resultadoVacio(), enviar(libro));
     expect(comoRecepcion.resumen[0]).toEqual({
       hoja: "Servicios",
@@ -345,7 +349,7 @@ describe("importarAction", () => {
     });
     expect(tx.servicio.create).not.toHaveBeenCalled();
 
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     const comoAdmin = await importarAction(resultadoVacio(), enviar(libro));
     expect(tx.servicio.create).toHaveBeenCalledWith({
       data: { nombre: "Alineación", descripcion: null, precioManoObra: 30000, activo: true },

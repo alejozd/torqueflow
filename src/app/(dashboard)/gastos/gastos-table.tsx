@@ -14,13 +14,13 @@ const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", tim
 
 export function GastosTable({
   filas,
-  esAdmin,
+  puedeAdministrar,
   categorias,
   sedeId,
   sedes,
 }: {
   filas: GastoFila[];
-  esAdmin: boolean;
+  puedeAdministrar: boolean;
   categorias: CategoriaGastoVista[];
   sedeId: string;
   sedes?: { id: string; nombre: string }[];
@@ -52,7 +52,7 @@ export function GastosTable({
     { header: "Registrado por", cell: (g) => g.registradoPorNombre },
   ];
 
-  if (esAdmin) {
+  if (puedeAdministrar) {
     columns.push({
       header: "Acciones",
       cell: (g) => (

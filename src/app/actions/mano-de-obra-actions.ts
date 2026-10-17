@@ -1,13 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { manoDeObraInputSchema } from "@/lib/validation/orden";
 import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
-import { scopeOrden } from "@/lib/sede/scope";
+import { scopeOrdenVisible } from "@/lib/sede/scope";
+import { ROLES_MECANICO } from "@/lib/auth/permisos";
 
 export interface ManoDeObraFormState {
   error: string | null;
@@ -29,11 +30,11 @@ export async function addManoDeObraAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
+  const session = await requirePermiso("ordenes.trabajar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
+    where: { id: ordenId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     select: { estado: true, factura: { select: { id: true } } },
   });
   if (!orden) {
@@ -50,7 +51,7 @@ export async function addManoDeObraAction(
     // Same sede-membership check asignarMecanicoAction applies to the orden's
     // propio mecánico -- in case the posted id is stale or tampered.
     const tecnico = await tenantDb.usuario.findFirst({
-      where: { id: mecanicoId, role: "TECNICO", sedes: { some: { sedeId: session.user.sedeActivaId } } },
+      where: { id: mecanicoId, role: { in: [...ROLES_MECANICO] }, sedes: { some: { sedeId: session.user.sedeActivaId } } },
       select: { id: true },
     });
     if (!tecnico) {
@@ -76,11 +77,11 @@ export async function addManoDeObraAction(
 }
 
 export async function deleteManoDeObraAction(id: string, ordenId: string): Promise<void> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("ordenes.quitar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
+    where: { id: ordenId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     select: { estado: true, factura: { select: { id: true } } },
   });
   if (!orden) {

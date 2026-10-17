@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getComprobanteVentaMostrador } from "@/app/actions/venta-mostrador-actions";
+import { requirePermiso } from "@/lib/auth/guards";
 import {
   AVISO_NO_FACTURA,
   ETIQUETA_METODO_PAGO,
@@ -24,6 +25,8 @@ export default async function ComprobanteVentaPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ [clave: string]: string | string[] | undefined }>;
 }) {
+  // El loader ya lo exige; se repite aquí para que la página lo diga sola (Fase 26, I3).
+  await requirePermiso("mostrador.vender");
   const { id } = await params;
   const consulta = await searchParams;
   const venta = await getComprobanteVentaMostrador(id);

@@ -1,10 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: vi.fn(),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
 }));
+import { permisosEfectivos } from "@/lib/auth/permisos";
 
 const mockSedeFindFirst = vi.fn();
 const mockFacturaFindMany = vi.fn();
@@ -29,11 +31,25 @@ vi.mock("@/lib/gastos/pendientes-db", () => ({
 import { getReporteRentabilidad, getReporteProductividad } from "./reporte-actions";
 
 const FILTROS_VALIDOS = { desde: "2026-08-01", hasta: "2026-08-21" };
-const SESSION = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-activa" } };
+const SESSION = {
+  user: { id: "u1", role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }), tenantSchema: "taller_perez", sedeActivaId: "sede-activa" },
+};
+const JEFE = {
+  user: { id: "j1", role: "JEFE_TALLER", permisos: permisosEfectivos({ role: "JEFE_TALLER" }), tenantSchema: "taller_perez", sedeActivaId: "sede-activa" },
+};
+const RECEPCION_RENTABILIDAD = {
+  user: {
+    id: "r1",
+    role: "RECEPCION",
+    permisos: permisosEfectivos({ role: "RECEPCION", agregados: ["reportes.rentabilidad"] }),
+    tenantSchema: "taller_perez",
+    sedeActivaId: "sede-activa",
+  },
+};
 
 describe("getReporteRentabilidad", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockSedeFindFirst.mockReset();
     mockFacturaFindMany.mockReset().mockResolvedValue([]);
     mockGastoGroupBy.mockReset().mockResolvedValue([]);
@@ -82,7 +98,7 @@ describe("getReporteRentabilidad", () => {
   it("is gated to ADMIN only", async () => {
     await getReporteRentabilidad(FILTROS_VALIDOS);
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("reportes.rentabilidad");
   });
 
   it("rejects an invalid range before touching the database", async () => {
@@ -119,6 +135,20 @@ describe("getReporteRentabilidad", () => {
     expect(mockSedeFindFirst).not.toHaveBeenCalled();
     expect(mockFacturaFindMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ orden: { sedeId: "sede-norte" } }) }),
+    );
+  });
+
+  it("sin sedes.verTodas ignora el sedeId de la URL y usa la sede activa (I1)", async () => {
+    mockRequirePermiso.mockResolvedValue(RECEPCION_RENTABILIDAD);
+
+    const result = await getReporteRentabilidad({ ...FILTROS_VALIDOS, sedeId: "sede-norte" });
+
+    expect(result.filtros.sedeId).toBe("sede-activa");
+    expect(mockFacturaFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ orden: { sedeId: "sede-activa" } }) }),
+    );
+    expect(mockGastoGroupBy).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ sedeId: "sede-activa" }) }),
     );
   });
 
@@ -174,7 +204,7 @@ describe("getReporteRentabilidad", () => {
 
 describe("getReporteProductividad", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockSedeFindFirst.mockReset();
     mockOrdenFindMany.mockReset().mockResolvedValue([]);
   });
@@ -182,7 +212,7 @@ describe("getReporteProductividad", () => {
   it("is gated to ADMIN only", async () => {
     await getReporteProductividad(FILTROS_VALIDOS);
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("reportes.productividad");
   });
 
   it("rejects an invalid range before touching the database", async () => {
@@ -223,6 +253,17 @@ describe("getReporteProductividad", () => {
     expect(mockSedeFindFirst).not.toHaveBeenCalled();
     expect(mockOrdenFindMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ sedeId: "sede-norte" }) }),
+    );
+  });
+
+  it("el jefe de taller (sin sedes.verTodas) solo ve su sede activa aunque pida otra (I1)", async () => {
+    mockRequirePermiso.mockResolvedValue(JEFE);
+
+    const result = await getReporteProductividad({ ...FILTROS_VALIDOS, sedeId: "sede-norte" });
+
+    expect(result.filtros.sedeId).toBe("sede-activa");
+    expect(mockOrdenFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ sedeId: "sede-activa" }) }),
     );
   });
 

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { publicDb } from "@/lib/db/public-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
@@ -23,7 +23,6 @@ import { urlWhatsapp } from "@/lib/whatsapp/url";
 import type { CanalPedidoCompra, EstadoPedidoCompra, Prisma } from "@/generated/prisma-tenant";
 
 const NO_ENCONTRADO = "Pedido no encontrado en tu sede activa.";
-const ROLES_COMPRAS = ["ADMIN", "RECEPCION"] as const;
 
 const PEDIDO_DETALLE_INCLUDE = {
   proveedor: { select: { id: true, nombre: true, telefono: true, email: true, diasEntrega: true } },
@@ -44,7 +43,7 @@ function revalidarPedidos(pedidoId?: string) {
 }
 
 export async function listPedidosCompra(estado?: EstadoPedidoCompra): Promise<PedidoCompraConDetalle[]> {
-  const session = await requireSession();
+  const session = await requirePermiso("compras.ver");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.pedidoCompra.findMany({
     where: { ...scopePedidoCompra(session.user.sedeActivaId), ...(estado ? { estado } : {}) },
@@ -54,7 +53,7 @@ export async function listPedidosCompra(estado?: EstadoPedidoCompra): Promise<Pe
 }
 
 export async function getPedidoCompra(id: string): Promise<PedidoCompraConDetalle | null> {
-  const session = await requireSession();
+  const session = await requirePermiso("compras.ver");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.pedidoCompra.findFirst({
     where: { id, ...scopePedidoCompra(session.user.sedeActivaId) },
@@ -80,7 +79,7 @@ function datosMensaje(pedido: PedidoCompraConDetalle, tallerNombre: string): Dat
 
 /** wa.me link with the pedido prefilled, or null when the proveedor has no usable phone. */
 export async function getEnlaceWhatsappPedido(id: string): Promise<string | null> {
-  const session = await requireSession();
+  const session = await requirePermiso("compras.ver");
   const pedido = await getPedidoCompra(id);
   if (!pedido) return null;
   return urlWhatsapp(pedido.proveedor.telefono, textoPedidoWhatsapp(datosMensaje(pedido, await nombreTaller(session.user.tenantSchema))));
@@ -115,7 +114,7 @@ export async function crearPedidosCompraAction(lineas: { repuestoId: string; can
   const parsed = lineasSchema.safeParse(lineas);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", pedidoIds: [] };
 
-  const session = await requireRole([...ROLES_COMPRAS]);
+  const session = await requirePermiso("compras.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const ids = [...new Set(parsed.data.map((linea) => linea.repuestoId))];
@@ -183,7 +182,7 @@ export interface AccionPedidoResult {
 }
 
 async function pedidoParaAccion(id: string) {
-  const session = await requireRole([...ROLES_COMPRAS]);
+  const session = await requirePermiso("compras.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const pedido = await tenantDb.pedidoCompra.findFirst({
     where: { id, ...scopePedidoCompra(session.user.sedeActivaId) },

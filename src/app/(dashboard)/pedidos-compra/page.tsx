@@ -8,6 +8,7 @@ import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { formatoFechaCorta, inicioMesBogota } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
 import type { EstadoPedidoCompra } from "@/generated/prisma-tenant";
+import { requirePermiso } from "@/lib/auth/guards";
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
@@ -53,6 +54,7 @@ const COLUMNS: DataTableColumn<PedidoCompraConDetalle>[] = [
 ];
 
 export default async function PedidosCompraPage({ searchParams }: { searchParams: Promise<{ estado?: string }> }) {
+  await requirePermiso("compras.ver");
   const { estado } = await searchParams;
   const estadoActivo = ESTADOS.includes(estado as EstadoPedidoCompra) ? (estado as EstadoPedidoCompra) : undefined;
 

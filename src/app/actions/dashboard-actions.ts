@@ -1,8 +1,8 @@
 "use server";
 
-import { requireSession } from "@/lib/auth/guards";
+import { puede, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
-import { scopeCita, scopeFactura, scopeOrden } from "@/lib/sede/scope";
+import { scopeCita, scopeFactura, scopeOrdenVisible } from "@/lib/sede/scope";
 import { buildRangoFechas } from "@/lib/reportes/rango-fechas";
 import { totalOrden, ultimosNDiasIso } from "@/lib/dashboard/calculos";
 import { resumirFacturacion, type ResumenFacturacion } from "@/lib/dashboard/facturacion-semana";
@@ -47,14 +47,16 @@ export interface CitaHoyRow {
 export interface DashboardOverview {
   enTaller: { total: number; terminadasHoy: number };
   citasHoy: { total: number; proxima: { hora: string; placa: string } | null };
-  porFacturar: { count: number; monto: number };
-  cartera: { saldoPendiente: number; facturasPendientes: number; ventasMostradorPendientes: number };
+  /** null sin `facturas.ver`: el monto ni se calcula (D8). */
+  porFacturar: { count: number; monto: number } | null;
+  /** null sin `cartera.ver` (D8). */
+  cartera: { saldoPendiente: number; facturasPendientes: number; ventasMostradorPendientes: number } | null;
   flujo: { borrador: number; enProceso: number; terminadas: number; entregadasHoy: number };
   ordenesActivasCount: number;
   ordenesRecientes: OrdenRecienteRow[];
   agendaHoy: CitaHoyRow[];
   /** La semana (últimos 7 días de Bogotá) frente a los 7 anteriores. */
-  facturacion: ResumenFacturacion;
+  facturacion: ResumenFacturacion | null;
 }
 
 /**
@@ -71,6 +73,11 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeActivaId = session.user.sedeActivaId;
+  // D7: el técnico cuenta solo las órdenes donde trabaja.
+  const scopeOrdenes = scopeOrdenVisible(sedeActivaId, session.user.id, puede(session, "ordenes.verTodas"));
+
+  const verFacturas = puede(session, "facturas.ver");
+  const verCartera = puede(session, "cartera.ver");
 
   const hoy = new Date();
   // 14 días: la semana del gráfico y la anterior, para compararlas.
@@ -98,10 +105,10 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     carteraMostradorAgg,
   ] = await Promise.all([
     tenantDb.ordenTrabajo.count({
-      where: { ...scopeOrden(sedeActivaId), estado: { in: ["BORRADOR", "EN_PROCESO", "TERMINADA"] } },
+      where: { ...scopeOrdenes, estado: { in: ["BORRADOR", "EN_PROCESO", "TERMINADA"] } },
     }),
     tenantDb.ordenTrabajo.count({
-      where: { ...scopeOrden(sedeActivaId), estado: "TERMINADA", updatedAt: { gte: rangoHoy.gte, lt: rangoHoy.lt } },
+      where: { ...scopeOrdenes, estado: "TERMINADA", updatedAt: { gte: rangoHoy.gte, lt: rangoHoy.lt } },
     }),
     tenantDb.cita.count({
       where: { ...scopeCita(sedeActivaId), fechaHora: { gte: rangoHoy.gte, lt: rangoHoy.lt }, estado: { not: "CANCELADA" } },
@@ -111,27 +118,33 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       orderBy: { fechaHora: "asc" },
       select: { fechaHora: true, vehiculo: { select: { placa: true } } },
     }),
-    tenantDb.ordenTrabajo.findMany({
-      where: { ...scopeOrden(sedeActivaId), estado: "TERMINADA", factura: null },
-      select: {
-        items: { select: { cantidad: true, precioUnitario: true } },
-        manoDeObra: { select: { valor: true } },
-      },
-    }),
-    tenantDb.factura.aggregate({
-      where: { ...scopeFactura(sedeActivaId), estado: "PENDIENTE" },
-      _sum: { saldoPendiente: true },
-    }),
-    tenantDb.factura.count({ where: { ...scopeFactura(sedeActivaId), estado: "PENDIENTE" } }),
-    tenantDb.ordenTrabajo.count({ where: { ...scopeOrden(sedeActivaId), estado: "BORRADOR" } }),
-    tenantDb.ordenTrabajo.count({ where: { ...scopeOrden(sedeActivaId), estado: "EN_PROCESO" } }),
-    tenantDb.ordenTrabajo.count({ where: { ...scopeOrden(sedeActivaId), estado: "TERMINADA" } }),
+    verFacturas
+      ? tenantDb.ordenTrabajo.findMany({
+          where: { ...scopeOrdenes, estado: "TERMINADA", factura: null },
+          select: {
+            items: { select: { cantidad: true, precioUnitario: true } },
+            manoDeObra: { select: { valor: true } },
+          },
+        })
+      : Promise.resolve(null),
+    verCartera
+      ? tenantDb.factura.aggregate({
+          where: { ...scopeFactura(sedeActivaId), estado: "PENDIENTE" },
+          _sum: { saldoPendiente: true },
+        })
+      : Promise.resolve(null),
+    verCartera
+      ? tenantDb.factura.count({ where: { ...scopeFactura(sedeActivaId), estado: "PENDIENTE" } })
+      : Promise.resolve(null),
+    tenantDb.ordenTrabajo.count({ where: { ...scopeOrdenes, estado: "BORRADOR" } }),
+    tenantDb.ordenTrabajo.count({ where: { ...scopeOrdenes, estado: "EN_PROCESO" } }),
+    tenantDb.ordenTrabajo.count({ where: { ...scopeOrdenes, estado: "TERMINADA" } }),
     tenantDb.ordenTrabajo.count({
-      where: { ...scopeOrden(sedeActivaId), estado: "ENTREGADA", entregadaAt: { gte: rangoHoy.gte, lt: rangoHoy.lt } },
+      where: { ...scopeOrdenes, estado: "ENTREGADA", entregadaAt: { gte: rangoHoy.gte, lt: rangoHoy.lt } },
     }),
-    tenantDb.ordenTrabajo.count({ where: { ...scopeOrden(sedeActivaId), estado: { not: "ANULADA" } } }),
+    tenantDb.ordenTrabajo.count({ where: { ...scopeOrdenes, estado: { not: "ANULADA" } } }),
     tenantDb.ordenTrabajo.findMany({
-      where: { ...scopeOrden(sedeActivaId), estado: { not: "ANULADA" } },
+      where: { ...scopeOrdenes, estado: { not: "ANULADA" } },
       orderBy: { updatedAt: "desc" },
       take: 4,
       select: {
@@ -157,16 +170,20 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
         cliente: { select: { nombre: true } },
       },
     }),
-    tenantDb.factura.findMany({
-      where: { ...scopeFactura(sedeActivaId), createdAt: { gte: rangoUltimos14Dias.gte, lt: rangoUltimos14Dias.lt } },
-      select: { createdAt: true, total: true, saldoPendiente: true },
-    }),
+    verFacturas
+      ? tenantDb.factura.findMany({
+          where: { ...scopeFactura(sedeActivaId), createdAt: { gte: rangoUltimos14Dias.gte, lt: rangoUltimos14Dias.lt } },
+          select: { createdAt: true, total: true, saldoPendiente: true },
+        })
+      : Promise.resolve(null),
     // La cartera del Inicio incluye lo que los clientes deben del mostrador, igual que /cartera.
-    tenantDb.ventaMostrador.aggregate({
-      where: { sedeId: sedeActivaId, estado: "PENDIENTE", saldoPendiente: { gt: 0 } },
-      _sum: { saldoPendiente: true },
-      _count: { _all: true },
-    }),
+    verCartera
+      ? tenantDb.ventaMostrador.aggregate({
+          where: { sedeId: sedeActivaId, estado: "PENDIENTE", saldoPendiente: { gt: 0 } },
+          _sum: { saldoPendiente: true },
+          _count: { _all: true },
+        })
+      : Promise.resolve(null),
   ]);
 
   return {
@@ -175,23 +192,29 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       total: citasHoyTotal,
       proxima: proximaCita ? { hora: formatoHora(proximaCita.fechaHora), placa: proximaCita.vehiculo.placa } : null,
     },
-    porFacturar: {
-      count: ordenesPorFacturar.length,
-      monto: ordenesPorFacturar.reduce(
-        (sum, orden) =>
-          sum +
-          totalOrden({
-            items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
-            manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor) })),
-          }),
-        0,
-      ),
-    },
-    cartera: {
-      saldoPendiente: Number(carteraAgg._sum.saldoPendiente ?? 0) + Number(carteraMostradorAgg._sum.saldoPendiente ?? 0),
-      facturasPendientes: facturasPendientesCount,
-      ventasMostradorPendientes: carteraMostradorAgg._count?._all ?? 0,
-    },
+    porFacturar: ordenesPorFacturar
+      ? {
+          count: ordenesPorFacturar.length,
+          monto: ordenesPorFacturar.reduce(
+            (sum, orden) =>
+              sum +
+              totalOrden({
+                items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
+                manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor) })),
+              }),
+            0,
+          ),
+        }
+      : null,
+    cartera:
+      carteraAgg && facturasPendientesCount !== null && carteraMostradorAgg
+        ? {
+            saldoPendiente:
+              Number(carteraAgg._sum.saldoPendiente ?? 0) + Number(carteraMostradorAgg._sum.saldoPendiente ?? 0),
+            facturasPendientes: facturasPendientesCount,
+            ventasMostradorPendientes: carteraMostradorAgg._count?._all ?? 0,
+          }
+        : null,
     flujo: {
       borrador: borradorCount,
       enProceso: enProcesoCount,
@@ -225,13 +248,15 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
       clienteNombre: cita.cliente.nombre,
       estado: cita.estado,
     })),
-    facturacion: resumirFacturacion(
-      facturasUltimos14Dias.map((factura) => ({
-        createdAt: factura.createdAt,
-        total: Number(factura.total),
-        saldoPendiente: Number(factura.saldoPendiente),
-      })),
-      dias14,
-    ),
+    facturacion: facturasUltimos14Dias
+      ? resumirFacturacion(
+          facturasUltimos14Dias.map((factura) => ({
+            createdAt: factura.createdAt,
+            total: Number(factura.total),
+            saldoPendiente: Number(factura.saldoPendiente),
+          })),
+          dias14,
+        )
+      : null,
   };
 }

@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 import { cifrarSecreto } from "@/lib/crypto/secret-box";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: () => mockRequireSession(),
 }));
 
@@ -121,7 +121,7 @@ function filaSmtpActiva(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   process.env.SMTP_ENCRYPTION_KEY = CLAVE_SMTP_VALIDA;
-  mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+  mockRequirePermiso.mockReset().mockResolvedValue(SESSION_ADMIN);
   mockRequireSession.mockReset().mockResolvedValue(SESSION_TECNICO);
   mockVehiculoFindUnique.mockReset();
   mockVehiculoFindMany.mockReset();
@@ -158,7 +158,7 @@ describe("crearCotizacionAction", () => {
     const result = await crearCotizacionAction(cotizacionInitial, formData);
 
     expect(result.success).toBe(false);
-    expect(mockRequireRole).not.toHaveBeenCalled();
+    expect(mockRequirePermiso).not.toHaveBeenCalled();
   });
 
   it("returns an error when the vehículo does not exist", async () => {
@@ -235,7 +235,7 @@ describe("actualizarDescuentoCotizacionAction", () => {
     const result = await actualizarDescuentoCotizacionAction("q1", descuentoInitial, formData);
 
     expect(result.success).toBe(false);
-    expect(mockRequireRole).not.toHaveBeenCalled();
+    expect(mockRequirePermiso).not.toHaveBeenCalled();
   });
 
   it("refuses to change the descuento of a non-BORRADOR cotización", async () => {
@@ -286,7 +286,7 @@ describe("actualizarDescuentoCotizacionAction", () => {
     const result = await actualizarDescuentoCotizacionAction("q1", descuentoInitial, formData);
 
     expect(result.success).toBe(false);
-    expect(mockRequireRole).not.toHaveBeenCalled();
+    expect(mockRequirePermiso).not.toHaveBeenCalled();
   });
 });
 

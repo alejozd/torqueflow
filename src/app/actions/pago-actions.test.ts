@@ -2,9 +2,11 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const opcionesTaller = { exigirActaFirmada: false, usarControlCaja: true };
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
+import { permisosEfectivos } from "@/lib/auth/permisos";
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
 }));
 
 const mockFacturaFindFirst = vi.fn();
@@ -38,11 +40,11 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import { registrarPagoAction, type PagoFormState } from "./pago-actions";
 
 const initialState: PagoFormState = { error: null, success: false };
-const SESSION_ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION_ADMIN = { user: { id: "u1", role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 describe("registrarPagoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockFacturaFindFirst.mockReset().mockResolvedValue({ id: "f1" });
     mockFacturaUpdateMany.mockReset().mockResolvedValue({ count: 1 });
     mockPagoCreate.mockReset();
@@ -58,6 +60,7 @@ describe("registrarPagoAction", () => {
     conTarjeta.set("monto", "10000");
     conTarjeta.set("metodoPago", "TARJETA");
     expect(await registrarPagoAction("f1", initialState, conTarjeta)).toEqual({ error: null, success: true });
+    expect(mockRequirePermiso).toHaveBeenCalledWith("facturas.facturar");
 
     const enEfectivo = new FormData();
     enEfectivo.set("monto", "10000");

@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { formatoFechaCorta, formatoFechaRelativa, inicioMesBogota } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
+import { requirePermiso } from "@/lib/auth/guards";
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", {
   style: "currency",
@@ -77,6 +78,7 @@ export default async function EntradasMercanciaPage({
 }: {
   searchParams: Promise<{ nueva?: string; proveedorId?: string; bodegaId?: string }>;
 }) {
+  await requirePermiso("compras.ver");
   const { nueva, proveedorId, bodegaId } = await searchParams;
   const [entradas, proveedores, bodegas] = await Promise.all([
     listEntradas(),

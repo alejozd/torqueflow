@@ -3,8 +3,13 @@ import { listUsuariosConSedes } from "@/app/actions/usuario-actions";
 import { listSedes } from "@/app/actions/sede-actions";
 import { EditarUsuarioForm } from "./editar-usuario-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PermisosUsuario } from "./permisos-usuario";
+import { KeyRound } from "lucide-react";
+import { TituloSeccion } from "@/components/titulo-seccion";
+import { requirePermiso } from "@/lib/auth/guards";
 
 export default async function EditarUsuarioPage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePermiso("usuarios.gestionar");
   const { id } = await params;
   const [usuarios, sedes] = await Promise.all([listUsuariosConSedes(), listSedes()]);
   const usuario = usuarios.find((u) => u.id === id);
@@ -22,6 +27,26 @@ export default async function EditarUsuarioPage({ params }: { params: Promise<{ 
         </CardHeader>
         <CardContent>
           <EditarUsuarioForm usuario={usuario} sedes={sedes} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <TituloSeccion icono={KeyRound} tono="azul">Permisos</TituloSeccion>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {usuario.role === "ADMIN" ? (
+            <p className="text-sm text-muted-foreground">El administrador tiene todos los permisos</p>
+          ) : (
+            <PermisosUsuario
+              usuarioId={usuario.id}
+              role={usuario.role}
+              agregados={usuario.permisosAgregados}
+              quitados={usuario.permisosQuitados}
+            />
+          )}
         </CardContent>
       </Card>
     </main>

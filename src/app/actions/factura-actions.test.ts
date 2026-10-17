@@ -1,10 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
-const mockRequireSession = vi.fn();
+const mockRequirePermiso = vi.fn();
+import { permisosEfectivos } from "@/lib/auth/permisos";
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
-  requireSession: () => mockRequireSession(),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
 }));
 
 const mockOrdenFindFirst = vi.fn();
@@ -44,8 +44,8 @@ import {
 } from "./factura-actions";
 
 const initialState: FacturaFormState = { error: null, success: false, facturaId: null };
-const SESSION_ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
-const SESSION_TECNICO = { user: { role: "TECNICO", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION_ADMIN = { user: { id: "u1", role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const SESSION_TECNICO = { user: { role: "TECNICO", permisos: permisosEfectivos({ role: "TECNICO" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 function baseOrden(overrides: Record<string, unknown> = {}) {
   return {
@@ -64,7 +64,7 @@ function baseOrden(overrides: Record<string, unknown> = {}) {
 
 describe("crearFacturaAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockOrdenFindFirst.mockReset().mockResolvedValue(baseOrden());
     mockFacturaCreate.mockReset().mockResolvedValue({ id: "f1" });
     mockRepuestoUpdateMany.mockReset().mockResolvedValue({ count: 1 });
@@ -77,6 +77,7 @@ describe("crearFacturaAction", () => {
 
   it("without anticipos creates no pagos and leaves the factura untouched", async () => {
     await crearFacturaAction("o1", initialState, new FormData());
+    expect(mockRequirePermiso).toHaveBeenCalledWith("facturas.facturar");
 
     expect(mockAnticipoFindMany).toHaveBeenCalledWith({ where: { ordenId: "o1", estado: "PENDIENTE" } });
     expect(mockPagoCreate).not.toHaveBeenCalled();
@@ -286,11 +287,12 @@ describe("crearFacturaAction", () => {
 
 describe("listFacturas", () => {
   it("lists only facturas whose orden belongs to the sede activa", async () => {
-    mockRequireSession.mockReset().mockResolvedValue(SESSION_TECNICO);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_TECNICO);
     mockFacturaFindMany.mockReset().mockResolvedValue([]);
 
     await listFacturas();
 
+    expect(mockRequirePermiso).toHaveBeenCalledWith("facturas.ver");
     expect(mockFacturaFindMany).toHaveBeenCalledWith({
       where: { orden: { sedeId: "sede-1" } },
       include: expect.anything(),
@@ -299,7 +301,7 @@ describe("listFacturas", () => {
   });
 
   it("combines the estado filter with the sede filter", async () => {
-    mockRequireSession.mockReset().mockResolvedValue(SESSION_TECNICO);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_TECNICO);
     mockFacturaFindMany.mockReset().mockResolvedValue([]);
 
     await listFacturas("PENDIENTE");
@@ -314,7 +316,7 @@ describe("listFacturas", () => {
 
 describe("listOrdenesFacturables", () => {
   beforeEach(() => {
-    mockRequireSession.mockReset().mockResolvedValue(SESSION_TECNICO);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_TECNICO);
     mockOrdenFindMany.mockReset();
   });
 
@@ -322,6 +324,7 @@ describe("listOrdenesFacturables", () => {
     mockOrdenFindMany.mockResolvedValue([]);
 
     await listOrdenesFacturables();
+    expect(mockRequirePermiso).toHaveBeenCalledWith("facturas.ver");
 
     expect(mockOrdenFindMany).toHaveBeenCalledWith({
       where: { sedeId: "sede-1", estado: { in: ["TERMINADA", "ENTREGADA"] }, factura: null },
@@ -359,10 +362,11 @@ describe("listOrdenesFacturables", () => {
 
 describe("getFactura", () => {
   it("fetches a single factura by id with full detail, scoped to the sede activa", async () => {
-    mockRequireSession.mockReset().mockResolvedValue(SESSION_TECNICO);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_TECNICO);
     mockFacturaFindFirst.mockReset().mockResolvedValue({ id: "f1" });
 
     const result = await getFactura("f1");
+    expect(mockRequirePermiso).toHaveBeenCalledWith("facturas.ver");
 
     expect(result).toEqual({ id: "f1" });
     expect(mockFacturaFindFirst).toHaveBeenCalledWith(
@@ -371,7 +375,7 @@ describe("getFactura", () => {
   });
 
   it("returns null for a factura belonging to another sede", async () => {
-    mockRequireSession.mockReset().mockResolvedValue(SESSION_TECNICO);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_TECNICO);
     mockFacturaFindFirst.mockReset().mockResolvedValue(null);
 
     await expect(getFactura("f-otra-sede")).resolves.toBeNull();

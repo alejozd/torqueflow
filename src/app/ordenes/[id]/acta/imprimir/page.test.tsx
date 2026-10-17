@@ -17,6 +17,8 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+const mockRequirePermiso = vi.fn();
+vi.mock("@/lib/auth/guards", () => ({ requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args) }));
 import ImprimirActaPage from "./page";
 
 const ORDEN = {
@@ -46,6 +48,13 @@ const ORDEN = {
 };
 
 describe("ImprimirActaPage", () => {
+  it("exige ordenes.ver antes de cargar nada (Fase 26, I3)", async () => {
+    mockRequirePermiso.mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
+    await expect(ImprimirActaPage({ params: Promise.resolve({ id: "o1" }) })).rejects.toThrow("NEXT_REDIRECT");
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.ver");
+    expect(mockGetOrden).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     mockGetOrden.mockReset().mockResolvedValue(ORDEN);
   });

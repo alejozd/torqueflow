@@ -12,7 +12,7 @@ export interface LimitesPlan {
  * means "sin límite práctico" (Avanzado), never a sentinel like -1.
  *
  * tenantSchema is guaranteed to resolve to a live Tenant+Plan for any caller
- * that reached this via requireRole()/requireSession() -- that already
+ * that reached this via requirePermiso()/requireSession() -- that already
  * re-checked the tenant exists (getTenantBySchema()) before returning the
  * session, and Tenant.planId is a required FK. A missing row here would
  * mean the session's own tenant vanished mid-request, not a normal input to

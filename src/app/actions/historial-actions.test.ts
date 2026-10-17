@@ -1,9 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
   requireSession: () => mockRequireSession(),
 }));
 
@@ -25,7 +26,7 @@ const initialState: HistorialFormState = { error: null, success: false };
 
 describe("addHistorialEntryAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { id: "u1", role: "TECNICO", tenantSchema: "taller_perez" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { id: "u1", role: "TECNICO", tenantSchema: "taller_perez" } });
     mockCreate.mockReset();
   });
 
@@ -48,7 +49,7 @@ describe("addHistorialEntryAction", () => {
     const result = await addHistorialEntryAction("v1", initialState, formData);
 
     expect(result).toEqual({ error: null, success: true });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION", "TECNICO"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.trabajar");
     expect(mockCreate).toHaveBeenCalledWith({
       data: { descripcion: "Cambio de aceite", vehiculoId: "v1", autorId: "u1" },
     });
@@ -69,8 +70,8 @@ describe("addHistorialEntryAction", () => {
     expect(result.error).not.toContain("Foreign key constraint");
   });
 
-  it("propagates the redirect rejection and never touches the database when requireRole rejects (unauthorized)", async () => {
-    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+  it("propagates the redirect rejection and never touches the database when requirePermiso rejects (unauthorized)", async () => {
+    mockRequirePermiso.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
     const formData = new FormData();
     formData.set("descripcion", "Cambio de aceite");
 

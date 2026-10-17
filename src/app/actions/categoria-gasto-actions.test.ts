@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockRequireRole = vi.fn();
-vi.mock("@/lib/auth/guards", () => ({ requireRole: (...a: unknown[]) => mockRequireRole(...a), requireSession: vi.fn() }));
+const mockRequirePermiso = vi.fn();
+import { permisosEfectivos } from "@/lib/auth/permisos";
+vi.mock("@/lib/auth/guards", () => ({ requirePermiso: (...a: unknown[]) => mockRequirePermiso(...a),
+  requireSession: vi.fn(),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso), }));
 const db = {
   categoriaGasto: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), findUnique: vi.fn(), aggregate: vi.fn() },
 };
@@ -16,11 +19,11 @@ import {
 } from "./categoria-gasto-actions";
 
 const inicial = { error: null, success: false };
-const ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "t" } };
+const ADMIN = { user: { id: "u1", role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }), tenantSchema: "t" } };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockRequireRole.mockResolvedValue(ADMIN);
+  mockRequirePermiso.mockResolvedValue(ADMIN);
 
   db.categoriaGasto.findFirst.mockResolvedValue(null);
 });
@@ -35,7 +38,7 @@ describe("listCategoriasGasto", () => {
   it("solo activas: ADMIN y RECEPCION, filtrando activo", async () => {
     db.categoriaGasto.findMany.mockResolvedValue([{ id: "c1", nombre: "Arriendo", activo: true, orden: 0, createdAt: new Date() }]);
     const r = await listCategoriasGasto({ soloActivas: true });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("gastos.registrar");
     expect(db.categoriaGasto.findMany).toHaveBeenCalledWith({ where: { activo: true }, orderBy: { orden: "asc" } });
     expect(r).toEqual([{ id: "c1", nombre: "Arriendo", activo: true, orden: 0 }]);
   });
@@ -43,7 +46,7 @@ describe("listCategoriasGasto", () => {
   it("todas: solo ADMIN", async () => {
     db.categoriaGasto.findMany.mockResolvedValue([]);
     await listCategoriasGasto();
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("gastos.administrar");
     expect(db.categoriaGasto.findMany).toHaveBeenCalledWith({ where: {}, orderBy: { orden: "asc" } });
   });
 });
@@ -79,7 +82,7 @@ describe("crearCategoriaGastoAction", () => {
 
   it("exige ADMIN y nombre", async () => {
     expect((await crearCategoriaGastoAction(inicial, fd("  "))).error).toBe("El nombre es obligatorio");
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("gastos.administrar");
     expect(db.categoriaGasto.create).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import {
@@ -175,7 +175,7 @@ async function cargarMovimientos(
 }
 
 export async function getCajaActual(filtros: { sedeId?: string }): Promise<CajaActual> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("caja.usar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = resolverSede(session, filtros.sedeId);
 
@@ -201,7 +201,7 @@ export async function getCajaActual(filtros: { sedeId?: string }): Promise<CajaA
 }
 
 export async function abrirCajaAction(prevState: CajaFormState, formData: FormData): Promise<CajaFormState> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("caja.usar");
   const parsed = abrirCajaInputSchema.safeParse({ baseInicial: formData.get("baseInicial") ?? "" });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
 
@@ -233,7 +233,7 @@ export async function cerrarCajaAction(
   prevState: CajaFormState,
   formData: FormData,
 ): Promise<CajaFormState> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("caja.usar");
   const parsed = cerrarCajaInputSchema.safeParse({
     efectivoContado: formData.get("efectivoContado") ?? "",
     notas: formData.get("notas") || undefined,
@@ -243,7 +243,7 @@ export async function cerrarCajaAction(
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sesion = await tenantDb.cajaSesion.findUnique({ where: { id: cajaId } });
   // RECEPCION solo opera en su sede activa; de otra sede la caja "no existe" para ella.
-  if (!sesion || (session.user.role === "RECEPCION" && sesion.sedeId !== session.user.sedeActivaId)) {
+  if (!sesion || (!puede(session, "sedes.verTodas") && sesion.sedeId !== session.user.sedeActivaId)) {
     return { error: "Caja no encontrada", success: false };
   }
   if (sesion.cerradaAt) return { error: "La caja ya está cerrada", success: false };
@@ -276,7 +276,7 @@ export async function cerrarCajaAction(
 }
 
 export async function listCajasCerradas(filtros: { sedeId?: string; periodo?: string }): Promise<CajaCerradaFila[]> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("caja.usar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = resolverSede(session, filtros.sedeId);
   const periodo = periodoSchema.safeParse(filtros.periodo).success

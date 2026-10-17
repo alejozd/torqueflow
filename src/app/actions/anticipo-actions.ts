@@ -1,12 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { puede, requirePermiso, requireSession } from "@/lib/auth/guards";
 import { exigirCajaParaEfectivo } from "@/lib/caja/sesion";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { anticipoInputSchema, devolverAnticipoInputSchema } from "@/lib/validation/caja";
-import { scopeOrden } from "@/lib/sede/scope";
+import { scopeOrden, scopeOrdenVisible } from "@/lib/sede/scope";
 import type { EstadoAnticipo, MetodoPago } from "@/generated/prisma-tenant";
 
 export interface AnticipoFormState {
@@ -28,7 +28,7 @@ export async function listAnticiposDeOrden(ordenId: string): Promise<AnticipoFil
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const anticipos = await tenantDb.anticipo.findMany({
-    where: { ordenId, orden: scopeOrden(session.user.sedeActivaId) },
+    where: { ordenId, orden: scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     include: { registradoPor: { select: { nombre: true } } },
     orderBy: { createdAt: "asc" },
   });
@@ -48,7 +48,7 @@ export async function registrarAnticipoAction(
   prevState: AnticipoFormState,
   formData: FormData,
 ): Promise<AnticipoFormState> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("anticipos.registrar");
   const parsed = anticipoInputSchema.safeParse({
     monto: formData.get("monto") ?? "",
     metodoPago: formData.get("metodoPago") ?? "",
@@ -100,7 +100,7 @@ export async function devolverAnticipoAction(
   prevState: AnticipoFormState,
   formData: FormData,
 ): Promise<AnticipoFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("anticipos.devolver");
   const parsed = devolverAnticipoInputSchema.safeParse({ metodoDevolucion: formData.get("metodoDevolucion") ?? "" });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
 

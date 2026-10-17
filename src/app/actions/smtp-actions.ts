@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { cifrarSecreto } from "@/lib/crypto/secret-box";
@@ -52,7 +52,7 @@ export interface EnvioEmailRow {
 const MAX_ENVIOS_RECIENTES = 6;
 
 export async function getConfiguracionSmtp(): Promise<ConfiguracionSmtpVista | null> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("configuracion.taller");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const fila = await tenantDb.configuracionSmtp.findUnique({ where: { id: CONFIGURACION_SMTP_ID } });
@@ -87,7 +87,7 @@ export async function getConfiguracionSmtp(): Promise<ConfiguracionSmtpVista | n
  *   - The persisted "Enviar correo de prueba" result, if any.
  */
 export async function getUltimosEnviosSmtp(): Promise<EnvioEmailRow[]> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("configuracion.taller");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const [recordatorios, notificaciones, configuracion] = await Promise.all([
@@ -148,7 +148,7 @@ export async function guardarConfiguracionSmtpAction(
   prevState: SmtpFormState,
   formData: FormData,
 ): Promise<SmtpFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("configuracion.taller");
 
   const parsed = smtpConfigInputSchema.safeParse({
     host: formData.get("host") ?? "",
@@ -217,7 +217,7 @@ export async function probarConfiguracionSmtpAction(
   _prevState: SmtpFormState,
   _formData: FormData,
 ): Promise<SmtpFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("configuracion.taller");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const fila = await tenantDb.configuracionSmtp.findUnique({ where: { id: CONFIGURACION_SMTP_ID } });

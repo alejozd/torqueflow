@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { permisosEfectivos } from "@/lib/auth/permisos";
 
-const mockRequireRole = vi.fn();
-vi.mock("@/lib/auth/guards", () => ({ requireRole: (...args: unknown[]) => mockRequireRole(...args) }));
+const mockRequirePermiso = vi.fn();
+vi.mock("@/lib/auth/guards", () => ({
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
+}));
 
 const mockSaveOrdenArchivo = vi.fn();
 const mockBorrarUpload = vi.fn();
@@ -47,7 +51,7 @@ import {
   quitarGarantiaAction,
 } from "./recepcion-actions";
 
-const ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller", sedeActivaId: "sede-1" } };
+const ADMIN = { user: { id: "u1", role: "ADMIN", permisos: ["ordenes.verTodas"], tenantSchema: "taller", sedeActivaId: "sede-1" } };
 const inicial = { error: null, success: false };
 
 function fd(campos: Record<string, string | File>): FormData {
@@ -71,7 +75,7 @@ const ORDEN_MUTABLE = {
 describe("guardarRecepcionAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     db.ordenTrabajo.findFirst.mockResolvedValue({ id: "o1", estado: "EN_PROCESO", factura: null });
     db.ordenTrabajo.update.mockResolvedValue({});
     mockSaveOrdenArchivo.mockResolvedValue({ relativePath: "taller/ordenes/o1/firma/f.png", url: "/api/uploads/taller/ordenes/o1/firma/f.png" });
@@ -121,7 +125,7 @@ describe("guardarRecepcionAction", () => {
 describe("marcas del diagrama", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     db.ordenTrabajo.findFirst.mockResolvedValue({ id: "o1", estado: "EN_PROCESO", factura: null });
     db.danioOrden.create.mockResolvedValue({ id: "d1" });
     db.danioOrden.delete.mockResolvedValue({});
@@ -154,7 +158,7 @@ describe("marcas del diagrama", () => {
     const r = await quitarDanioAction("d1");
 
     expect(r).toEqual({ error: null, success: true });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.quitar");
     expect(db.danioOrden.findFirst).toHaveBeenCalledWith({
       where: { id: "d1", orden: { sedeId: "sede-1" } },
       select: { id: true, ordenId: true, orden: { select: { estado: true, factura: { select: { id: true } } } } },
@@ -173,7 +177,7 @@ describe("marcas del diagrama", () => {
 describe("acta de entrega", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     db.ordenTrabajo.findFirst.mockResolvedValue({ id: "o1", estado: "EN_PROCESO", factura: null });
     db.actaEntrega.upsert.mockResolvedValue({ id: "a1" });
     db.actaEntrega.deleteMany.mockResolvedValue({ count: 1 });
@@ -300,7 +304,7 @@ describe("acta de entrega", () => {
     const r = await quitarGarantiaAction("g-ajena");
 
     expect(r.error).toBe("Garantía no encontrada");
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.quitar");
     expect(db.garantia.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "g-ajena", orden: { sedeId: "sede-1" } } }),
     );
@@ -403,7 +407,7 @@ describe("acta de entrega", () => {
   it("borrar el acta pide rol de borrado y respeta la sede", async () => {
     await borrarActaAction("o1");
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.quitar");
     expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "o1", sedeId: "sede-1" } }),
     );
@@ -413,7 +417,7 @@ describe("acta de entrega", () => {
 describe("entregarOrdenAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     // Sin fila de configuración: el taller no exige la firma (valor por defecto).
     db.configuracionTaller.findUnique.mockResolvedValue(null);
     db.ordenTrabajo.findFirst.mockResolvedValue(ORDEN_MUTABLE);
@@ -433,6 +437,7 @@ describe("entregarOrdenAction", () => {
       fd({ recibidoPor: "María", documentoRecibe: "1.020", observaciones: "Todo bien", firma: firmaPng() }),
     );
 
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.entregar");
     expect(r).toEqual({ error: null, success: true });
     expect(tx.ordenTrabajo.updateMany).toHaveBeenCalledWith({
       where: { id: "o1", estado: "TERMINADA" },
@@ -633,7 +638,7 @@ describe("entregarOrdenAction", () => {
 describe("garantías", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockResolvedValue(ADMIN);
     db.ordenTrabajo.findFirst.mockResolvedValue({ id: "o1", estado: "EN_PROCESO", factura: null });
     db.manoDeObra.findFirst.mockResolvedValue({ id: "m1" });
     db.itemOrden.findFirst.mockResolvedValue({ id: "i1" });
@@ -771,5 +776,103 @@ describe("garantías", () => {
 
     expect(await listGarantiasDeVehiculo("nope")).toEqual([]);
     expect(db.garantia.findMany).not.toHaveBeenCalled();
+  });
+});
+
+const TECNICO_D7 = { user: { id: "tec-1", role: "TECNICO", permisos: permisosEfectivos({ role: "TECNICO" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
+const WHERE_D7 = (id: string) => ({ id, sedeId: "sede-1", OR: [{ mecanicoId: "tec-1" }, { manoDeObra: { some: { mecanicoId: "tec-1" } } }] });
+
+describe("D7: el técnico solo trabaja en sus órdenes (recepción)", () => {
+  // Las aserciones "no se llamó" no pueden heredar llamadas de los describe de arriba.
+  beforeEach(() => vi.clearAllMocks());
+
+  it("no firma el acta de una orden ajena", async () => {
+    mockRequirePermiso.mockResolvedValue(TECNICO_D7);
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await firmarActaAction("ajena", inicial, fd({ recibidoPor: "M", firma: firmaPng() }));
+
+    expect(r.error).toBe("Orden no encontrada");
+    expect(mockSaveOrdenArchivo).not.toHaveBeenCalled();
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+  });
+
+  it("no guarda la recepción de una orden ajena", async () => {
+    mockRequirePermiso.mockResolvedValue(TECNICO_D7);
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await guardarRecepcionAction("ajena", inicial, fd({ kilometrajeIngreso: "1", nivelCombustible: "" }));
+
+    expect(r.error).toBe("Orden no encontrada");
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+    expect(db.ordenTrabajo.update).not.toHaveBeenCalled();
+  });
+
+  // Fase 26, I7: el resto de escrituras por id de recepción, con la misma orden ajena.
+  it("no entrega una orden ajena (la escritura que la deja inmutable)", async () => {
+    mockRequirePermiso.mockResolvedValue(TECNICO_D7);
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await entregarOrdenAction("ajena", inicial, fd({ recibidoPor: "M", firma: firmaPng() }));
+
+    expect(r.error).toBe("Orden no encontrada");
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+    expect(mockSaveOrdenArchivo).not.toHaveBeenCalled();
+    expect(tx.ordenTrabajo.updateMany).not.toHaveBeenCalled();
+    expect(tx.ordenTrabajo.update).not.toHaveBeenCalled();
+    expect(tx.actaEntrega.upsert).not.toHaveBeenCalled();
+  });
+
+  it("no borra el acta de una orden ajena", async () => {
+    mockRequirePermiso.mockResolvedValue({
+      user: { ...TECNICO_D7.user, permisos: permisosEfectivos({ role: "TECNICO", agregados: ["ordenes.quitar"] }) },
+    });
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await borrarActaAction("ajena");
+
+    expect(r.error).toBe("Orden no encontrada");
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+    expect(db.actaEntrega.delete).not.toHaveBeenCalled();
+    expect(db.actaEntrega.deleteMany).not.toHaveBeenCalled();
+    expect(mockBorrarUpload).not.toHaveBeenCalled();
+  });
+
+  it("no agrega una garantía a una orden ajena", async () => {
+    mockRequirePermiso.mockResolvedValue(TECNICO_D7);
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await agregarGarantiaAction(
+      "ajena",
+      inicial,
+      fd({ tipo: "TRABAJO", manoDeObraId: "m1", descripcion: "Pintura", cubreHasta: "2027-01-01" }),
+    );
+
+    expect(r.error).toBe("Orden no encontrada");
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+    expect(db.manoDeObra.findFirst).not.toHaveBeenCalled();
+    expect(tx.garantia.create).not.toHaveBeenCalled();
+  });
+
+  it("no marca un daño en una orden ajena", async () => {
+    mockRequirePermiso.mockResolvedValue(TECNICO_D7);
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await agregarDanioAction("ajena", inicial, fd({ zona: "CAPO", tipo: "RAYON", nota: "" }));
+
+    expect(r.error).toBe("Orden no encontrada");
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+    expect(db.danioOrden.create).not.toHaveBeenCalled();
+  });
+
+  it("no guarda el acta de una orden ajena", async () => {
+    mockRequirePermiso.mockResolvedValue(TECNICO_D7);
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await guardarActaAction("ajena", inicial, fd({ recibidoPor: "María", documentoRecibe: "", observaciones: "" }));
+
+    expect(r.error).toBe("Orden no encontrada");
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
+    expect(db.actaEntrega.upsert).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { ETIQUETA_MES, periodoActualBogota } from "@/lib/gastos/periodo";
@@ -38,6 +38,14 @@ function revalidar() {
   revalidatePath("/reportes");
 }
 
+/**
+ * `gastos.administrar` se puede conceder a quien no trabaja con todas las sedes
+ * (Fase 26, I2): sin `sedes.verTodas` solo cuentan las plantillas de la sede activa.
+ */
+function fueraDeAlcance(session: Awaited<ReturnType<typeof requirePermiso>>, sedeId: string): boolean {
+  return !puede(session, "sedes.verTodas") && sedeId !== session.user.sedeActivaId;
+}
+
 function esP2002(err: unknown): boolean {
   return typeof err === "object" && err !== null && (err as { code?: unknown }).code === "P2002";
 }
@@ -54,9 +62,10 @@ function leerCamposPlantilla(formData: FormData) {
 }
 
 export async function listPlantillasRecurrentes(): Promise<PlantillaVista[]> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("gastos.administrar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const filas = await tenantDb.gastoRecurrente.findMany({
+    ...(puede(session, "sedes.verTodas") ? {} : { where: { sedeId: session.user.sedeActivaId } }),
     include: { sede: { select: { nombre: true } }, categoria: { select: { nombre: true } } },
     orderBy: [{ activo: "desc" }, { descripcion: "asc" }],
   });
@@ -78,7 +87,7 @@ export async function crearGastoRecurrenteAction(
   prevState: RecurrenteFormState,
   formData: FormData,
 ): Promise<RecurrenteFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("gastos.administrar");
   const parsed = leerCamposPlantilla(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   const { categoriaId, descripcion, montoEstimado, diaDelMes, desde } = parsed.data;
@@ -106,16 +115,15 @@ export async function actualizarGastoRecurrenteAction(
   prevState: RecurrenteFormState,
   formData: FormData,
 ): Promise<RecurrenteFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("gastos.administrar");
   const parsed = leerCamposPlantilla(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   const { categoriaId, descripcion, montoEstimado, diaDelMes, desde } = parsed.data;
 
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  const errorCategoria = await validarCategoria(tenantDb, categoriaId, async () => {
-    const actual = await tenantDb.gastoRecurrente.findUnique({ where: { id }, select: { categoriaId: true } });
-    return actual?.categoriaId ?? null;
-  });
+  const actual = await tenantDb.gastoRecurrente.findUnique({ where: { id }, select: { categoriaId: true, sedeId: true } });
+  if (!actual || fueraDeAlcance(session, actual.sedeId)) return { error: "Plantilla no encontrada", success: false };
+  const errorCategoria = await validarCategoria(tenantDb, categoriaId, actual.categoriaId);
   if (errorCategoria) return { error: errorCategoria, success: false };
   const sedeId = resolverSede(session, parsed.data.sedeId);
   const errorSede = await validarSede(tenantDb, session, sedeId);
@@ -134,10 +142,10 @@ export async function actualizarGastoRecurrenteAction(
 }
 
 export async function toggleGastoRecurrenteActivoAction(id: string): Promise<{ error: string | null }> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("gastos.administrar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
-  const plantilla = await tenantDb.gastoRecurrente.findUnique({ where: { id }, select: { activo: true } });
-  if (!plantilla) return { error: "Plantilla no encontrada" };
+  const plantilla = await tenantDb.gastoRecurrente.findUnique({ where: { id }, select: { activo: true, sedeId: true } });
+  if (!plantilla || fueraDeAlcance(session, plantilla.sedeId)) return { error: "Plantilla no encontrada" };
   try {
     await tenantDb.gastoRecurrente.update({ where: { id }, data: { activo: !plantilla.activo } });
   } catch (err) {
@@ -148,7 +156,7 @@ export async function toggleGastoRecurrenteActivoAction(id: string): Promise<{ e
 }
 
 export async function listRecurrentesPendientes(filtros: { sedeId?: string }): Promise<RecurrentePendiente[]> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("gastos.registrar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = resolverSede(session, filtros.sedeId);
   const plantillas = await cargarPlantillasParaPendientes(tenantDb, sedeId);
@@ -161,7 +169,7 @@ export async function confirmarRecurrenteAction(
   prevState: RecurrenteFormState,
   formData: FormData,
 ): Promise<RecurrenteFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("gastos.administrar");
   if (!periodoSchema.safeParse(periodo).success) return { error: "Periodo inválido", success: false };
   const parsed = confirmarRecurrenteInputSchema.safeParse({
     monto: formData.get("monto") ?? "",
@@ -172,7 +180,7 @@ export async function confirmarRecurrenteAction(
 
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const plantilla = await tenantDb.gastoRecurrente.findUnique({ where: { id: recurrenteId } });
-  if (!plantilla) return { error: "Plantilla no encontrada", success: false };
+  if (!plantilla || fueraDeAlcance(session, plantilla.sedeId)) return { error: "Plantilla no encontrada", success: false };
   if (periodo > periodoActualBogota(new Date())) return { error: "Ese mes todavía no ha empezado", success: false };
   if (periodo < plantilla.desde) return { error: "La plantilla empieza después de ese mes", success: false };
   if (fecha.slice(0, 7) !== periodo) {
@@ -202,11 +210,11 @@ export async function confirmarRecurrenteAction(
 }
 
 export async function omitirRecurrenteAction(recurrenteId: string, periodo: string): Promise<{ error: string | null }> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("gastos.administrar");
   if (!periodoSchema.safeParse(periodo).success) return { error: "Periodo inválido" };
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const plantilla = await tenantDb.gastoRecurrente.findUnique({ where: { id: recurrenteId } });
-  if (!plantilla) return { error: "Plantilla no encontrada" };
+  if (!plantilla || fueraDeAlcance(session, plantilla.sedeId)) return { error: "Plantilla no encontrada" };
 
   try {
     await tenantDb.gastoRecurrenteOmitido.create({

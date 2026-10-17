@@ -4,7 +4,7 @@ import { ArrowLeft, Car, CheckCircle2, Clock, Gauge, IdCard, Mail, Phone, Wrench
 import { getCliente } from "@/app/actions/cliente-actions";
 import { listTecnicos } from "@/app/actions/orden-actions";
 import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/vehiculo-marca-modelo-actions";
-import { requireSession } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { EditarClienteDialog } from "./editar-cliente-dialog";
 import { NuevoVehiculoDialog } from "./nuevo-vehiculo-dialog";
 import { EditarVehiculoDialog } from "./editar-vehiculo-dialog";
@@ -101,10 +101,10 @@ function resumirVehiculo(vehiculo: VehiculoDeCliente, ordenes: OrdenDeCliente[])
 
 export default async function ClienteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [cliente, tecnicos, session, marcas, modelos] = await Promise.all([
+  const session = await requirePermiso("clientes.ver");
+  const [cliente, tecnicos, marcas, modelos] = await Promise.all([
     getCliente(id),
     listTecnicos(),
-    requireSession(),
     listMarcasVehiculo(),
     listTodosLosModelosVehiculo(),
   ]);
@@ -113,9 +113,12 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
     notFound();
   }
 
-  const esAdmin = session.user.role === "ADMIN";
+  const puedeAgregarCatalogo = puede(session, "vehiculos.catalogo");
   // Same roles as deleteClienteAction/deleteVehiculoAction.
-  const puedeEliminar = session.user.role !== "TECNICO";
+  const puedeEliminar = puede(session, "clientes.eliminar");
+  // Sin `facturas.ver` (técnico, jefe de taller) no se muestra ninguna cifra de
+  // plata; `getCliente` tampoco la trae (Fase 26, I4).
+  const verFacturas = puede(session, "facturas.ver");
 
   // EditarClienteDialog is a Client Component: it may only receive plain,
   // serializable props. `cliente` itself carries `ordenes`/`facturas` with
@@ -169,16 +172,20 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
         </Badge>
       ),
     },
-    {
-      header: "Total",
-      cell: (orden) =>
-        orden.factura ? (
-          <span className="font-mono font-medium">{formatoMoneda.format(Number(orden.factura.total))}</span>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        ),
-      className: "text-right",
-    },
+    ...(verFacturas
+      ? [
+          {
+            header: "Total",
+            cell: (orden: OrdenDeCliente) =>
+              orden.factura ? (
+                <span className="font-mono font-medium">{formatoMoneda.format(Number(orden.factura.total))}</span>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              ),
+            className: "text-right",
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -210,7 +217,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Vehículos · {cliente.vehiculos.length}</CardTitle>
-              <NuevoVehiculoDialog clienteId={cliente.id} marcas={marcas} modelos={modelos} esAdmin={esAdmin} />
+              <NuevoVehiculoDialog clienteId={cliente.id} marcas={marcas} modelos={modelos} puedeAgregarCatalogo={puedeAgregarCatalogo} />
             </CardHeader>
             <CardContent>
               {vehiculosResumen.length === 0 ? (
@@ -256,7 +263,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
                             vehiculo={vehiculo}
                             marcas={marcas}
                             modelos={modelos}
-                            esAdmin={esAdmin}
+                            puedeAgregarCatalogo={puedeAgregarCatalogo}
                             puedeEliminar={puedeEliminar}
                             triggerClassName="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20"
                           />
@@ -340,22 +347,26 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
                 <p className="text-xs text-muted-foreground">Órdenes</p>
                 <p className="font-mono text-lg font-semibold">{cliente.ordenes.length}</p>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Facturado</p>
-                <p className="font-mono text-lg font-semibold">{formatoMoneda.format(facturado)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Saldo</p>
-                <p className={cn("font-mono text-lg font-semibold", saldo > 0 && "text-[oklch(0.5_0.2_27)]")}>
-                  {formatoMoneda.format(saldo)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Ticket medio</p>
-                <p className="font-mono text-lg font-semibold">
-                  {ticketMedio !== null ? formatoMoneda.format(ticketMedio) : "—"}
-                </p>
-              </div>
+              {verFacturas && (
+                <>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Facturado</p>
+                    <p className="font-mono text-lg font-semibold">{formatoMoneda.format(facturado)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Saldo</p>
+                    <p className={cn("font-mono text-lg font-semibold", saldo > 0 && "text-[oklch(0.5_0.2_27)]")}>
+                      {formatoMoneda.format(saldo)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Ticket medio</p>
+                    <p className="font-mono text-lg font-semibold">
+                      {ticketMedio !== null ? formatoMoneda.format(ticketMedio) : "—"}
+                    </p>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

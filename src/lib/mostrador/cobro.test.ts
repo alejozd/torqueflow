@@ -76,16 +76,16 @@ describe("porcentajeDescuento", () => {
 });
 
 describe("descuentoPermitido", () => {
-  it("ADMIN no tiene tope", () => {
-    expect(descuentoPermitido("ADMIN", 90, 10)).toBe(true);
+  it("quien tiene descuento sin tope no tiene tope", () => {
+    expect(descuentoPermitido(true, 90, 10)).toBe(true);
   });
   it.each([7, 14, 28])("tope %i %%: el descuento exacto pasa y un peso más no", (tope) => {
     const exacto = (100000 * tope) / 100;
-    expect(descuentoPermitido("RECEPCION", porcentajeDescuento(100000, exacto), tope)).toBe(true);
-    expect(descuentoPermitido("RECEPCION", porcentajeDescuento(100000, exacto + 1), tope)).toBe(false);
+    expect(descuentoPermitido(false, porcentajeDescuento(100000, exacto), tope)).toBe(true);
+    expect(descuentoPermitido(false, porcentajeDescuento(100000, exacto + 1), tope)).toBe(false);
   });
-  it("RECEPCION puede hasta el tope inclusive", () => {
-    expect(descuentoPermitido("RECEPCION", 10, 10)).toBe(true);
-    expect(descuentoPermitido("RECEPCION", 10.01, 10)).toBe(false);
+  it("con tope se puede hasta el tope inclusive", () => {
+    expect(descuentoPermitido(false, 10, 10)).toBe(true);
+    expect(descuentoPermitido(false, 10.01, 10)).toBe(false);
   });
 });

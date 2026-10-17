@@ -8,6 +8,7 @@ import { formatoFechaCorta, formatoFechaRelativa, inicioMesBogota } from "@/lib/
 import { cn } from "@/lib/utils";
 import { EditarProveedorDialog } from "./editar-proveedor-dialog";
 import { NuevoProveedorDialog } from "./nuevo-proveedor-dialog";
+import { requirePermiso } from "@/lib/auth/guards";
 
 function buildColumns(ahora: Date): DataTableColumn<ProveedorConInventario>[] {
   return [
@@ -77,6 +78,7 @@ function buildColumns(ahora: Date): DataTableColumn<ProveedorConInventario>[] {
 }
 
 export default async function ProveedoresPage() {
+  await requirePermiso("inventario.ver");
   const proveedores = await listProveedoresConInventario();
 
   const ahora = new Date();

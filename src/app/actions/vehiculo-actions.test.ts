@@ -1,9 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: () => mockRequireSession(),
 }));
 
@@ -31,7 +31,7 @@ const initialState: VehiculoFormState = { error: null, success: false };
 
 describe("createVehiculoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockCreate.mockReset();
   });
 
@@ -140,8 +140,8 @@ describe("createVehiculoAction", () => {
     expect(result.error).not.toContain("Unique constraint");
   });
 
-  it("propagates the redirect rejection and never touches the database when requireRole rejects (unauthorized)", async () => {
-    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+  it("propagates the redirect rejection and never touches the database when requirePermiso rejects (unauthorized)", async () => {
+    mockRequirePermiso.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
     const formData = new FormData();
     formData.set("placa", "ABC123");
     formData.set("marca", "Toyota");
@@ -156,7 +156,7 @@ describe("createVehiculoAction", () => {
 
 describe("updateVehiculoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockUpdate.mockReset();
   });
 
@@ -225,8 +225,8 @@ describe("updateVehiculoAction", () => {
     expect(result.error).toBe("Ya existe un registro con ese valor.");
   });
 
-  it("propagates the redirect rejection and never touches the database when requireRole rejects (unauthorized)", async () => {
-    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+  it("propagates the redirect rejection and never touches the database when requirePermiso rejects (unauthorized)", async () => {
+    mockRequirePermiso.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
     const formData = new FormData();
     formData.set("placa", "ABC123");
     formData.set("marca", "Toyota");
@@ -284,7 +284,7 @@ describe("listVehiculosByCliente", () => {
 
 describe("Fase 15 — campos de tipo, VIN y vencimientos", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockCreate.mockReset().mockResolvedValue({ id: "v1" });
     mockUpdate.mockReset().mockResolvedValue({ clienteId: "c1" });
   });

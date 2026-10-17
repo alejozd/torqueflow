@@ -307,6 +307,18 @@ TENANT_DATABASE_URL="${TENANT_DATABASE_BASE_URL}?schema=taller_dev" \
 
 Después, la comprobación que vale: `migrate diff` respondiendo **"This is an empty migration"**.
 
+**Todos los schemas de tenant, no solo los dos conocidos (Fase 26).** Desde la fase 26, `requireSession`
+lee columnas nuevas de `usuarios` (`permisos_agregados`, `permisos_quitados`) en **cada** petición: si el
+build nuevo arranca contra un schema sin la migración, nadie de ese taller puede entrar. Antes de hacer
+build y reiniciar:
+
+1. Listar los schemas desde la base, no de memoria:
+   `psql "${DATABASE_URL%%\?*}" -At -c "select schema_name from public.tenants order by schema_name"`.
+2. Por **cada** schema de esa lista (más `taller_dev_reference` si no aparece), correr `migrate deploy`
+   como arriba y después el `migrate diff` de §2; todos tienen que responder "This is an empty migration".
+3. Solo entonces `sudo ./deploy.sh`. Migrar antes es seguro: agregar columnas y valores a un enum no rompe
+   el código viejo.
+
 ## 7. Trampas conocidas (lecciones que costaron tiempo)
 
 - **Los tests mockean la base** (`getTenantDb`): si te falta una columna en la migración, **los tests siguen
@@ -354,6 +366,11 @@ Después, la comprobación que vale: `migrate diff` respondiendo **"This is an e
   deja las credenciales en la URL/registros. Está en el backlog; no se tocó.
 
 ## 8. Pendientes y próximos pasos
+
+- **Fase 26 (permisos por usuario)**: tareas 1–16 hechas en la rama `fase26-permisos`, **mergeada a `main`**; migraciones aplicadas a `taller_dev` y `taller_dev_reference` (respaldo
+  `~/backups/torqueflow_20261017_1302_pre_fase26.sql`). Falta desplegar en el servidor (`sudo ./deploy.sh`).
+  Las migraciones `20261023120000_rol_jefe_taller` y `20261024120000_permisos_usuario` están aplicadas;
+  pasos exactos en `docs/fase26-pasos-migracion.md` (migrar **todos** los schemas antes de desplegar).
 
 - **Crons sin programar en el servidor** (verificado 2026-10-15: el crontab de `alejo` no los llama, aunque `CRON_SECRET` está en el `.env`): `/api/cron/recordatorios` (los recordatorios automáticos no salen) y `/api/cron/cotizaciones-vencidas` (ya no hace falta: las cotizaciones se vencen al consultarlas). Programarlos requiere el visto bueno del usuario.
 - **Rediseño de la cotización**: falta revisión visual del usuario, merge a `main` y despliegue. Su migración
@@ -475,3 +492,25 @@ Merge `a86a9f0`. Plan: `docs/superpowers/plans/2026-10-16-campos-fecha.md`.
 Merge `c92e500`. Al crear una orden (desde Órdenes o desde la ficha del cliente) el diálogo ya no se cierra
 antes de navegar: el botón pasa a «Abriendo la orden...» y queda bloqueado hasta que la ficha reemplaza la
 pantalla. Antes se veía y se podía clicar el listado mientras cargaba la ficha, y cabía un doble envío.
+
+### Fase 26 — permisos por usuario (rama `fase26-permisos`, mergeada 2026-10-17; plan `docs/superpowers/plans/2026-10-16-fase26-permisos.md`)
+
+El acceso deja de preguntar "¿qué rol es?" y pasa a "¿tiene este
+permiso?":
+
+- **Catálogo único** en `src/lib/auth/permisos.ts` (claves `grupo.accion`, que no se renombran) y tabla
+  rol → permisos. Guards en `src/lib/auth/guards.ts`: `requirePermiso`, `requireSession`, `puede`. Si falta un
+  permiso se va a `/sin-permiso`. Un test de arquitectura exige que toda `page.tsx` de `src/app` pida su
+  permiso.
+- **Técnico**: ve solo las órdenes donde es mecánico de la orden o de alguna mano de obra
+  (`ordenes.verTodas`, `scopeOrdenVisible` en `src/lib/sede/scope.ts`, en lecturas y escrituras por id). Ya no
+  anula ni ve facturas, costos (`precioCompra`, margen, valor del inventario) ni compras.
+- **Rol nuevo `JEFE_TALLER`** ("Jefe de taller"): todo el taller, nada de plata; se puede asignar como
+  mecánico (`ROLES_MECANICO`).
+- **Excepciones por usuario**: `usuarios.permisos_agregados` / `permisos_quitados`; se editan en la ficha del
+  usuario (sección "Permisos") con `guardarPermisosUsuarioAction`, que guarda solo la diferencia con el rol y
+  deja `AuditLog`. Los 4 permisos ★ (`usuarios.gestionar`, `sedes.gestionar`, `sedes.verTodas`,
+  `configuracion.taller`) son solo del ADMIN y no se pueden dar. Cambiar el rol vacía las excepciones.
+- Permisos que antes eran solo del ADMIN (gastos, reportes) se acotan a la sede activa salvo con
+  `sedes.verTodas`, porque ahora se pueden dar por excepción.
+- **Migraciones aplicadas** a `taller_dev` y `taller_dev_reference`; para otros entornos, `docs/fase26-pasos-migracion.md`.

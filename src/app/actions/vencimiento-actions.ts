@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { publicDb } from "@/lib/db/public-client";
 import type { TipoVehiculoValor } from "@/lib/validation/vehiculo";
@@ -133,7 +133,7 @@ export async function registrarAvisoWhatsappAction(
   vehiculoId: string,
   tipo: TipoDocumento,
 ): Promise<{ error: string | null }> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("vencimientos.avisar");
   const tipoValido = z.enum(["SOAT", "TECNOMECANICA"]).safeParse(tipo);
   if (!tipoValido.success) return { error: "Documento inválido" };
   const tenantDb = getTenantDb(session.user.tenantSchema);

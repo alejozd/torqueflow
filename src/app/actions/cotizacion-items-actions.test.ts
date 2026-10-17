@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
 }));
 
 const mockCotizacionFindFirst = vi.fn();
@@ -49,7 +49,7 @@ import {
 const SESSION = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 beforeEach(() => {
-  mockRequireRole.mockReset().mockResolvedValue(SESSION);
+  mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
   mockCotizacionFindFirst.mockReset().mockResolvedValue({ estado: "BORRADOR" });
   mockRepuestoFindFirst.mockReset().mockResolvedValue({ id: "r1", nombre: "Filtro de aceite", precioVenta: "35000" });
   mockItemFindFirst.mockReset();
@@ -138,7 +138,7 @@ describe("agregarItemLibreCotizacionAction", () => {
     const result = await agregarItemLibreCotizacionAction("q1", { tipo: "MANO_OBRA", descripcion: "   " });
 
     expect(result.error).toBe("La descripción es obligatoria");
-    expect(mockRequireRole).not.toHaveBeenCalled();
+    expect(mockRequirePermiso).not.toHaveBeenCalled();
   });
 });
 
@@ -183,7 +183,7 @@ describe("actualizarItemCotizacionAction", () => {
   it("rechaza una cantidad en cero o sin cambios", async () => {
     expect((await actualizarItemCotizacionAction("q1", "i1", { cantidad: 0 })).error).toMatch(/mayor a 0/);
     expect((await actualizarItemCotizacionAction("q1", "i1", {})).error).toBe("No hay cambios que guardar");
-    expect(mockRequireRole).not.toHaveBeenCalled();
+    expect(mockRequirePermiso).not.toHaveBeenCalled();
   });
 
   it("responde si el ítem no es de la cotización", async () => {
@@ -207,7 +207,7 @@ describe("eliminarGrupoKitCotizacionAction", () => {
   it("solo administración y recepción pueden quitar un kit", async () => {
     await eliminarGrupoKitCotizacionAction("q1", "g1");
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("cotizaciones.gestionar");
   });
 
   it("avisa si el kit ya no estaba", async () => {

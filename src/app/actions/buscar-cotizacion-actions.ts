@@ -1,6 +1,6 @@
 "use server";
 
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { roundMoney } from "@/lib/money/round";
 import { scopeRepuesto } from "@/lib/sede/scope";
@@ -48,7 +48,7 @@ function filtroPorPalabras(q: string, campos: string[]) {
  * repuestos de la sede con su existencia. Sin texto solo sugiere servicios.
  */
 export async function buscarParaCotizacionAction(texto: string): Promise<ResultadosBusquedaCotizacion> {
-  const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
+  const session = await requirePermiso("cotizaciones.editarItems");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const q = (typeof texto === "string" ? texto : "").trim().slice(0, 80);
   const sedeActivaId = session.user.sedeActivaId;

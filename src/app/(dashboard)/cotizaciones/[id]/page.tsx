@@ -18,6 +18,7 @@ import { DescuentoCotizacionForm } from "./descuento-cotizacion-form";
 import { EnviarCotizacionForm } from "./enviar-cotizacion-form";
 import { DecisionCotizacionButtons } from "./decision-cotizacion-buttons";
 import { RegistrarSeguimientoDialog } from "./registrar-seguimiento-dialog";
+import { requirePermiso } from "@/lib/auth/guards";
 
 const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeZone: "America/Bogota" });
 
@@ -47,6 +48,7 @@ const formatoHoraSeguimiento = new Intl.DateTimeFormat("es-CO", {
 });
 
 export default async function CotizacionDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePermiso("cotizaciones.ver");
   const { id } = await params;
   const cotizacion = await getCotizacion(id);
 

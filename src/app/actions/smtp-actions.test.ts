@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: vi.fn(),
 }));
 
@@ -79,7 +79,7 @@ function filaAlmacenada(passwordPlano = "clave-guardada") {
 
 beforeEach(() => {
   process.env.SMTP_ENCRYPTION_KEY = CLAVE_VALIDA;
-  mockRequireRole.mockReset().mockResolvedValue(ADMIN);
+  mockRequirePermiso.mockReset().mockResolvedValue(ADMIN);
   mockFindUnique.mockReset().mockResolvedValue(null);
   mockUpsert.mockReset().mockResolvedValue({ id: "singleton" });
   mockUpdate.mockReset().mockResolvedValue({ id: "singleton" });
@@ -101,7 +101,7 @@ describe("getConfiguracionSmtp", () => {
   it("is ADMIN-only", async () => {
     await getConfiguracionSmtp();
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("configuracion.taller");
   });
 
   it("returns null when the tenant has never configured SMTP", async () => {
@@ -138,7 +138,7 @@ describe("getConfiguracionSmtp", () => {
 
 describe("guardarConfiguracionSmtpAction", () => {
   it("is ADMIN-only and calls the guard before validating", async () => {
-    mockRequireRole.mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+    mockRequirePermiso.mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
 
     await expect(guardarConfiguracionSmtpAction(initialState, new FormData())).rejects.toThrow(
       "REDIRECT:/login?error=forbidden",
@@ -201,7 +201,7 @@ describe("probarConfiguracionSmtpAction", () => {
 
     await probarConfiguracionSmtpAction(initialState, new FormData());
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("configuracion.taller");
   });
 
   it("refuses when no configuration is stored", async () => {
@@ -281,7 +281,7 @@ describe("getUltimosEnviosSmtp", () => {
   it("is ADMIN-only", async () => {
     await getUltimosEnviosSmtp();
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("configuracion.taller");
   });
 
   it("merges reminder and order-notification rows, sorted by enviadoAt desc and capped to 6", async () => {

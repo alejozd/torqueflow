@@ -16,8 +16,8 @@ const BODEGAS = [
 ];
 const PROVEEDORES = [{ value: "p1", label: "Repuestos del Norte" }];
 
-function renderForm(esAdmin = true) {
-  return render(<ImportarForm bodegas={BODEGAS} proveedores={PROVEEDORES} esAdmin={esAdmin} />);
+function renderForm(puedeGestionarServicios = true) {
+  return render(<ImportarForm bodegas={BODEGAS} proveedores={PROVEEDORES} puedeGestionarServicios={puedeGestionarServicios} />);
 }
 
 describe("ImportarForm", () => {

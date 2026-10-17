@@ -1,9 +1,10 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
   requireSession: () => mockRequireSession(),
 }));
 
@@ -51,6 +52,7 @@ vi.mock("@/lib/email/enviar-email", () => ({
 const mockRevalidatePath = vi.fn();
 vi.mock("next/cache", () => ({ revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args) }));
 
+import { permisosEfectivos } from "@/lib/auth/permisos";
 import { cifrarSecreto } from "@/lib/crypto/secret-box";
 import {
   createOrdenAction,
@@ -68,14 +70,19 @@ import {
   type PrioridadFormState,
 } from "./orden-actions";
 
+const TECNICO_SESSION = {
+  user: { id: "tec-1", role: "TECNICO", permisos: permisosEfectivos({ role: "TECNICO" }), tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+};
+const OR_TECNICO = [{ mecanicoId: "tec-1" }, { manoDeObra: { some: { mecanicoId: "tec-1" } } }];
+
 const initialState: OrdenFormState = { error: null, success: false };
 const SESSION = {
-  user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+  user: { id: "u1", role: "ADMIN", permisos: ["ordenes.reasignarMecanico", "ordenes.verTodas", "ordenes.anular"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
 };
 
 describe("createOrdenAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockCreate.mockReset();
     mockSedeFindFirst.mockReset();
   });
@@ -100,6 +107,7 @@ describe("createOrdenAction", () => {
     const result = await createOrdenAction("c1", "v1", initialState, formData);
 
     expect(result).toEqual({ error: null, success: true, ordenId: "o1" });
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.crear");
     expect(mockSedeFindFirst).not.toHaveBeenCalled();
     expect(mockCreate).toHaveBeenCalledWith({
       data: {
@@ -114,8 +122,8 @@ describe("createOrdenAction", () => {
     });
   });
 
-  it("propagates the redirect rejection and never touches the database when requireRole rejects (unauthorized)", async () => {
-    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+  it("propagates the redirect rejection and never touches the database when requirePermiso rejects (unauthorized)", async () => {
+    mockRequirePermiso.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
     const formData = new FormData();
 
     await expect(createOrdenAction("c1", "v1", initialState, formData)).rejects.toThrow(
@@ -127,7 +135,7 @@ describe("createOrdenAction", () => {
 
 describe("createOrdenDesdeVehiculoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockCreate.mockReset();
     mockVehiculoFindUnique.mockReset();
   });
@@ -184,8 +192,8 @@ describe("createOrdenDesdeVehiculoAction", () => {
     });
   });
 
-  it("propagates the redirect rejection and never touches the database when requireRole rejects (unauthorized)", async () => {
-    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+  it("propagates the redirect rejection and never touches the database when requirePermiso rejects (unauthorized)", async () => {
+    mockRequirePermiso.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
     const formData = new FormData();
     formData.set("vehiculoId", "v1");
 
@@ -303,7 +311,7 @@ describe("listTecnicos", () => {
     await listTecnicos();
 
     expect(mockUsuarioFindMany).toHaveBeenCalledWith({
-      where: { role: "TECNICO", sedes: { some: { sedeId: "sede-1" } } },
+      where: { role: { in: ["TECNICO", "JEFE_TALLER"] }, sedes: { some: { sedeId: "sede-1" } } },
       select: { id: true, nombre: true },
       orderBy: { nombre: "asc" },
     });
@@ -341,7 +349,7 @@ describe("updateEstadoOrdenAction", () => {
 
   beforeEach(() => {
     process.env.SMTP_ENCRYPTION_KEY = CLAVE_VALIDA;
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockOrdenFindFirst.mockReset();
     mockUpdate.mockReset();
     mockUpdateMany.mockReset().mockResolvedValue({ count: 1 });
@@ -409,6 +417,33 @@ describe("updateEstadoOrdenAction", () => {
     expect(result.error).toBeNull();
     expect(mockRevalidatePath).toHaveBeenCalledWith("/ordenes");
     expect(mockRevalidatePath).toHaveBeenCalledWith("/ordenes/o1");
+  });
+
+  it("sin ordenes.anular, anular devuelve error y no escribe (D8)", async () => {
+    mockRequirePermiso.mockResolvedValue(TECNICO_SESSION);
+    mockOrdenFindFirst.mockResolvedValue({ ...ORDEN_BASE, estado: "EN_PROCESO" });
+    const formData = new FormData();
+    formData.set("estado", "ANULADA");
+
+    const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
+
+    expect(result).toEqual({ error: "No tienes permiso para anular órdenes" });
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockAuditLogCreate).not.toHaveBeenCalled();
+  });
+
+  it("sin ordenes.anular, el técnico sí puede cambiar a otros estados", async () => {
+    mockRequirePermiso.mockResolvedValue(TECNICO_SESSION);
+    mockOrdenFindFirst.mockResolvedValue({ ...ORDEN_BASE, estado: "EN_PROCESO" });
+    mockUpdate.mockResolvedValue({ id: "o1", estado: "TERMINADA" });
+    const formData = new FormData();
+    formData.set("estado", "TERMINADA");
+
+    const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
+
+    expect(result.error).toBeNull();
+    expect(mockUpdateMany).toHaveBeenCalled();
   });
 
   it("returns 'Orden no encontrada' when the order does not exist", async () => {
@@ -620,7 +655,7 @@ describe("asignarMecanicoAction", () => {
   const initialAsignarState: AsignarMecanicoFormState = { error: null, success: false };
 
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockOrdenFindFirst.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null, mecanicoId: null });
     mockUsuarioFindFirst.mockReset().mockResolvedValue({ id: "t1" });
     mockUpdate.mockReset().mockResolvedValue({ id: "o1" });
@@ -632,7 +667,7 @@ describe("asignarMecanicoAction", () => {
 
     await asignarMecanicoAction("o1", initialAsignarState, formData);
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.planificar");
   });
 
   it("assigns the chosen técnico after confirming they belong to the sede activa", async () => {
@@ -643,7 +678,7 @@ describe("asignarMecanicoAction", () => {
 
     expect(result).toEqual({ error: null, success: true });
     expect(mockUsuarioFindFirst).toHaveBeenCalledWith({
-      where: { id: "t1", role: "TECNICO", sedes: { some: { sedeId: "sede-1" } } },
+      where: { id: "t1", role: { in: ["TECNICO", "JEFE_TALLER"] }, sedes: { some: { sedeId: "sede-1" } } },
       select: { id: true },
     });
     expect(mockUpdate).toHaveBeenCalledWith({ where: { id: "o1" }, data: { mecanicoId: "t1" } });
@@ -675,8 +710,8 @@ describe("asignarMecanicoAction", () => {
   });
 
   it("blocks RECEPCION from changing an already-assigned mecánico", async () => {
-    mockRequireRole.mockResolvedValue({
-      user: { id: "u1", role: "RECEPCION", tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
+    mockRequirePermiso.mockResolvedValue({
+      user: { id: "u1", role: "RECEPCION", permisos: [], tenantSchema: "taller_perez", sedeActivaId: "sede-1" },
     });
     mockOrdenFindFirst.mockResolvedValue({ estado: "EN_PROCESO", factura: null, mecanicoId: "t1" });
     const formData = new FormData();
@@ -755,7 +790,7 @@ describe("cambiarPrioridadAction", () => {
   }
 
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockOrdenFindFirst.mockReset().mockResolvedValue({
       id: "o1",
       estado: "EN_PROCESO",
@@ -770,7 +805,7 @@ describe("cambiarPrioridadAction", () => {
     const result = await cambiarPrioridadAction("o1", inicialPrioridad, conPrioridad("URGENTE"));
 
     expect(result).toEqual({ error: null, success: true });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.planificar");
     expect(mockOrdenFindFirst).toHaveBeenCalledWith({
       where: { id: "o1", sedeId: "sede-1" },
       select: { id: true, estado: true, prioridad: true, factura: { select: { id: true } } },
@@ -844,10 +879,94 @@ describe("cambiarPrioridadAction", () => {
 
   it("un rol sin permiso no llega a tocar la orden", async () => {
     // El guard real lanza (redirect); la acción no debe atraparlo ni escribir nada.
-    mockRequireRole.mockRejectedValue(new Error("NEXT_REDIRECT"));
+    mockRequirePermiso.mockRejectedValue(new Error("NEXT_REDIRECT"));
 
     await expect(cambiarPrioridadAction("o1", inicialPrioridad, conPrioridad("ALTA"))).rejects.toThrow("NEXT_REDIRECT");
     expect(mockUpdateMany).not.toHaveBeenCalled();
     expect(mockAuditLogCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("D7: el técnico solo ve sus órdenes", () => {
+  beforeEach(() => {
+    mockRequireSession.mockReset().mockResolvedValue(TECNICO_SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(TECNICO_SESSION);
+    mockFindMany.mockReset().mockResolvedValue([]);
+    mockOrdenFindFirst.mockReset().mockResolvedValue(null);
+    mockUpdate.mockReset();
+    mockUpdateMany.mockReset();
+  });
+
+  it("listOrdenes acota por mecánico de la orden o de una línea de mano de obra", async () => {
+    await listOrdenes("EN_PROCESO");
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { sedeId: "sede-1", estado: "EN_PROCESO", OR: OR_TECNICO } }),
+    );
+  });
+
+  it("listOrdenesByVehiculo acota igual", async () => {
+    await listOrdenesByVehiculo("v1");
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { vehiculoId: "v1", sedeId: "sede-1", OR: OR_TECNICO } }),
+    );
+  });
+
+  it("getOrden de una orden ajena resuelve a null con el where acotado", async () => {
+    expect(await getOrden("ajena")).toBeNull();
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith({
+      where: { id: "ajena", sedeId: "sede-1", OR: OR_TECNICO },
+      include: expect.anything(),
+    });
+  });
+
+  it("updateEstadoOrdenAction sobre una orden ajena responde 'no encontrada' y no escribe", async () => {
+    const fd = new FormData();
+    fd.set("estado", "EN_PROCESO");
+    const result = await updateEstadoOrdenAction("ajena", { error: null, success: false } as EstadoFormState, fd);
+    expect(result).toEqual({ error: "Orden no encontrada" });
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "ajena", sedeId: "sede-1", OR: OR_TECNICO } }),
+    );
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("una sesión con verTodas conserva el scope plano de la sede", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    await getOrden("x");
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith({ where: { id: "x", sedeId: "sede-1" }, include: expect.anything() });
+  });
+
+  // Fase 26, M1: `ordenes.planificar` por excepción no abre órdenes ajenas.
+  it("cambiarPrioridadAction acota con D7", async () => {
+    mockRequirePermiso.mockResolvedValue({
+      user: { ...TECNICO_SESSION.user, permisos: permisosEfectivos({ role: "TECNICO", agregados: ["ordenes.planificar"] }) },
+    });
+    const formData = new FormData();
+    formData.set("prioridad", "ALTA");
+
+    const result = await cambiarPrioridadAction("ajena", { error: null, success: false }, formData);
+
+    expect(result).toEqual({ error: "Orden no encontrada", success: false });
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "ajena", sedeId: "sede-1", OR: OR_TECNICO } }),
+    );
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("asignarMecanicoAction acota con D7 (no se puede asignar una orden ajena sin mecánico)", async () => {
+    mockRequirePermiso.mockResolvedValue({
+      user: { ...TECNICO_SESSION.user, permisos: permisosEfectivos({ role: "TECNICO", agregados: ["ordenes.planificar"] }) },
+    });
+    const formData = new FormData();
+    formData.set("mecanicoId", "tec-1");
+
+    const result = await asignarMecanicoAction("ajena", { error: null, success: false }, formData);
+
+    expect(result).toEqual({ error: "Orden no encontrada", success: false });
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "ajena", sedeId: "sede-1", OR: OR_TECNICO } }),
+    );
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });

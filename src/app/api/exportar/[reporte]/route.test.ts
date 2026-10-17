@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockRequireRole = vi.fn();
-vi.mock("@/lib/auth/guards", () => ({ requireRole: (...args: unknown[]) => mockRequireRole(...args) }));
+const mockRequirePermiso = vi.fn();
+vi.mock("@/lib/auth/guards", () => ({ requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args) }));
 
 const mockGetCartera = vi.fn();
 vi.mock("@/app/actions/cartera-actions", () => ({ getCartera: (...args: unknown[]) => mockGetCartera(...args) }));
@@ -36,7 +36,7 @@ function pedir(reporte: string, query = "") {
 describe("GET /api/exportar/[reporte]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue({ user: { id: "u1", role: "ADMIN", tenantSchema: "taller", sedeActivaId: "sede-1" } });
+    mockRequirePermiso.mockResolvedValue({ user: { id: "u1", role: "ADMIN", tenantSchema: "taller", sedeActivaId: "sede-1" } });
     mockGetCartera.mockResolvedValue(CARTERA_VACIA);
     mockGetCuentas.mockResolvedValue({
       proveedores: [],
@@ -60,7 +60,7 @@ describe("GET /api/exportar/[reporte]", () => {
   });
 
   it("exige el rol que puede ver el dinero", async () => {
-    mockRequireRole.mockRejectedValue(new Error("redirect:/login"));
+    mockRequirePermiso.mockRejectedValue(new Error("redirect:/login"));
 
     await expect(pedir("ventas", "?desde=2026-10-01&hasta=2026-10-05")).rejects.toThrow();
     expect(mockVentas).not.toHaveBeenCalled();
@@ -81,7 +81,7 @@ describe("GET /api/exportar/[reporte]", () => {
   it("un reporte que no existe responde 404 (y con el rol ya comprobado); 'ventas-hoy' pasó a 'ventas'", async () => {
     expect((await pedir("inventario-valorizado")).status).toBe(404);
     expect((await pedir("ventas-hoy")).status).toBe(404);
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("exportar.usar");
   });
 
   it("ventas y arqueos usan el rango pedido, incluido el día 'hasta', y lo ponen en el nombre del archivo", async () => {

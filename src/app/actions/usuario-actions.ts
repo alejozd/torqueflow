@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
+import { excepcionesDesdeMarcados, type Permiso, type Role } from "@/lib/auth/permisos";
+import { permisosMarcadosSchema } from "@/lib/validation/permisos-usuario";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
@@ -56,10 +58,12 @@ export interface UsuarioConSedes {
   id: string;
   nombre: string;
   email: string;
-  role: "ADMIN" | "TECNICO" | "RECEPCION";
+  role: Role;
   activo: boolean;
   sedeDefectoId: string | null;
   sedeIds: string[];
+  permisosAgregados: string[];
+  permisosQuitados: string[];
 }
 
 const USUARIO_CON_SEDES_SELECT = {
@@ -69,6 +73,8 @@ const USUARIO_CON_SEDES_SELECT = {
   role: true,
   activo: true,
   sedeDefectoId: true,
+  permisosAgregados: true,
+  permisosQuitados: true,
   sedes: { select: { sedeId: true } },
 } as const;
 
@@ -82,7 +88,7 @@ const USUARIO_CON_SEDES_SELECT = {
  * listRepuestoOptions). Do not switch this to include.
  */
 export async function listUsuariosConSedes(): Promise<UsuarioConSedes[]> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("usuarios.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const usuarios = await tenantDb.usuario.findMany({
@@ -98,6 +104,8 @@ export async function listUsuariosConSedes(): Promise<UsuarioConSedes[]> {
     activo: usuario.activo,
     sedeDefectoId: usuario.sedeDefectoId,
     sedeIds: usuario.sedes.map((asignacion) => asignacion.sedeId),
+    permisosAgregados: usuario.permisosAgregados,
+    permisosQuitados: usuario.permisosQuitados,
   }));
 }
 
@@ -105,10 +113,12 @@ export interface UsuarioConMetricas {
   id: string;
   nombre: string;
   email: string;
-  role: "ADMIN" | "TECNICO" | "RECEPCION";
+  role: Role;
   activo: boolean;
   sedeDefectoId: string | null;
   sedeIds: string[];
+  permisosAgregados: string[];
+  permisosQuitados: string[];
   ordenesActivas: number;
 }
 
@@ -120,7 +130,7 @@ export interface UsuarioConMetricas {
  * /usuarios/[id], which has no use for this count.
  */
 export async function listUsuariosConMetricas(): Promise<UsuarioConMetricas[]> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("usuarios.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const [usuarios, ordenesPorMecanico] = await Promise.all([
@@ -149,6 +159,8 @@ export async function listUsuariosConMetricas(): Promise<UsuarioConMetricas[]> {
     activo: usuario.activo,
     sedeDefectoId: usuario.sedeDefectoId,
     sedeIds: usuario.sedes.map((asignacion) => asignacion.sedeId),
+    permisosAgregados: usuario.permisosAgregados,
+    permisosQuitados: usuario.permisosQuitados,
     ordenesActivas: ordenesMap.get(usuario.id) ?? 0,
   }));
 }
@@ -179,7 +191,7 @@ export async function createUsuarioAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("usuarios.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const { maxUsuarios } = await obtenerLimitesPlan(session.user.tenantSchema);
@@ -256,7 +268,7 @@ export async function updateUsuarioAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("usuarios.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const usuarioActual = await tenantDb.usuario.findUnique({
@@ -320,6 +332,11 @@ export async function updateUsuarioAction(
   if (parsed.data.password) {
     datos.passwordHash = await bcrypt.hash(parsed.data.password, 12);
   }
+  // Las excepciones eran relativas al rol anterior: al cambiar de rol se vacían.
+  if (usuarioActual.role !== parsed.data.role) {
+    datos.permisosAgregados = [];
+    datos.permisosQuitados = [];
+  }
 
   // Claiming the new email happens BEFORE writing to the tenant schema: a
   // conflict must never leave a usuario mid-update in tenantDb, and Usuario's
@@ -363,6 +380,63 @@ export async function updateUsuarioAction(
   }
 
   revalidatePath("/usuarios");
+  revalidatePath(`/usuarios/${usuarioId}`);
+  return { error: null, success: true };
+}
+
+/**
+ * `permisos` es la lista marcada en pantalla. Se guarda solo la diferencia con
+ * el rol del usuario (agregados / quitados) y se audita junto al estado previo.
+ */
+export async function guardarPermisosUsuarioAction(
+  usuarioId: string,
+  permisos: string[],
+): Promise<ResultadoAccion> {
+  const session = await requirePermiso("usuarios.gestionar");
+
+  const parsed = permisosMarcadosSchema.safeParse(permisos);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
+  }
+
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  const usuario = await tenantDb.usuario.findUnique({
+    where: { id: usuarioId },
+    select: { role: true, permisosAgregados: true, permisosQuitados: true },
+  });
+  if (!usuario) {
+    return { error: "Usuario no encontrado", success: false };
+  }
+  if (usuario.role === "ADMIN") {
+    return { error: "El administrador siempre tiene todos los permisos", success: false };
+  }
+
+  const { agregados, quitados } = excepcionesDesdeMarcados(usuario.role, parsed.data as Permiso[]);
+
+  try {
+    await tenantDb.$transaction(async (tx) => {
+      await tx.usuario.update({
+        where: { id: usuarioId },
+        data: { permisosAgregados: agregados, permisosQuitados: quitados },
+      });
+      await registrarEventoAuditoria(tx, {
+        tipo: "USUARIO_ACTUALIZAR_PERMISOS",
+        actorId: session.user.id,
+        entidadTipo: "Usuario",
+        entidadId: usuarioId,
+        detalle: {
+          agregados,
+          quitados,
+          antes: { agregados: usuario.permisosAgregados, quitados: usuario.permisosQuitados },
+        },
+      });
+    });
+  } catch (err) {
+    return { error: friendlyPrismaErrorMessage(err, "Error al guardar los permisos"), success: false };
+  }
+
+  revalidatePath("/usuarios");
+  revalidatePath(`/usuarios/${usuarioId}`);
   return { error: null, success: true };
 }
 
@@ -376,7 +450,7 @@ export async function updateUsuarioAction(
  * tiene algo que hacer antes: anularlas).
  */
 export async function deleteUsuarioAction(usuarioId: string): Promise<void> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("usuarios.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const usuario = await tenantDb.usuario.findUnique({

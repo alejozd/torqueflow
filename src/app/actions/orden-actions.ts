@@ -1,13 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { puede, requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb, type TenantPrismaClient } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { ordenTrabajoInputSchema, estadoOrdenSchema, prioridadOrdenSchema } from "@/lib/validation/orden";
 import { isValidEstadoTransition } from "@/lib/orden/estado-transitions";
 import { assertOrdenMutable, esOrdenMutable } from "@/lib/orden/mutable-guard";
-import { scopeOrden } from "@/lib/sede/scope";
+import { scopeOrdenVisible } from "@/lib/sede/scope";
 import {
   CONFIGURACION_SMTP_ID,
   descifrarConfiguracionSmtp,
@@ -22,6 +22,7 @@ import {
 } from "@/lib/notificaciones/enviar-notificacion-estado";
 import { registrarEventoAuditoria } from "@/lib/auditoria/registrarEvento";
 import type { EstadoOrden, Prisma } from "@/generated/prisma-tenant";
+import { ROLES_MECANICO } from "@/lib/auth/permisos";
 
 export interface OrdenFormState {
   error: string | null;
@@ -80,7 +81,7 @@ export async function listOrdenes(estado?: EstadoOrden): Promise<OrdenWithDetall
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
   return tenantDb.ordenTrabajo.findMany({
-    where: { ...scopeOrden(session.user.sedeActivaId), ...(estado ? { estado } : {}) },
+    where: { ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")), ...(estado ? { estado } : {}) },
     include: ORDEN_DETAIL_INCLUDE,
     orderBy: { createdAt: "desc" },
   });
@@ -112,7 +113,7 @@ export async function listOrdenesByVehiculo(vehiculoId: string): Promise<OrdenDe
   // The Vehiculo is tenant-wide on purpose (a client may bring the same car to
   // any sede), but its órdenes belong to whichever sede opened them.
   return tenantDb.ordenTrabajo.findMany({
-    where: { vehiculoId, ...scopeOrden(session.user.sedeActivaId) },
+    where: { vehiculoId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     select: ORDEN_VEHICULO_SELECT,
     orderBy: { createdAt: "desc" },
   });
@@ -124,7 +125,7 @@ export async function getOrden(id: string): Promise<OrdenFicha | null> {
   // findFirst, not findUnique: findUnique cannot carry the sede filter, so an
   // id from another sede would resolve. This is the IDOR boundary.
   return tenantDb.ordenTrabajo.findFirst({
-    where: { id, ...scopeOrden(session.user.sedeActivaId) },
+    where: { id, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     include: ORDEN_FICHA_INCLUDE,
   });
 }
@@ -134,7 +135,7 @@ export async function listTecnicos(): Promise<TecnicoOption[]> {
   const tenantDb = getTenantDb(session.user.tenantSchema);
   // Only técnicos who actually work in this sede can be assigned an orden here.
   return tenantDb.usuario.findMany({
-    where: { role: "TECNICO", sedes: { some: { sedeId: session.user.sedeActivaId } } },
+    where: { role: { in: [...ROLES_MECANICO] }, sedes: { some: { sedeId: session.user.sedeActivaId } } },
     select: { id: true, nombre: true },
     orderBy: { nombre: "asc" },
   });
@@ -176,7 +177,7 @@ export async function createOrdenAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("ordenes.crear");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const { error, ordenId } = await crearOrdenTrabajo(tenantDb, {
@@ -225,7 +226,7 @@ export async function createOrdenDesdeVehiculoAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("ordenes.crear");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const vehiculo = await tenantDb.vehiculo.findUnique({
@@ -335,11 +336,11 @@ export async function updateEstadoOrdenAction(
     return { error: "Estado inválido" };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION", "TECNICO"]);
+  const session = await requirePermiso("ordenes.cambiarEstado");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id, ...scopeOrden(session.user.sedeActivaId) },
+    where: { id, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     include: { cliente: true, vehiculo: true },
   });
   if (!orden) {
@@ -348,6 +349,10 @@ export async function updateEstadoOrdenAction(
 
   if (!isValidEstadoTransition(orden.estado, parsedEstado.data)) {
     return { error: `No se puede cambiar de ${orden.estado} a ${parsedEstado.data}` };
+  }
+
+  if (parsedEstado.data === "ANULADA" && !puede(session, "ordenes.anular")) {
+    return { error: "No tienes permiso para anular órdenes" };
   }
 
   // Entregar no es un cambio de estado más: la orden pasa a ENTREGADA firmando el
@@ -435,11 +440,11 @@ export async function cambiarPrioridadAction(
   const parsed = prioridadOrdenSchema.safeParse(formData.get("prioridad") ?? "");
   if (!parsed.success) return { error: "Prioridad inválida", success: false };
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("ordenes.planificar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
+    where: { id: ordenId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     select: { id: true, estado: true, prioridad: true, factura: { select: { id: true } } },
   });
   if (!orden) return { error: "Orden no encontrada", success: false };
@@ -490,11 +495,13 @@ export async function asignarMecanicoAction(
   prevState: AsignarMecanicoFormState,
   formData: FormData,
 ): Promise<AsignarMecanicoFormState> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("ordenes.planificar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id, ...scopeOrden(session.user.sedeActivaId) },
+    // D7: con `ordenes.planificar` por excepción no se puede asignarse una orden
+    // ajena sin mecánico y ganar así visibilidad sobre ella (Fase 26, M1).
+    where: { id, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     select: { estado: true, factura: { select: { id: true } }, mecanicoId: true },
   });
   if (!orden) {
@@ -505,7 +512,7 @@ export async function asignarMecanicoAction(
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Orden no modificable", success: false };
   }
-  if (orden.mecanicoId && session.user.role !== "ADMIN") {
+  if (orden.mecanicoId && !puede(session, "ordenes.reasignarMecanico")) {
     return { error: "Esta orden ya tiene un mecánico asignado y no se puede modificar.", success: false };
   }
 
@@ -514,7 +521,7 @@ export async function asignarMecanicoAction(
     // Same sede-membership check listTecnicos() applies to the picker itself --
     // this is the server-side half, in case the posted id is stale or tampered.
     const tecnico = await tenantDb.usuario.findFirst({
-      where: { id: mecanicoId, role: "TECNICO", sedes: { some: { sedeId: session.user.sedeActivaId } } },
+      where: { id: mecanicoId, role: { in: [...ROLES_MECANICO] }, sedes: { some: { sedeId: session.user.sedeActivaId } } },
       select: { id: true },
     });
     if (!tecnico) {

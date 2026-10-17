@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { assertCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
@@ -28,7 +28,6 @@ export interface ResultadoItemCotizacion {
 
 type TenantDb = ReturnType<typeof getTenantDb>;
 
-const ROLES_EDICION = ["ADMIN", "RECEPCION", "TECNICO"] as const;
 
 /** Carga la cotización de la sede activa y comprueba que aún se pueda editar. */
 async function cotizacionEditable(
@@ -63,7 +62,7 @@ export async function agregarRepuestoACotizacionAction(
   cotizacionId: string,
   repuestoId: string,
 ): Promise<ResultadoItemCotizacion> {
-  const session = await requireRole([...ROLES_EDICION]);
+  const session = await requirePermiso("cotizaciones.editarItems");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const bloqueo = await cotizacionEditable(tenantDb, cotizacionId, session.user.sedeActivaId);
@@ -117,7 +116,7 @@ export async function agregarItemLibreCotizacionAction(
   const parsed = itemLibreCotizacionInputSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", itemId: null };
 
-  const session = await requireRole([...ROLES_EDICION]);
+  const session = await requirePermiso("cotizaciones.editarItems");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const bloqueo = await cotizacionEditable(tenantDb, cotizacionId, session.user.sedeActivaId);
@@ -159,7 +158,7 @@ export async function actualizarItemCotizacionAction(
   const parsed = actualizarItemCotizacionInputSchema.safeParse(cambios);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", itemId: null };
 
-  const session = await requireRole([...ROLES_EDICION]);
+  const session = await requirePermiso("cotizaciones.editarItems");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const bloqueo = await cotizacionEditable(tenantDb, cotizacionId, session.user.sedeActivaId);
@@ -193,7 +192,7 @@ export async function eliminarGrupoKitCotizacionAction(
   cotizacionId: string,
   grupoKitId: string,
 ): Promise<ResultadoItemCotizacion> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("cotizaciones.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const bloqueo = await cotizacionEditable(tenantDb, cotizacionId, session.user.sedeActivaId);

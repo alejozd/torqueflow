@@ -2,8 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const opcionesTaller = { exigirActaFirmada: false, usarControlCaja: true, descuentoMaxRecepcion: 10 };
 
-const mockRequireRole = vi.fn();
-vi.mock("@/lib/auth/guards", () => ({ requireRole: (...args: unknown[]) => mockRequireRole(...args) }));
+const mockRequirePermiso = vi.fn();
+import { permisosEfectivos } from "@/lib/auth/permisos";
+vi.mock("@/lib/auth/guards", () => ({
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
+  puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
+}));
 
 const tx = {
   repuesto: { updateMany: vi.fn() },
@@ -47,7 +51,7 @@ import {
 
 mockTenantFindUnique.mockResolvedValue({ nombre: "Taller Pérez", slug: "taller-perez" });
 
-const SESION = { user: { id: "u1", role: "RECEPCION", tenantSchema: "taller", sedeActivaId: "sede-1" } };
+const SESION = { user: { id: "u1", role: "RECEPCION", permisos: permisosEfectivos({ role: "RECEPCION" }), tenantSchema: "taller", sedeActivaId: "sede-1" } };
 const inicial = { error: null, success: false };
 
 function fd(campos: Record<string, string>): FormData {
@@ -96,7 +100,7 @@ const aCredito = { pagos: "[]" };
 describe("crearVentaMostradorAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(SESION);
+    mockRequirePermiso.mockResolvedValue(SESION);
     db.cajaSesion.findFirst.mockResolvedValue({ id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
     db.cliente.findFirst.mockResolvedValue({ nombre: "Ana Gómez", telefono: null, email: null });
     // Precio y nombre del repuesto salen de aquí, no del formulario (fase de consolidación, D6).
@@ -122,7 +126,7 @@ describe("crearVentaMostradorAction", () => {
       urlWhatsapp: null,
     });
     // Vender es cobrar: el técnico no usa el mostrador (D6).
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("mostrador.vender");
     expect(tx.repuesto.updateMany).toHaveBeenCalledWith({
       where: { id: "r1", stockActual: { gte: 2 } },
       data: { stockActual: { decrement: 2 } },
@@ -428,7 +432,7 @@ describe("crearVentaMostradorAction", () => {
     expect(rechazada.error).toBe("Tu descuento máximo es 10 %");
     expect(tx.ventaMostrador.create).not.toHaveBeenCalled();
 
-    mockRequireRole.mockResolvedValue({ user: { ...SESION.user, role: "ADMIN" } });
+    mockRequirePermiso.mockResolvedValue({ user: { ...SESION.user, role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }) } });
     const admin = await crearVentaMostradorAction(inicial, venta({ descuento: "6000", totalEsperado: "52360", pagos }));
     expect(admin.error).toBeNull();
   });
@@ -467,7 +471,7 @@ describe("crearVentaMostradorAction", () => {
 describe("cobrarVentaMostradorAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(SESION);
+    mockRequirePermiso.mockResolvedValue(SESION);
     db.cajaSesion.findFirst.mockResolvedValue({ id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
     db.ventaMostrador.findFirst.mockResolvedValue({ id: "v1", numero: 7, saldoPendiente: "59500" });
     tx.ventaMostrador.updateMany.mockResolvedValue({ count: 1 });
@@ -479,7 +483,7 @@ describe("cobrarVentaMostradorAction", () => {
     const r = await cobrarVentaMostradorAction("v1", inicial, fd({ monto: "59500", metodoPago: "TARJETA" }));
 
     expect(r).toEqual({ error: null, success: true, numero: 7 });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("mostrador.vender");
     expect(tx.ventaMostrador.updateMany).toHaveBeenCalledWith({
       where: { id: "v1", saldoPendiente: { gte: 59500 } },
       data: { saldoPendiente: { decrement: 59500 } },
@@ -556,7 +560,7 @@ describe("buscarParaMostradorAction", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(SESION);
+    mockRequirePermiso.mockResolvedValue(SESION);
     db.itemOrden.groupBy.mockResolvedValue([{ repuestoId: "r1", _sum: { cantidad: 3 } }]);
   });
 
@@ -564,7 +568,7 @@ describe("buscarParaMostradorAction", () => {
     db.repuesto.findMany.mockResolvedValue([]);
     await buscarParaMostradorAction("filtro");
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("mostrador.vender");
   });
 
   it("sin texto no consulta nada", async () => {
@@ -623,7 +627,7 @@ describe("buscarParaMostradorAction", () => {
 
 describe("buscarClientesMostradorAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockResolvedValue(SESION);
+    mockRequirePermiso.mockResolvedValue(SESION);
     db.cliente.findMany.mockReset().mockResolvedValue([]);
     db.ventaMostrador.groupBy.mockReset().mockResolvedValue([]);
   });
@@ -650,11 +654,11 @@ describe("buscarClientesMostradorAction", () => {
     expect(db.cliente.findMany).not.toHaveBeenCalled();
 
     await buscarClientesMostradorAction("ana");
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("mostrador.vender");
   });
 
   it("si no tiene permiso, falla antes de consultar", async () => {
-    mockRequireRole.mockRejectedValue(new Error("No autorizado"));
+    mockRequirePermiso.mockRejectedValue(new Error("No autorizado"));
     await expect(buscarClientesMostradorAction("ana")).rejects.toThrow("No autorizado");
     expect(db.cliente.findMany).not.toHaveBeenCalled();
   });
@@ -681,19 +685,19 @@ describe("buscarClientesMostradorAction", () => {
 describe("getComprobanteVentaMostrador", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(SESION);
+    mockRequirePermiso.mockResolvedValue(SESION);
     db.ventaMostrador.findFirst.mockResolvedValue(VENTA_GUARDADA);
   });
 
   it("solo ADMIN y RECEPCION, y solo ventas de la sede activa", async () => {
     await getComprobanteVentaMostrador("v1");
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("mostrador.vender");
     expect(db.ventaMostrador.findFirst.mock.calls[0]![0].where).toEqual({ id: "v1", sedeId: "sede-1" });
   });
 
   it("si no tiene permiso, falla antes de consultar", async () => {
-    mockRequireRole.mockRejectedValue(new Error("NEXT_REDIRECT"));
+    mockRequirePermiso.mockRejectedValue(new Error("NEXT_REDIRECT"));
 
     await expect(getComprobanteVentaMostrador("v1")).rejects.toThrow("NEXT_REDIRECT");
     expect(db.ventaMostrador.findFirst).not.toHaveBeenCalled();
@@ -729,7 +733,7 @@ describe("getComprobanteVentaMostrador", () => {
 describe("enviarComprobanteCorreoAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(SESION);
+    mockRequirePermiso.mockResolvedValue(SESION);
     db.ventaMostrador.findFirst.mockResolvedValue(VENTA_GUARDADA);
     db.configuracionSmtp.findUnique.mockResolvedValue({ id: "smtp", activo: true, host: "smtp.x", fromNombre: "Taller" });
     mockEnviarEmail.mockReset().mockResolvedValue(undefined);
@@ -745,7 +749,7 @@ describe("enviarComprobanteCorreoAction", () => {
     const r = await enviarComprobanteCorreoAction("v1");
 
     expect(r).toEqual({ error: null, success: true });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("mostrador.vender");
     expect(db.ventaMostrador.findFirst.mock.calls[0]![0].where).toEqual({ id: "v1", sedeId: "sede-1" });
     const [config, mensaje] = mockEnviarEmail.mock.calls[0]!;
     expect(config).toMatchObject({ host: "smtp.x" });
@@ -800,7 +804,7 @@ describe("listarVentasMostradorAction", () => {
     vi.clearAllMocks();
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-17T20:00:00Z"));
-    mockRequireRole.mockResolvedValue(SESION);
+    mockRequirePermiso.mockResolvedValue(SESION);
     // La caja de ayer se cerró anoche: lo vendido antes ya pasó por un arqueo.
     db.cajaSesion.findFirst.mockResolvedValue({ cerradaAt: new Date("2026-10-17T02:00:00Z") });
     db.ventaMostrador.findMany.mockResolvedValue([filaGuardada()]);
@@ -814,7 +818,7 @@ describe("listarVentasMostradorAction", () => {
     const r = await listarVentasMostradorAction({ desde: "2026-09-17", hasta: "2026-10-17" });
 
     expect(r.error).toBeNull();
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("mostrador.vender");
     expect(db.ventaMostrador.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
@@ -895,7 +899,7 @@ describe("listarVentasMostradorAction", () => {
   });
 
   it("si no tiene permiso, falla antes de consultar", async () => {
-    mockRequireRole.mockRejectedValue(new Error("FORBIDDEN"));
+    mockRequirePermiso.mockRejectedValue(new Error("FORBIDDEN"));
     await expect(listarVentasMostradorAction({ desde: "2026-10-17", hasta: "2026-10-17" })).rejects.toThrow("FORBIDDEN");
     expect(db.ventaMostrador.findMany).not.toHaveBeenCalled();
   });
@@ -904,7 +908,7 @@ describe("listarVentasMostradorAction", () => {
 describe("obtenerVentaMostradorAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireRole.mockResolvedValue(SESION);
+    mockRequirePermiso.mockResolvedValue(SESION);
     db.cajaSesion.findFirst.mockResolvedValue(null);
   });
 

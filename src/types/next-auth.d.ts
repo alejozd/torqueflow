@@ -1,6 +1,6 @@
 import type { DefaultSession } from "next-auth";
 
-type TorqueFlowRole = "ADMIN" | "TECNICO" | "RECEPCION";
+type TorqueFlowRole = import("@/lib/auth/permisos").Role;
 
 declare module "next-auth" {
   interface User {
@@ -17,6 +17,8 @@ declare module "next-auth" {
     user: {
       id: string;
       role: TorqueFlowRole;
+      /** Permisos efectivos; requireSession los calcula en cada petición. */
+      permisos: import("@/lib/auth/permisos").Permiso[];
       tenantSlug: string;
       tenantSchema: string;
       sedeActivaId: string;

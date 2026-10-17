@@ -1,11 +1,11 @@
 import { listBodegas } from "@/app/actions/bodega-actions";
 import { listProveedores } from "@/app/actions/proveedor-actions";
-import { requireRole } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImportarForm } from "./importar-form";
 
 export default async function ImportarPage() {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("importar.usar");
 
   // Secuencial a propósito: cada action pasa por su propio guard.
   const bodegas = await listBodegas();
@@ -40,7 +40,7 @@ export default async function ImportarPage() {
           <ImportarForm
             bodegas={bodegas.map((bodega) => ({ value: bodega.id, label: bodega.nombre }))}
             proveedores={proveedores.map((proveedor) => ({ value: proveedor.id, label: proveedor.nombre }))}
-            esAdmin={session.user.role === "ADMIN"}
+            puedeGestionarServicios={puede(session, "servicios.gestionar")}
           />
         </CardContent>
       </Card>

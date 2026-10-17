@@ -42,17 +42,17 @@ export function ventaEnCajaCerrada({
 export function puedeDevolver({
   fechaVenta,
   ahora,
-  rol,
+  puedeConCajaCerrada,
   cajaCerrada,
 }: {
   fechaVenta: Date;
   ahora: Date;
-  rol: string;
+  puedeConCajaCerrada: boolean;
   cajaCerrada: boolean;
 }): { permitido: boolean; motivo: string | null } {
   if (ahora.getTime() - fechaVenta.getTime() > DIAS_PLAZO_DEVOLUCION * MS_DIA) {
     return { permitido: false, motivo: MOTIVO_FUERA_DE_PLAZO };
   }
-  if (cajaCerrada && rol !== "ADMIN") return { permitido: false, motivo: MOTIVO_CAJA_CERRADA };
+  if (cajaCerrada && !puedeConCajaCerrada) return { permitido: false, motivo: MOTIVO_CAJA_CERRADA };
   return { permitido: true, motivo: null };
 }

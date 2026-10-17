@@ -31,20 +31,20 @@ beforeEach(() => {
 
 describe("RecurrentesPendientes", () => {
   it("ADMIN ve Confirmar y Omitir", () => {
-    render(<RecurrentesPendientes pendientes={PENDIENTES} esAdmin />);
+    render(<RecurrentesPendientes pendientes={PENDIENTES} puedeAdministrar />);
     expect(screen.getByText("Gastos recurrentes por confirmar")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Confirmar" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Omitir este mes" })).toBeTruthy();
   });
 
   it("RECEPCION ve el texto y ningún botón", () => {
-    render(<RecurrentesPendientes pendientes={PENDIENTES} esAdmin={false} />);
+    render(<RecurrentesPendientes pendientes={PENDIENTES} puedeAdministrar={false} />);
     expect(screen.getByText("El administrador debe confirmarlo")).toBeTruthy();
     expect(screen.queryByRole("button")).toBeNull();
   });
 
   it("Omitir pide confirmación antes de llamar la action", async () => {
-    render(<RecurrentesPendientes pendientes={PENDIENTES} esAdmin />);
+    render(<RecurrentesPendientes pendientes={PENDIENTES} puedeAdministrar />);
     await userEvent.click(screen.getByRole("button", { name: "Omitir este mes" }));
     expect(mockOmitir).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Sí, omitir" }));
@@ -52,7 +52,7 @@ describe("RecurrentesPendientes", () => {
   });
 
   it("Confirmar envía la fecha sugerida sin correr el día (medianoche UTC)", async () => {
-    render(<RecurrentesPendientes pendientes={PENDIENTES} esAdmin />);
+    render(<RecurrentesPendientes pendientes={PENDIENTES} puedeAdministrar />);
     await userEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     await userEvent.click(screen.getByRole("button", { name: "Confirmar gasto" }));
     await waitFor(() => expect(mockConfirmar).toHaveBeenCalled());
@@ -61,7 +61,7 @@ describe("RecurrentesPendientes", () => {
   });
 
   it("sin pendientes no renderiza nada", () => {
-    const { container } = render(<RecurrentesPendientes pendientes={[]} esAdmin />);
+    const { container } = render(<RecurrentesPendientes pendientes={[]} puedeAdministrar />);
     expect(container.firstChild).toBeNull();
   });
 });

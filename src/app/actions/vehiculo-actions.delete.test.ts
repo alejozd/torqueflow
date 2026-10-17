@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: vi.fn(),
 }));
 
@@ -18,7 +18,7 @@ import { deleteVehiculoAction, deleteVehiculoFormAction } from "./vehiculo-actio
 
 describe("deleteVehiculoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { tenantSchema: "taller_perez" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { tenantSchema: "taller_perez" } });
     mockFindFirst.mockReset();
     mockDelete.mockReset().mockResolvedValue({});
   });

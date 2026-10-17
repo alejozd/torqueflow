@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { proveedorInputSchema } from "@/lib/validation/inventario";
@@ -67,7 +67,7 @@ export async function createProveedorAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("inventario.editar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   try {
@@ -100,7 +100,7 @@ export async function updateProveedorAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("inventario.editar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   try {
@@ -125,7 +125,7 @@ export async function updateProveedorAction(
 }
 
 export async function deleteProveedorAction(id: string): Promise<void> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("inventario.editar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   try {
     await tenantDb.proveedor.delete({ where: { id } });

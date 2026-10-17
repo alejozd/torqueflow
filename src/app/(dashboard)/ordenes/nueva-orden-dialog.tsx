@@ -20,14 +20,14 @@ export function NuevaOrdenDialog({
   tecnicos,
   marcas,
   modelos,
-  esAdmin,
+  puedeAgregarCatalogo,
   diasAviso,
 }: {
   clientes: ClienteParaOrden[];
   tecnicos: TecnicoOption[];
   marcas: MarcaVehiculo[];
   modelos: ModeloVehiculo[];
-  esAdmin: boolean;
+  puedeAgregarCatalogo: boolean;
   diasAviso: number;
 }) {
   const [open, setOpen] = useState(false);
@@ -45,7 +45,7 @@ export function NuevaOrdenDialog({
           tecnicos={tecnicos}
           marcas={marcas}
           modelos={modelos}
-          esAdmin={esAdmin}
+          puedeAgregarCatalogo={puedeAgregarCatalogo}
           diasAviso={diasAviso}
           onCreated={() => setOpen(false)}
         />

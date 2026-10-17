@@ -11,7 +11,7 @@ const MS_DIA = 24 * 60 * 60 * 1000;
 
 describe("puedeDevolver", () => {
   it("dentro del plazo y con la caja abierta, cualquiera devuelve", () => {
-    expect(puedeDevolver({ fechaVenta: new Date(AHORA.getTime() - MS_DIA), ahora: AHORA, rol: "RECEPCION", cajaCerrada: false })).toEqual({
+    expect(puedeDevolver({ fechaVenta: new Date(AHORA.getTime() - MS_DIA), ahora: AHORA, puedeConCajaCerrada: false, cajaCerrada: false })).toEqual({
       permitido: true,
       motivo: null,
     });
@@ -19,10 +19,10 @@ describe("puedeDevolver", () => {
 
   it("justo a los 30 días todavía se puede; un minuto después ya no, ni siquiera ADMIN", () => {
     const limite = new Date(AHORA.getTime() - 30 * MS_DIA);
-    expect(puedeDevolver({ fechaVenta: limite, ahora: AHORA, rol: "RECEPCION", cajaCerrada: false }).permitido).toBe(true);
+    expect(puedeDevolver({ fechaVenta: limite, ahora: AHORA, puedeConCajaCerrada: false, cajaCerrada: false }).permitido).toBe(true);
 
     const pasada = new Date(limite.getTime() - 60 * 1000);
-    expect(puedeDevolver({ fechaVenta: pasada, ahora: AHORA, rol: "ADMIN", cajaCerrada: false })).toEqual({
+    expect(puedeDevolver({ fechaVenta: pasada, ahora: AHORA, puedeConCajaCerrada: true, cajaCerrada: false })).toEqual({
       permitido: false,
       motivo: MOTIVO_FUERA_DE_PLAZO,
     });
@@ -30,11 +30,11 @@ describe("puedeDevolver", () => {
 
   it("de una caja cerrada solo devuelve ADMIN", () => {
     const fechaVenta = new Date(AHORA.getTime() - 3 * MS_DIA);
-    expect(puedeDevolver({ fechaVenta, ahora: AHORA, rol: "RECEPCION", cajaCerrada: true })).toEqual({
+    expect(puedeDevolver({ fechaVenta, ahora: AHORA, puedeConCajaCerrada: false, cajaCerrada: true })).toEqual({
       permitido: false,
       motivo: MOTIVO_CAJA_CERRADA,
     });
-    expect(puedeDevolver({ fechaVenta, ahora: AHORA, rol: "ADMIN", cajaCerrada: true })).toEqual({
+    expect(puedeDevolver({ fechaVenta, ahora: AHORA, puedeConCajaCerrada: true, cajaCerrada: true })).toEqual({
       permitido: true,
       motivo: null,
     });

@@ -17,13 +17,13 @@ export function NuevoVehiculoForm({
   clienteId,
   marcas,
   modelos,
-  esAdmin,
+  puedeAgregarCatalogo,
   onCreated,
 }: {
   clienteId: string;
   marcas: MarcaVehiculo[];
   modelos: ModeloVehiculo[];
-  esAdmin: boolean;
+  puedeAgregarCatalogo: boolean;
   /**
    * Fired synchronously right after a successful create, with the new
    * vehículo -- mirrors NuevaCitaForm's onCreated: createVehiculoAction's
@@ -96,7 +96,7 @@ export function NuevoVehiculoForm({
         setValue={setValue}
         marcas={marcas}
         modelos={modelos}
-        esAdmin={esAdmin}
+        puedeAgregarCatalogo={puedeAgregarCatalogo}
       />
 
       {state.error ? (

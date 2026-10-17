@@ -1,4 +1,4 @@
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { construirPlantilla } from "@/lib/importacion/plantilla";
 
 /** La plantilla se genera al momento: no se cachea ni se sirve estática. */
@@ -13,7 +13,7 @@ const NOMBRE_ARCHIVO = "plantilla-importacion-torqueflow.xlsx";
  * solo ADMIN y RECEPCION pueden importar.
  */
 export async function GET() {
-  await requireRole(["ADMIN", "RECEPCION"]);
+  await requirePermiso("importar.usar");
 
   const archivo = await construirPlantilla();
 
