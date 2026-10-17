@@ -122,3 +122,20 @@ export function permisosEfectivos(entrada: {
 export function tienePermiso(permisos: readonly Permiso[], permiso: Permiso): boolean {
   return permisos.includes(permiso);
 }
+
+/**
+ * Lo que hay que guardar para que el usuario quede con exactamente `marcados`:
+ * solo la diferencia con su rol, para que cambios futuros de la tabla del rol
+ * se hereden. Orden del catálogo, sin duplicados.
+ */
+export function excepcionesDesdeMarcados(
+  role: Role,
+  marcados: readonly Permiso[],
+): { agregados: Permiso[]; quitados: Permiso[] } {
+  const base = new Set<Permiso>(role === "ADMIN" ? TODOS : PERMISOS_POR_ROL[role]);
+  const elegidos = new Set<Permiso>(marcados);
+  return {
+    agregados: TODOS.filter((p) => elegidos.has(p) && !base.has(p)),
+    quitados: TODOS.filter((p) => base.has(p) && !elegidos.has(p)),
+  };
+}

@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requirePermiso } from "@/lib/auth/guards";
-import type { Role } from "@/lib/auth/permisos";
+import { excepcionesDesdeMarcados, type Permiso, type Role } from "@/lib/auth/permisos";
+import { permisosMarcadosSchema } from "@/lib/validation/permisos-usuario";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
@@ -321,6 +322,11 @@ export async function updateUsuarioAction(
   if (parsed.data.password) {
     datos.passwordHash = await bcrypt.hash(parsed.data.password, 12);
   }
+  // Las excepciones eran relativas al rol anterior: al cambiar de rol se vacían.
+  if (usuarioActual.role !== parsed.data.role) {
+    datos.permisosAgregados = [];
+    datos.permisosQuitados = [];
+  }
 
   // Claiming the new email happens BEFORE writing to the tenant schema: a
   // conflict must never leave a usuario mid-update in tenantDb, and Usuario's
@@ -364,6 +370,62 @@ export async function updateUsuarioAction(
   }
 
   revalidatePath("/usuarios");
+  return { error: null, success: true };
+}
+
+/**
+ * `permisos` es la lista marcada en pantalla. Se guarda solo la diferencia con
+ * el rol del usuario (agregados / quitados) y se audita junto al estado previo.
+ */
+export async function guardarPermisosUsuarioAction(
+  usuarioId: string,
+  permisos: string[],
+): Promise<ResultadoAccion> {
+  const session = await requirePermiso("usuarios.gestionar");
+
+  const parsed = permisosMarcadosSchema.safeParse(permisos);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
+  }
+
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+  const usuario = await tenantDb.usuario.findUnique({
+    where: { id: usuarioId },
+    select: { role: true, permisosAgregados: true, permisosQuitados: true },
+  });
+  if (!usuario) {
+    return { error: "Usuario no encontrado", success: false };
+  }
+  if (usuario.role === "ADMIN") {
+    return { error: "El administrador siempre tiene todos los permisos", success: false };
+  }
+
+  const { agregados, quitados } = excepcionesDesdeMarcados(usuario.role, parsed.data as Permiso[]);
+
+  try {
+    await tenantDb.$transaction(async (tx) => {
+      await tx.usuario.update({
+        where: { id: usuarioId },
+        data: { permisosAgregados: agregados, permisosQuitados: quitados },
+      });
+      await registrarEventoAuditoria(tx, {
+        tipo: "USUARIO_ACTUALIZAR_PERMISOS",
+        actorId: session.user.id,
+        entidadTipo: "Usuario",
+        entidadId: usuarioId,
+        detalle: {
+          agregados,
+          quitados,
+          antes: { agregados: usuario.permisosAgregados, quitados: usuario.permisosQuitados },
+        },
+      });
+    });
+  } catch (err) {
+    return { error: friendlyPrismaErrorMessage(err, "Error al guardar los permisos"), success: false };
+  }
+
+  revalidatePath("/usuarios");
+  revalidatePath(`/usuarios/${usuarioId}`);
   return { error: null, success: true };
 }
 

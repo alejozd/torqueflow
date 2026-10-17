@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PERMISOS, PERMISOS_POR_ROL, PERMISOS_SOLO_ADMIN, ROLES, ROLES_MECANICO, esPermiso, permisosEfectivos, tienePermiso, type Permiso } from "./permisos";
+import { PERMISOS, PERMISOS_POR_ROL, PERMISOS_SOLO_ADMIN, ROLES, ROLES_MECANICO, esPermiso, permisosEfectivos, excepcionesDesdeMarcados, tienePermiso, type Permiso } from "./permisos";
 
 const TODOS = Object.keys(PERMISOS) as Permiso[];
 
@@ -123,5 +123,25 @@ describe("excepciones por usuario (D1–D3)", () => {
   });
   it("ADMIN ignora las excepciones", () => {
     expect(permisosEfectivos({ role: "ADMIN", quitados: ["caja.usar"] })).toContain("caja.usar");
+  });
+});
+
+describe("excepcionesDesdeMarcados", () => {
+  it("agrega lo marcado de más", () => {
+    expect(excepcionesDesdeMarcados("TECNICO", [...PERMISOS_POR_ROL.TECNICO, "caja.usar"])).toEqual({
+      agregados: ["caja.usar"],
+      quitados: [],
+    });
+  });
+  it("quita lo desmarcado, en el orden del catálogo", () => {
+    const marcados = PERMISOS_POR_ROL.TECNICO.filter((p) => p !== "ordenes.entregar" && p !== "clientes.ver");
+    expect(excepcionesDesdeMarcados("TECNICO", marcados)).toEqual({
+      agregados: [],
+      quitados: ["clientes.ver", "ordenes.entregar"],
+    });
+  });
+  it("volver al rol base deja ambas listas vacías y ignora duplicados", () => {
+    expect(excepcionesDesdeMarcados("RECEPCION", [...PERMISOS_POR_ROL.RECEPCION, "caja.usar"])).toEqual({ agregados: [], quitados: [] });
+    expect(excepcionesDesdeMarcados("TECNICO", ["caja.usar", "caja.usar"]).agregados).toEqual(["caja.usar"]);
   });
 });
