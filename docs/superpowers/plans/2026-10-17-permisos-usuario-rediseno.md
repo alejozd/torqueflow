@@ -4,7 +4,7 @@
 
 **Objetivo:** llevar `/usuarios/[id]` al diseño que propuso Stitch (`docs/Evidencias/Permisos-Usuario/screen.png`, archivo del usuario: no moverlo ni commitearlo): una sola pantalla de "Editar usuario y permisos" con cabecera del usuario, datos en 3 columnas y los permisos en tarjetas por grupo con buscador, contadores y barra de cambios sin guardar.
 
-> **Estado (2026-10-17):** rama `usuario-permisos-rediseno` creada desde `main`. **Tareas 1 a 4 hechas** (ver notas en cada tarea). **Tarea 5 en curso** (ver su lista de avance). Vamos en 4 de 5.
+> **Estado (2026-10-17):** rama `usuario-permisos-rediseno` creada desde `main`. **Tareas 1 a 4 hechas** (ver notas en cada tarea). **Tareas 1 a 5 hechas y mergeadas a `main`.** Pendiente: el resultado de la revisión independiente (ver la lista de la tarea 5) y desplegar. Vamos en 5 de 5.
 
 **Sin migraciones.** Todo sale de datos que ya existen (`Usuario.createdAt`, `activo`, `role`, `sedeIds`, `permisosAgregados`, `permisosQuitados`).
 
@@ -54,9 +54,9 @@ Tests: cambiar solo un permiso → solo se llama `guardarPermisosUsuarioAction`;
 
 **Avance de la tarea 5 (se actualiza paso a paso):**
 - [x] Suite completa + `npm run build`: 337 archivos / 2801 tests, build OK (2026-10-17)
-- [ ] Revisión en el navegador (app en 3025): **app levantada, esperando que el usuario la mire** (`http://localhost:3025/usuarios` → botón "Permisos" de un usuario de prueba)
+- [x] Revisión en el navegador: el usuario la revisó y la aprobó ("todo ok", 2026-10-17)
 - [ ] Revisión independiente del diff `main...usuario-permisos-rediseno` y ronda de arreglos: **en curso** (informe en `.superpowers/sdd/2026-10-17-permisos-usuario-rediseno/review-report.md`, fuera de git)
-- [ ] Merge `--no-ff` a `main` (solo con aprobación del usuario) y despliegue (lo hace el usuario)
+- [x] Merge `--no-ff` a `main` aprobado por el usuario (2026-10-17). Falta: despliegue en el servidor (`sudo git pull` + `sudo ./deploy.sh`, sin migraciones)
 
 Lanzar `npm run dev` en segundo plano (puerto 3025; la base es la real: no guardar cambios de prueba sobre usuarios reales, usar uno de prueba), revisar a 1366 px y en móvil, y pedirle al usuario que lo mire. Verificación: `npx tsc --noEmit --incremental false`, `npm test`, `npx eslint` de lo tocado, `npm run build`. Revisión independiente del diff (otro modelo, solo lectura) y una ronda de arreglos. Merge solo con aprobación.
 
