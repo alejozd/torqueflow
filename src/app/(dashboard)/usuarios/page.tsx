@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Headset, ShieldCheck, Wrench } from "lucide-react";
+import { Headset, HardHat, ShieldCheck, Wrench } from "lucide-react";
 import { listUsuariosConMetricas, type UsuarioConMetricas } from "@/app/actions/usuario-actions";
 import { listSedes } from "@/app/actions/sede-actions";
 import { NuevoUsuarioDialog } from "./nuevo-usuario-dialog";
@@ -15,18 +15,20 @@ import { requirePermiso } from "@/lib/auth/guards";
 // Cotizaciones' APROBADA) for a positive "active" state.
 const ACTIVO_BADGE_CLASSNAME = "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]";
 
-type Role = "ADMIN" | "TECNICO" | "RECEPCION";
+type Role = "ADMIN" | "JEFE_TALLER" | "TECNICO" | "RECEPCION";
 
-const ROLES_VALIDOS: Role[] = ["ADMIN", "TECNICO", "RECEPCION"];
+const ROLES_VALIDOS: Role[] = ["ADMIN", "JEFE_TALLER", "TECNICO", "RECEPCION"];
 
 const ROLE_LABELS: Record<Role, string> = {
   ADMIN: "Administrador",
+  JEFE_TALLER: "Jefe de taller",
   TECNICO: "Técnico",
   RECEPCION: "Recepción",
 };
 
 const ROLE_LABELS_PLURAL: Record<Role, string> = {
   ADMIN: "Administradores",
+  JEFE_TALLER: "Jefes de taller",
   TECNICO: "Técnicos",
   RECEPCION: "Recepción",
 };
@@ -36,21 +38,24 @@ const ROLE_LABELS_PLURAL: Record<Role, string> = {
 // already established by /ordenes for "in progress" vs. "done" states.
 const ROLE_BADGE_CLASSNAME: Record<Role, string> = {
   ADMIN: "border-transparent bg-primary/10 text-primary",
+  JEFE_TALLER: "border-transparent bg-[oklch(0.45_0.15_300/0.1)] text-[oklch(0.45_0.15_300)]",
   TECNICO: "border-transparent bg-[oklch(0.44_0.12_250/0.1)] text-[oklch(0.44_0.12_250)]",
   RECEPCION: "border-transparent bg-[oklch(0.4_0.1_150/0.1)] text-[oklch(0.4_0.1_150)]",
 };
 
 // Same role/color pairing as ROLE_BADGE_CLASSNAME, mapped onto the KPI_TONE
 // palette: ADMIN's primary/amber -> warning, TECNICO's blue -> info,
-// RECEPCION's green -> success.
+// RECEPCION's green -> success, JEFE_TALLER's purple -> purple.
 const ROLE_TONE: Record<Role, KpiTone> = {
   ADMIN: "warning",
+  JEFE_TALLER: "purple",
   TECNICO: "info",
   RECEPCION: "success",
 };
 
 const ROLE_ICON: Record<Role, typeof ShieldCheck> = {
   ADMIN: ShieldCheck,
+  JEFE_TALLER: HardHat,
   TECNICO: Wrench,
   RECEPCION: Headset,
 };
@@ -58,6 +63,7 @@ const ROLE_ICON: Record<Role, typeof ShieldCheck> = {
 // Same literal colors as ROLE_BADGE_CLASSNAME, for the filter pills' dots.
 const ROLE_DOT_COLOR: Record<Role, string> = {
   ADMIN: "var(--primary)",
+  JEFE_TALLER: "oklch(0.45 0.15 300)",
   TECNICO: "oklch(0.44 0.12 250)",
   RECEPCION: "oklch(0.4 0.1 150)",
 };
@@ -185,7 +191,7 @@ export default async function UsuariosPage({
         <NuevoUsuarioDialog sedes={sedeOptions} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         {ROLES_VALIDOS.map((role) => {
           const Icon = ROLE_ICON[role];
           const tone = KPI_TONE[ROLE_TONE[role]];

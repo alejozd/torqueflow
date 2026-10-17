@@ -1,8 +1,11 @@
 // src/lib/auth/permisos.ts
 // Sin imports de servidor: lo usan también componentes de cliente (menú, ficha de usuario).
 
-export const ROLES = ["ADMIN", "TECNICO", "RECEPCION"] as const;
+export const ROLES = ["ADMIN", "JEFE_TALLER", "TECNICO", "RECEPCION"] as const;
 export type Role = (typeof ROLES)[number];
+
+/** Roles que pueden ser el mecánico de una orden o de una línea de mano de obra. */
+export const ROLES_MECANICO: readonly Role[] = ["TECNICO", "JEFE_TALLER"];
 
 export const GRUPOS_PERMISO = [
   "Clientes y vehículos", "Citas", "Cotizaciones", "Órdenes", "Dinero", "Inventario", "Administración",
@@ -87,7 +90,17 @@ const RECEPCION: readonly Permiso[] = [
   "importar.usar", "exportar.usar",
 ];
 
-export const PERMISOS_POR_ROL: Record<Exclude<Role, "ADMIN">, readonly Permiso[]> = { TECNICO, RECEPCION };
+const JEFE_TALLER: readonly Permiso[] = [
+  "clientes.ver", "clientes.editar", "vehiculos.catalogo", "vencimientos.avisar",
+  "citas.ver", "citas.gestionar", "citas.eliminar",
+  "cotizaciones.ver", "cotizaciones.gestionar", "cotizaciones.editarItems",
+  "ordenes.ver", "ordenes.verTodas", "ordenes.crear", "ordenes.trabajar", "ordenes.quitar",
+  "ordenes.cambiarEstado", "ordenes.anular", "ordenes.entregar", "ordenes.planificar", "ordenes.reasignarMecanico",
+  "inventario.ver", "inventario.editar", "inventario.costos", "compras.ver", "compras.gestionar",
+  "servicios.gestionar", "reportes.productividad",
+];
+
+export const PERMISOS_POR_ROL: Record<Exclude<Role, "ADMIN">, readonly Permiso[]> = { TECNICO, RECEPCION, JEFE_TALLER };
 
 export function esPermiso(valor: string): valor is Permiso {
   return Object.hasOwn(PERMISOS, valor);

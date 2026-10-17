@@ -12,6 +12,7 @@ enum Role {
   ADMIN
   TECNICO
   RECEPCION
+  JEFE_TALLER
 }
 
 enum TipoEventoAuditoria {

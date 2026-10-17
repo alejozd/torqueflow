@@ -368,7 +368,7 @@ describe("aplicarServicioAOrdenAction", () => {
     });
     // El mecánico heredado se revalida contra la sede activa, como en addManoDeObraAction.
     expect(db.usuario.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "m1", role: "TECNICO", sedes: { some: { sedeId: "sede-1" } } } }),
+      expect.objectContaining({ where: { id: "m1", role: { in: ["TECNICO", "JEFE_TALLER"] }, sedes: { some: { sedeId: "sede-1" } } } }),
     );
     // El precio sale del precioVenta actual de cada repuesto, no del kit.
     expect(tx.itemOrden.create).toHaveBeenNthCalledWith(1, {

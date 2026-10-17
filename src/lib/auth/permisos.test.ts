@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PERMISOS, PERMISOS_POR_ROL, PERMISOS_SOLO_ADMIN, esPermiso, permisosEfectivos, tienePermiso, type Permiso } from "./permisos";
+import { PERMISOS, PERMISOS_POR_ROL, PERMISOS_SOLO_ADMIN, ROLES, ROLES_MECANICO, esPermiso, permisosEfectivos, tienePermiso, type Permiso } from "./permisos";
 
 const TODOS = Object.keys(PERMISOS) as Permiso[];
 
@@ -78,4 +78,33 @@ describe("cambios del bloque B", () => {
       expect(tienePermiso(permisosEfectivos({ role: "RECEPCION" }), permiso)).toBe(true);
     },
   );
+});
+
+describe("rol JEFE_TALLER (D6)", () => {
+  const JEFE_ESPERADO: Permiso[] = [
+    "clientes.ver", "clientes.editar", "vehiculos.catalogo", "vencimientos.avisar",
+    "citas.ver", "citas.gestionar", "citas.eliminar",
+    "cotizaciones.ver", "cotizaciones.gestionar", "cotizaciones.editarItems",
+    "ordenes.ver", "ordenes.verTodas", "ordenes.crear", "ordenes.trabajar", "ordenes.quitar",
+    "ordenes.cambiarEstado", "ordenes.anular", "ordenes.entregar", "ordenes.planificar", "ordenes.reasignarMecanico",
+    "inventario.ver", "inventario.editar", "inventario.costos", "compras.ver", "compras.gestionar",
+    "servicios.gestionar", "reportes.productividad",
+  ];
+
+  it("tiene exactamente la columna J del catálogo", () => {
+    expect([...permisosEfectivos({ role: "JEFE_TALLER" })].sort()).toEqual([...JEFE_ESPERADO].sort());
+  });
+
+  it("no tiene nada de Dinero ni permisos ★", () => {
+    const jefe = permisosEfectivos({ role: "JEFE_TALLER" });
+    for (const permiso of jefe) {
+      expect(PERMISOS[permiso].grupo).not.toBe("Dinero");
+      expect(PERMISOS_SOLO_ADMIN).not.toContain(permiso);
+    }
+  });
+
+  it("ROLES incluye JEFE_TALLER y ROLES_MECANICO son técnico y jefe de taller", () => {
+    expect(ROLES).toContain("JEFE_TALLER");
+    expect([...ROLES_MECANICO]).toEqual(["TECNICO", "JEFE_TALLER"]);
+  });
 });

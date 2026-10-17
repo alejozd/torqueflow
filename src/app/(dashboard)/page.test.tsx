@@ -48,7 +48,7 @@ async function cargar(role: Role) {
   mockRequireSession.mockResolvedValue({
     user: { role, permisos: permisosEfectivos({ role }), sedeActivaNombre: "Norte", name: "Ana" },
   });
-  const completo = role !== "TECNICO";
+  const completo = role === "ADMIN" || role === "RECEPCION";
   mockOverview.mockResolvedValue({
     ...OVERVIEW_BASE,
     porFacturar: completo ? { count: 3, monto: 900 } : null,
@@ -61,6 +61,13 @@ async function cargar(role: Role) {
       .filter((e) => "title" in (e.props as object) && "value" in (e.props as object))
       .map((e) => (e.props as { title: string }).title),
     hay: (tipo: unknown) => todos.some((e) => e.type === tipo),
+    enlaces: todos
+      .map((e) => (e.props as { href?: unknown }).href)
+      .filter((href): href is string => typeof href === "string"),
+    enlaceVacio: (href: string) =>
+      todos.some(
+        (e) => (e.props as { href?: unknown }).href === href && (e.props as { children?: unknown }).children == null,
+      ),
   };
 }
 
@@ -84,5 +91,35 @@ describe("Inicio y la plata (D8)", () => {
     expect(kpis).toEqual(expect.arrayContaining(["Cartera", "Por facturar"]));
     expect(hay(FacturacionSemanaCard)).toBe(true);
     expect(hay(AlertasInventarioCard)).toBe(true);
+  });
+
+  it("JEFE_TALLER: nada de plata (Cartera, Por facturar, facturación, alertas de inventario), sin enlaces vacíos y con Vencimientos", async () => {
+    const { kpis, hay, enlaces, enlaceVacio } = await cargar("JEFE_TALLER");
+    expect(kpis).not.toContain("Cartera");
+    expect(kpis).not.toContain("Por facturar");
+    expect(hay(FacturacionSemanaCard)).toBe(false);
+    expect(enlaces).not.toContain("/cartera");
+    expect(enlaceVacio("/cartera")).toBe(false);
+    expect(kpis).toEqual(expect.arrayContaining(["En el taller", "Citas de hoy", "Stock bajo", "Vencimientos"]));
+    expect(enlaces).toContain("/vencimientos");
+  });
+
+  it("el enlace a /cartera depende de cartera.ver, no de vencimientos.avisar", async () => {
+    mockRequireSession.mockResolvedValue({
+      user: { role: "JEFE_TALLER", permisos: ["vencimientos.avisar"], sedeActivaNombre: "Norte", name: "Ana" },
+    });
+    mockOverview.mockResolvedValue({
+      ...OVERVIEW_BASE,
+      porFacturar: null,
+      cartera: { saldoPendiente: 500, facturasPendientes: 1, ventasMostradorPendientes: 0 },
+      facturacion: null,
+    });
+    const hrefs = elementos(await InicioPage()).map((e) => (e.props as { href?: unknown }).href);
+    expect(hrefs).not.toContain("/cartera");
+  });
+
+  it("RECEPCION: Cartera es un enlace a /cartera", async () => {
+    const { enlaces } = await cargar("RECEPCION");
+    expect(enlaces).toContain("/cartera");
   });
 });

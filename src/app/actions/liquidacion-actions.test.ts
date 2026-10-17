@@ -96,7 +96,7 @@ describe("guardarEsquemaLiquidacionAction", () => {
 
     expect(mockRequirePermiso).toHaveBeenCalledWith("liquidaciones.gestionar");
     expect(db.usuario.findFirst).toHaveBeenCalledWith({
-      where: { id: "t1", role: "TECNICO", sedes: { some: { sedeId: "sede-1" } } },
+      where: { id: "t1", role: { in: ["TECNICO", "JEFE_TALLER"] }, sedes: { some: { sedeId: "sede-1" } } },
       select: { id: true },
     });
     expect(tx.esquemaLiquidacion.upsert).toHaveBeenCalledWith({
@@ -321,7 +321,7 @@ describe("listLiquidacionesDelPeriodo", () => {
 
     expect(db.usuario.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { OR: [{ role: "TECNICO", sedes: { some: { sedeId: "sede-1" } } }, { id: { in: ["t1"] } }] },
+        where: { OR: [{ role: { in: ["TECNICO", "JEFE_TALLER"] }, sedes: { some: { sedeId: "sede-1" } } }, { id: { in: ["t1"] } }] },
       }),
     );
   });
@@ -610,7 +610,7 @@ describe("quitarEsquemaLiquidacionAction", () => {
 
     expect(r).toEqual({ error: null });
     expect(db.usuario.findFirst).toHaveBeenCalledWith({
-      where: { id: "t1", role: "TECNICO", sedes: { some: { sedeId: "sede-1" } } },
+      where: { id: "t1", role: { in: ["TECNICO", "JEFE_TALLER"] }, sedes: { some: { sedeId: "sede-1" } } },
       select: { id: true },
     });
     expect(tx.esquemaLiquidacion.deleteMany).toHaveBeenCalledWith({ where: { usuarioId: "t1" } });

@@ -21,6 +21,7 @@ import {
 } from "@/lib/validation/liquidacion";
 import { CONFIGURACION_TALLER_ID } from "@/lib/vencimientos/configuracion";
 import type { FrecuenciaLiquidacion, Prisma, TipoEsquemaLiquidacion } from "@/generated/prisma-tenant";
+import { ROLES_MECANICO } from "@/lib/auth/permisos";
 
 /**
  * Liquidación de mecánicos (Fase 19, simplificada en la consolidación, D10).
@@ -140,7 +141,7 @@ export async function guardarEsquemaLiquidacionAction(
 
   // El esquema es del técnico en su sede: uno de otra sede no se toca desde aquí.
   const tecnico = await tenantDb.usuario.findFirst({
-    where: { id: usuarioId, role: "TECNICO", sedes: { some: { sedeId: session.user.sedeActivaId } } },
+    where: { id: usuarioId, role: { in: [...ROLES_MECANICO] }, sedes: { some: { sedeId: session.user.sedeActivaId } } },
     select: { id: true },
   });
   if (!tecnico) return { error: TECNICO_NO_ENCONTRADO, success: false };
@@ -248,7 +249,7 @@ async function cargarFilasDelPeriodo(
   // Un técnico que ya no está en la sede pero tiene un pago de este periodo
   // también entra: si no, ese pago quedaría imposible de anular.
   const idsConPago = pagadas.filter(esDelPeriodo).map((pagada) => pagada.usuarioId);
-  const tecnicosDeLaSede = { role: "TECNICO" as const, sedes: { some: { sedeId } } };
+  const tecnicosDeLaSede = { role: { in: [...ROLES_MECANICO] }, sedes: { some: { sedeId } } };
 
   const [tecnicos, ordenes] = await Promise.all([
     db.usuario.findMany({
@@ -570,7 +571,7 @@ export async function quitarEsquemaLiquidacionAction(usuarioId: string): Promise
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const tecnico = await tenantDb.usuario.findFirst({
-    where: { id: usuarioId, role: "TECNICO", sedes: { some: { sedeId: session.user.sedeActivaId } } },
+    where: { id: usuarioId, role: { in: [...ROLES_MECANICO] }, sedes: { some: { sedeId: session.user.sedeActivaId } } },
     select: { id: true },
   });
   if (!tecnico) return { error: TECNICO_NO_ENCONTRADO };

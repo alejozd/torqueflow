@@ -36,7 +36,7 @@ export interface EditarUsuarioFormUsuario {
   id: string;
   nombre: string;
   email: string;
-  role: "ADMIN" | "TECNICO" | "RECEPCION";
+  role: "ADMIN" | "JEFE_TALLER" | "TECNICO" | "RECEPCION";
   activo: boolean;
   sedeDefectoId: string | null;
   sedeIds: string[];
@@ -171,6 +171,7 @@ export function EditarUsuarioForm({
                 onValueChange={roleField.onChange}
                 items={[
                   { value: "ADMIN", label: "ADMIN" },
+                  { value: "JEFE_TALLER", label: "Jefe de taller" },
                   { value: "TECNICO", label: "TECNICO" },
                   { value: "RECEPCION", label: "RECEPCION" },
                 ]}

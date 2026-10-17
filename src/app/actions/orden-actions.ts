@@ -22,6 +22,7 @@ import {
 } from "@/lib/notificaciones/enviar-notificacion-estado";
 import { registrarEventoAuditoria } from "@/lib/auditoria/registrarEvento";
 import type { EstadoOrden, Prisma } from "@/generated/prisma-tenant";
+import { ROLES_MECANICO } from "@/lib/auth/permisos";
 
 export interface OrdenFormState {
   error: string | null;
@@ -134,7 +135,7 @@ export async function listTecnicos(): Promise<TecnicoOption[]> {
   const tenantDb = getTenantDb(session.user.tenantSchema);
   // Only técnicos who actually work in this sede can be assigned an orden here.
   return tenantDb.usuario.findMany({
-    where: { role: "TECNICO", sedes: { some: { sedeId: session.user.sedeActivaId } } },
+    where: { role: { in: [...ROLES_MECANICO] }, sedes: { some: { sedeId: session.user.sedeActivaId } } },
     select: { id: true, nombre: true },
     orderBy: { nombre: "asc" },
   });
@@ -518,7 +519,7 @@ export async function asignarMecanicoAction(
     // Same sede-membership check listTecnicos() applies to the picker itself --
     // this is the server-side half, in case the posted id is stale or tampered.
     const tecnico = await tenantDb.usuario.findFirst({
-      where: { id: mecanicoId, role: "TECNICO", sedes: { some: { sedeId: session.user.sedeActivaId } } },
+      where: { id: mecanicoId, role: { in: [...ROLES_MECANICO] }, sedes: { some: { sedeId: session.user.sedeActivaId } } },
       select: { id: true },
     });
     if (!tecnico) {

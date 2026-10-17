@@ -143,6 +143,7 @@ export default async function InicioPage() {
   const mostrarVencimientos = puede(session, "vencimientos.avisar");
   const vencimientos = mostrarVencimientos ? await listVencimientos() : [];
   const kpiVencimientos = resumenKpiVencimientos(vencimientos);
+  const verCartera = puede(session, "cartera.ver");
   const cartera = overview.cartera;
   const kpiCartera = cartera ? (
     <KpiCard
@@ -235,8 +236,8 @@ export default async function InicioPage() {
           />
         ) : null}
 
-        {/* TECNICO cannot open /cartera, so only ADMIN/RECEPCION get the link. */}
-        {mostrarVencimientos ? (
+        {/* El KPI solo existe con `cartera.ver` (lo decide getDashboardOverview); el enlace usa el mismo permiso. */}
+        {kpiCartera && verCartera ? (
           <Link href="/cartera" className="block h-full rounded-xl focus-visible:outline-2">
             {kpiCartera}
           </Link>

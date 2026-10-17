@@ -18,6 +18,7 @@ import {
   servicioRepuestoInputSchema,
 } from "@/lib/validation/servicio";
 import type { Prisma } from "@/generated/prisma-tenant";
+import { ROLES_MECANICO } from "@/lib/auth/permisos";
 
 export interface ServicioRepuestoVista {
   repuestoId: string;
@@ -141,7 +142,7 @@ async function mecanicoDeLaSede(
 ): Promise<string | null> {
   if (!mecanicoId) return null;
   const tecnico = await tenantDb.usuario.findFirst({
-    where: { id: mecanicoId, role: "TECNICO", sedes: { some: { sedeId: sedeActivaId } } },
+    where: { id: mecanicoId, role: { in: [...ROLES_MECANICO] }, sedes: { some: { sedeId: sedeActivaId } } },
     select: { id: true },
   });
   return tecnico?.id ?? null;

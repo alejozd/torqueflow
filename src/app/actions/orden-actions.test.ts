@@ -311,7 +311,7 @@ describe("listTecnicos", () => {
     await listTecnicos();
 
     expect(mockUsuarioFindMany).toHaveBeenCalledWith({
-      where: { role: "TECNICO", sedes: { some: { sedeId: "sede-1" } } },
+      where: { role: { in: ["TECNICO", "JEFE_TALLER"] }, sedes: { some: { sedeId: "sede-1" } } },
       select: { id: true, nombre: true },
       orderBy: { nombre: "asc" },
     });
@@ -678,7 +678,7 @@ describe("asignarMecanicoAction", () => {
 
     expect(result).toEqual({ error: null, success: true });
     expect(mockUsuarioFindFirst).toHaveBeenCalledWith({
-      where: { id: "t1", role: "TECNICO", sedes: { some: { sedeId: "sede-1" } } },
+      where: { id: "t1", role: { in: ["TECNICO", "JEFE_TALLER"] }, sedes: { some: { sedeId: "sede-1" } } },
       select: { id: true },
     });
     expect(mockUpdate).toHaveBeenCalledWith({ where: { id: "o1" }, data: { mecanicoId: "t1" } });

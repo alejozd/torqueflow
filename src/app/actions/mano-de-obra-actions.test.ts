@@ -85,7 +85,7 @@ describe("addManoDeObraAction", () => {
 
     expect(result).toEqual({ error: null, success: true });
     expect(mockUsuarioFindFirst).toHaveBeenCalledWith({
-      where: { id: "t1", role: "TECNICO", sedes: { some: { sedeId: "sede-1" } } },
+      where: { id: "t1", role: { in: ["TECNICO", "JEFE_TALLER"] }, sedes: { some: { sedeId: "sede-1" } } },
       select: { id: true },
     });
     expect(mockCreate).toHaveBeenCalledWith({
