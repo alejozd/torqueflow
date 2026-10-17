@@ -17,6 +17,8 @@ declare module "next-auth" {
     user: {
       id: string;
       role: TorqueFlowRole;
+      /** Permisos efectivos; requireSession los calcula en cada petición. */
+      permisos: import("@/lib/auth/permisos").Permiso[];
       tenantSlug: string;
       tenantSchema: string;
       sedeActivaId: string;

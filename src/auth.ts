@@ -58,6 +58,7 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
     async session({ session, token }) {
       session.user.id = token.sub as string;
       session.user.role = token.role as Role;
+      session.user.permisos = [];
       session.user.tenantSlug = token.tenantSlug as string;
       session.user.tenantSchema = token.tenantSchema as string;
       // JWT.sedeActivaId is optional; Session.user.sedeActivaId is a string

@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { getTenantBySchema } from "@/lib/tenant/resolve-tenant";
 import { getTenantDb } from "@/lib/db/tenant-client";
 
-import type { Role } from "@/lib/auth/permisos";
+import { permisosEfectivos, tienePermiso, type Permiso, type Role } from "@/lib/auth/permisos";
 export type { Role };
 
 export async function requireSession(): Promise<Session> {
@@ -32,11 +32,16 @@ export async function requireSession(): Promise<Session> {
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const usuario = await tenantDb.usuario.findUnique({
     where: { id: session.user.id },
-    select: { activo: true },
+    select: { activo: true, role: true },
   });
   if (!usuario || !usuario.activo) {
     redirect("/login?error=usuario-suspendido");
   }
+  // D4: el rol (y desde la tarea 13 las excepciones) se leen aquí en cada
+  // petición, en la consulta que ya existía para `activo`: un cambio de
+  // permisos aplica en la siguiente acción, sin esperar a que venza el JWT.
+  session.user.role = usuario.role;
+  session.user.permisos = permisosEfectivos({ role: usuario.role });
 
   // No sedeActivaId means login couldn't auto-resolve one (ADMIN with >1
   // sede, or TECNICO/RECEPCION with >1 assignment) -- sends the user to
@@ -54,6 +59,18 @@ export async function requireRole(allowed: Role[]): Promise<Session> {
   const session = await requireSession();
   if (!allowed.includes(session.user.role)) {
     redirect("/login?error=forbidden");
+  }
+  return session;
+}
+
+export function puede(session: Session, permiso: Permiso): boolean {
+  return tienePermiso(session.user.permisos, permiso);
+}
+
+export async function requirePermiso(permiso: Permiso): Promise<Session> {
+  const session = await requireSession();
+  if (!puede(session, permiso)) {
+    redirect("/sin-permiso");
   }
   return session;
 }
