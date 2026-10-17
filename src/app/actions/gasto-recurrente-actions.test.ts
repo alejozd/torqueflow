@@ -19,6 +19,7 @@ import {
   actualizarGastoRecurrenteAction,
   confirmarRecurrenteAction,
   crearGastoRecurrenteAction,
+  listPlantillasRecurrentes,
   listRecurrentesPendientes,
   omitirRecurrenteAction,
   toggleGastoRecurrenteActivoAction,
@@ -45,6 +46,17 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("gastos recurrentes", () => {
+  it("listPlantillasRecurrentes acota a la sede activa sin sedes.verTodas y no filtra con ella", async () => {
+    db.gastoRecurrente.findMany.mockResolvedValue([]);
+    mockRequirePermiso.mockResolvedValue(RECEPCION_ADMINISTRA);
+    await listPlantillasRecurrentes();
+    expect(db.gastoRecurrente.findMany.mock.calls[0][0].where).toEqual({ sedeId: "s1" });
+
+    mockRequirePermiso.mockResolvedValue(ADMIN);
+    await listPlantillasRecurrentes();
+    expect(db.gastoRecurrente.findMany.mock.calls[1][0].where).toBeUndefined();
+  });
+
   it("con gastos.administrar pero sin sedes.verTodas no toca plantillas de otra sede (I2)", async () => {
     mockRequirePermiso.mockResolvedValue(RECEPCION_ADMINISTRA);
     db.gastoRecurrente.findUnique.mockResolvedValue({ id: "r2", sedeId: "s2", categoriaId: "c", descripcion: "A", desde: "2026-08", activo: true });

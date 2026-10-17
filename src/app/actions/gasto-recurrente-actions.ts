@@ -65,6 +65,7 @@ export async function listPlantillasRecurrentes(): Promise<PlantillaVista[]> {
   const session = await requirePermiso("gastos.administrar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const filas = await tenantDb.gastoRecurrente.findMany({
+    ...(puede(session, "sedes.verTodas") ? {} : { where: { sedeId: session.user.sedeActivaId } }),
     include: { sede: { select: { nombre: true } }, categoria: { select: { nombre: true } } },
     orderBy: [{ activo: "desc" }, { descripcion: "asc" }],
   });
