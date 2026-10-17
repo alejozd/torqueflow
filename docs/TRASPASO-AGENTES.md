@@ -367,8 +367,8 @@ build y reiniciar:
 
 ## 8. Pendientes y próximos pasos
 
-- **Fase 26 (permisos por usuario)**: tareas 1–16 hechas en la rama `fase26-permisos`, sin merge. Falta una
-  ronda corta de 3 residuales de la revisión final y la tarea 17 (cierre), que espera aprobación del usuario.
+- **Fase 26 (permisos por usuario)**: tareas 1–16 hechas en la rama `fase26-permisos`, sin merge, con la ronda de 3 residuales de la revisión final hecha (`0a5ff83`). Falta la
+  tarea 17 (cierre), que espera aprobación del usuario.
   Las migraciones `20261023120000_rol_jefe_taller` y `20261024120000_permisos_usuario` están **sin aplicar**;
   pasos exactos en `docs/fase26-pasos-migracion.md` (migrar **todos** los schemas antes de desplegar).
 

@@ -10,7 +10,7 @@
 
 **Spec:** Esta conversación de diseño, resumida en "Decisiones" abajo. Este documento es la referencia.
 
-> **Avance (2026-10-17):** tareas 1–16 hechas en la rama `fase26-permisos` (último arreglo de la revisión final: `f6b1687`; 334 archivos / 2782 tests). Antes de la 17 va una ronda corta de 3 residuales de la revisión (plantillas recurrentes por sede, facturas de la ficha del cliente por sede, `revalidatePath` de `/usuarios/[id]`). Las dos migraciones están **escritas y sin aplicar**; los pasos exactos están en `docs/fase26-pasos-migracion.md`. La tarea 17 espera la aprobación del usuario.
+> **Avance (2026-10-17):** tareas 1–16 hechas en la rama `fase26-permisos` (arreglos de la revisión final hasta `f6b1687`). Ronda de 3 residuales hecha y revisada (`0a5ff83`, 334 archivos / 2783 tests). Las dos migraciones están **escritas y sin aplicar**; los pasos exactos están en `docs/fase26-pasos-migracion.md`. La tarea 17 espera la aprobación del usuario.
 
 ## Global Constraints
 
