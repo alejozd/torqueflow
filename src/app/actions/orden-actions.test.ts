@@ -936,4 +936,37 @@ describe("D7: el técnico solo ve sus órdenes", () => {
     await getOrden("x");
     expect(mockOrdenFindFirst).toHaveBeenCalledWith({ where: { id: "x", sedeId: "sede-1" }, include: expect.anything() });
   });
+
+  // Fase 26, M1: `ordenes.planificar` por excepción no abre órdenes ajenas.
+  it("cambiarPrioridadAction acota con D7", async () => {
+    mockRequirePermiso.mockResolvedValue({
+      user: { ...TECNICO_SESSION.user, permisos: permisosEfectivos({ role: "TECNICO", agregados: ["ordenes.planificar"] }) },
+    });
+    const formData = new FormData();
+    formData.set("prioridad", "ALTA");
+
+    const result = await cambiarPrioridadAction("ajena", { error: null, success: false }, formData);
+
+    expect(result).toEqual({ error: "Orden no encontrada", success: false });
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "ajena", sedeId: "sede-1", OR: OR_TECNICO } }),
+    );
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("asignarMecanicoAction acota con D7 (no se puede asignar una orden ajena sin mecánico)", async () => {
+    mockRequirePermiso.mockResolvedValue({
+      user: { ...TECNICO_SESSION.user, permisos: permisosEfectivos({ role: "TECNICO", agregados: ["ordenes.planificar"] }) },
+    });
+    const formData = new FormData();
+    formData.set("mecanicoId", "tec-1");
+
+    const result = await asignarMecanicoAction("ajena", { error: null, success: false }, formData);
+
+    expect(result).toEqual({ error: "Orden no encontrada", success: false });
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "ajena", sedeId: "sede-1", OR: OR_TECNICO } }),
+    );
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
 });

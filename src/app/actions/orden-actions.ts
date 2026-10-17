@@ -7,7 +7,7 @@ import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { ordenTrabajoInputSchema, estadoOrdenSchema, prioridadOrdenSchema } from "@/lib/validation/orden";
 import { isValidEstadoTransition } from "@/lib/orden/estado-transitions";
 import { assertOrdenMutable, esOrdenMutable } from "@/lib/orden/mutable-guard";
-import { scopeOrden, scopeOrdenVisible } from "@/lib/sede/scope";
+import { scopeOrdenVisible } from "@/lib/sede/scope";
 import {
   CONFIGURACION_SMTP_ID,
   descifrarConfiguracionSmtp,
@@ -444,7 +444,7 @@ export async function cambiarPrioridadAction(
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id: ordenId, ...scopeOrden(session.user.sedeActivaId) },
+    where: { id: ordenId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     select: { id: true, estado: true, prioridad: true, factura: { select: { id: true } } },
   });
   if (!orden) return { error: "Orden no encontrada", success: false };
@@ -499,7 +499,9 @@ export async function asignarMecanicoAction(
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const orden = await tenantDb.ordenTrabajo.findFirst({
-    where: { id, ...scopeOrden(session.user.sedeActivaId) },
+    // D7: con `ordenes.planificar` por excepción no se puede asignarse una orden
+    // ajena sin mecánico y ganar así visibilidad sobre ella (Fase 26, M1).
+    where: { id, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
     select: { estado: true, factura: { select: { id: true } }, mecanicoId: true },
   });
   if (!orden) {
