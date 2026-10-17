@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
-import { useController, useForm } from "react-hook-form";
+import { useController, useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createRepuestoAction, type RepuestoFormState } from "@/app/actions/repuesto-actions";
@@ -20,6 +20,10 @@ import { Textarea } from "@/components/ui/textarea";
 const initialState: RepuestoFormState = { error: null, success: false, repuestoId: null };
 
 const repuestoFormSchema = conStockMaximoValido(repuestoBaseSchema.extend({ stockActual: repuestoStockInicialSchema }));
+// Sin `inventario.costos` el formulario no tiene campo de costo: el servidor guarda 0.
+const repuestoFormSchemaSinCostos = conStockMaximoValido(
+  repuestoBaseSchema.extend({ stockActual: repuestoStockInicialSchema, precioCompra: z.string().optional() }),
+);
 type RepuestoFormInput = z.input<typeof repuestoFormSchema>;
 
 export function NuevoRepuestoForm({
@@ -27,6 +31,7 @@ export function NuevoRepuestoForm({
   proveedores,
   onCreated,
   showCancelButton = false,
+  verCostos = true,
 }: {
   bodegas: Bodega[];
   proveedores: Proveedor[];
@@ -48,6 +53,8 @@ export function NuevoRepuestoForm({
    * where DialogClose would throw.
    */
   showCancelButton?: boolean;
+  /** `inventario.costos`: sin él no se muestra ni se pide el precio de compra. */
+  verCostos?: boolean;
 }) {
   const [state, setState] = useState<RepuestoFormState>(initialState);
   const [isPending, startTransition] = useTransition();
@@ -58,7 +65,7 @@ export function NuevoRepuestoForm({
     control,
     formState: { errors },
   } = useForm<RepuestoFormInput>({
-    resolver: zodResolver(repuestoFormSchema),
+    resolver: zodResolver(verCostos ? repuestoFormSchema : repuestoFormSchemaSinCostos) as Resolver<RepuestoFormInput>,
     defaultValues: {
       codigo: "",
       nombre: "",
@@ -175,6 +182,7 @@ export function NuevoRepuestoForm({
 
       <FormGroup label="Precios y stock">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {verCostos ? (
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="precioCompra">Precio de compra</Label>
             <Input
@@ -189,6 +197,7 @@ export function NuevoRepuestoForm({
             />
             {errors.precioCompra ? <p id="precioCompra-error" className="text-xs text-destructive">{errors.precioCompra.message}</p> : null}
           </div>
+          ) : null}
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="precioVenta">Precio de venta</Label>

@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useActionState, useMemo, useRef } from "react";
-import { useController, useForm } from "react-hook-form";
+import { useController, useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -9,7 +9,7 @@ import {
   deleteRepuestoFormAction,
   type RepuestoFormState,
 } from "@/app/actions/repuesto-actions";
-import { repuestoInputSchema } from "@/lib/validation/inventario";
+import { conStockMaximoValido, repuestoBaseSchema, repuestoInputSchema } from "@/lib/validation/inventario";
 import type { Bodega, Proveedor } from "@/generated/prisma-tenant";
 import { toast } from "sonner";
 import { EliminarConConfirmacion } from "@/components/eliminar-con-confirmacion";
@@ -25,6 +25,9 @@ import { Textarea } from "@/components/ui/textarea";
 
 type RepuestoFormInput = z.input<typeof repuestoInputSchema>;
 
+// Sin `inventario.costos` el formulario no tiene campo de costo: el servidor no lo toca.
+const repuestoInputSchemaSinCostos = conStockMaximoValido(repuestoBaseSchema.extend({ precioCompra: z.string().optional() }));
+
 const initialState: RepuestoFormState = { error: null, success: false, repuestoId: null };
 
 export interface RepuestoEditable {
@@ -32,7 +35,7 @@ export interface RepuestoEditable {
   codigo: string;
   nombre: string;
   descripcion: string | null;
-  precioCompra: number;
+  precioCompra?: number;
   precioVenta: number;
   stockMinimo: number;
   stockMaximo: number | null;
@@ -45,10 +48,13 @@ export function EditarRepuestoForm({
   repuesto,
   bodegas,
   proveedores,
+  verCostos = true,
 }: {
   repuesto: RepuestoEditable;
   bodegas: Bodega[];
   proveedores: Proveedor[];
+  /** `inventario.costos`: sin él no se muestra ni se envía el precio de compra. */
+  verCostos?: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(
     updateRepuestoAction.bind(null, repuesto.id),
@@ -61,12 +67,12 @@ export function EditarRepuestoForm({
     control,
     formState: { errors },
   } = useForm<RepuestoFormInput>({
-    resolver: zodResolver(repuestoInputSchema),
+    resolver: zodResolver(verCostos ? repuestoInputSchema : repuestoInputSchemaSinCostos) as Resolver<RepuestoFormInput>,
     defaultValues: {
       codigo: repuesto.codigo,
       nombre: repuesto.nombre,
       descripcion: repuesto.descripcion ?? "",
-      precioCompra: String(repuesto.precioCompra),
+      precioCompra: repuesto.precioCompra === undefined ? "" : String(repuesto.precioCompra),
       precioVenta: String(repuesto.precioVenta),
       stockMinimo: String(repuesto.stockMinimo),
       stockMaximo: repuesto.stockMaximo === null ? "" : String(repuesto.stockMaximo),
@@ -183,6 +189,7 @@ export function EditarRepuestoForm({
 
         <FormGroup label="Precios">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {verCostos ? (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor={`precioCompra-${repuesto.id}`}>Precio de compra</Label>
               <Input
@@ -199,6 +206,7 @@ export function EditarRepuestoForm({
                 <p id={`precioCompra-${repuesto.id}-error`}>{errors.precioCompra.message}</p>
               ) : null}
             </div>
+            ) : null}
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor={`precioVenta-${repuesto.id}`}>Precio de venta</Label>

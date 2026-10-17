@@ -4,10 +4,10 @@ import { listBodegas } from "@/app/actions/bodega-actions";
 import { listProveedores } from "@/app/actions/proveedor-actions";
 import { NuevoRepuestoForm } from "../nuevo-repuesto-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { requirePermiso } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 
 export default async function NuevoRepuestoPage() {
-  await requirePermiso("inventario.editar");
+  const session = await requirePermiso("inventario.editar");
   const [bodegas, proveedores] = await Promise.all([listBodegas(), listProveedores()]);
 
   return (
@@ -24,7 +24,7 @@ export default async function NuevoRepuestoPage() {
           <CardTitle>Datos del repuesto</CardTitle>
         </CardHeader>
         <CardContent>
-          <NuevoRepuestoForm bodegas={bodegas} proveedores={proveedores} />
+          <NuevoRepuestoForm bodegas={bodegas} proveedores={proveedores} verCostos={puede(session, "inventario.costos")} />
         </CardContent>
       </Card>
     </main>

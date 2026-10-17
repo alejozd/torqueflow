@@ -49,12 +49,14 @@ export function AgregarItemForm({
   bodegas,
   proveedores,
   puedeCrearRepuesto,
+  verCostos = true,
 }: {
   ordenId: string;
   repuestos: RepuestoOption[];
   bodegas: Bodega[];
   proveedores: Proveedor[];
   puedeCrearRepuesto: boolean;
+  verCostos?: boolean;
 }) {
   const router = useRouter();
   const addItem = addItemOrdenAction.bind(null, ordenId);
@@ -246,6 +248,7 @@ export function AgregarItemForm({
         onOpenChange={setCrearDialogOpen}
         bodegas={bodegas}
         proveedores={proveedores}
+        verCostos={verCostos}
         onCreated={(repuestoId) => {
           repuestoIdField.onChange(repuestoId);
           setCrearDialogOpen(false);

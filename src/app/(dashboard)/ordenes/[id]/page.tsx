@@ -382,6 +382,7 @@ export default async function OrdenDetailPage({
                                   bodegas={bodegas}
                                   proveedores={proveedores}
                                   puedeCrearRepuesto={puede(session, "inventario.editar")}
+                                  verCostos={puede(session, "inventario.costos")}
                                 />
                               ),
                             },

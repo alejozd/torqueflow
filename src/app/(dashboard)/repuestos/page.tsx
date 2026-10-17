@@ -86,7 +86,7 @@ function toEditable(repuesto: RepuestoFila): RepuestoEditable {
     codigo: repuesto.codigo,
     nombre: repuesto.nombre,
     descripcion: repuesto.descripcion,
-    precioCompra: Number(repuesto.precioCompra ?? 0),
+    ...(repuesto.precioCompra === undefined ? {} : { precioCompra: Number(repuesto.precioCompra) }),
     precioVenta: Number(repuesto.precioVenta),
     stockMinimo: repuesto.stockMinimo,
     stockMaximo: repuesto.stockMaximo,
@@ -137,8 +137,8 @@ function buildColumns(
       header: "Repuesto",
       cell: (repuesto) => (
         <>
-          {puedeEditar && verCostos ? (
-            <EditarRepuestoDialog repuesto={toEditable(repuesto)} bodegas={bodegas} proveedores={proveedores} />
+          {puedeEditar ? (
+            <EditarRepuestoDialog repuesto={toEditable(repuesto)} bodegas={bodegas} proveedores={proveedores} verCostos={verCostos} />
           ) : null}
           <span className="font-medium">{repuesto.nombre}</span>
         </>

@@ -23,10 +23,12 @@ export function EditarRepuestoDialog({
   repuesto,
   bodegas,
   proveedores,
+  verCostos,
 }: {
   repuesto: RepuestoEditable;
   bodegas: Bodega[];
   proveedores: Proveedor[];
+  verCostos: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -40,7 +42,7 @@ export function EditarRepuestoDialog({
           <DialogTitle>Editar {repuesto.nombre}</DialogTitle>
           <DialogDescription>Los cambios aplican de inmediato a este repuesto. Al eliminarlo, quedará desvinculado de las órdenes de trabajo que lo hayan usado.</DialogDescription>
         </DialogHeader>
-        <EditarRepuestoForm repuesto={repuesto} bodegas={bodegas} proveedores={proveedores} />
+        <EditarRepuestoForm repuesto={repuesto} bodegas={bodegas} proveedores={proveedores} verCostos={verCostos} />
       </DialogContent>
     </Dialog>
   );

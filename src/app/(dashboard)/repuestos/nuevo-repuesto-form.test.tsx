@@ -110,4 +110,33 @@ describe("NuevoRepuestoForm", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Ya existe un repuesto con ese código.");
     expect(mockOnCreated).not.toHaveBeenCalled();
   });
+
+  it("sin costos no muestra el precio de compra y envía el formulario", async () => {
+    render(<NuevoRepuestoForm bodegas={bodegas} proveedores={proveedores} verCostos={false} />);
+
+    expect(screen.queryByLabelText("Precio de compra")).not.toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("Código"), "FRN-001");
+    await userEvent.type(screen.getByLabelText("Nombre"), "Filtro de aceite");
+    await userEvent.type(screen.getByLabelText("Precio de venta"), "18.9");
+    await userEvent.click(screen.getByRole("combobox", { name: "Bodega" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Bodega principal" }));
+    await userEvent.click(screen.getByRole("button", { name: "Crear repuesto" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Repuesto creado");
+    expect(mockCreateRepuestoAction).toHaveBeenCalled();
+  });
+
+  it("con costos el precio de compra sigue siendo obligatorio", async () => {
+    render(<NuevoRepuestoForm bodegas={bodegas} proveedores={proveedores} verCostos />);
+
+    await userEvent.type(screen.getByLabelText("Código"), "FRN-001");
+    await userEvent.type(screen.getByLabelText("Nombre"), "Filtro de aceite");
+    await userEvent.type(screen.getByLabelText("Precio de venta"), "18.9");
+    await userEvent.click(screen.getByRole("combobox", { name: "Bodega" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Bodega principal" }));
+    await userEvent.click(screen.getByRole("button", { name: "Crear repuesto" }));
+
+    expect(await screen.findByText("El precio de compra es obligatorio")).toBeInTheDocument();
+    expect(mockCreateRepuestoAction).not.toHaveBeenCalled();
+  });
 });
