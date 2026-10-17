@@ -32,7 +32,7 @@ export async function requireSession(): Promise<Session> {
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const usuario = await tenantDb.usuario.findUnique({
     where: { id: session.user.id },
-    select: { activo: true, role: true },
+    select: { activo: true, role: true, permisosAgregados: true, permisosQuitados: true },
   });
   if (!usuario || !usuario.activo) {
     redirect("/login?error=usuario-suspendido");
@@ -41,7 +41,11 @@ export async function requireSession(): Promise<Session> {
   // petición, en la consulta que ya existía para `activo`: un cambio de
   // permisos aplica en la siguiente acción, sin esperar a que venza el JWT.
   session.user.role = usuario.role;
-  session.user.permisos = permisosEfectivos({ role: usuario.role });
+  session.user.permisos = permisosEfectivos({
+    role: usuario.role,
+    agregados: usuario.permisosAgregados,
+    quitados: usuario.permisosQuitados,
+  });
 
   // No sedeActivaId means login couldn't auto-resolve one (ADMIN with >1
   // sede, or TECNICO/RECEPCION with >1 assignment) -- sends the user to

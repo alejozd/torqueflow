@@ -42,7 +42,7 @@ describe("requireSession", () => {
     await expect(requireSession()).resolves.toBe(session);
     expect(mockGetTenantBySchema).toHaveBeenCalledWith("taller_a");
     expect(mockGetTenantDb).toHaveBeenCalledWith("taller_a");
-    expect(mockUsuarioFindUnique).toHaveBeenCalledWith({ where: { id: "1" }, select: { activo: true, role: true } });
+    expect(mockUsuarioFindUnique).toHaveBeenCalledWith({ where: { id: "1" }, select: { activo: true, role: true, permisosAgregados: true, permisosQuitados: true } });
   });
 
   it("redirects to /login when there is no session", async () => {
@@ -124,12 +124,17 @@ describe("permisos en la sesión", () => {
   it("consulta activo y role en la misma consulta", async () => {
     mockUsuarioFindUnique.mockResolvedValue({ activo: true, role: "ADMIN" });
     await requireSession();
-    expect(mockUsuarioFindUnique).toHaveBeenCalledWith({ where: { id: "1" }, select: { activo: true, role: true } });
+    expect(mockUsuarioFindUnique).toHaveBeenCalledWith({ where: { id: "1" }, select: { activo: true, role: true, permisosAgregados: true, permisosQuitados: true } });
   });
 
   it("requirePermiso devuelve la sesión si tiene el permiso", async () => {
     mockUsuarioFindUnique.mockResolvedValue({ activo: true, role: "RECEPCION" });
     await expect(requirePermiso("caja.usar")).resolves.toMatchObject({ user: { role: "RECEPCION" } });
+  });
+
+  it("un TECNICO con permisosAgregados caja.usar pasa requirePermiso", async () => {
+    mockUsuarioFindUnique.mockResolvedValue({ activo: true, role: "TECNICO", permisosAgregados: ["caja.usar"], permisosQuitados: [] });
+    await expect(requirePermiso("caja.usar")).resolves.toMatchObject({ user: { role: "TECNICO" } });
   });
 
   it("requirePermiso manda a /sin-permiso si le falta (D5)", async () => {

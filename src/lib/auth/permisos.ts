@@ -112,7 +112,11 @@ export function permisosEfectivos(entrada: {
   quitados?: readonly string[];
 }): Permiso[] {
   if (entrada.role === "ADMIN") return [...TODOS];
-  return [...PERMISOS_POR_ROL[entrada.role]];
+  const quitados = new Set(entrada.quitados ?? []);
+  const agregados = (entrada.agregados ?? []).filter(
+    (valor): valor is Permiso => esPermiso(valor) && !PERMISOS_SOLO_ADMIN.includes(valor),
+  );
+  return [...new Set([...PERMISOS_POR_ROL[entrada.role], ...agregados])].filter((p) => !quitados.has(p));
 }
 
 export function tienePermiso(permisos: readonly Permiso[], permiso: Permiso): boolean {

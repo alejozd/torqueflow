@@ -108,3 +108,20 @@ describe("rol JEFE_TALLER (D6)", () => {
     expect([...ROLES_MECANICO]).toEqual(["TECNICO", "JEFE_TALLER"]);
   });
 });
+
+describe("excepciones por usuario (D1–D3)", () => {
+  it("suma los agregados y resta los quitados", () => {
+    const p = permisosEfectivos({ role: "TECNICO", agregados: ["mostrador.vender"], quitados: ["ordenes.entregar"] });
+    expect(p).toContain("mostrador.vender");
+    expect(p).not.toContain("ordenes.entregar");
+  });
+  it("ignora claves desconocidas", () => {
+    expect(permisosEfectivos({ role: "TECNICO", agregados: ["ordenes.volar"] })).toEqual(permisosEfectivos({ role: "TECNICO" }));
+  });
+  it("nunca da un permiso ★ por excepción", () => {
+    expect(permisosEfectivos({ role: "RECEPCION", agregados: ["usuarios.gestionar"] })).not.toContain("usuarios.gestionar");
+  });
+  it("ADMIN ignora las excepciones", () => {
+    expect(permisosEfectivos({ role: "ADMIN", quitados: ["caja.usar"] })).toContain("caja.usar");
+  });
+});
