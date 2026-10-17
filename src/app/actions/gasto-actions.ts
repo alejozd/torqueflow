@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requirePermiso } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { exigirCajaParaEfectivo } from "@/lib/caja/sesion";
 import { leerOpcionesTaller } from "@/lib/configuracion/opciones-taller";
 import { getTenantDb } from "@/lib/db/tenant-client";
@@ -117,9 +117,14 @@ export async function actualizarGastoAction(
     where: { id: gastoId },
     select: { gastoRecurrenteId: true, periodo: true, sedeId: true, categoriaId: true, pagadoEnEfectivo: true },
   });
-  if (!actual) return { error: "Gasto no encontrado", success: false };
-  // Sin sedeId en el formulario se conserva la sede actual del gasto.
-  const sedeId = parsed.data.sedeId || actual.sedeId;
+  // `gastos.administrar` se puede conceder a quien no trabaja con todas las
+  // sedes (Fase 26, I2): sin `sedes.verTodas` solo cuenta su sede activa.
+  if (!actual || (!puede(session, "sedes.verTodas") && actual.sedeId !== session.user.sedeActivaId)) {
+    return { error: "Gasto no encontrado", success: false };
+  }
+  // Sin sedeId en el formulario se conserva la sede actual del gasto; sin
+  // `sedes.verTodas` manda la sede activa.
+  const sedeId = resolverSede(session, parsed.data.sedeId || actual.sedeId);
   if (actual.periodo) {
     if (fecha.slice(0, 7) !== actual.periodo) {
       return { error: `La fecha debe estar dentro de ${ETIQUETA_MES(actual.periodo)}`, success: false };
@@ -167,8 +172,11 @@ export async function actualizarGastoAction(
 export async function eliminarGastoAction(gastoId: string): Promise<{ error: string | null }> {
   const session = await requirePermiso("gastos.administrar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
+  // Sin `sedes.verTodas` solo se borra un gasto de la sede activa (Fase 26, I2).
+  const where = puede(session, "sedes.verTodas") ? { id: gastoId } : { id: gastoId, sedeId: session.user.sedeActivaId };
   try {
-    await tenantDb.gasto.delete({ where: { id: gastoId } });
+    const { count } = await tenantDb.gasto.deleteMany({ where });
+    if (count === 0) return { error: "Gasto no encontrado" };
   } catch (err) {
     return { error: friendlyPrismaErrorMessage(err, "No se pudo eliminar el gasto") };
   }

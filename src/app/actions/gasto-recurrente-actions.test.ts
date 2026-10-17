@@ -16,6 +16,7 @@ vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import {
+  actualizarGastoRecurrenteAction,
   confirmarRecurrenteAction,
   crearGastoRecurrenteAction,
   listRecurrentesPendientes,
@@ -25,6 +26,15 @@ import {
 
 const inicial = { error: null, success: false };
 const ADMIN = { user: { id: "u1", role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }), tenantSchema: "t", sedeActivaId: "s1" } };
+const RECEPCION_ADMINISTRA = {
+  user: {
+    id: "u2",
+    role: "RECEPCION",
+    permisos: permisosEfectivos({ role: "RECEPCION", agregados: ["gastos.administrar"] }),
+    tenantSchema: "t",
+    sedeActivaId: "s1",
+  },
+};
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -35,6 +45,27 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("gastos recurrentes", () => {
+  it("con gastos.administrar pero sin sedes.verTodas no toca plantillas de otra sede (I2)", async () => {
+    mockRequirePermiso.mockResolvedValue(RECEPCION_ADMINISTRA);
+    db.gastoRecurrente.findUnique.mockResolvedValue({ id: "r2", sedeId: "s2", categoriaId: "c", descripcion: "A", desde: "2026-08", activo: true });
+    db.categoriaGasto.findUnique.mockResolvedValue({ id: "c", activo: true });
+    const plantilla = new FormData();
+    for (const [k, v] of Object.entries({ categoriaId: "c", descripcion: "A", montoEstimado: "1000", diaDelMes: "5", desde: "2026-08" })) {
+      plantilla.set(k, v);
+    }
+    const confirmar = new FormData();
+    confirmar.set("monto", "1000");
+    confirmar.set("fecha", "2026-10-05");
+
+    expect(await toggleGastoRecurrenteActivoAction("r2")).toEqual({ error: "Plantilla no encontrada" });
+    expect(await omitirRecurrenteAction("r2", "2026-10")).toEqual({ error: "Plantilla no encontrada" });
+    expect(await confirmarRecurrenteAction("r2", "2026-10", inicial, confirmar)).toEqual({ error: "Plantilla no encontrada", success: false });
+    expect(await actualizarGastoRecurrenteAction("r2", inicial, plantilla)).toEqual({ error: "Plantilla no encontrada", success: false });
+    expect(db.gastoRecurrente.update).not.toHaveBeenCalled();
+    expect(db.gasto.create).not.toHaveBeenCalled();
+    expect(db.gastoRecurrenteOmitido.create).not.toHaveBeenCalled();
+  });
+
   it("listRecurrentesPendientes arma periodos resueltos con gastos y omisiones", async () => {
     db.gastoRecurrente.findMany.mockResolvedValue([
       { id: "r1", descripcion: "Arriendo", categoria: { nombre: "Arriendo" }, montoEstimado: { toString: () => "1500000" },
