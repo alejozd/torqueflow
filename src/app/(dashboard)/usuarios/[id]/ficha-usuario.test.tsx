@@ -104,6 +104,49 @@ describe("FichaUsuario", () => {
     expect(mockGuardarPermisos).not.toHaveBeenCalled();
   });
 
+  it("cambiar solo la contraseña: al guardar sale el toast y la barra desaparece (revisión, I1/I2)", async () => {
+    mockUpdateUsuario.mockResolvedValue({ error: null, success: true });
+    const { toast } = await import("sonner");
+    const user = userEvent.setup();
+    render(
+      <FichaUsuario
+        usuario={{ ...USUARIO, sedeIds: ["s1"], sedeDefectoId: "s1" }}
+        sedes={[{ id: "s1", nombre: "Norte" }]}
+      />,
+    );
+    await user.type(screen.getByLabelText("Contraseña"), "clave-nueva-123");
+    await user.click(screen.getAllByRole("button", { name: "Guardar cambios" })[0]!);
+    await vi.waitFor(() => expect(toast.success).toHaveBeenCalledWith("Usuario actualizado"));
+    await vi.waitFor(() => expect(screen.queryByText("Tienes cambios sin guardar")).not.toBeInTheDocument());
+  });
+
+  it("formulario inválido + permisos: no guarda nada a medias (revisión, I3)", async () => {
+    const user = userEvent.setup();
+    // Técnico sin sedes: el formulario no pasa la validación.
+    render(<FichaUsuario usuario={USUARIO} sedes={[]} />);
+    await user.type(screen.getByLabelText("Nombre"), " X");
+    await user.click(screen.getByRole("checkbox", { name: /Abrir y cerrar caja/ }));
+    await user.click(screen.getAllByRole("button", { name: "Guardar cambios" })[0]!);
+    expect(mockUpdateUsuario).not.toHaveBeenCalled();
+    expect(mockGuardarPermisos).not.toHaveBeenCalled();
+  });
+
+  it("formulario válido + permisos: los permisos se guardan después del formulario (revisión, I3)", async () => {
+    mockUpdateUsuario.mockResolvedValue({ error: null, success: true });
+    const user = userEvent.setup();
+    render(
+      <FichaUsuario
+        usuario={{ ...USUARIO, sedeIds: ["s1"], sedeDefectoId: "s1" }}
+        sedes={[{ id: "s1", nombre: "Norte" }]}
+      />,
+    );
+    await user.type(screen.getByLabelText("Nombre"), " X");
+    await user.click(screen.getByRole("checkbox", { name: /Abrir y cerrar caja/ }));
+    await user.click(screen.getAllByRole("button", { name: "Guardar cambios" })[0]!);
+    await vi.waitFor(() => expect(mockGuardarPermisos).toHaveBeenCalled());
+    expect(mockUpdateUsuario.mock.invocationCallOrder[0]!).toBeLessThan(mockGuardarPermisos.mock.invocationCallOrder[0]!);
+  });
+
   it("un ADMIN no tiene sección de permisos", () => {
     render(<FichaUsuario usuario={{ ...USUARIO, role: "ADMIN" }} sedes={[]} />);
     expect(screen.getByText("El administrador tiene todos los permisos")).toBeInTheDocument();

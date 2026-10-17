@@ -2,7 +2,8 @@
 
 import { useCallback, useRef, useState, useTransition } from "react";
 import { KeyRound } from "lucide-react";
-import type { SedeCheckboxOption } from "@/app/actions/usuario-actions";
+import { toast } from "sonner";
+import type { SedeCheckboxOption, UsuarioFormState } from "@/app/actions/usuario-actions";
 import { TituloSeccion } from "@/components/titulo-seccion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,23 +44,44 @@ export interface FichaUsuarioUsuario {
 export function FichaUsuario({ usuario, sedes }: { usuario: FichaUsuarioUsuario; sedes: SedeCheckboxOption[] }) {
   const formulario = useRef<ControlFormularioUsuario>(null);
   const permisos = useRef<ControlPermisosUsuario>(null);
-  const [estadoForm, setEstadoForm] = useState({ conCambios: false, cambiaRol: false });
+  const [estadoForm, setEstadoForm] = useState({ conCambios: false, cambiaRol: false, pendiente: false });
+  // Cuántas veces se guardó el formulario: entra en su clave para remontarlo
+  // limpio aunque solo haya cambiado la contraseña (que no está en los datos).
+  const [guardadosForm, setGuardadosForm] = useState(0);
+  // Si hay que guardar formulario y permisos, los permisos esperan a que el
+  // formulario salga bien: así un formulario inválido no deja medio guardado.
+  const permisosTrasForm = useRef(false);
   const [permisosConCambios, setPermisosConCambios] = useState(0);
   // Descartar = volver a montar ambos editores desde lo guardado.
   const [version, setVersion] = useState(0);
   const [pendiente, startTransition] = useTransition();
 
   const alCambiarForm = useCallback(
-    (estado: { conCambios: boolean; cambiaRol: boolean }) => setEstadoForm(estado),
+    (estado: { conCambios: boolean; cambiaRol: boolean; pendiente: boolean }) => setEstadoForm(estado),
     [],
   );
+  const alGuardarForm = useCallback((resultado: UsuarioFormState) => {
+    if (resultado.success) {
+      toast.success("Usuario actualizado");
+      setGuardadosForm((n) => n + 1);
+      if (permisosTrasForm.current) {
+        permisosTrasForm.current = false;
+        startTransition(async () => {
+          await permisos.current?.guardar();
+        });
+      }
+    } else {
+      permisosTrasForm.current = false;
+      toast.error(resultado.error ?? "No se pudo guardar el usuario");
+    }
+  }, []);
   const alCambiarPermisos = useCallback((cambios: number) => setPermisosConCambios(cambios), []);
 
   const esAdmin = usuario.role === "ADMIN";
   const hayCambios = estadoForm.conCambios || (!esAdmin && permisosConCambios > 0);
   // Tras guardar, la página se revalida con los datos nuevos: la clave los
   // remonta limpios (y sin "cambios" pendientes).
-  const claveForm = `${version}|${usuario.nombre}|${usuario.email}|${usuario.role}|${usuario.activo}|${usuario.sedeIds.join(",")}|${usuario.sedeDefectoId ?? ""}`;
+  const claveForm = `${version}|${guardadosForm}|${usuario.nombre}|${usuario.email}|${usuario.role}|${usuario.activo}|${usuario.sedeIds.join(",")}|${usuario.sedeDefectoId ?? ""}`;
 
   function guardar() {
     const plan = decidirGuardado({
@@ -67,8 +89,10 @@ export function FichaUsuario({ usuario, sedes }: { usuario: FichaUsuarioUsuario;
       cambiaRol: estadoForm.cambiaRol,
       permisosConCambios,
     });
-    if (plan.formulario) formulario.current?.enviar();
-    if (plan.permisos) {
+    if (plan.formulario) {
+      permisosTrasForm.current = plan.permisos;
+      formulario.current?.enviar();
+    } else if (plan.permisos) {
       startTransition(async () => {
         await permisos.current?.guardar();
       });
@@ -77,12 +101,12 @@ export function FichaUsuario({ usuario, sedes }: { usuario: FichaUsuarioUsuario;
 
   function descartar() {
     setVersion((v) => v + 1);
-    setEstadoForm({ conCambios: false, cambiaRol: false });
+    setEstadoForm({ conCambios: false, cambiaRol: false, pendiente: false });
     setPermisosConCambios(0);
   }
 
   const botonGuardar = (
-    <Button type="button" disabled={!hayCambios || pendiente} onClick={guardar}>
+    <Button type="button" disabled={!hayCambios || pendiente || estadoForm.pendiente} onClick={guardar}>
       Guardar cambios
     </Button>
   );
@@ -110,6 +134,7 @@ export function FichaUsuario({ usuario, sedes }: { usuario: FichaUsuarioUsuario;
             sedes={sedes}
             controlRef={formulario}
             onEstado={alCambiarForm}
+            onGuardado={alGuardarForm}
           />
         </CardContent>
       </Card>

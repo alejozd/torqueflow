@@ -49,6 +49,7 @@ export function EditarUsuarioForm({
   showCancelButton = false,
   controlRef,
   onEstado,
+  onGuardado,
 }: {
   usuario: EditarUsuarioFormUsuario;
   sedes: SedeCheckboxOption[];
@@ -65,7 +66,9 @@ export function EditarUsuarioForm({
    * con `controlRef.current.enviar()` y se entera de los cambios por `onEstado`.
    */
   controlRef?: Ref<ControlFormularioUsuario>;
-  onEstado?: (estado: { conCambios: boolean; cambiaRol: boolean }) => void;
+  onEstado?: (estado: { conCambios: boolean; cambiaRol: boolean; pendiente: boolean }) => void;
+  /** Modo ficha: resultado de cada envío (la ficha muestra el toast y encadena los permisos). */
+  onGuardado?: (resultado: UsuarioFormState) => void;
 }) {
   const router = useRouter();
   const updateEsteUsuario = updateUsuarioAction.bind(null, usuario.id);
@@ -103,8 +106,12 @@ export function EditarUsuarioForm({
   useImperativeHandle(controlRef, () => ({ enviar: () => formRef.current?.requestSubmit() }), []);
 
   useEffect(() => {
-    onEstado?.({ conCambios: isDirty, cambiaRol });
-  }, [isDirty, cambiaRol, onEstado]);
+    onEstado?.({ conCambios: isDirty, cambiaRol, pendiente: isPending });
+  }, [isDirty, cambiaRol, isPending, onEstado]);
+
+  useEffect(() => {
+    if (state !== initialState) onGuardado?.(state);
+  }, [state, onGuardado]);
   const sedeDefectoOptions = esAdmin ? sedes : sedes.filter((sede) => sedeIdsWatched.includes(sede.id));
 
   useEffect(() => {

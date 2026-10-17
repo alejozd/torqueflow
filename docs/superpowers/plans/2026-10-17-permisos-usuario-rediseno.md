@@ -4,7 +4,7 @@
 
 **Objetivo:** llevar `/usuarios/[id]` al diseño que propuso Stitch (`docs/Evidencias/Permisos-Usuario/screen.png`, archivo del usuario: no moverlo ni commitearlo): una sola pantalla de "Editar usuario y permisos" con cabecera del usuario, datos en 3 columnas y los permisos en tarjetas por grupo con buscador, contadores y barra de cambios sin guardar.
 
-> **Estado (2026-10-17):** rama `usuario-permisos-rediseno` creada desde `main`. **Tareas 1 a 4 hechas** (ver notas en cada tarea). **Tareas 1 a 5 hechas y mergeadas a `main`.** Pendiente: el resultado de la revisión independiente (ver la lista de la tarea 5) y desplegar. Vamos en 5 de 5.
+> **Estado (2026-10-17):** rama `usuario-permisos-rediseno` creada desde `main`. **Tareas 1 a 4 hechas** (ver notas en cada tarea). **Tareas 1 a 5 hechas y mergeadas a `main`.** Pendiente: desplegar y los menores de abajo. Vamos en 5 de 5.
 
 **Sin migraciones.** Todo sale de datos que ya existen (`Usuario.createdAt`, `activo`, `role`, `sedeIds`, `permisosAgregados`, `permisosQuitados`).
 
@@ -55,7 +55,7 @@ Tests: cambiar solo un permiso → solo se llama `guardarPermisosUsuarioAction`;
 **Avance de la tarea 5 (se actualiza paso a paso):**
 - [x] Suite completa + `npm run build`: 337 archivos / 2801 tests, build OK (2026-10-17)
 - [x] Revisión en el navegador: el usuario la revisó y la aprobó ("todo ok", 2026-10-17)
-- [ ] Revisión independiente del diff `main...usuario-permisos-rediseno` y ronda de arreglos: **en curso** (informe en `.superpowers/sdd/2026-10-17-permisos-usuario-rediseno/review-report.md`, fuera de git)
+- [x] Revisión independiente (otro modelo): 0 Critical, 3 Important arreglados con test antes del merge — la barra no se iba al cambiar solo la contraseña; faltaba el toast del formulario; doble envío y medio guardado (ahora los permisos esperan a que el formulario salga bien). 337 archivos / 2804 tests, build OK.
 - [x] Merge `--no-ff` a `main` aprobado por el usuario (2026-10-17). Falta: despliegue en el servidor (`sudo git pull` + `sudo ./deploy.sh`, sin migraciones)
 
 Lanzar `npm run dev` en segundo plano (puerto 3025; la base es la real: no guardar cambios de prueba sobre usuarios reales, usar uno de prueba), revisar a 1366 px y en móvil, y pedirle al usuario que lo mire. Verificación: `npx tsc --noEmit --incremental false`, `npm test`, `npx eslint` de lo tocado, `npm run build`. Revisión independiente del diff (otro modelo, solo lectura) y una ronda de arreglos. Merge solo con aprobación.
@@ -65,3 +65,11 @@ Lanzar `npm run dev` en segundo plano (puerto 3025; la base es la real: no guard
 - Romper el `key` del editor (I5): después de cambiar el rol, los permisos tienen que mostrar los del rol nuevo. Hay test; no borrarlo.
 - Tests de interfaz sensibles a la carga (`nuevo-vehiculo-form`, `agregar-item-form`): si fallan en la suite completa, correrlos solos antes de concluir nada.
 - `eslint` prohíbe `setState` dentro de `useEffect` (ver §7 del traspaso): para "Descartar", remontar con `key` o ajustar estado en render.
+
+## Pendientes de esta feature (menores de la revisión, no bloquean)
+
+- El contador "N / M activos" se posiciona con `-mt-9 self-end` sobre el encabezado de la tarjeta: frágil si el título del grupo se parte en dos líneas ("Clientes y vehículos" en pantallas angostas). Mejor ponerlo dentro de la fila del encabezado.
+- Accesibilidad: la barra de cambios no tiene `aria-live`; el interruptor de estado no tiene anillo de foco visible (`focus-visible:ring`).
+- Si se cambia el rol en el formulario sin tocar permisos, la barra no avisa que los permisos mostrados son los del rol anterior hasta guardar (el aviso de D1 solo sale si cambiaron los dos).
+- `sticky bottom-0 -mx-4` de la barra depende del padding del layout: revisar en móvil.
+- `permisosConCambios` no se reinicia si el editor se desmonta (usuario pasado a ADMIN); hoy no afecta porque se filtra con `!esAdmin`.
