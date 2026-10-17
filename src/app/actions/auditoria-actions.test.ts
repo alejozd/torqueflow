@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
 }));
 
 const mockAuditLogFindMany = vi.fn();
@@ -17,7 +17,7 @@ import { listAuditLog } from "./auditoria-actions";
 const SESSION_ADMIN = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
 
 beforeEach(() => {
-  mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+  mockRequirePermiso.mockReset().mockResolvedValue(SESSION_ADMIN);
   mockAuditLogFindMany.mockReset();
 });
 
@@ -37,7 +37,7 @@ describe("listAuditLog", () => {
 
     const eventos = await listAuditLog();
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("auditoria.ver");
     expect(eventos).toEqual([
       {
         id: "al1",

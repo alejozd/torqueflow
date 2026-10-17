@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import type { Role } from "@/lib/auth/permisos";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion";
@@ -83,7 +83,7 @@ const USUARIO_CON_SEDES_SELECT = {
  * listRepuestoOptions). Do not switch this to include.
  */
 export async function listUsuariosConSedes(): Promise<UsuarioConSedes[]> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("usuarios.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const usuarios = await tenantDb.usuario.findMany({
@@ -121,7 +121,7 @@ export interface UsuarioConMetricas {
  * /usuarios/[id], which has no use for this count.
  */
 export async function listUsuariosConMetricas(): Promise<UsuarioConMetricas[]> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("usuarios.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const [usuarios, ordenesPorMecanico] = await Promise.all([
@@ -180,7 +180,7 @@ export async function createUsuarioAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("usuarios.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const { maxUsuarios } = await obtenerLimitesPlan(session.user.tenantSchema);
@@ -257,7 +257,7 @@ export async function updateUsuarioAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("usuarios.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const usuarioActual = await tenantDb.usuario.findUnique({
@@ -377,7 +377,7 @@ export async function updateUsuarioAction(
  * tiene algo que hacer antes: anularlas).
  */
 export async function deleteUsuarioAction(usuarioId: string): Promise<void> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("usuarios.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const usuario = await tenantDb.usuario.findUnique({

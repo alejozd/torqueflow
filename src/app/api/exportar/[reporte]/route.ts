@@ -1,4 +1,4 @@
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { getCartera } from "@/app/actions/cartera-actions";
 import { getCuentasPorPagar } from "@/app/actions/cuenta-por-pagar-actions";
 import { getTenantDb } from "@/lib/db/tenant-client";
@@ -34,7 +34,7 @@ function esReporte(valor: string): valor is Reporte {
   return (REPORTES as readonly string[]).includes(valor);
 }
 
-type Sesion = Awaited<ReturnType<typeof requireRole>>;
+type Sesion = Awaited<ReturnType<typeof requirePermiso>>;
 
 async function construirHojas(reporte: Reporte, session: Sesion, rango: RangoExportacion | null): Promise<HojaEscrita[]> {
   const tenantDb = getTenantDb(session.user.tenantSchema);
@@ -61,7 +61,7 @@ export async function GET(
 ): Promise<Response> {
   const { reporte } = await params;
   // El rol primero: un reporte inexistente y uno prohibido responden igual.
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("exportar.usar");
   if (!esReporte(reporte)) {
     return new Response("Reporte no encontrado", { status: 404 });
   }

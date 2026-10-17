@@ -1,9 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: () => mockRequireSession(),
 }));
 
@@ -49,7 +49,7 @@ function baseFormData(): FormData {
 
 describe("createRepuestoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockCreate.mockReset();
     mockBodegaFindFirst.mockReset().mockResolvedValue({ id: "b1" });
   });
@@ -168,7 +168,7 @@ describe("createRepuestoAction", () => {
 
 describe("updateRepuestoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION_RECEPCION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_RECEPCION);
     mockUpdateMany.mockReset();
     mockBodegaFindFirst.mockReset().mockResolvedValue({ id: "b1" });
   });
@@ -203,7 +203,7 @@ describe("updateRepuestoAction", () => {
 
 describe("deleteRepuestoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockDeleteMany.mockReset();
   });
 
@@ -212,7 +212,7 @@ describe("deleteRepuestoAction", () => {
 
     await deleteRepuestoAction("r1");
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("inventario.editar");
     expect(mockDeleteMany).toHaveBeenCalledWith({ where: { id: "r1", bodega: { sedeId: "sede-1" } } });
   });
 
@@ -227,7 +227,7 @@ describe("deleteRepuestoAction", () => {
 
 describe("deleteRepuestoFormAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockDeleteMany.mockReset();
   });
 

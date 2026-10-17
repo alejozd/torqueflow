@@ -1,9 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: () => mockRequireSession(),
 }));
 
@@ -33,7 +33,7 @@ const initialState: ProveedorFormState = { error: null, success: false };
 
 describe("createProveedorAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockCreate.mockReset();
   });
 
@@ -94,7 +94,7 @@ describe("createProveedorAction", () => {
 
 describe("updateProveedorAction", () => {
   it("updates the proveedor on valid input", async () => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "RECEPCION", tenantSchema: "taller_perez" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { role: "RECEPCION", tenantSchema: "taller_perez" } });
     mockUpdate.mockReset().mockResolvedValue({ id: "p1" });
     const formData = new FormData();
     formData.set("nombre", "Repuestos El Motor S.A.");
@@ -120,19 +120,19 @@ describe("updateProveedorAction", () => {
 
 describe("deleteProveedorAction", () => {
   it("requires ADMIN/RECEPCION and deletes by id", async () => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockDelete.mockReset();
 
     await deleteProveedorAction("p1");
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("inventario.editar");
     expect(mockDelete).toHaveBeenCalledWith({ where: { id: "p1" } });
   });
 });
 
 describe("deleteProveedorFormAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockDelete.mockReset();
   });
 

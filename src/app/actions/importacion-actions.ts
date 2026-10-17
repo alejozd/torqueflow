@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import {
@@ -389,7 +389,7 @@ export async function importarAction(
   prevState: ResultadoImportacion,
   formData: FormData,
 ): Promise<ResultadoImportacion> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("importar.usar");
 
   const archivo = formData.get("archivo");
   if (!(archivo instanceof File) || archivo.size === 0) {
@@ -470,7 +470,7 @@ export async function importarAction(
       continue;
     }
 
-    if (contrato.nombre === HOJA_SERVICIOS && session.user.role !== "ADMIN") {
+    if (contrato.nombre === HOJA_SERVICIOS && !puede(session, "servicios.gestionar")) {
       resumen.push(
         hojaOmitida(HOJA_SERVICIOS, "Solo un administrador puede importar servicios", lectura.filas.length),
       );

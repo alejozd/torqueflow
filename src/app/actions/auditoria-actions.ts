@@ -1,6 +1,6 @@
 "use server";
 
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import type { TipoEventoAuditoria } from "@/generated/prisma-tenant";
 
@@ -23,7 +23,7 @@ export interface ListarAuditLogFiltros {
  * /bodegas: trae la lista completa (acotada) y deja que DataTable pagine en
  * cliente, sin infraestructura de paginación server-side nueva. */
 export async function listAuditLog(filtros: ListarAuditLogFiltros = {}): Promise<AuditLogConActor[]> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("auditoria.ver");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const eventos = await tenantDb.auditLog.findMany({

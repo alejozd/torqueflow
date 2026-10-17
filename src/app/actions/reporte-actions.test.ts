@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: vi.fn(),
 }));
 
@@ -33,7 +33,7 @@ const SESSION = { user: { id: "u1", role: "ADMIN", tenantSchema: "taller_perez",
 
 describe("getReporteRentabilidad", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockSedeFindFirst.mockReset();
     mockFacturaFindMany.mockReset().mockResolvedValue([]);
     mockGastoGroupBy.mockReset().mockResolvedValue([]);
@@ -82,7 +82,7 @@ describe("getReporteRentabilidad", () => {
   it("is gated to ADMIN only", async () => {
     await getReporteRentabilidad(FILTROS_VALIDOS);
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("reportes.rentabilidad");
   });
 
   it("rejects an invalid range before touching the database", async () => {
@@ -174,7 +174,7 @@ describe("getReporteRentabilidad", () => {
 
 describe("getReporteProductividad", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
     mockSedeFindFirst.mockReset();
     mockOrdenFindMany.mockReset().mockResolvedValue([]);
   });
@@ -182,7 +182,7 @@ describe("getReporteProductividad", () => {
   it("is gated to ADMIN only", async () => {
     await getReporteProductividad(FILTROS_VALIDOS);
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("reportes.productividad");
   });
 
   it("rejects an invalid range before touching the database", async () => {

@@ -1,10 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockRequireRole = vi.fn();
 const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...a: unknown[]) => mockRequireRole(...a),
-  requirePermiso: (...a: unknown[]) => mockRequirePermiso(...a),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: vi.fn(),
 }));
 
@@ -55,7 +53,7 @@ function fd(campos: Record<string, string>): FormData {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockRequireRole.mockResolvedValue(ADMIN);
+  mockRequirePermiso.mockResolvedValue(ADMIN);
   mockRequirePermiso.mockResolvedValue(ADMIN);
   db.servicio.findFirst.mockResolvedValue(null);
   db.servicio.findUnique.mockResolvedValue({ id: "s1", nombre: "Cambio de aceite", activo: true });
@@ -86,7 +84,7 @@ describe("listServicios", () => {
 
     const r = await listServicios();
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("servicios.gestionar");
     expect(db.servicio.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: {}, orderBy: { nombre: "asc" } }),
     );
@@ -101,7 +99,7 @@ describe("listServicios", () => {
 
     await listServicios({ soloActivos: true });
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION", "TECNICO"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.ver");
     expect(db.servicio.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { activo: true },
@@ -141,7 +139,7 @@ describe("crearServicioAction", () => {
       fd({ nombre: "  Cambio de aceite ", descripcion: "  Aceite y filtro  ", precioManoObra: "45000" }),
     );
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("servicios.gestionar");
     expect(r).toEqual({ error: null, success: true });
     expect(db.servicio.create).toHaveBeenCalledWith({
       data: { nombre: "Cambio de aceite", descripcion: "Aceite y filtro", precioManoObra: 45000 },
@@ -173,7 +171,7 @@ describe("crearServicioAction", () => {
 
     expect(r.error).toBe("El nombre es obligatorio");
     expect(db.servicio.create).not.toHaveBeenCalled();
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("servicios.gestionar");
   });
 });
 
@@ -644,11 +642,10 @@ describe("aplicarServicioACotizacionAction", () => {
 
 describe("guardas de rol", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
     mockRequirePermiso.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
   });
 
-  // Una lista de roles pasada a requireRole no prueba nada por sí sola: lo que
+  // Una lista de roles pasada a requirePermiso no prueba nada por sí sola: lo que
   // hay que comprobar es que el rechazo (redirect) corta la action antes de
   // escribir. Mismo patrón que bodega-actions.test.ts / cliente-actions.test.ts.
   const acciones: [string, () => Promise<unknown>][] = [

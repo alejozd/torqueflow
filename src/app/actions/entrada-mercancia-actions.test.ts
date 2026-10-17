@@ -1,10 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
-const mockRequireSession = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
-  requireSession: () => mockRequireSession(),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
 }));
 
 const mockEntradaCreate = vi.fn();
@@ -67,7 +65,7 @@ const SESSION_TECNICO = { user: { role: "TECNICO", tenantSchema: "taller_perez",
 
 describe("createEntradaMercanciaAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockEntradaCreate.mockReset();
     mockBodegaFindFirst.mockReset().mockResolvedValue({ id: "b1" });
   });
@@ -91,6 +89,7 @@ describe("createEntradaMercanciaAction", () => {
     const result = await createEntradaMercanciaAction(initialState, formData);
 
     expect(result).toEqual({ error: null, success: true, entradaId: "e1" });
+    expect(mockRequirePermiso).toHaveBeenCalledWith("compras.gestionar");
     expect(mockEntradaCreate).toHaveBeenCalledWith({
       data: { proveedorId: "p1", bodegaId: "b1", creadoPorId: "u1" },
     });
@@ -115,7 +114,7 @@ describe("createEntradaMercanciaAction", () => {
 
 describe("addEntradaItemAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_ADMIN);
     mockItemCreate.mockReset();
     mockRepuestoUpdate.mockReset();
     mockTransaction.mockClear();
@@ -168,6 +167,7 @@ describe("addEntradaItemAction", () => {
     const result = await addEntradaItemAction("e1", initialState, formData);
 
     expect(result).toEqual({ error: null, success: true, entradaId: "e1" });
+    expect(mockRequirePermiso).toHaveBeenCalledWith("compras.gestionar");
     expect(mockItemCreate).toHaveBeenCalledWith({
       data: { entradaId: "e1", repuestoId: "r1", cantidad: 20, precioCompraUnitario: 8.5 },
     });
@@ -257,11 +257,12 @@ describe("addEntradaItemAction", () => {
 
 describe("listEntradas", () => {
   it("lists only entradas whose bodega is in the sede activa", async () => {
-    mockRequireSession.mockReset().mockResolvedValue(SESSION_TECNICO);
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_TECNICO);
     mockEntradaFindMany.mockReset().mockResolvedValue([]);
 
     await listEntradas();
 
+    expect(mockRequirePermiso).toHaveBeenCalledWith("compras.ver");
     expect(mockEntradaFindMany).toHaveBeenCalledWith({
       where: { bodega: { sedeId: "sede-1" } },
       include: expect.anything(),

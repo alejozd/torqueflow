@@ -1,10 +1,10 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 const mockRequireSession = vi.fn();
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
   requireSession: () => mockRequireSession(),
-  requireRole: (roles: string[]) => mockRequireRole(roles),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
 }));
 
 const mockRevalidatePath = vi.fn();
@@ -63,7 +63,7 @@ function pedido(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   mockRequireSession.mockReset().mockResolvedValue(sesion);
-  mockRequireRole.mockReset().mockResolvedValue(sesion);
+  mockRequirePermiso.mockReset().mockResolvedValue(sesion);
   mockRevalidatePath.mockReset();
   mockEnviarEmail.mockReset().mockResolvedValue(undefined);
   for (const fn of [
@@ -107,7 +107,7 @@ describe("crearPedidosCompraAction", () => {
     ]);
 
     expect(resultado).toEqual({ error: null, pedidoIds: ["pc1", "pc2"] });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("compras.gestionar");
     expect(repuesto.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: { in: ["r1", "r2", "r3"] }, bodega: { sedeId: SEDE_ID } } }),
     );
@@ -211,6 +211,7 @@ describe("WhatsApp", () => {
 
     const url = await getEnlaceWhatsappPedido("pc1");
 
+    expect(mockRequirePermiso).toHaveBeenCalledWith("compras.ver");
     expect(url).toMatch(/^https:\/\/wa\.me\/573105550142\?text=/);
     expect(decodeURIComponent(url!.split("text=")[1])).toContain("- 6 x Filtro (FLT-001)");
   });

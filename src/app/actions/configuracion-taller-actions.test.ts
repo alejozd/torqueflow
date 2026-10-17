@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: vi.fn(),
 }));
 const mockUpsert = vi.fn();
@@ -21,7 +21,7 @@ const inicial = { error: null, success: false };
 
 describe("guardarDiasAvisoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockUpsert.mockReset().mockResolvedValue({});
   });
 
@@ -29,7 +29,7 @@ describe("guardarDiasAvisoAction", () => {
     const fd = new FormData();
     fd.set("diasAvisoVencimiento", "15");
     await guardarDiasAvisoAction(inicial, fd);
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("configuracion.taller");
   });
 
   it("guarda con upsert sobre el singleton", async () => {
@@ -64,7 +64,7 @@ describe("guardarDiasAvisoAction", () => {
 
 describe("guardarDiasEstancadaAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockUpsert.mockReset().mockResolvedValue({});
   });
 
@@ -75,7 +75,7 @@ describe("guardarDiasEstancadaAction", () => {
     const r = await guardarDiasEstancadaAction(inicial, fd);
 
     expect(r).toEqual({ error: null, success: true });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("configuracion.taller");
     expect(mockUpsert).toHaveBeenCalledWith({
       where: { id: "singleton" },
       create: { id: "singleton", diasOrdenEstancada: 5 },
@@ -107,7 +107,7 @@ describe("guardarDiasEstancadaAction", () => {
 
 describe("guardarOpcionesTallerAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockUpsert.mockReset().mockResolvedValue({});
   });
 
@@ -120,7 +120,7 @@ describe("guardarOpcionesTallerAction", () => {
     const r = await guardarOpcionesTallerAction(inicial, fd);
 
     expect(r).toEqual({ error: null, success: true });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("configuracion.taller");
     expect(mockUpsert).toHaveBeenCalledWith({
       where: { id: "singleton" },
       create: { id: "singleton", exigirActaFirmada: true, usarControlCaja: true, descuentoMaxRecepcion: 15 },

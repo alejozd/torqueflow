@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { scopePedidoCompra, scopeRepuesto } from "@/lib/sede/scope";
 import { whereItemsComprometidos } from "@/lib/inventario/comprometido";
@@ -157,7 +157,7 @@ export interface PosponerAlertaResult {
  * roles as editing a repuesto; scoped to the sede activa through the bodega.
  */
 async function guardarPospuesta(repuestoId: string, hasta: Date | null): Promise<PosponerAlertaResult> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("inventario.editar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const { count } = await tenantDb.repuesto.updateMany({
     where: { id: repuestoId, ...scopeRepuesto(session.user.sedeActivaId) },

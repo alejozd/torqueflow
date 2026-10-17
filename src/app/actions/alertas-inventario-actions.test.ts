@@ -1,10 +1,10 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 const mockRequireSession = vi.fn();
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
   requireSession: () => mockRequireSession(),
-  requireRole: (roles: string[]) => mockRequireRole(roles),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
 }));
 
 const mockRevalidatePath = vi.fn();
@@ -155,7 +155,7 @@ describe("getAlertasInventario", () => {
 
 describe("posponer / reactivar alerta", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { tenantSchema: "taller_perez", sedeActivaId: SEDE_ID } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { tenantSchema: "taller_perez", sedeActivaId: SEDE_ID } });
     mockRevalidatePath.mockReset();
     repuesto.updateMany.mockReset().mockResolvedValue({ count: 1 });
     vi.useFakeTimers();
@@ -170,7 +170,7 @@ describe("posponer / reactivar alerta", () => {
     const resultado = await posponerAlertaInventarioAction("r1");
 
     expect(resultado).toEqual({ error: null });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN", "RECEPCION"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("inventario.editar");
     expect(repuesto.updateMany).toHaveBeenCalledWith({
       where: { id: "r1", bodega: { sedeId: SEDE_ID } },
       data: { alertaPospuestaHasta: new Date("2026-10-16T15:00:00.000Z") },

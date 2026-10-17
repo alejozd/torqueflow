@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { registrarEventoAuditoria } from "@/lib/auditoria/registrarEvento";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
@@ -128,7 +128,7 @@ export async function guardarEsquemaLiquidacionAction(
   prevState: EsquemaLiquidacionFormState,
   formData: FormData,
 ): Promise<EsquemaLiquidacionFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("liquidaciones.gestionar");
   const parsed = esquemaLiquidacionInputSchema.safeParse({
     tipo: formData.get("tipo") ?? "",
     porcentaje: formData.get("porcentaje") ?? "",
@@ -173,7 +173,7 @@ export async function guardarEsquemaLiquidacionAction(
 }
 
 export async function getFrecuenciaLiquidacion(): Promise<FrecuenciaLiquidacion> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("liquidaciones.gestionar");
   return leerFrecuenciaLiquidacion(getTenantDb(session.user.tenantSchema));
 }
 
@@ -185,7 +185,7 @@ export async function guardarFrecuenciaLiquidacionAction(
   prevState: FrecuenciaLiquidacionFormState,
   formData: FormData,
 ): Promise<FrecuenciaLiquidacionFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("liquidaciones.gestionar");
   const parsed = frecuenciaLiquidacionSchema.safeParse(formData.get("frecuencia"));
   if (!parsed.success) return { error: "Frecuencia inválida", success: false };
 
@@ -346,7 +346,7 @@ async function resolverPeriodo(
 }
 
 export async function listLiquidacionesDelPeriodo(periodo: string): Promise<LiquidacionesDelPeriodoResultado> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("liquidaciones.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const { frecuencia, error } = await resolverPeriodo(tenantDb, periodo);
   if (error) return { frecuencia, periodo, etiqueta: "", error, filas: [], sinAsignar: null };
@@ -370,7 +370,7 @@ export async function pagarLiquidacionAction(
   prevState: PagoLiquidacionFormState,
   formData: FormData,
 ): Promise<PagoLiquidacionFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("liquidaciones.gestionar");
   const pago = pagarLiquidacionInputSchema.safeParse({
     metodoPago: formData.get("metodoPago") ?? "",
     referencia: formData.get("referencia") ?? "",
@@ -514,7 +514,7 @@ export async function pagarLiquidacionAction(
  * pagar. La auditoría guarda el rastro de las dos cosas.
  */
 export async function anularLiquidacionAction(liquidacionId: string, motivo: string): Promise<{ error: string | null }> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("liquidaciones.gestionar");
   const parsed = motivoAnulacionSchema.safeParse(motivo);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Explica por qué se anula la liquidación" };
 
@@ -566,7 +566,7 @@ export async function anularLiquidacionAction(liquidacionId: string, motivo: str
 
 /** Deja a un técnico sin esquema: deja de liquidarse hasta que se le defina otro (D4). */
 export async function quitarEsquemaLiquidacionAction(usuarioId: string): Promise<{ error: string | null }> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("liquidaciones.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const tecnico = await tenantDb.usuario.findFirst({

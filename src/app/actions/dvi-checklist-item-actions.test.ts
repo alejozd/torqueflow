@@ -1,9 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: () => mockRequireSession(),
 }));
 
@@ -51,7 +51,7 @@ describe("listDviChecklistItems", () => {
 
 describe("crearDviChecklistItemAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockFindUnique.mockReset().mockResolvedValue(null);
     mockAggregate.mockReset().mockResolvedValue({ _max: { orden: 7 } });
     mockCreate.mockReset();
@@ -65,7 +65,7 @@ describe("crearDviChecklistItemAction", () => {
     expect(result.success).toBe(false);
     expect(result.error).toBe("El nombre es obligatorio");
     expect(mockCreate).not.toHaveBeenCalled();
-    expect(mockRequireRole).not.toHaveBeenCalled();
+    expect(mockRequirePermiso).not.toHaveBeenCalled();
   });
 
   it("creates the item with a slugified key and the next available orden", async () => {
@@ -89,7 +89,7 @@ describe("crearDviChecklistItemAction", () => {
     expect(mockCreate).toHaveBeenCalledWith({
       data: { key: "aire_acondicionado", label: "Aire acondicionado", orden: 8 },
     });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("configuracion.taller");
   });
 
   it("appends a numeric suffix to the key when the slugified label already exists", async () => {
@@ -116,8 +116,8 @@ describe("crearDviChecklistItemAction", () => {
     expect(result.error).toBe("Ya existe un registro con ese valor.");
   });
 
-  it("propagates the redirect rejection and never touches the database when requireRole rejects (not ADMIN)", async () => {
-    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+  it("propagates the redirect rejection and never touches the database when requirePermiso rejects (not ADMIN)", async () => {
+    mockRequirePermiso.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
     const formData = new FormData();
     formData.set("label", "Frenos");
 
@@ -149,7 +149,7 @@ describe("crearDviChecklistItemAction", () => {
 
 describe("toggleDviChecklistItemActivoAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
+    mockRequirePermiso.mockReset().mockResolvedValue({ user: { role: "ADMIN", tenantSchema: "taller_perez" } });
     mockFindUnique.mockReset();
     mockUpdate.mockReset();
   });
@@ -161,7 +161,7 @@ describe("toggleDviChecklistItemActivoAction", () => {
     await toggleDviChecklistItemActivoAction("i1");
 
     expect(mockUpdate).toHaveBeenCalledWith({ where: { id: "i1" }, data: { activo: false } });
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("configuracion.taller");
   });
 
   it("flips activo from false back to true", async () => {
@@ -180,8 +180,8 @@ describe("toggleDviChecklistItemActivoAction", () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it("propagates the redirect rejection when requireRole rejects (not ADMIN)", async () => {
-    mockRequireRole.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
+  it("propagates the redirect rejection when requirePermiso rejects (not ADMIN)", async () => {
+    mockRequirePermiso.mockReset().mockRejectedValue(new Error("REDIRECT:/login?error=forbidden"));
 
     await expect(toggleDviChecklistItemActivoAction("i1")).rejects.toThrow("REDIRECT:/login?error=forbidden");
     expect(mockUpdate).not.toHaveBeenCalled();

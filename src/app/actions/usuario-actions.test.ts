@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockRequireRole = vi.fn();
+const mockRequirePermiso = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({
-  requireRole: (...args: unknown[]) => mockRequireRole(...args),
+  requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   requireSession: vi.fn(),
 }));
 
@@ -86,7 +86,7 @@ function stubSedeFindMany(existingIds: string[]) {
 
 describe("listUsuariosConSedes", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(ADMIN);
     mockUsuarioFindMany.mockReset();
   });
 
@@ -95,7 +95,7 @@ describe("listUsuariosConSedes", () => {
 
     await listUsuariosConSedes();
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("usuarios.gestionar");
     expect(mockUsuarioFindMany).toHaveBeenCalledWith({
       select: {
         id: true,
@@ -141,7 +141,7 @@ describe("listUsuariosConSedes", () => {
 
 describe("listUsuariosConMetricas", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(ADMIN);
     mockUsuarioFindMany.mockReset();
     mockOrdenGroupBy.mockReset();
   });
@@ -152,7 +152,7 @@ describe("listUsuariosConMetricas", () => {
 
     await listUsuariosConMetricas();
 
-    expect(mockRequireRole).toHaveBeenCalledWith(["ADMIN"]);
+    expect(mockRequirePermiso).toHaveBeenCalledWith("usuarios.gestionar");
     expect(mockUsuarioFindMany).toHaveBeenCalledWith({
       select: {
         id: true,
@@ -254,7 +254,7 @@ function buildUsuarioFormData(overrides: Record<string, string | string[]> = {})
 
 describe("createUsuarioAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(ADMIN);
     mockObtenerLimitesPlan.mockReset().mockResolvedValue({ maxUsuarios: null, maxSedes: null });
     mockUsuarioCount.mockReset();
     mockUsuarioCreate.mockReset();
@@ -371,7 +371,7 @@ describe("createUsuarioAction", () => {
 
 describe("updateUsuarioAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(ADMIN);
     mockUsuarioFindUnique
       .mockReset()
       .mockResolvedValue({ role: "RECEPCION", email: "ana@taller.test", activo: true, sedes: [] });
@@ -655,7 +655,7 @@ describe("updateUsuarioAction", () => {
 
 describe("deleteUsuarioAction", () => {
   beforeEach(() => {
-    mockRequireRole.mockReset().mockResolvedValue(ADMIN);
+    mockRequirePermiso.mockReset().mockResolvedValue(ADMIN);
     mockUsuarioFindUnique.mockReset();
     mockUsuarioCount.mockReset();
     mockUsuarioDelete.mockReset();

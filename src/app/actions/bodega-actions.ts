@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { bodegaInputSchema } from "@/lib/validation/inventario";
@@ -64,7 +64,7 @@ export async function createBodegaAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("inventario.editar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   try {
@@ -97,7 +97,7 @@ export async function updateBodegaAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("inventario.editar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   try {
@@ -117,7 +117,7 @@ export async function updateBodegaAction(
 }
 
 export async function deleteBodegaAction(id: string): Promise<void> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("inventario.editar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   let count = 0;
   try {

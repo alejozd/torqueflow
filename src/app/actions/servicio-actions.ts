@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requirePermiso, requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { roundMoney } from "@/lib/money/round";
@@ -157,7 +157,7 @@ export async function listServicios(opciones: { soloActivos?: boolean } = {}): P
   // De `soloActivos` depende qué rol se exige, así que se valida en vez de
   // confiar en cualquier valor "truthy" que llegue por la server action.
   const { soloActivos } = listarServiciosInputSchema.parse(opciones);
-  const session = await requireRole(soloActivos ? ["ADMIN", "RECEPCION", "TECNICO"] : ["ADMIN"]);
+  const session = await requirePermiso(soloActivos ? "ordenes.ver" : "servicios.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const filas = await tenantDb.servicio.findMany({
@@ -208,7 +208,7 @@ export async function crearServicioAction(
   prevState: ServicioFormState,
   formData: FormData,
 ): Promise<ServicioFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("servicios.gestionar");
   const parsed = servicioInputSchema.safeParse({
     nombre: formData.get("nombre") ?? "",
     descripcion: formData.get("descripcion") ?? "",
@@ -238,7 +238,7 @@ export async function actualizarServicioAction(
   prevState: ServicioFormState,
   formData: FormData,
 ): Promise<ServicioFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("servicios.gestionar");
   const parsed = servicioInputSchema.safeParse({
     nombre: formData.get("nombre") ?? "",
     descripcion: formData.get("descripcion") ?? "",
@@ -265,7 +265,7 @@ export async function actualizarServicioAction(
 }
 
 export async function toggleServicioActivoAction(servicioId: string): Promise<{ error: string | null }> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("servicios.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const servicio = await tenantDb.servicio.findUnique({ where: { id: servicioId }, select: { activo: true } });
@@ -290,7 +290,7 @@ export async function agregarRepuestoAServicioAction(
   prevState: ServicioRepuestoFormState,
   formData: FormData,
 ): Promise<ServicioRepuestoFormState> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("servicios.gestionar");
   const parsed = servicioRepuestoInputSchema.safeParse({
     repuestoId: formData.get("repuestoId") ?? "",
     cantidad: formData.get("cantidad"),
@@ -343,7 +343,7 @@ export async function actualizarCantidadRepuestoServicioAction(
   repuestoId: string,
   cantidad: number,
 ): Promise<{ error: string | null }> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("servicios.gestionar");
   const parsed = servicioRepuestoInputSchema.safeParse({ repuestoId, cantidad });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
 
@@ -365,7 +365,7 @@ export async function quitarRepuestoDeServicioAction(
   servicioId: string,
   repuestoId: string,
 ): Promise<{ error: string | null }> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("servicios.gestionar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   try {

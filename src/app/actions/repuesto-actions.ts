@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole, requireSession } from "@/lib/auth/guards";
+import { requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { repuestoInputSchema, repuestoStockInicialSchema as stockInicialSchema } from "@/lib/validation/inventario";
@@ -135,7 +135,7 @@ export async function createRepuestoAction(
     return { error: parsedStock.error.issues[0]?.message ?? "Datos inválidos", success: false, repuestoId: null };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("inventario.editar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const bodega = await tenantDb.bodega.findFirst({
@@ -181,7 +181,7 @@ export async function updateRepuestoAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false, repuestoId: null };
   }
 
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("inventario.editar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
   const bodega = await tenantDb.bodega.findFirst({
@@ -220,7 +220,7 @@ export async function updateRepuestoAction(
 }
 
 export async function deleteRepuestoAction(id: string): Promise<void> {
-  const session = await requireRole(["ADMIN", "RECEPCION"]);
+  const session = await requirePermiso("inventario.editar");
   const tenantDb = getTenantDb(session.user.tenantSchema);
   let count: number;
   try {

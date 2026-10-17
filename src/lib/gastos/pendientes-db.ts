@@ -35,7 +35,7 @@ export async function cargarPlantillasParaPendientes(
 
 /**
  * Cuenta pendientes cuya fechaSugerida cae en [gte, lt). Sin guard propio: la
- * llama el reporte, que ya pasó `requirePermiso("gastos.administrar")`.
+ * llama el reporte, que ya pasó `requirePermiso("reportes.rentabilidad")`.
  */
 export async function contarRecurrentesPendientesEnRango(
   tenantSchema: string,

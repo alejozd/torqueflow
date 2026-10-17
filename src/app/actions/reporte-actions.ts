@@ -1,6 +1,6 @@
 "use server";
 
-import { requireRole } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { reporteFiltrosSchema } from "@/lib/validation/reporte";
 import { buildRangoDias, buildRangoFechas } from "@/lib/reportes/rango-fechas";
@@ -36,7 +36,7 @@ export interface ReporteRentabilidadResult {
 export async function getReporteRentabilidad(filtros: ReporteFiltros): Promise<ReporteRentabilidadResult> {
   // Guard first: this is a read-only endpoint, there is nothing to parse for
   // an unauthorized caller. Rentabilidad exposes cost and margin — ADMIN only.
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("reportes.rentabilidad");
 
   const parsed = reporteFiltrosSchema.safeParse({
     desde: filtros.desde,
@@ -161,7 +161,7 @@ export interface ReporteProductividadResult {
  * `atribuirManoDeObra` decida. Es la misma lógica que usa la liquidación.
  */
 export async function getReporteProductividad(filtros: ReporteFiltros): Promise<ReporteProductividadResult> {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requirePermiso("reportes.productividad");
 
   const parsed = reporteFiltrosSchema.safeParse({
     desde: filtros.desde,
