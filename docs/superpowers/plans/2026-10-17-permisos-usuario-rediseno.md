@@ -4,7 +4,7 @@
 
 **Objetivo:** llevar `/usuarios/[id]` al diseño que propuso Stitch (`docs/Evidencias/Permisos-Usuario/screen.png`, archivo del usuario: no moverlo ni commitearlo): una sola pantalla de "Editar usuario y permisos" con cabecera del usuario, datos en 3 columnas y los permisos en tarjetas por grupo con buscador, contadores y barra de cambios sin guardar.
 
-> **Estado (2026-10-17):** rama `usuario-permisos-rediseno` creada desde `main`. **Tareas 1 y 2 hechas** (ver notas en cada tarea). Siguiente: **tarea 3**. Vamos en 2 de 5.
+> **Estado (2026-10-17):** rama `usuario-permisos-rediseno` creada desde `main`. **Tareas 1, 2 y 3 hechas** (ver notas en cada tarea). Siguiente: **tarea 4**. Vamos en 3 de 5.
 
 **Sin migraciones.** Todo sale de datos que ya existen (`Usuario.createdAt`, `activo`, `role`, `sedeIds`, `permisosAgregados`, `permisosQuitados`).
 
@@ -41,6 +41,8 @@ Test: los tests actuales de `editar-usuario-form.test.tsx` siguen pasando (ajust
 ### Task 3: Permisos en tarjetas
 `permisos-usuario.tsx`: grilla de 3 columnas (2 en pantallas medianas, 1 en móvil), una tarjeta por `GRUPOS_PERMISO` con ícono, título y contador "N / M activos"; dentro, las casillas con su etiqueta y los chips "Agregado"/"Quitado" de hoy. Encima: aviso del rol (D2), buscador "Buscar permiso (orden, cotización, caja…)" que filtra por etiqueta sin tildes ni mayúsculas, y los botones "Solo lectura", "Marcar todos", "Desmarcar todos" (D4). Un grupo sin coincidencias se oculta.
 Tests: el contador cambia al marcar; el buscador "caja" deja solo el grupo de caja; "Marcar todos" con filtro marca solo lo visible y nunca un ★; "Solo lectura" deja solo los `.ver`. Mantener los 5 tests actuales.
+
+**Hecho (tarea 3):** `permisos-usuario.tsx` con aviso "Permisos del rol X: N · M cambios", buscador (`type="search"`, sin tildes ni mayúsculas con `\p{Diacritic}`), botones "Solo lectura" / "Marcar todos" / "Desmarcar todos" que actúan solo sobre lo visible (`aplicarAVisibles`; los ★ nunca están en `VISIBLES`), y una tarjeta por grupo (ícono con tono de `KPI_TONE`, contador "N / M activos" sobre el total del grupo, `fieldset` con `legend` oculto para lectores). Grilla 1/2/3 columnas. Se mantienen el `key` de I5 y los botones "Guardar permisos" / "Volver al rol base" al pie (la tarea 4 los sube y los une con el guardado del formulario). 13 tests en el archivo.
 
 ### Task 4: Guardado único y barra de cambios sin guardar
 Contenedor cliente en `page.tsx` que junta ambos estados: barra fija abajo "Tienes cambios sin guardar" con "Descartar" y "Guardar cambios" (visible solo con cambios), y el botón superior hace lo mismo. Reglas de D1. Toast con el resultado de cada acción; si una falla, no se limpia su estado. "Descartar" vuelve a los datos del servidor.

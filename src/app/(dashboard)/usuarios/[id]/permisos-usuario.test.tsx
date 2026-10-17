@@ -96,4 +96,59 @@ describe("PermisosUsuario", () => {
     expect(screen.getByRole("checkbox", { name: /Abrir y cerrar caja/ })).not.toBeChecked();
     expect(screen.queryByText("Agregado")).not.toBeInTheDocument();
   });
+
+  describe("tarjetas, buscador y acciones masivas (rediseño, tarea 3)", () => {
+    it("muestra el aviso del rol y el contador de cada grupo, que cambia al marcar", async () => {
+      const user = userEvent.setup();
+      render(<PermisosUsuario usuarioId="u1" role="TECNICO" agregados={["caja.usar"]} quitados={[]} />);
+      const delRol = permisosEfectivos({ role: "TECNICO" }).length;
+      expect(screen.getByText(`Permisos del rol Técnico: ${delRol} · 1 cambio`)).toBeInTheDocument();
+      const dinero = screen.getByRole("group", { name: /Dinero/ });
+      expect(within(dinero).getByText(/^1 \/ \d+ activos$/)).toBeInTheDocument();
+      await user.click(within(dinero).getByRole("checkbox", { name: /Ver cartera/ }));
+      expect(within(dinero).getByText(/^2 \/ \d+ activos$/)).toBeInTheDocument();
+    });
+
+    it("el buscador filtra sin importar tildes ni mayúsculas y oculta los grupos sin coincidencias", async () => {
+      const user = userEvent.setup();
+      render(<PermisosUsuario usuarioId="u1" role="TECNICO" agregados={[]} quitados={[]} />);
+      await user.type(screen.getByRole("searchbox", { name: "Buscar permiso" }), "CAJA");
+      expect(screen.getByRole("checkbox", { name: /Abrir y cerrar caja/ })).toBeInTheDocument();
+      expect(screen.queryByRole("group", { name: /Citas/ })).not.toBeInTheDocument();
+      await user.clear(screen.getByRole("searchbox", { name: "Buscar permiso" }));
+      await user.type(screen.getByRole("searchbox", { name: "Buscar permiso" }), "vehiculo");
+      expect(screen.getByRole("checkbox", { name: /Entregar el vehículo/ })).toBeInTheDocument();
+    });
+
+    it("Marcar todos con filtro marca solo lo visible y nunca un permiso solo de administrador", async () => {
+      const user = userEvent.setup();
+      render(<PermisosUsuario usuarioId="u1" role="TECNICO" agregados={[]} quitados={[]} />);
+      await user.type(screen.getByRole("searchbox", { name: "Buscar permiso" }), "caja");
+      await user.click(screen.getByRole("button", { name: "Marcar todos" }));
+      await user.clear(screen.getByRole("searchbox", { name: "Buscar permiso" }));
+      expect(screen.getByRole("checkbox", { name: /Abrir y cerrar caja/ })).toBeChecked();
+      expect(screen.getByRole("checkbox", { name: /Ver cartera/ })).not.toBeChecked();
+      await user.click(screen.getByRole("button", { name: "Guardar permisos" }));
+      const enviados = mockGuardar.mock.calls[0]![1] as string[];
+      expect(enviados).not.toContain("usuarios.gestionar");
+    });
+
+    it("Desmarcar todos quita lo visible", async () => {
+      const user = userEvent.setup();
+      render(<PermisosUsuario usuarioId="u1" role="TECNICO" agregados={[]} quitados={[]} />);
+      await user.click(screen.getByRole("button", { name: "Desmarcar todos" }));
+      expect(screen.getAllByRole("checkbox").every((c) => !(c as HTMLInputElement).checked)).toBe(true);
+    });
+
+    it("Solo lectura deja marcados solo los permisos de ver", async () => {
+      const user = userEvent.setup();
+      render(<PermisosUsuario usuarioId="u1" role="RECEPCION" agregados={[]} quitados={[]} />);
+      await user.click(screen.getByRole("button", { name: "Solo lectura" }));
+      await user.click(screen.getByRole("button", { name: "Guardar permisos" }));
+      const enviados = mockGuardar.mock.calls[0]![1] as string[];
+      expect(enviados.length).toBeGreaterThan(0);
+      expect(enviados.every((p) => p.endsWith(".ver") || p.endsWith(".verTodas"))).toBe(true);
+      expect(enviados).toContain("clientes.ver");
+    });
+  });
 });
