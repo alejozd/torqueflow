@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useRef } from "react";
+import { startTransition, useActionState, useEffect, useImperativeHandle, useRef, type Ref } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useController, useForm, useWatch } from "react-hook-form";
@@ -38,10 +38,17 @@ export interface EditarUsuarioFormUsuario {
   sedeIds: string[];
 }
 
+/** Lo que la ficha del usuario necesita para guardar este formulario desde su propio botón. */
+export interface ControlFormularioUsuario {
+  enviar: () => void;
+}
+
 export function EditarUsuarioForm({
   usuario,
   sedes,
   showCancelButton = false,
+  controlRef,
+  onEstado,
 }: {
   usuario: EditarUsuarioFormUsuario;
   sedes: SedeCheckboxOption[];
@@ -53,6 +60,12 @@ export function EditarUsuarioForm({
    * DialogClose would throw. Same convention as NuevoRepuestoForm.
    */
   showCancelButton?: boolean;
+  /**
+   * Modo ficha (/usuarios/[id]): el botón propio desaparece, la página guarda
+   * con `controlRef.current.enviar()` y se entera de los cambios por `onEstado`.
+   */
+  controlRef?: Ref<ControlFormularioUsuario>;
+  onEstado?: (estado: { conCambios: boolean; cambiaRol: boolean }) => void;
 }) {
   const router = useRouter();
   const updateEsteUsuario = updateUsuarioAction.bind(null, usuario.id);
@@ -62,7 +75,7 @@ export function EditarUsuarioForm({
     register,
     handleSubmit,
     control,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<EditarUsuarioFormInput, unknown, EditarUsuarioFormOutput>({
     resolver: zodResolver(usuarioUpdateInputSchema),
     defaultValues: {
@@ -85,6 +98,13 @@ export function EditarUsuarioForm({
   // rule) -- the checkboxes are hidden and "Sede por defecto" offers every
   // sede in the tenant instead of only the checked subset.
   const esAdmin = roleWatched === "ADMIN";
+  const cambiaRol = roleWatched !== usuario.role;
+
+  useImperativeHandle(controlRef, () => ({ enviar: () => formRef.current?.requestSubmit() }), []);
+
+  useEffect(() => {
+    onEstado?.({ conCambios: isDirty, cambiaRol });
+  }, [isDirty, cambiaRol, onEstado]);
   const sedeDefectoOptions = esAdmin ? sedes : sedes.filter((sede) => sedeIdsWatched.includes(sede.id));
 
   useEffect(() => {
@@ -264,9 +284,11 @@ export function EditarUsuarioForm({
           {showCancelButton ? (
             <DialogClose render={<Button type="button" variant="outline" />}>Cancelar</DialogClose>
           ) : null}
-          <Button type="submit" disabled={isPending}>
-            {isPending ? "Guardando..." : "Guardar cambios"}
-          </Button>
+          {controlRef ? null : (
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Guardando..." : "Guardar cambios"}
+            </Button>
+          )}
         </div>
 
         {state.error ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useImperativeHandle, useState, useTransition, type Ref } from "react";
 import {
   CalendarDays,
   FileText,
@@ -56,11 +56,20 @@ function normalizar(texto: string): string {
 
 const esDeVer = (permiso: Permiso) => permiso.endsWith(".ver") || permiso.endsWith(".verTodas");
 
+/** Lo que la ficha del usuario necesita para guardar los permisos desde su propio botón. */
+export interface ControlPermisosUsuario {
+  /** true si se guardó; si falla, las casillas quedan como estaban. */
+  guardar: () => Promise<boolean>;
+}
+
 interface PermisosUsuarioProps {
   usuarioId: string;
   role: Role;
   agregados: readonly string[];
   quitados: readonly string[];
+  /** Modo ficha: sin botón "Guardar permisos"; la página guarda y cuenta los cambios. */
+  controlRef?: Ref<ControlPermisosUsuario>;
+  onCambios?: (cambios: number) => void;
 }
 
 /**
@@ -74,7 +83,7 @@ export function PermisosUsuario(props: PermisosUsuarioProps) {
   return <EditorPermisos key={clave} {...props} />;
 }
 
-function EditorPermisos({ usuarioId, role, agregados, quitados }: PermisosUsuarioProps) {
+function EditorPermisos({ usuarioId, role, agregados, quitados, controlRef, onCambios }: PermisosUsuarioProps) {
   const router = useRouter();
   const [pendiente, startTransition] = useTransition();
   const base = new Set<Permiso>(permisosEfectivos({ role }));
@@ -87,6 +96,15 @@ function EditorPermisos({ usuarioId, role, agregados, quitados }: PermisosUsuari
   const filtro = normalizar(busqueda.trim());
   const visibles = filtro ? VISIBLES.filter((p) => normalizar(PERMISOS[p].etiqueta).includes(filtro)) : VISIBLES;
   const cambios = VISIBLES.filter((p) => marcados.has(p) !== base.has(p)).length;
+  // Cambios contra lo guardado (no contra el rol): es lo que la ficha tiene pendiente.
+  const guardados = new Set(permisosEfectivos({ role, agregados, quitados }));
+  const sinGuardar = VISIBLES.filter((p) => marcados.has(p) !== guardados.has(p)).length;
+
+  useImperativeHandle(controlRef, () => ({ guardar: () => guardarAhora([...marcados]) }));
+
+  useEffect(() => {
+    onCambios?.(sinGuardar);
+  }, [sinGuardar, onCambios]);
 
   // Las acciones masivas solo tocan lo que deja ver el buscador (y nunca un ★:
   // no están en VISIBLES).
@@ -101,17 +119,22 @@ function EditorPermisos({ usuarioId, role, agregados, quitados }: PermisosUsuari
     });
   }
 
+  async function guardarAhora(lista: Permiso[], alGuardar?: () => void): Promise<boolean> {
+    const resultado = await guardarPermisosUsuarioAction(usuarioId, lista);
+    if (resultado.success) {
+      toast.success("Permisos guardados");
+      alGuardar?.();
+      setConfirmando(false);
+      router.refresh();
+      return true;
+    }
+    toast.error(resultado.error ?? "No se pudieron guardar los permisos");
+    return false;
+  }
+
   function guardar(lista: Permiso[], alGuardar?: () => void) {
     startTransition(async () => {
-      const resultado = await guardarPermisosUsuarioAction(usuarioId, lista);
-      if (resultado.success) {
-        toast.success("Permisos guardados");
-        alGuardar?.();
-        setConfirmando(false);
-        router.refresh();
-      } else {
-        toast.error(resultado.error ?? "No se pudieron guardar los permisos");
-      }
+      await guardarAhora(lista, alGuardar);
     });
   }
 
@@ -211,9 +234,11 @@ function EditorPermisos({ usuarioId, role, agregados, quitados }: PermisosUsuari
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" disabled={pendiente} onClick={() => guardar([...marcados])}>
-          Guardar permisos
-        </Button>
+        {controlRef ? null : (
+          <Button type="button" disabled={pendiente} onClick={() => guardar([...marcados])}>
+            Guardar permisos
+          </Button>
+        )}
         {confirmando ? (
           <ConfirmacionEnLinea
             pregunta="¿Quitar todos los cambios y dejar los permisos del rol?"
