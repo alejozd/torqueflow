@@ -81,20 +81,22 @@ function calcularTotalOrden(orden: OrdenDeVehiculo): number {
 
 export default async function VehiculoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const session = await requirePermiso("clientes.ver");
   const vehiculo = await getVehiculo(id);
 
   if (!vehiculo) {
     notFound();
   }
 
-  const session = await requirePermiso("clientes.ver");
+  // listGarantiasDeVehiculo exige ordenes.trabajar: sin él ni se pide ni se muestra la tarjeta.
+  const verGarantias = puede(session, "ordenes.trabajar");
   const [ordenes, tecnicos, marcas, modelos, diasAviso, garantias] = await Promise.all([
     listOrdenesByVehiculo(id),
     listTecnicos(),
     listMarcasVehiculo(),
     listTodosLosModelosVehiculo(),
     getDiasAvisoVencimiento(),
-    listGarantiasDeVehiculo(id),
+    verGarantias ? listGarantiasDeVehiculo(id) : Promise.resolve(null),
   ]);
   const puedeAgregarCatalogo = puede(session, "vehiculos.catalogo");
 
@@ -212,7 +214,7 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
         </div>
 
         <div className="flex flex-col gap-6">
-          <GarantiasCard garantias={garantias} sedeActivaId={session.user.sedeActivaId} />
+          {garantias ? <GarantiasCard garantias={garantias} sedeActivaId={session.user.sedeActivaId} /> : null}
           <Card>
             <CardHeader>
               <CardTitle>Vehículo</CardTitle>

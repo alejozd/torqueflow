@@ -17,7 +17,7 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", {
 
 export default async function ClientesPage() {
   const session = await requirePermiso("clientes.ver");
-  const [clientes] = await Promise.all([listClientes()]);
+  const clientes = await listClientes();
 
   const filas: ClienteRow[] = clientes.map((cliente) => {
     const ultimaVisita = cliente.ordenes.reduce<Date | null>((masReciente, orden) => {
