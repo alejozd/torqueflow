@@ -1,5 +1,5 @@
 import { AlertCircle, Car, UserPlus, Users } from "lucide-react";
-import { requireSession } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { listClientes } from "@/app/actions/cliente-actions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +16,8 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", {
 });
 
 export default async function ClientesPage() {
-  const [session, clientes] = await Promise.all([requireSession(), listClientes()]);
+  const session = await requirePermiso("clientes.ver");
+  const [clientes] = await Promise.all([listClientes()]);
 
   const filas: ClienteRow[] = clientes.map((cliente) => {
     const ultimaVisita = cliente.ordenes.reduce<Date | null>((masReciente, orden) => {

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { formatoFechaCorta } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
+import { requirePermiso } from "@/lib/auth/guards";
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
@@ -49,6 +50,7 @@ const ITEMS_COLUMNS: DataTableColumn<ItemRow>[] = [
 ];
 
 export default async function PedidoCompraDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePermiso("compras.ver");
   const { id } = await params;
   const pedido = await getPedidoCompra(id);
   if (!pedido) notFound();

@@ -13,6 +13,7 @@ import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
 import { estaBajoMinimo } from "@/lib/inventario/comprometido";
 import type { Bodega, Proveedor } from "@/generated/prisma-tenant";
+import { requirePermiso } from "@/lib/auth/guards";
 
 type EstadoStock = "ok" | "bajo" | "sin-existencias";
 
@@ -180,6 +181,7 @@ export default async function RepuestosPage({
 }: {
   searchParams: Promise<{ filtro?: string }>;
 }) {
+  await requirePermiso("inventario.ver");
   const { filtro } = await searchParams;
   const filtroActivo = FILTROS_VALIDOS.includes(filtro as Filtro) ? (filtro as Filtro) : undefined;
 

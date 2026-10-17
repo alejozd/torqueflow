@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AlertCircle, DollarSign, Package, Warehouse } from "lucide-react";
-import { requireSession } from "@/lib/auth/guards";
+import { requirePermiso } from "@/lib/auth/guards";
 import { listBodegasConInventario, type BodegaConInventario } from "@/app/actions/bodega-actions";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -79,7 +79,8 @@ const COLUMNS: DataTableColumn<BodegaRow>[] = [
 ];
 
 export default async function BodegasPage() {
-  const [session, bodegas] = await Promise.all([requireSession(), listBodegasConInventario()]);
+  const session = await requirePermiso("inventario.ver");
+  const bodegas = await listBodegasConInventario();
 
   const filas: BodegaRow[] = bodegas.map((bodega) => ({ ...bodega, sedeNombre: session.user.sedeActivaNombre }));
 

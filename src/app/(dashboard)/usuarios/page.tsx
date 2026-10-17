@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPI_TONE, KpiCard, type KpiTone } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
+import { requirePermiso } from "@/lib/auth/guards";
 
 // Same green/outline convention already used elsewhere (e.g. ConfiguracionSmtp,
 // Cotizaciones' APROBADA) for a positive "active" state.
@@ -143,6 +144,7 @@ export default async function UsuariosPage({
 }: {
   searchParams: Promise<{ rol?: string }>;
 }) {
+  await requirePermiso("usuarios.gestionar");
   const { rol } = await searchParams;
   const rolFiltro = ROLES_VALIDOS.includes(rol as Role) ? (rol as Role) : undefined;
 

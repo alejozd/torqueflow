@@ -4,8 +4,10 @@ import { listBodegas } from "@/app/actions/bodega-actions";
 import { listProveedores } from "@/app/actions/proveedor-actions";
 import { NuevoRepuestoForm } from "../nuevo-repuesto-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { requirePermiso } from "@/lib/auth/guards";
 
 export default async function NuevoRepuestoPage() {
+  await requirePermiso("inventario.editar");
   const [bodegas, proveedores] = await Promise.all([listBodegas(), listProveedores()]);
 
   return (

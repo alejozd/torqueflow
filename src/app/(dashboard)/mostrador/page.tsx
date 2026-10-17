@@ -5,12 +5,14 @@ import { cn } from "@/lib/utils";
 import { PestanasMostrador } from "./pestanas-mostrador";
 import { VenderMostrador } from "./vender-mostrador";
 import { PanelVentas } from "./ventas/panel-ventas";
+import { requirePermiso } from "@/lib/auth/guards";
 
 export default async function MostradorPage({
   searchParams,
 }: {
   searchParams: Promise<{ tab?: string; venta?: string }>;
 }) {
+  await requirePermiso("mostrador.vender");
   const { tab, venta } = await searchParams;
   const { efectivoBloqueado, usarControlCaja, cajaAbierta, topeDescuento, ventas, resumen } =
     await getMostradorDatos();

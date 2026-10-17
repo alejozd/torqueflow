@@ -3,8 +3,10 @@ import { listUsuariosConSedes } from "@/app/actions/usuario-actions";
 import { listSedes } from "@/app/actions/sede-actions";
 import { EditarUsuarioForm } from "./editar-usuario-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { requirePermiso } from "@/lib/auth/guards";
 
 export default async function EditarUsuarioPage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePermiso("usuarios.gestionar");
   const { id } = await params;
   const [usuarios, sedes] = await Promise.all([listUsuariosConSedes(), listSedes()]);
   const usuario = usuarios.find((u) => u.id === id);

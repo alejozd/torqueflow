@@ -5,7 +5,7 @@ import { PestanasOrden } from "./pestanas-orden";
 import { AgregarAlTrabajo } from "./agregar-al-trabajo";
 import { notFound } from "next/navigation";
 import { getOrden, listTecnicos } from "@/app/actions/orden-actions";
-import { puede, requireSession } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { listRepuestoOptions } from "@/app/actions/repuesto-actions";
 import { listBodegas } from "@/app/actions/bodega-actions";
 import { listProveedores } from "@/app/actions/proveedor-actions";
@@ -174,8 +174,8 @@ export default async function OrdenDetailPage({
 }) {
   const { id } = await params;
   const { tab } = await searchParams;
-  const [session, orden, repuestos, tecnicos, bodegas, proveedores, dviItems, anticipos, servicios, opcionesTaller] = await Promise.all([
-    requireSession(),
+  const session = await requirePermiso("ordenes.ver");
+  const [orden, repuestos, tecnicos, bodegas, proveedores, dviItems, anticipos, servicios, opcionesTaller] = await Promise.all([
     getOrden(id),
     listRepuestoOptions(),
     listTecnicos(),

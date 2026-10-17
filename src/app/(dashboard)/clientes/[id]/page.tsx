@@ -4,7 +4,7 @@ import { ArrowLeft, Car, CheckCircle2, Clock, Gauge, IdCard, Mail, Phone, Wrench
 import { getCliente } from "@/app/actions/cliente-actions";
 import { listTecnicos } from "@/app/actions/orden-actions";
 import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/vehiculo-marca-modelo-actions";
-import { puede, requireSession } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { EditarClienteDialog } from "./editar-cliente-dialog";
 import { NuevoVehiculoDialog } from "./nuevo-vehiculo-dialog";
 import { EditarVehiculoDialog } from "./editar-vehiculo-dialog";
@@ -101,10 +101,10 @@ function resumirVehiculo(vehiculo: VehiculoDeCliente, ordenes: OrdenDeCliente[])
 
 export default async function ClienteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [cliente, tecnicos, session, marcas, modelos] = await Promise.all([
+  const session = await requirePermiso("clientes.ver");
+  const [cliente, tecnicos, marcas, modelos] = await Promise.all([
     getCliente(id),
     listTecnicos(),
-    requireSession(),
     listMarcasVehiculo(),
     listTodosLosModelosVehiculo(),
   ]);

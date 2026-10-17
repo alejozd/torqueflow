@@ -2,8 +2,10 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { NuevoBodegaForm } from "../nuevo-bodega-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { requirePermiso } from "@/lib/auth/guards";
 
-export default function NuevaBodegaPage() {
+export default async function NuevaBodegaPage() {
+  await requirePermiso("inventario.editar");
   return (
     <main className="flex flex-col gap-6">
       <Link href="/bodegas" className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">

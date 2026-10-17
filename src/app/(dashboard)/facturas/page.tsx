@@ -12,6 +12,7 @@ import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { inferirColorVehiculo } from "@/lib/color-vehiculo";
 import { formatoFechaCorta, formatoFechaRelativa, inicioMesBogota } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
+import { requirePermiso } from "@/lib/auth/guards";
 
 const ESTADOS_VALIDOS: EstadoFactura[] = ["PENDIENTE", "PAGADA"];
 
@@ -210,6 +211,7 @@ export default async function FacturasPage({
 }: {
   searchParams: Promise<{ estado?: string; q?: string; sort?: string; order?: string }>;
 }) {
+  await requirePermiso("facturas.ver");
   const { estado, q, sort, order } = await searchParams;
   const estadoFiltro = ESTADOS_VALIDOS.includes(estado as EstadoFactura) ? (estado as EstadoFactura) : undefined;
   const busqueda = q?.trim().toLowerCase() ?? "";

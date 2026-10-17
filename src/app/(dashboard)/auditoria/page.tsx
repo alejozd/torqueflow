@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { TipoEventoAuditoria } from "@/generated/prisma-tenant";
 import { TIPOS_EVENTO_AUDITORIA, TIPO_EVENTO_AUDITORIA_LABELS } from "@/lib/auditoria/catalogo";
+import { requirePermiso } from "@/lib/auth/guards";
 
 const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" });
 
@@ -59,6 +60,7 @@ export default async function AuditoriaPage({
 }: {
   searchParams: Promise<{ tipo?: string }>;
 }) {
+  await requirePermiso("auditoria.ver");
   const { tipo } = await searchParams;
   const tipoFiltro = TIPOS_EVENTO_AUDITORIA.includes(tipo as TipoEventoAuditoria)
     ? (tipo as TipoEventoAuditoria)

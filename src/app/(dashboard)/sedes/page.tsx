@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPI_TONE, KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
+import { requirePermiso } from "@/lib/auth/guards";
 
 const COLUMNS: DataTableColumn<SedeConMetricas>[] = [
   {
@@ -40,6 +41,7 @@ const COLUMNS: DataTableColumn<SedeConMetricas>[] = [
 ];
 
 export default async function SedesPage() {
+  await requirePermiso("sedes.gestionar");
   const sedes = await listSedesConMetricas();
 
   const totalUsuariosAsignados = sedes.reduce((suma, sede) => suma + sede.usuariosAsignados, 0);

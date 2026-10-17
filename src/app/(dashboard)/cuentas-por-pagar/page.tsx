@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { pesos, plural, PUNTO, TEXTO_VERDE } from "./presentacion";
 import { AbonosProvider } from "./abonos-contexto";
 import { ProveedorCuentasLista } from "./proveedor-cuentas";
+import { requirePermiso } from "@/lib/auth/guards";
 
 const RANGOS = [
   { clave: "0-30", etiqueta: "0 a 30 días", tono: "info", colorValor: "default", icono: Clock },
@@ -47,6 +48,7 @@ export default async function CuentasPorPagarPage({
 }: {
   searchParams: Promise<{ tab?: string; abonada?: string }>;
 }) {
+  await requirePermiso("cuentasPorPagar.usar");
   const { tab, abonada } = await searchParams;
   const filtro: FiltroCuentasPorPagar = tab === "pagadas" ? "pagadas" : "pendientes";
   // `?abonada=id1,id2`: cuentas recién abonadas aquí, que siguen a la vista resaltadas.

@@ -11,7 +11,7 @@ import { NuevaOrdenDialog } from "../../clientes/[id]/nueva-orden-dialog";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { puede, requireSession } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { totalOrden } from "@/lib/dashboard/calculos";
 import { VencimientoBadge } from "@/components/vencimiento-badge";
 import { GarantiasCard } from "./garantias-card";
@@ -87,10 +87,10 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
     notFound();
   }
 
-  const [ordenes, tecnicos, session, marcas, modelos, diasAviso, garantias] = await Promise.all([
+  const session = await requirePermiso("clientes.ver");
+  const [ordenes, tecnicos, marcas, modelos, diasAviso, garantias] = await Promise.all([
     listOrdenesByVehiculo(id),
     listTecnicos(),
-    requireSession(),
     listMarcasVehiculo(),
     listTodosLosModelosVehiculo(),
     getDiasAvisoVencimiento(),
