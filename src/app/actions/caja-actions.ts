@@ -11,6 +11,7 @@ import {
   type Metodo,
   type ResumenCaja,
 } from "@/lib/caja/resumen";
+import { consultarMovimientosCaja, resumenBaseDeMovimientos } from "@/lib/caja/movimientos";
 import { periodoActualBogota, rangoInstantesDelPeriodo } from "@/lib/gastos/periodo";
 import { resolverSede, validarSede } from "@/lib/gastos/validaciones-db";
 import { abrirCajaInputSchema, cerrarCajaInputSchema } from "@/lib/validation/caja";
@@ -67,32 +68,8 @@ async function cargarMovimientos(
   desde: Date,
   hasta: Date,
 ): Promise<{ resumenBase: Parameters<typeof calcularResumenCaja>[1]; filas: MovimientoCajaFila[] }> {
-  const ventana = { gte: desde, lt: hasta };
-  const pagos = await tenantDb.pago.findMany({
-    where: { metodoPago: { not: "ANTICIPO" }, createdAt: ventana, factura: { orden: { sedeId } } },
-    include: { factura: { select: { numero: true } } },
-  });
-  const anticipos = await tenantDb.anticipo.findMany({ where: { sedeId, createdAt: ventana } });
-  const devoluciones = await tenantDb.anticipo.findMany({
-    where: { sedeId, estado: "DEVUELTO", devueltoAt: ventana },
-  });
-  const gastos = await tenantDb.gasto.findMany({
-    where: { sedeId, pagadoEnEfectivo: true, createdAt: ventana },
-  });
-  // Fase 24: las ventas de mostrador son ingreso y sus devoluciones, egreso.
-  const pagosMostrador = await tenantDb.pagoVentaMostrador.findMany({
-    where: { createdAt: ventana, venta: { sedeId } },
-    include: { venta: { select: { numero: true } } },
-  });
-  const devolucionesMostrador = await tenantDb.devolucionMostrador.findMany({
-    where: { sedeId, createdAt: ventana },
-    include: { venta: { select: { numero: true } } },
-  });
-  // Abonos a proveedores en efectivo: sale dinero del cajón (Fase 24).
-  const pagosProveedor = await tenantDb.pagoProveedor.findMany({
-    where: { metodoPago: "EFECTIVO", createdAt: ventana, cuenta: { entrada: { bodega: { sedeId } } } },
-    include: { cuenta: { select: { proveedor: { select: { nombre: true } } } } },
-  });
+  const f = await consultarMovimientosCaja(tenantDb, sedeId, desde, hasta);
+  const { pagos, anticipos, devoluciones, gastos, pagosMostrador, devolucionesMostrador, pagosProveedor } = f;
 
   const filas: MovimientoCajaFila[] = [
     ...pagos.map((p) => ({
@@ -156,20 +133,7 @@ async function cargarMovimientos(
   ].sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
 
   return {
-    resumenBase: {
-      pagos: pagos.map((p) => ({ monto: Number(p.monto), metodo: p.metodoPago as Metodo })),
-      anticipos: anticipos.map((a) => ({ monto: Number(a.monto), metodo: a.metodoPago as Metodo })),
-      devoluciones: [
-        ...devoluciones.map((d) => ({
-          monto: Number(d.monto),
-          metodo: (d.metodoDevolucion ?? "EFECTIVO") as Metodo,
-        })),
-        ...devolucionesMostrador.map((d) => ({ monto: Number(d.montoEnEfectivo), metodo: d.metodoPago as Metodo })),
-      ],
-      ventasMostrador: pagosMostrador.map((p) => ({ monto: Number(p.monto), metodo: p.metodoPago as Metodo })),
-      gastosEfectivo: gastos.map((g) => Number(g.monto)),
-      pagosProveedorEfectivo: pagosProveedor.map((p) => Number(p.monto)),
-    },
+    resumenBase: resumenBaseDeMovimientos(f),
     filas,
   };
 }
