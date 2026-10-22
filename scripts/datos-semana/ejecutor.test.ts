@@ -7,13 +7,15 @@ const ctx = { sedes: [{ id: "s1", nombre: "Principal" }] } as unknown as Context
 
 function dbFalsa() {
   let transacciones = 0;
+  const opciones: unknown[] = [];
   const db = {
-    $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
+    $transaction: async (fn: (tx: unknown) => Promise<unknown>, op?: unknown) => {
       transacciones++;
+      opciones.push(op);
       return fn({});
     },
   } as unknown as TenantDb;
-  return { db, cuenta: () => transacciones };
+  return { db, cuenta: () => transacciones, opciones };
 }
 
 const dia = (fecha: string, ...tipos: string[]): PlanDia => ({
@@ -23,7 +25,7 @@ const dia = (fecha: string, ...tipos: string[]): PlanDia => ({
 
 describe("ejecutarPlan", () => {
   it("una transacción por día, despacha y cuenta omitidos", async () => {
-    const { db, cuenta } = dbFalsa();
+    const { db, cuenta, opciones } = dbFalsa();
     const vistos: string[] = [];
     MANEJADORES.gasto = async (_tx, _c, estado, d, e) => {
       vistos.push(`${d.fecha}:${e.tipo}`);
@@ -32,6 +34,7 @@ describe("ejecutarPlan", () => {
     try {
       const estado = await ejecutarPlan(db, ctx, [dia("2026-10-19", "gasto", "liquidacion"), dia("2026-10-20", "gasto")], 1, () => {});
       expect(cuenta()).toBe(2);
+      expect(opciones).toEqual([{ timeout: 120_000, maxWait: 10_000 }, { timeout: 120_000, maxWait: 10_000 }]);
       expect(vistos).toEqual(["2026-10-19:gasto", "2026-10-20:gasto"]);
       expect(estado.creados.gasto).toBe(2);
       expect(estado.creados["omitido:liquidacion"]).toBe(1);

@@ -14,6 +14,10 @@ export type Manejador = (
   tx: TenantTx, ctx: Contexto, estado: EstadoEjecucion, dia: PlanDia, evento: Evento, az: Azar,
 ) => Promise<void>;
 
+/** Un día completo sobre el enlace remoto supera los 5 s por defecto de Prisma. */
+const TIEMPO_MAXIMO_TRANSACCION = 120_000;
+const ESPERA_MAXIMA_TRANSACCION = 10_000;
+
 /** Se llena en las tareas 5 a 10. */
 export const MANEJADORES: Partial<Record<Evento["tipo"], Manejador>> = {};
 
@@ -38,7 +42,7 @@ export async function ejecutarPlan(
             estado.creados[clave] = (estado.creados[clave] ?? 0) + 1;
           }
         }
-      });
+      }, { timeout: TIEMPO_MAXIMO_TRANSACCION, maxWait: ESPERA_MAXIMA_TRANSACCION });
     } catch (e) {
       const mensaje = e instanceof Error ? e.message : String(e);
       throw new Error(`Falló el ${dia.fecha} (sede ${sede}) en "${actual}": ${mensaje}`);
