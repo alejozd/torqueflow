@@ -9,7 +9,7 @@ const ctx = { recepcionistaId: "rec1" } as unknown as Contexto;
 const dia: PlanDia = { fecha: "2026-10-20", sedeId: "s1", eventos: [] };
 const nuevoEstado = (): EstadoEjecucion => ({
   ordenes: new Map(), cajaAbierta: new Map(), creados: {},
-  clientesCreados: [], clientesUsados: new Set(), citasPorOrden: new Map(),
+  clientesCreados: [], clientesUsados: new Set(), citasPorOrden: new Map(), anticiposPendientes: [],
 });
 const vacio = () => ({ findMany: vi.fn(async () => []) });
 

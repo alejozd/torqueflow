@@ -7,7 +7,7 @@ import type { PlanDia } from "./tipos";
 
 const nuevoEstado = (): EstadoEjecucion => ({
   ordenes: new Map(), cajaAbierta: new Map(), creados: {},
-  clientesCreados: [], clientesUsados: new Set(), citasPorOrden: new Map(),
+  clientesCreados: [], clientesUsados: new Set(), citasPorOrden: new Map(), anticiposPendientes: [],
 });
 const dia: PlanDia = { fecha: "2026-10-20", sedeId: "s1", eventos: [] };
 

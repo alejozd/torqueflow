@@ -15,7 +15,7 @@ async function correr(evento: Extract<Evento, { tipo: "cita" }>, semilla = 1) {
   const tx = { cita: { create } } as unknown as TenantTx;
   const estado: EstadoEjecucion = {
     ordenes: new Map(), cajaAbierta: new Map(), creados: {},
-    clientesCreados: [], clientesUsados: new Set(), citasPorOrden: new Map(),
+    clientesCreados: [], clientesUsados: new Set(), citasPorOrden: new Map(), anticiposPendientes: [],
   };
   await registrarCita(tx, ctx, estado, dia, evento, crearAzar(semilla));
   const data = (create.mock.calls[0] as unknown as [{ data: Record<string, unknown> }])[0].data;
