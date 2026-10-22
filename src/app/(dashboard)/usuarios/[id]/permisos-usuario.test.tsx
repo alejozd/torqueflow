@@ -140,6 +140,18 @@ describe("PermisosUsuario", () => {
       expect(screen.getAllByRole("checkbox").every((c) => !(c as HTMLInputElement).checked)).toBe(true);
     });
 
+    it("Solo lectura no agrega permisos de ver que el usuario no tenía", async () => {
+      const user = userEvent.setup();
+      // El técnico no tiene ordenes.verTodas ni auditoria.ver.
+      render(<PermisosUsuario usuarioId="u1" role="TECNICO" agregados={[]} quitados={[]} />);
+      await user.click(screen.getByRole("button", { name: "Solo lectura" }));
+      await user.click(screen.getByRole("button", { name: "Guardar permisos" }));
+      const enviados = mockGuardar.mock.calls[0]![1] as string[];
+      expect(enviados).toContain("ordenes.ver");
+      expect(enviados).not.toContain("ordenes.verTodas");
+      expect(enviados).not.toContain("auditoria.ver");
+    });
+
     it("Solo lectura deja marcados solo los permisos de ver", async () => {
       const user = userEvent.setup();
       render(<PermisosUsuario usuarioId="u1" role="RECEPCION" agregados={[]} quitados={[]} />);

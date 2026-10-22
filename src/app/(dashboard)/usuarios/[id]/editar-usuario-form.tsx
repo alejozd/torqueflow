@@ -221,7 +221,7 @@ export function EditarUsuarioForm({
                   aria-labelledby="activo-label"
                   onClick={() => activoField.onChange(activoField.value === "false" ? "true" : "false")}
                   className={cn(
-                    "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors",
+                    "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                     activoField.value === "false" ? "bg-muted-foreground/30" : "bg-[oklch(0.55_0.13_150)]",
                   )}
                 >

@@ -176,7 +176,7 @@ export function FichaUsuario({ usuario, sedes }: { usuario: FichaUsuarioUsuario;
               </span>
             ) : null}
           </div>
-          <Button type="button" variant="ghost" disabled={pendiente} onClick={descartar}>
+          <Button type="button" variant="ghost" disabled={pendiente || estadoForm.pendiente} onClick={descartar}>
             Descartar
           </Button>
           {botonGuardar}
