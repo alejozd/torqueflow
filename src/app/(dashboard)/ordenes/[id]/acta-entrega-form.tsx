@@ -72,6 +72,7 @@ export function ActaEntregaForm({
   editable,
   exigirFirma = false,
   puedeBorrar = false,
+  permitirEntrega,
 }: {
   ordenId: string;
   estado: string;
@@ -82,6 +83,8 @@ export function ActaEntregaForm({
   exigirFirma?: boolean;
   /** ADMIN/RECEPCION: puede borrar el borrador del acta. */
   puedeBorrar?: boolean;
+  /** `ordenes.entregar`: sin él se arma el acta pero no se entrega. Obligatoria, sin valor por defecto. */
+  permitirEntrega: boolean;
 }) {
   const [recibidoPor, setRecibidoPor] = useState(acta?.recibidoPor ?? "");
   const [documentoRecibe, setDocumentoRecibe] = useState(acta?.documentoRecibe ?? "");
@@ -102,7 +105,8 @@ export function ActaEntregaForm({
   const firmada = Boolean(acta?.firmadaAt);
   const yaEntregada = estado === "ENTREGADA";
   const soloFirma = yaEntregada && !firmada;
-  const puedeEntregar = estado === "TERMINADA";
+  const terminada = estado === "TERMINADA";
+  const puedeEntregar = terminada && permitirEntrega;
 
   // Al entregar, el servidor revalida y esta misma instancia recibe la orden ya
   // entregada: la confirmación de "entregar" no puede quedar abierta encima del
@@ -277,7 +281,10 @@ export function ActaEntregaForm({
           )}
         </div>
       )}
-      {!soloFirma && !puedeEntregar ? (
+      {!soloFirma && terminada && !permitirEntrega ? (
+        <p className="text-xs text-muted-foreground">La entrega la hacen Recepción o el Jefe de taller.</p>
+      ) : null}
+      {!soloFirma && !terminada ? (
         <p className="text-xs text-muted-foreground">
           La orden se entrega cuando esté Terminada: por ahora puedes ir dejando los datos del acta.
         </p>

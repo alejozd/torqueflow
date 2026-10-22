@@ -780,15 +780,15 @@ describe("guardarPermisosUsuarioAction", () => {
 
   it("guarda solo la diferencia con el rol y audita antes y después", async () => {
     const base = ["clientes.ver", "citas.ver", "cotizaciones.ver", "cotizaciones.editarItems", "ordenes.ver",
-      "ordenes.trabajar", "ordenes.cambiarEstado", "ordenes.entregar", "inventario.ver"];
-    const marcados = [...base.filter((p) => p !== "ordenes.entregar"), "caja.usar"];
+      "ordenes.trabajar", "ordenes.cambiarEstado", "inventario.ver"];
+    const marcados = [...base.filter((p) => p !== "ordenes.cambiarEstado"), "caja.usar"];
 
     const result = await guardarPermisosUsuarioAction("u2", marcados);
 
     expect(result).toEqual({ error: null, success: true });
     expect(mockUsuarioUpdate).toHaveBeenCalledWith({
       where: { id: "u2" },
-      data: { permisosAgregados: ["caja.usar"], permisosQuitados: ["ordenes.entregar"] },
+      data: { permisosAgregados: ["caja.usar"], permisosQuitados: ["ordenes.cambiarEstado"] },
     });
     expect(mockAuditLogCreate).toHaveBeenCalledWith({
       data: {
@@ -798,7 +798,7 @@ describe("guardarPermisosUsuarioAction", () => {
         entidadId: "u2",
         detalle: {
           agregados: ["caja.usar"],
-          quitados: ["ordenes.entregar"],
+          quitados: ["ordenes.cambiarEstado"],
           antes: { agregados: ["gastos.registrar"], quitados: ["clientes.ver"] },
         },
       },
@@ -807,7 +807,7 @@ describe("guardarPermisosUsuarioAction", () => {
 
   it("volver al rol base deja ambas listas vacías", async () => {
     const base = ["clientes.ver", "citas.ver", "cotizaciones.ver", "cotizaciones.editarItems", "ordenes.ver",
-      "ordenes.trabajar", "ordenes.cambiarEstado", "ordenes.entregar", "inventario.ver"];
+      "ordenes.trabajar", "ordenes.cambiarEstado", "inventario.ver"];
     await guardarPermisosUsuarioAction("u2", base);
     expect(mockUsuarioUpdate.mock.calls[0][0].data).toEqual({ permisosAgregados: [], permisosQuitados: [] });
   });
