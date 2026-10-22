@@ -502,6 +502,7 @@ export default async function OrdenDetailPage({
                         // orden anulada la deja de solo lectura; una entregada sin firma se firma.
                         editable={orden.estado !== "ANULADA"}
                         exigirFirma={opcionesTaller.exigirActaFirmada}
+                        permitirEntrega={puede(session, "ordenes.entregar")}
                         puedeBorrar={
                           orden.estado !== "ENTREGADA" &&
                           orden.estado !== "ANULADA" &&

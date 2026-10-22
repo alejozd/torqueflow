@@ -30,7 +30,7 @@ describe("PermisosUsuario", () => {
     const user = userEvent.setup();
     render(<PermisosUsuario usuarioId="u1" role="TECNICO" agregados={[]} quitados={[]} />);
     expect(screen.queryByText("Quitado")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("checkbox", { name: /Entregar el vehículo/ }));
+    await user.click(screen.getByRole("checkbox", { name: /Cambiar el estado de la orden/ }));
     expect(screen.getByText("Quitado")).toBeInTheDocument();
   });
 
@@ -147,11 +147,11 @@ describe("PermisosUsuario", () => {
       expect(screen.getByRole("checkbox", { name: /Ver facturas/ })).toBeChecked();
     });
 
-    it("desmarcar un requisito desmarca lo que depende de él (Ver órdenes → Entregar)", async () => {
+    it("desmarcar un requisito desmarca lo que depende de él (Ver órdenes → Cambiar estado)", async () => {
       const user = userEvent.setup();
       render(<PermisosUsuario usuarioId="u1" role="TECNICO" agregados={[]} quitados={[]} />);
       await user.click(screen.getByRole("checkbox", { name: /^Ver órdenes/ }));
-      expect(screen.getByRole("checkbox", { name: /Entregar el vehículo/ })).not.toBeChecked();
+      expect(screen.getByRole("checkbox", { name: /Cambiar el estado de la orden/ })).not.toBeChecked();
       expect(screen.getByRole("checkbox", { name: /Agregar trabajo a la orden/ })).not.toBeChecked();
     });
 

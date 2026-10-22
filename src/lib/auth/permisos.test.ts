@@ -48,7 +48,7 @@ describe("paridad de roles con requireRole de hoy", () => {
 
   it.each<Permiso>([
     "clientes.ver", "citas.ver", "cotizaciones.ver", "cotizaciones.editarItems", "ordenes.ver",
-    "ordenes.trabajar", "ordenes.cambiarEstado", "ordenes.entregar", "inventario.ver",
+    "ordenes.trabajar", "ordenes.cambiarEstado", "inventario.ver",
   ])("RECEPCION y TECNICO pueden %s", (permiso) => {
     expect(tienePermiso(recepcion, permiso)).toBe(true);
     expect(tienePermiso(tecnico, permiso)).toBe(true);
@@ -111,9 +111,9 @@ describe("rol JEFE_TALLER (D6)", () => {
 
 describe("excepciones por usuario (D1–D3)", () => {
   it("suma los agregados y resta los quitados", () => {
-    const p = permisosEfectivos({ role: "TECNICO", agregados: ["mostrador.vender"], quitados: ["ordenes.entregar"] });
+    const p = permisosEfectivos({ role: "TECNICO", agregados: ["mostrador.vender"], quitados: ["ordenes.cambiarEstado"] });
     expect(p).toContain("mostrador.vender");
-    expect(p).not.toContain("ordenes.entregar");
+    expect(p).not.toContain("ordenes.cambiarEstado");
   });
   it("ignora claves desconocidas", () => {
     expect(permisosEfectivos({ role: "TECNICO", agregados: ["ordenes.volar"] })).toEqual(permisosEfectivos({ role: "TECNICO" }));
@@ -134,10 +134,10 @@ describe("excepcionesDesdeMarcados", () => {
     });
   });
   it("quita lo desmarcado, en el orden del catálogo", () => {
-    const marcados = PERMISOS_POR_ROL.TECNICO.filter((p) => p !== "ordenes.entregar" && p !== "clientes.ver");
+    const marcados = PERMISOS_POR_ROL.TECNICO.filter((p) => p !== "ordenes.cambiarEstado" && p !== "clientes.ver");
     expect(excepcionesDesdeMarcados("TECNICO", marcados)).toEqual({
       agregados: [],
-      quitados: ["clientes.ver", "ordenes.entregar"],
+      quitados: ["clientes.ver", "ordenes.cambiarEstado"],
     });
   });
   it("volver al rol base deja ambas listas vacías y ignora duplicados", () => {
@@ -199,5 +199,17 @@ describe("requisitos entre permisos", () => {
     expect(r.has("ordenes.planificar")).toBe(false);
     expect(r.has("ordenes.reasignarMecanico")).toBe(false);
     expect(r.has("clientes.ver")).toBe(true);
+  });
+});
+
+describe("la entrega del vehículo (decisión del usuario, 2026-10-22)", () => {
+  it("el técnico no entrega; recepción y jefe de taller sí", () => {
+    expect(permisosEfectivos({ role: "TECNICO" })).not.toContain("ordenes.entregar");
+    expect(permisosEfectivos({ role: "RECEPCION" })).toContain("ordenes.entregar");
+    expect(permisosEfectivos({ role: "JEFE_TALLER" })).toContain("ordenes.entregar");
+  });
+
+  it("al técnico se le puede dar la entrega por excepción", () => {
+    expect(permisosEfectivos({ role: "TECNICO", agregados: ["ordenes.entregar"] })).toContain("ordenes.entregar");
   });
 });

@@ -19,7 +19,7 @@ import { ActaEntregaForm } from "./acta-entrega-form";
 const OK = { error: null, success: true };
 
 function renderForm(props: Partial<Parameters<typeof ActaEntregaForm>[0]> = {}) {
-  return render(<ActaEntregaForm ordenId="o1" estado="TERMINADA" acta={null} editable {...props} />);
+  return render(<ActaEntregaForm ordenId="o1" estado="TERMINADA" acta={null} editable permitirEntrega {...props} />);
 }
 
 describe("ActaEntregaForm", () => {
@@ -97,7 +97,7 @@ describe("ActaEntregaForm", () => {
     expect(mockEntregar).toHaveBeenCalledTimes(1);
 
     // El servidor revalida: la misma instancia del formulario recibe la orden ya entregada, sin acta firmada.
-    rerender(<ActaEntregaForm ordenId="o1" estado="ENTREGADA" acta={null} editable exigirFirma={false} />);
+    rerender(<ActaEntregaForm ordenId="o1" estado="ENTREGADA" acta={null} editable permitirEntrega exigirFirma={false} />);
 
     expect(await screen.findByRole("status")).toHaveTextContent("Orden entregada.");
     expect(screen.queryByText("Acta firmada.")).not.toBeInTheDocument();
@@ -189,5 +189,12 @@ describe("ActaEntregaForm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Sí, quitar" }));
 
     expect(mockBorrarActa).toHaveBeenCalledWith("o1");
+  });
+
+  it("sin permiso de entregar, una orden Terminada no muestra Entregar y dice quién entrega", () => {
+    renderForm({ permitirEntrega: false });
+    expect(screen.queryByRole("button", { name: /^Entregar/ })).not.toBeInTheDocument();
+    expect(screen.getByText("La entrega la hacen Recepción o el Jefe de taller.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Guardar sin firmar" })).toBeInTheDocument();
   });
 });

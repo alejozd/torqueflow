@@ -522,6 +522,8 @@ permiso?":
   (p. ej. todo lo de órdenes exige `ordenes.ver`; `compras.ver` exige `inventario.costos`). `permisosEfectivos` y
   `excepcionesDesdeMarcados` ignoran lo que quede sin requisito, y la pantalla de permisos marca los requisitos al
   marcar y desmarca los dependientes al desmarcar. Si agregas un permiso nuevo, agrega sus requisitos ahí.
+- **Entregar el vehículo** (`ordenes.entregar`) es solo de Recepción y Jefe de taller desde 2026-10-22 (decisión del
+  usuario): el técnico arma el acta pero no entrega; se le puede dar por excepción.
 - **Exportar a Excel** exige `exportar.usar` **y** el permiso de la pantalla de cada reporte (`cartera.ver`,
   `cuentasPorPagar.usar`, `mostrador.vender`, `caja.usar`).
 - **Migraciones aplicadas** a `taller_dev` y `taller_dev_reference`; para otros entornos, `docs/fase26-pasos-migracion.md`.
