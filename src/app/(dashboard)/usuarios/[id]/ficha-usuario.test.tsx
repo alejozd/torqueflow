@@ -5,7 +5,11 @@ import userEvent from "@testing-library/user-event";
 const mockGuardarPermisos = vi.fn();
 const mockUpdateUsuario = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+const mockToastOk = vi.fn();
+const mockToastError = vi.fn();
+vi.mock("sonner", () => ({
+  toast: { success: (...a: unknown[]) => mockToastOk(...a), error: (...a: unknown[]) => mockToastError(...a) },
+}));
 vi.mock("@/app/actions/usuario-actions", () => ({
   guardarPermisosUsuarioAction: (...args: unknown[]) => mockGuardarPermisos(...args),
   updateUsuarioAction: (...args: unknown[]) => mockUpdateUsuario(...args),
@@ -54,6 +58,8 @@ describe("FichaUsuario", () => {
   beforeEach(() => {
     mockGuardarPermisos.mockReset().mockResolvedValue({ error: null, success: true });
     mockUpdateUsuario.mockReset();
+    mockToastOk.mockReset();
+    mockToastError.mockReset();
   });
 
   it("sin cambios no muestra la barra; al marcar un permiso aparece y Guardar llama solo a la acción de permisos", async () => {
@@ -106,7 +112,6 @@ describe("FichaUsuario", () => {
 
   it("cambiar solo la contraseña: al guardar sale el toast y la barra desaparece (revisión, I1/I2)", async () => {
     mockUpdateUsuario.mockResolvedValue({ error: null, success: true });
-    const { toast } = await import("sonner");
     const user = userEvent.setup();
     render(
       <FichaUsuario
@@ -116,7 +121,7 @@ describe("FichaUsuario", () => {
     );
     await user.type(screen.getByLabelText("Contraseña"), "clave-nueva-123");
     await user.click(screen.getAllByRole("button", { name: "Guardar cambios" })[0]!);
-    await vi.waitFor(() => expect(toast.success).toHaveBeenCalledWith("Usuario actualizado"));
+    await vi.waitFor(() => expect(mockToastOk).toHaveBeenCalledWith("Usuario actualizado"));
     await vi.waitFor(() => expect(screen.queryByText("Tienes cambios sin guardar")).not.toBeInTheDocument());
   });
 
@@ -145,6 +150,37 @@ describe("FichaUsuario", () => {
     await user.click(screen.getAllByRole("button", { name: "Guardar cambios" })[0]!);
     await vi.waitFor(() => expect(mockGuardarPermisos).toHaveBeenCalled());
     expect(mockUpdateUsuario.mock.invocationCallOrder[0]!).toBeLessThan(mockGuardarPermisos.mock.invocationCallOrder[0]!);
+  });
+
+  it("si el servidor rechaza el formulario, sale el toast de error y la barra sigue", async () => {
+    mockUpdateUsuario.mockResolvedValue({ error: "Ese correo ya está en uso", success: false });
+    const user = userEvent.setup();
+    render(
+      <FichaUsuario
+        usuario={{ ...USUARIO, sedeIds: ["s1"], sedeDefectoId: "s1" }}
+        sedes={[{ id: "s1", nombre: "Norte" }]}
+      />,
+    );
+    await user.type(screen.getByLabelText("Nombre"), " X");
+    await user.click(screen.getAllByRole("button", { name: "Guardar cambios" })[0]!);
+    await vi.waitFor(() => expect(mockToastError).toHaveBeenCalledWith("Ese correo ya está en uso"));
+    expect(screen.getByText("Tienes cambios sin guardar")).toBeInTheDocument();
+  });
+
+  it("Descartar queda deshabilitado mientras el formulario guarda", async () => {
+    let terminar: (valor: unknown) => void = () => {};
+    mockUpdateUsuario.mockReturnValue(new Promise((resolve) => (terminar = resolve)));
+    const user = userEvent.setup();
+    render(
+      <FichaUsuario
+        usuario={{ ...USUARIO, sedeIds: ["s1"], sedeDefectoId: "s1" }}
+        sedes={[{ id: "s1", nombre: "Norte" }]}
+      />,
+    );
+    await user.type(screen.getByLabelText("Nombre"), " X");
+    await user.click(screen.getAllByRole("button", { name: "Guardar cambios" })[0]!);
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Descartar" })).toBeDisabled());
+    terminar({ error: null, success: true });
   });
 
   it("un ADMIN no tiene sección de permisos", () => {

@@ -108,11 +108,11 @@ function EditorPermisos({ usuarioId, role, agregados, quitados, controlRef, onCa
 
   // Las acciones masivas solo tocan lo que deja ver el buscador (y nunca un ★:
   // no están en VISIBLES).
-  function aplicarAVisibles(debeMarcar: (permiso: Permiso) => boolean) {
+  function aplicarAVisibles(debeMarcar: (permiso: Permiso, marcadoAntes: boolean) => boolean) {
     setMarcados((previo) => {
       const siguiente = new Set(previo);
       for (const permiso of visibles) {
-        if (debeMarcar(permiso)) siguiente.add(permiso);
+        if (debeMarcar(permiso, previo.has(permiso))) siguiente.add(permiso);
         else siguiente.delete(permiso);
       }
       return siguiente;
@@ -174,7 +174,7 @@ function EditorPermisos({ usuarioId, role, agregados, quitados, controlRef, onCa
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="sm" disabled={pendiente} onClick={() => aplicarAVisibles(esDeVer)}>
+          <Button type="button" variant="outline" size="sm" disabled={pendiente} onClick={() => aplicarAVisibles((permiso, marcadoAntes) => marcadoAntes && esDeVer(permiso))}>
             Solo lectura
           </Button>
           <Button type="button" variant="outline" size="sm" disabled={pendiente} onClick={() => aplicarAVisibles(() => true)}>
