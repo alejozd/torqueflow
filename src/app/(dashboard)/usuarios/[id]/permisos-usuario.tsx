@@ -24,7 +24,9 @@ import {
   GRUPOS_PERMISO,
   PERMISOS,
   PERMISOS_SOLO_ADMIN,
+  conRequisitos,
   permisosEfectivos,
+  sinDependientes,
   type GrupoPermiso,
   type Permiso,
   type Role,
@@ -54,7 +56,9 @@ function normalizar(texto: string): string {
   return texto.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 }
 
-const esDeVer = (permiso: Permiso) => permiso.endsWith(".ver") || permiso.endsWith(".verTodas");
+// "Ver costos" también es de lectura (y es requisito de Ver pedidos y entradas).
+const esDeVer = (permiso: Permiso) =>
+  permiso.endsWith(".ver") || permiso.endsWith(".verTodas") || permiso === "inventario.costos";
 
 /** Lo que la ficha del usuario necesita para guardar los permisos desde su propio botón. */
 export interface ControlPermisosUsuario {
@@ -110,10 +114,12 @@ function EditorPermisos({ usuarioId, role, agregados, quitados, controlRef, onCa
   // no están en VISIBLES).
   function aplicarAVisibles(debeMarcar: (permiso: Permiso, marcadoAntes: boolean) => boolean) {
     setMarcados((previo) => {
-      const siguiente = new Set(previo);
+      let siguiente = new Set(previo);
       for (const permiso of visibles) {
-        if (debeMarcar(permiso, previo.has(permiso))) siguiente.add(permiso);
-        else siguiente.delete(permiso);
+        if (!debeMarcar(permiso, previo.has(permiso))) siguiente = sinDependientes(siguiente, permiso);
+      }
+      for (const permiso of visibles) {
+        if (debeMarcar(permiso, previo.has(permiso))) siguiente = conRequisitos(siguiente, permiso);
       }
       return siguiente;
     });
@@ -138,13 +144,9 @@ function EditorPermisos({ usuarioId, role, agregados, quitados, controlRef, onCa
     });
   }
 
+  // Marcar trae sus requisitos; desmarcar se lleva lo que dependía (REQUISITOS).
   function alternar(permiso: Permiso) {
-    setMarcados((previo) => {
-      const siguiente = new Set(previo);
-      if (siguiente.has(permiso)) siguiente.delete(permiso);
-      else siguiente.add(permiso);
-      return siguiente;
-    });
+    setMarcados((previo) => (previo.has(permiso) ? sinDependientes(previo, permiso) : conRequisitos(previo, permiso)));
   }
 
   // Las casillas cambian solo si el guardado sale bien: si falla, la pantalla

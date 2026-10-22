@@ -518,4 +518,10 @@ permiso?":
   `configuracion.taller`) son solo del ADMIN y no se pueden dar. Cambiar el rol vacía las excepciones.
 - Permisos que antes eran solo del ADMIN (gastos, reportes) se acotan a la sede activa salvo con
   `sedes.verTodas`, porque ahora se pueden dar por excepción.
+- **Requisitos entre permisos** (`REQUISITOS` en `permisos.ts`, 2026-10-22): un permiso sin sus requisitos no sirve
+  (p. ej. todo lo de órdenes exige `ordenes.ver`; `compras.ver` exige `inventario.costos`). `permisosEfectivos` y
+  `excepcionesDesdeMarcados` ignoran lo que quede sin requisito, y la pantalla de permisos marca los requisitos al
+  marcar y desmarca los dependientes al desmarcar. Si agregas un permiso nuevo, agrega sus requisitos ahí.
+- **Exportar a Excel** exige `exportar.usar` **y** el permiso de la pantalla de cada reporte (`cartera.ver`,
+  `cuentasPorPagar.usar`, `mostrador.vender`, `caja.usar`).
 - **Migraciones aplicadas** a `taller_dev` y `taller_dev_reference`; para otros entornos, `docs/fase26-pasos-migracion.md`.
