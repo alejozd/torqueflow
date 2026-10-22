@@ -1,5 +1,8 @@
 import { crearAzar, type Azar } from "./azar";
 import type { Contexto, TenantDb } from "./contexto";
+import { registrarCita } from "./citas";
+import { crearCliente } from "./clientes";
+import { abrirCaja, cerrarCaja } from "./dinero";
 import type { ClaveOrden, Evento, PlanDia } from "./tipos";
 
 export type TenantTx = Parameters<Parameters<TenantDb["$transaction"]>[0]>[0];
@@ -8,6 +11,9 @@ export interface EstadoEjecucion {
   ordenes: Map<ClaveOrden, string>;   // clave del plan → id real
   cajaAbierta: Map<string, string>;   // sedeId → id de CajaSesion abierta
   creados: Record<string, number>;    // para el resumen final
+  clientesCreados: { clienteId: string; vehiculoIds: string[] }[]; // creados por el script
+  clientesUsados: Set<string>;        // clientes creados que ya se asignaron a un evento
+  citasPorOrden: Map<ClaveOrden, string>; // cita COMPLETADA → se enlaza al crear su orden
 }
 
 export type Manejador = (
@@ -19,12 +25,15 @@ const TIEMPO_MAXIMO_TRANSACCION = 120_000;
 const ESPERA_MAXIMA_TRANSACCION = 10_000;
 
 /** Se llena en las tareas 5 a 10. */
-export const MANEJADORES: Partial<Record<Evento["tipo"], Manejador>> = {};
+export const MANEJADORES: Partial<Record<Evento["tipo"], Manejador>> = {
+  abrirCaja, cerrarCaja, crearCliente, cita: registrarCita,
+};
 
 export async function ejecutarPlan(
   db: TenantDb, ctx: Contexto, plan: PlanDia[], semilla: number, aviso: (texto: string) => void,
 ): Promise<EstadoEjecucion> {
-  const estado: EstadoEjecucion = { ordenes: new Map(), cajaAbierta: new Map(), creados: {} };
+  const estado: EstadoEjecucion = { ordenes: new Map(), cajaAbierta: new Map(), creados: {},
+    clientesCreados: [], clientesUsados: new Set(), citasPorOrden: new Map() };
   const az = crearAzar(semilla);
   for (const dia of plan) {
     const sede = ctx.sedes.find((s) => s.id === dia.sedeId)?.nombre ?? dia.sedeId;
