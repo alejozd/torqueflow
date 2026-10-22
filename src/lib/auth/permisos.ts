@@ -102,6 +102,78 @@ const JEFE_TALLER: readonly Permiso[] = [
 
 export const PERMISOS_POR_ROL: Record<Exclude<Role, "ADMIN">, readonly Permiso[]> = { TECNICO, RECEPCION, JEFE_TALLER };
 
+/**
+ * Lo que cada permiso necesita para servir: sin "Ver órdenes" no abre la ficha
+ * de la orden, sin costos las compras muestran precios vacíos, etc. Con las
+ * excepciones por usuario se podrían armar combinaciones que no funcionan: la
+ * pantalla marca los requisitos sola y el cálculo ignora lo que quede sin ellos.
+ */
+export const REQUISITOS: Partial<Record<Permiso, readonly Permiso[]>> = {
+  "clientes.editar": ["clientes.ver"],
+  "clientes.eliminar": ["clientes.ver"],
+  "vehiculos.catalogo": ["clientes.ver"],
+  "vencimientos.avisar": ["clientes.ver"],
+  "citas.gestionar": ["citas.ver"],
+  "citas.eliminar": ["citas.ver"],
+  "cotizaciones.gestionar": ["cotizaciones.ver"],
+  "cotizaciones.editarItems": ["cotizaciones.ver"],
+  "ordenes.verTodas": ["ordenes.ver"],
+  "ordenes.crear": ["ordenes.ver"],
+  "ordenes.trabajar": ["ordenes.ver"],
+  "ordenes.quitar": ["ordenes.ver"],
+  "ordenes.cambiarEstado": ["ordenes.ver"],
+  "ordenes.anular": ["ordenes.ver"],
+  "ordenes.entregar": ["ordenes.ver"],
+  "ordenes.planificar": ["ordenes.ver"],
+  "ordenes.reasignarMecanico": ["ordenes.planificar"],
+  "facturas.facturar": ["facturas.ver", "ordenes.ver"],
+  "mostrador.descuentoSinTope": ["mostrador.vender"],
+  "mostrador.devolverConCajaCerrada": ["mostrador.vender"],
+  "anticipos.devolver": ["anticipos.registrar"],
+  "gastos.administrar": ["gastos.registrar"],
+  "inventario.editar": ["inventario.ver"],
+  "inventario.costos": ["inventario.ver"],
+  "compras.ver": ["inventario.costos"],
+  "compras.gestionar": ["compras.ver"],
+  "reportes.rentabilidad": ["reportes.productividad"],
+};
+
+/** Quita, hasta que no cambie nada, los permisos a los que les falta algún requisito. */
+function depurarRequisitos(permisos: Iterable<Permiso>): Set<Permiso> {
+  const resultado = new Set(permisos);
+  let cambio = true;
+  while (cambio) {
+    cambio = false;
+    for (const permiso of resultado) {
+      if ((REQUISITOS[permiso] ?? []).some((r) => !resultado.has(r))) {
+        resultado.delete(permiso);
+        cambio = true;
+      }
+    }
+  }
+  return resultado;
+}
+
+/** Marca `permiso` y, en cadena, todo lo que necesita. */
+export function conRequisitos(marcados: ReadonlySet<Permiso>, permiso: Permiso): Set<Permiso> {
+  const resultado = new Set(marcados);
+  const pendientes: Permiso[] = [permiso];
+  while (pendientes.length > 0) {
+    const actual = pendientes.pop()!;
+    if (resultado.has(actual) && actual !== permiso) continue;
+    resultado.add(actual);
+    pendientes.push(...(REQUISITOS[actual] ?? []).filter((r) => !resultado.has(r)));
+  }
+  return resultado;
+}
+
+/** Desmarca `permiso` y, en cadena, lo que dependía de él. */
+export function sinDependientes(marcados: ReadonlySet<Permiso>, permiso: Permiso): Set<Permiso> {
+  const resultado = new Set(marcados);
+  resultado.delete(permiso);
+  return depurarRequisitos(resultado);
+}
+
 export function esPermiso(valor: string): valor is Permiso {
   return Object.hasOwn(PERMISOS, valor);
 }
@@ -116,7 +188,9 @@ export function permisosEfectivos(entrada: {
   const agregados = (entrada.agregados ?? []).filter(
     (valor): valor is Permiso => esPermiso(valor) && !PERMISOS_SOLO_ADMIN.includes(valor),
   );
-  return [...new Set([...PERMISOS_POR_ROL[entrada.role], ...agregados])].filter((p) => !quitados.has(p));
+  const elegidos = [...new Set([...PERMISOS_POR_ROL[entrada.role], ...agregados])].filter((p) => !quitados.has(p));
+  const validos = depurarRequisitos(elegidos);
+  return elegidos.filter((p) => validos.has(p));
 }
 
 export function tienePermiso(permisos: readonly Permiso[], permiso: Permiso): boolean {
@@ -133,7 +207,7 @@ export function excepcionesDesdeMarcados(
   marcados: readonly Permiso[],
 ): { agregados: Permiso[]; quitados: Permiso[] } {
   const base = new Set<Permiso>(role === "ADMIN" ? TODOS : PERMISOS_POR_ROL[role]);
-  const elegidos = new Set<Permiso>(marcados);
+  const elegidos = role === "ADMIN" ? new Set<Permiso>(marcados) : depurarRequisitos(marcados);
   return {
     agregados: TODOS.filter((p) => elegidos.has(p) && !base.has(p)),
     quitados: TODOS.filter((p) => base.has(p) && !elegidos.has(p)),

@@ -1,4 +1,5 @@
 import { requirePermiso } from "@/lib/auth/guards";
+import type { Permiso } from "@/lib/auth/permisos";
 import { getCartera } from "@/app/actions/cartera-actions";
 import { getCuentasPorPagar } from "@/app/actions/cuenta-por-pagar-actions";
 import { getTenantDb } from "@/lib/db/tenant-client";
@@ -29,6 +30,18 @@ const TIPO_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.s
 
 const REPORTES = ["cartera", "cuentas-por-pagar", "ventas", "arqueos"] as const;
 type Reporte = (typeof REPORTES)[number];
+
+/**
+ * Cada reporte exige también el permiso de la pantalla donde se ven esos datos:
+ * con excepciones por usuario, "Exportar a Excel" solo no puede abrir el dinero
+ * a quien no lo ve en pantalla.
+ */
+const PERMISO_DEL_REPORTE: Record<Reporte, Permiso> = {
+  cartera: "cartera.ver",
+  "cuentas-por-pagar": "cuentasPorPagar.usar",
+  ventas: "mostrador.vender",
+  arqueos: "caja.usar",
+};
 
 function esReporte(valor: string): valor is Reporte {
   return (REPORTES as readonly string[]).includes(valor);
@@ -65,6 +78,7 @@ export async function GET(
   if (!esReporte(reporte)) {
     return new Response("Reporte no encontrado", { status: 404 });
   }
+  await requirePermiso(PERMISO_DEL_REPORTE[reporte]);
 
   let rango: RangoExportacion | null = null;
   if (tieneRango(reporte)) {

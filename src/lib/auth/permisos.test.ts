@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PERMISOS, PERMISOS_POR_ROL, PERMISOS_SOLO_ADMIN, ROLES, ROLES_MECANICO, esPermiso, permisosEfectivos, excepcionesDesdeMarcados, tienePermiso, type Permiso } from "./permisos";
+import { PERMISOS, PERMISOS_POR_ROL, PERMISOS_SOLO_ADMIN, ROLES, ROLES_MECANICO, esPermiso, permisosEfectivos, excepcionesDesdeMarcados, tienePermiso, REQUISITOS, conRequisitos, sinDependientes, type Permiso } from "./permisos";
 
 const TODOS = Object.keys(PERMISOS) as Permiso[];
 
@@ -143,5 +143,61 @@ describe("excepcionesDesdeMarcados", () => {
   it("volver al rol base deja ambas listas vacías y ignora duplicados", () => {
     expect(excepcionesDesdeMarcados("RECEPCION", [...PERMISOS_POR_ROL.RECEPCION, "caja.usar"])).toEqual({ agregados: [], quitados: [] });
     expect(excepcionesDesdeMarcados("TECNICO", ["caja.usar", "caja.usar"]).agregados).toEqual(["caja.usar"]);
+  });
+});
+
+describe("requisitos entre permisos", () => {
+  it("cada rol cumple sus propios requisitos (la tabla del rol no pierde nada)", () => {
+    for (const role of ["TECNICO", "RECEPCION", "JEFE_TALLER"] as const) {
+      expect(permisosEfectivos({ role }).sort()).toEqual([...PERMISOS_POR_ROL[role]].sort());
+    }
+  });
+
+  it("los requisitos usan solo claves del catálogo y ningún ★", () => {
+    for (const [permiso, requisitos] of Object.entries(REQUISITOS)) {
+      expect(esPermiso(permiso)).toBe(true);
+      for (const r of requisitos!) {
+        expect(esPermiso(r)).toBe(true);
+        expect(PERMISOS_SOLO_ADMIN).not.toContain(r);
+      }
+    }
+  });
+
+  it("quitar Ver órdenes deja sin efecto todo lo de órdenes", () => {
+    const p = permisosEfectivos({ role: "TECNICO", quitados: ["ordenes.ver"] });
+    expect(p).not.toContain("ordenes.trabajar");
+    expect(p).not.toContain("ordenes.entregar");
+    expect(p).not.toContain("ordenes.cambiarEstado");
+    expect(p).toContain("clientes.ver");
+  });
+
+  it("un agregado sin su requisito se ignora; con el requisito, aplica", () => {
+    expect(permisosEfectivos({ role: "TECNICO", agregados: ["facturas.facturar"] })).not.toContain("facturas.facturar");
+    expect(permisosEfectivos({ role: "TECNICO", agregados: ["facturas.facturar", "facturas.ver"] })).toContain("facturas.facturar");
+    expect(permisosEfectivos({ role: "RECEPCION", agregados: ["reportes.rentabilidad"] })).not.toContain("reportes.rentabilidad");
+    expect(permisosEfectivos({ role: "JEFE_TALLER", agregados: ["reportes.rentabilidad"] })).toContain("reportes.rentabilidad");
+  });
+
+  it("los requisitos se encadenan: compras exige costos", () => {
+    expect(permisosEfectivos({ role: "TECNICO", agregados: ["compras.ver"] })).not.toContain("compras.ver");
+    expect(permisosEfectivos({ role: "TECNICO", agregados: ["compras.ver", "inventario.costos"] })).toContain("compras.ver");
+    expect(permisosEfectivos({ role: "RECEPCION", quitados: ["inventario.costos"] })).not.toContain("compras.gestionar");
+  });
+
+  it("excepcionesDesdeMarcados no guarda un permiso sin su requisito", () => {
+    const tecnico = permisosEfectivos({ role: "TECNICO" });
+    expect(excepcionesDesdeMarcados("TECNICO", [...tecnico, "facturas.facturar"]).agregados).toEqual([]);
+  });
+
+  it("conRequisitos marca lo que hace falta, en cadena", () => {
+    const r = conRequisitos(new Set<Permiso>(), "compras.gestionar");
+    expect([...r].sort()).toEqual(["compras.gestionar", "compras.ver", "inventario.costos", "inventario.ver"]);
+  });
+
+  it("sinDependientes desmarca lo que dependía, en cadena", () => {
+    const r = sinDependientes(new Set<Permiso>(permisosEfectivos({ role: "JEFE_TALLER" })), "ordenes.ver");
+    expect(r.has("ordenes.planificar")).toBe(false);
+    expect(r.has("ordenes.reasignarMecanico")).toBe(false);
+    expect(r.has("clientes.ver")).toBe(true);
   });
 });

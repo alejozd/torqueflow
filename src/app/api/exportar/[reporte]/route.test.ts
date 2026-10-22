@@ -66,6 +66,23 @@ describe("GET /api/exportar/[reporte]", () => {
     expect(mockVentas).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["cartera", "cartera.ver", "", () => mockGetCartera],
+    ["cuentas-por-pagar", "cuentasPorPagar.usar", "", () => mockGetCuentas],
+    ["ventas", "mostrador.vender", "?desde=2026-10-01&hasta=2026-10-05", () => mockVentas],
+    ["arqueos", "caja.usar", "?desde=2026-10-01&hasta=2026-10-05", () => mockArqueos],
+  ])("%s exige además el permiso de su pantalla (%s): exportar.usar solo no basta", async (reporte, permiso, query, consulta) => {
+    mockRequirePermiso.mockImplementation(async (p: string) => {
+      if (p === permiso) throw new Error("redirect:/sin-permiso");
+      return { user: { id: "u1", role: "JEFE_TALLER", tenantSchema: "taller", sedeActivaId: "sede-1" } };
+    });
+
+    await expect(pedir(reporte, query)).rejects.toThrow();
+    expect(mockRequirePermiso).toHaveBeenCalledWith("exportar.usar");
+    expect(mockRequirePermiso).toHaveBeenCalledWith(permiso);
+    expect(consulta()).not.toHaveBeenCalled();
+  });
+
   it("ignora una sede pedida por la URL: la sede y el taller salen de la sesión", async () => {
     await pedir("cartera", "?sedeId=sede-ajena");
     expect(mockGetCartera).toHaveBeenCalledWith({});
