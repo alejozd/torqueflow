@@ -73,3 +73,12 @@ Lanzar `npm run dev` en segundo plano (puerto 3025; la base es la real: no guard
 - Si se cambia el rol en el formulario sin tocar permisos, la barra no avisa que los permisos mostrados son los del rol anterior hasta guardar (el aviso de D1 solo sale si cambiaron los dos).
 - `sticky bottom-0 -mx-4` de la barra depende del padding del layout: revisar en móvil.
 - `permisosConCambios` no se reinicia si el editor se desmonta (usuario pasado a ADMIN); hoy no afecta porque se filtra con `!esAdmin`.
+
+## Revisión de cierre (2026-10-22)
+
+Revisión completa del rediseño (`c21ff49..549acb2`, otro modelo, solo lectura): **OK tal como está**, 0 Critical, 0 Important, 7 Minor. Los 3 hallazgos de la revisión anterior quedaron arreglados en `35ef6f4` sin bugs nuevos; I5 se mantiene; los ★ no se pueden marcar ni enviar; el diálogo "Editar" de la lista no cambió. Menores nuevos que vale la pena arreglar (informe en `.superpowers/sdd/2026-10-17-permisos-usuario-rediseno/final-review-report.md`, fuera de git):
+
+- "Descartar" sigue activo mientras el formulario guarda: si se pulsa en ese momento, el guardado se hace pero no sale el toast.
+- "Solo lectura" marca **todos** los permisos de ver (incluidos `ordenes.verTodas` y `auditoria.ver`), no solo deja los de ver que ya estaban marcados: **el usuario debe confirmar cuál de los dos significados quiere**.
+- El test del toast del formulario pasa por una llamada de un test anterior (el mock de `toast` no se limpia) y el toast de error no tiene test.
+- El interruptor de estado no tiene anillo de foco visible (ya estaba en los pendientes; se recomienda arreglarlo).
