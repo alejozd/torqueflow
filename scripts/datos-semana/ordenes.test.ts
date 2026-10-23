@@ -1,9 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { crearAzar } from "./azar";
 import type { Contexto } from "./contexto";
 import type { EstadoEjecucion, TenantTx } from "./ejecutor";
-import { anularOrden, crearOrden, terminarOrden } from "./ordenes";
+import { facturarYCobrar, registrarAnticiposPendientes } from "./dinero";
+import { anularOrden, crearOrden, entregarOrden, terminarOrden } from "./ordenes";
 import type { Evento, PlanDia } from "./tipos";
+
+vi.mock("./dinero", () => ({ facturarYCobrar: vi.fn(async () => undefined), registrarAnticiposPendientes: vi.fn(async () => undefined) }));
 
 const dia: PlanDia = { fecha: "2026-10-20", sedeId: "s1", eventos: [] };
 type Llamada = { data: Record<string, unknown> };
@@ -197,6 +200,17 @@ describe("crearOrden", () => {
     await crearOrden(tx, nuevoCtx(), otro, dia, evento(), crearAzar(4));
     expect(otro.anticiposPendientes).toEqual([]);
   });
+
+  it("con anticipo lo registra al terminar de armar la orden; sin anticipo no", async () => {
+    const llamadas = vi.mocked(registrarAnticiposPendientes);
+    llamadas.mockClear();
+    const { tx } = nuevoTx();
+    await crearOrden(tx, nuevoCtx(), nuevoEstado(), dia, evento(), crearAzar(4));
+    expect(llamadas).not.toHaveBeenCalled();
+    await crearOrden(tx, nuevoCtx(), nuevoEstado(), dia, evento({ conAnticipo: true }), crearAzar(4));
+    expect(llamadas).toHaveBeenCalledTimes(1);
+    expect(llamadas.mock.calls[0]![3]).toBe("s1");
+  });
 });
 
 describe("terminarOrden", () => {
@@ -260,5 +274,103 @@ describe("anularOrden", () => {
     estado.ordenes.set("o-1", "o1");
     await expect(anularOrden(tx, nuevoCtx(), estado, dia, ev, crearAzar(1))).rejects.toThrow(/TERMINADA/);
     expect(m.ordenTrabajo.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("entregarOrden", () => {
+  const ev = (sobre: Partial<Extract<Evento, { tipo: "entregarOrden" }>> = {}): Extract<Evento, { tipo: "entregarOrden" }> =>
+    ({ tipo: "entregarOrden", hora: "17:00", clave: "o-1", pago: "COMPLETO", garantia: false, ...sobre });
+
+  function txEntrega(sobre: { estado?: string; km?: number | null } = {}) {
+    const m = {
+      ordenTrabajo: {
+        findUnique: vi.fn(async () => ({
+          estado: sobre.estado ?? "TERMINADA", clienteId: "c1", kilometrajeIngreso: sobre.km === undefined ? 50_000 : sobre.km,
+          cliente: { nombre: "Ana Pérez", documento: "123" },
+          items: [{ id: "i1", repuestoId: "r1", descripcion: "Filtro", cantidad: 1, precioUnitario: 20 }],
+          manoDeObra: [{ id: "mo1", descripcion: "[datos-semana] Cambio de aceite", valor: 50_000 }],
+        })),
+        updateMany: vi.fn(async (_a: unknown) => ({ count: 1 })),
+      },
+      actaEntrega: { upsert: vi.fn(async (_a: unknown) => ({ id: "ac1" })) },
+      garantia: { create: vi.fn(async (_a: Llamada) => ({ id: "g1" })) },
+      auditLog: { create: vi.fn(async (_a: unknown) => ({})) },
+    };
+    return { tx: m as unknown as TenantTx, m };
+  }
+  const conOrden = () => { const e = nuevoEstado(); e.ordenes.set("o-1", "o1"); return e; };
+  const entregar = (tx: TenantTx, evento: Extract<Evento, { tipo: "entregarOrden" }>, estado = conOrden()) =>
+    entregarOrden(tx, nuevoCtx(), estado, dia, evento, crearAzar(5));
+
+  beforeEach(() => { vi.mocked(facturarYCobrar).mockClear(); });
+
+  it("de una clave desconocida lanza con mensaje claro", async () => {
+    await expect(entregar(txEntrega().tx, ev(), nuevoEstado())).rejects.toThrow(/o-1/);
+  });
+
+  it("una orden que no está TERMINADA lanza y no escribe nada", async () => {
+    for (const estadoOrden of ["EN_PROCESO", "BORRADOR", "ANULADA", "ENTREGADA"]) {
+      const { tx, m } = txEntrega({ estado: estadoOrden });
+      await expect(entregar(tx, ev())).rejects.toThrow(estadoOrden);
+      expect(m.ordenTrabajo.updateMany).not.toHaveBeenCalled();
+    }
+    expect(facturarYCobrar).not.toHaveBeenCalled();
+  });
+
+  it("factura y cobra según el evento antes de entregar, con la hora del evento", async () => {
+    const { tx } = txEntrega();
+    await entregar(tx, ev({ pago: "PARCIAL" }));
+    const args = vi.mocked(facturarYCobrar).mock.calls[0]!;
+    expect(args[3]).toBe("s1");
+    expect(args[4]).toMatchObject({ id: "o1", clienteId: "c1" });
+    expect(args[5]).toBe("PARCIAL");
+    expect(args[7]).toEqual(new Date("2026-10-20T17:00:00-05:00"));
+  });
+
+  it("entrega: ENTREGADA condicional al estado leído, con entregadaAt, y acta firmada por el cliente con firma de ejemplo", async () => {
+    const { tx, m } = txEntrega();
+    await entregar(tx, ev());
+    const t = m.ordenTrabajo.updateMany.mock.calls[0]![0] as { where: unknown; data: Record<string, unknown> };
+    expect(t.where).toEqual({ id: "o1", estado: "TERMINADA" });
+    expect(t.data.estado).toBe("ENTREGADA");
+    expect(t.data.entregadaAt).toBeInstanceOf(Date);
+    const acta = m.actaEntrega.upsert.mock.calls[0]![0] as { where: unknown; create: Record<string, unknown>; update: Record<string, unknown> };
+    expect(acta.where).toEqual({ ordenId: "o1" });
+    expect(acta.create).toMatchObject({ ordenId: "o1", recibidoPor: "Ana Pérez", documentoRecibe: "123", creadoPorId: "rec1", firmaFotoUrl: null });
+    expect(acta.create.observaciones).toContain("[datos-semana]");
+    expect(acta.create.firmaUrl).toMatch(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/);
+    expect(acta.create.firmadaAt).toBeInstanceOf(Date);
+    expect(acta.update).toMatchObject({ recibidoPor: "Ana Pérez" });
+    expect(datos(m.auditLog.create)).toMatchObject({
+      tipo: "ACTA_FIRMAR", entidadTipo: "ActaEntrega", entidadId: "ac1",
+      detalle: { ordenId: "o1", estadoAnterior: "TERMINADA", firma: "pantalla" },
+    });
+  });
+
+  it("sin garantía no la crea; con garantía registra una sola, marcada, antes de entregar y la audita", async () => {
+    const sin = txEntrega();
+    await entregar(sin.tx, ev({ garantia: false }));
+    expect(sin.m.garantia.create).not.toHaveBeenCalled();
+
+    const { tx, m } = txEntrega();
+    await entregar(tx, ev({ garantia: true }));
+    expect(m.garantia.create).toHaveBeenCalledTimes(1);
+    const g = datos(m.garantia.create);
+    expect(["TRABAJO", "REPUESTO"]).toContain(g.tipo);
+    expect(g.manoDeObraId).toBe(g.tipo === "TRABAJO" ? "mo1" : null);
+    expect(g.itemOrdenId).toBe(g.tipo === "REPUESTO" ? "i1" : null);
+    expect(g.descripcion).toMatch(/^\[datos-semana\]/);
+    expect(g).toMatchObject({ ordenId: "o1", creadoPorId: "rec1" });
+    expect(g.cubreHasta).toBeInstanceOf(Date);
+    expect((g.cubreHasta as Date).toISOString()).toMatch(/T00:00:00\.000Z$/);
+    const auditoria = m.auditLog.create.mock.calls.map((c) => (c[0] as Llamada).data.tipo);
+    expect(auditoria).toEqual(["GARANTIA_REGISTRAR", "ACTA_FIRMAR"]);
+    expect(m.garantia.create.mock.invocationCallOrder[0]!).toBeLessThan(m.ordenTrabajo.updateMany.mock.invocationCallOrder[0]!);
+  });
+
+  it("si la orden cambió de estado durante la ejecución lanza", async () => {
+    const { tx, m } = txEntrega();
+    m.ordenTrabajo.updateMany.mockResolvedValueOnce({ count: 0 });
+    await expect(entregar(tx, ev())).rejects.toThrow(/cambió/);
   });
 });

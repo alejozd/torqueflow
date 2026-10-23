@@ -4,8 +4,9 @@ import { isValidEstadoTransition } from "@/lib/orden/estado-transitions";
 import type { Azar } from "./azar";
 import { MARCA, type Contexto } from "./contexto";
 import { elegirClienteYVehiculo } from "./clientes";
+import { facturarYCobrar, registrarAnticiposPendientes } from "./dinero";
 import type { EstadoEjecucion, Manejador, TenantTx } from "./ejecutor";
-import { instante } from "./fechas";
+import { desfasar, instante, soloDia, sumarDias } from "./fechas";
 import type { ClaveOrden } from "./tipos";
 
 const SINTOMAS = [
@@ -185,7 +186,12 @@ export const crearOrden: Manejador = async (tx, ctx, estado, dia, evento, az) =>
     // BORRADOR → EN_PROCESO (updateEstadoOrdenAction); la orden es nueva, no hay estado que verificar.
     await tx.ordenTrabajo.update({ where: { id: ordenId }, data: { estado: "EN_PROCESO", updatedAt: trabajo } });
   }
-  if (evento.conAnticipo) estado.anticiposPendientes.push(evento.clave);
+  if (evento.conAnticipo) {
+    estado.anticiposPendientes.push(evento.clave);
+    // registrarAnticipoAction: a continuación de armar la orden, con sus líneas ya cargadas.
+    const anticipado = desfasar(creada, az.entero(41, 55));
+    await registrarAnticiposPendientes(tx, ctx, estado, dia.sedeId, az, anticipado);
+  }
 };
 
 export const terminarOrden: Manejador = async (tx, ctx, estado, dia, evento) => {
@@ -206,4 +212,114 @@ export const anularOrden: Manejador = async (tx, ctx, estado, dia, evento) => {
     const repuesto = item.repuestoId ? ctx.repuestos.find((r) => r.id === item.repuestoId) : undefined;
     if (repuesto) repuesto.stockActual += item.cantidad;
   }
+};
+
+/** Firma de ejemplo (PNG de 1x1) en el formato que guarda el acta: no se sube ningún archivo. */
+const FIRMA_DE_EJEMPLO =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAwS2OUAAAAABJRU5ErkJggg==";
+
+interface OrdenParaEntregar {
+  id: string; kilometrajeIngreso: number | null;
+  items: { id: string; descripcion: string }[]; manoDeObra: { id: string; descripcion: string }[];
+}
+
+/**
+ * agregarGarantiaAction: una garantía sobre el trabajo o un repuesto de la orden, por fecha
+ * (90 a 365 días desde la entrega) y, en los trabajos, también por kilometraje. Va antes de
+ * entregar: la acción no admite órdenes ya entregadas.
+ */
+async function registrarGarantia(
+  tx: TenantTx, ctx: Contexto, estado: EstadoEjecucion, az: Azar, fecha: string, cuando: Date, orden: OrdenParaEntregar,
+): Promise<void> {
+  const lineas = [
+    ...orden.manoDeObra.map((l) => ({ tipo: "TRABAJO" as const, id: l.id, descripcion: l.descripcion.replace(MARCA, "").trim() })),
+    ...orden.items.map((i) => ({ tipo: "REPUESTO" as const, id: i.id, descripcion: i.descripcion })),
+  ];
+  if (lineas.length === 0) return;
+  const linea = az.elegir(lineas);
+  const cubreHasta = soloDia(sumarDias(fecha, az.elegir([90, 180, 365])));
+  const cubreHastaKm = linea.tipo === "TRABAJO" && orden.kilometrajeIngreso !== null
+    ? orden.kilometrajeIngreso + az.elegir([5000, 10_000])
+    : null;
+  const garantia = await tx.garantia.create({
+    data: {
+      ordenId: orden.id,
+      tipo: linea.tipo,
+      manoDeObraId: linea.tipo === "TRABAJO" ? linea.id : null,
+      itemOrdenId: linea.tipo === "REPUESTO" ? linea.id : null,
+      descripcion: `${MARCA} Garantía de ${linea.descripcion}`,
+      cubreHasta,
+      cubreHastaKm,
+      creadoPorId: ctx.recepcionistaId,
+      createdAt: cuando,
+    },
+    select: { id: true },
+  });
+  await registrarEventoAuditoria(tx, {
+    tipo: "GARANTIA_REGISTRAR",
+    actorId: ctx.actorId,
+    entidadTipo: "Garantia",
+    entidadId: garantia.id,
+    detalle: { ordenId: orden.id, tipo: linea.tipo, cubreHasta: cubreHasta.toISOString().slice(0, 10), cubreHastaKm },
+  });
+  sumar(estado, "garantia");
+}
+
+/**
+ * entregarOrdenAction con firma en pantalla (sin avisar al cliente): la orden TERMINADA pasa a
+ * ENTREGADA junto con su acta firmada por el cliente. Antes se factura y cobra
+ * (crearFacturaAction/registrarPagoAction) y, si el evento lo pide, se registra la garantía.
+ */
+export const entregarOrden: Manejador = async (tx, ctx, estado, dia, evento, az) => {
+  if (evento.tipo !== "entregarOrden") return;
+  const ordenId = estado.ordenes.get(evento.clave);
+  if (!ordenId) throw claveDesconocida("entregarOrden", evento.clave);
+  const orden = await tx.ordenTrabajo.findUnique({
+    where: { id: ordenId },
+    select: {
+      estado: true, clienteId: true, kilometrajeIngreso: true,
+      cliente: { select: { nombre: true, documento: true } },
+      items: { select: { id: true, repuestoId: true, descripcion: true, cantidad: true, precioUnitario: true } },
+      manoDeObra: { select: { id: true, descripcion: true, valor: true } },
+    },
+  });
+  if (!orden) throw new Error(`entregarOrden: la orden ${ordenId} ya no existe`);
+  if (orden.estado !== "TERMINADA" || !isValidEstadoTransition(orden.estado, "ENTREGADA")) {
+    throw new Error(`entregarOrden: no se puede entregar una orden en estado ${orden.estado}`);
+  }
+
+  const inicio = instante(dia.fecha, evento.hora);
+  const completa = { id: ordenId, ...orden };
+  await facturarYCobrar(tx, ctx, estado, dia.sedeId, completa, evento.pago, az, inicio);
+  if (evento.garantia) await registrarGarantia(tx, ctx, estado, az, dia.fecha, desfasar(inicio, 3), completa);
+
+  const entregada = desfasar(inicio, 5);
+  const { count } = await tx.ordenTrabajo.updateMany({
+    where: { id: ordenId, estado: orden.estado },
+    data: { estado: "ENTREGADA", entregadaAt: entregada, updatedAt: entregada },
+  });
+  if (count === 0) throw new Error(`entregarOrden: el estado de la orden ${ordenId} cambió durante la ejecución`);
+
+  const firma = {
+    recibidoPor: orden.cliente.nombre,
+    documentoRecibe: orden.cliente.documento,
+    observaciones: `${MARCA} Entregado al cliente`,
+    firmaUrl: FIRMA_DE_EJEMPLO,
+    firmaFotoUrl: null,
+    firmadaAt: entregada,
+  };
+  const acta = await tx.actaEntrega.upsert({
+    where: { ordenId },
+    create: { ordenId, ...firma, creadoPorId: ctx.recepcionistaId, createdAt: entregada, updatedAt: entregada },
+    update: firma,
+    select: { id: true },
+  });
+  await registrarEventoAuditoria(tx, {
+    tipo: "ACTA_FIRMAR",
+    actorId: ctx.actorId,
+    entidadTipo: "ActaEntrega",
+    entidadId: acta.id,
+    detalle: { ordenId, estadoAnterior: orden.estado, firma: "pantalla" },
+  });
+  sumar(estado, "entrega");
 };

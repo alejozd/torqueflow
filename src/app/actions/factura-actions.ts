@@ -6,10 +6,10 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { facturarOrdenInputSchema } from "@/lib/validation/factura";
 import { assertOrdenFacturable } from "@/lib/factura/facturable-guard";
+import { ANTICIPO_CAMBIO, ANTICIPOS_EXCEDEN, emitirFacturaEnTransaccion, STOCK_INSUFICIENTE } from "@/lib/factura/emitir";
 import { computeFacturaTotales } from "@/lib/factura/totales";
 import { totalOrden } from "@/lib/dashboard/calculos";
 import { scopeFactura, scopeOrden } from "@/lib/sede/scope";
-import { roundMoney } from "@/lib/money/round";
 import type { EstadoFactura, Prisma } from "@/generated/prisma-tenant";
 
 export interface FacturaFormState {
@@ -25,10 +25,6 @@ export interface OrdenFacturableOption {
   clienteDocumento: string | null;
   total: number;
 }
-
-const STOCK_INSUFICIENTE = "STOCK_INSUFICIENTE";
-const ANTICIPOS_EXCEDEN = "ANTICIPOS_EXCEDEN";
-const ANTICIPO_CAMBIO = "ANTICIPO_CAMBIO";
 
 const FACTURA_DETAIL_INCLUDE = {
   cliente: true,
@@ -128,7 +124,7 @@ export async function crearFacturaAction(
   }
 
   const descuento = parsed.data.descuento ?? 0;
-  const { subtotal, iva, total } = computeFacturaTotales({
+  const { subtotal } = computeFacturaTotales({
     items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
     manoDeObra: orden.manoDeObra.map((linea) => ({
       valor: Number(linea.valor),
@@ -140,75 +136,9 @@ export async function crearFacturaAction(
     return { error: "El descuento no puede ser mayor al subtotal", success: false, facturaId: null };
   }
 
-  const decrementosStock = new Map<string, number>();
-  for (const item of orden.items) {
-    if (item.repuestoId) {
-      decrementosStock.set(item.repuestoId, (decrementosStock.get(item.repuestoId) ?? 0) + item.cantidad);
-    }
-  }
-
   let facturaId: string;
   try {
-    const factura = await tenantDb.$transaction(async (tx) => {
-      const creada = await tx.factura.create({
-        data: {
-          ordenId,
-          clienteId: orden.clienteId,
-          subtotal,
-          descuento,
-          iva,
-          total,
-          saldoPendiente: total,
-          emitidaPorId: session.user.id,
-          estado: total <= 0 ? "PAGADA" : "PENDIENTE",
-        },
-      });
-      for (const [repuestoId, cantidad] of decrementosStock) {
-        const { count } = await tx.repuesto.updateMany({
-          where: { id: repuestoId, stockActual: { gte: cantidad } },
-          data: { stockActual: { decrement: cantidad } },
-        });
-        if (count === 0) {
-          throw new Error(STOCK_INSUFICIENTE);
-        }
-      }
-
-      // Anticipos PENDIENTES de la orden se aplican como pagos ANTICIPO. Si exceden el
-      // total se lanza y la transacción completa (factura, stock) se revierte.
-      const anticipos = await tx.anticipo.findMany({ where: { ordenId, estado: "PENDIENTE" } });
-      if (anticipos.length > 0) {
-        const sumaAnticipos = roundMoney(anticipos.reduce((suma, a) => suma + Number(a.monto), 0));
-        if (sumaAnticipos > total) {
-          throw new Error(ANTICIPOS_EXCEDEN);
-        }
-        for (const anticipo of anticipos) {
-          const pago = await tx.pago.create({
-            data: {
-              facturaId: creada.id,
-              monto: Number(anticipo.monto),
-              metodoPago: "ANTICIPO",
-              referencia: "Anticipo",
-              registradoPorId: anticipo.registradoPorId,
-            },
-          });
-          // Conditional on PENDIENTE: a concurrent devolución must not leave the
-          // same anticipo both DEVUELTO and applied. Throwing rolls back everything.
-          const { count } = await tx.anticipo.updateMany({
-            where: { id: anticipo.id, estado: "PENDIENTE" },
-            data: { estado: "APLICADO", pagoId: pago.id },
-          });
-          if (count === 0) {
-            throw new Error(ANTICIPO_CAMBIO);
-          }
-        }
-        const saldo = roundMoney(total - sumaAnticipos);
-        await tx.factura.update({
-          where: { id: creada.id },
-          data: saldo <= 0 ? { saldoPendiente: 0, estado: "PAGADA" } : { saldoPendiente: saldo },
-        });
-      }
-      return creada;
-    });
+    const factura = await tenantDb.$transaction((tx) => emitirFacturaEnTransaccion(tx, orden, descuento, session.user.id));
     facturaId = factura.id;
   } catch (err) {
     if (err instanceof Error && err.message === ANTICIPOS_EXCEDEN) {

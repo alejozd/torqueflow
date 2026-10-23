@@ -37,3 +37,8 @@ export function soloDia(fecha: string): Date {
 export function hoyBogota(ahora: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(ahora);
 }
+
+/** `base` más `minutos`, sin pasar del presente (los datos de demostración no pueden quedar en el futuro). */
+export function desfasar(base: Date, minutos: number): Date {
+  return new Date(Math.min(base.getTime() + minutos * 60_000, Date.now()));
+}

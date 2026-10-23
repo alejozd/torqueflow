@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diasDelRango, hoyBogota, instante, soloDia, sumarDias } from "./fechas";
+import { desfasar, diasDelRango, hoyBogota, instante, soloDia, sumarDias } from "./fechas";
 
 describe("fechas", () => {
   it("diasDelRango excluye domingos e incluye los extremos", () => {
@@ -19,5 +19,9 @@ describe("fechas", () => {
   });
   it("sumarDias cruza meses", () => {
     expect(sumarDias("2026-10-30", 3)).toBe("2026-11-02");
+  });
+  it("desfasar suma minutos sin pasar del presente", () => {
+    expect(desfasar(new Date("2026-10-20T12:30:00Z"), 5).toISOString()).toBe("2026-10-20T12:35:00.000Z");
+    expect(desfasar(new Date(Date.now() + 3_600_000), 5).getTime()).toBeLessThanOrEqual(Date.now());
   });
 });

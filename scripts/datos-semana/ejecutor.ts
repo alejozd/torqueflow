@@ -3,7 +3,7 @@ import type { Contexto, TenantDb } from "./contexto";
 import { registrarCita } from "./citas";
 import { crearCliente } from "./clientes";
 import { abrirCaja, cerrarCaja } from "./dinero";
-import { anularOrden, crearOrden, terminarOrden } from "./ordenes";
+import { anularOrden, crearOrden, entregarOrden, terminarOrden } from "./ordenes";
 import type { ClaveOrden, Evento, PlanDia } from "./tipos";
 
 export type TenantTx = Parameters<Parameters<TenantDb["$transaction"]>[0]>[0];
@@ -28,7 +28,7 @@ const ESPERA_MAXIMA_TRANSACCION = 10_000;
 
 /** Se llena en las tareas 5 a 10. */
 export const MANEJADORES: Partial<Record<Evento["tipo"], Manejador>> = {
-  abrirCaja, cerrarCaja, crearCliente, cita: registrarCita, crearOrden, terminarOrden, anularOrden,
+  abrirCaja, cerrarCaja, crearCliente, cita: registrarCita, crearOrden, terminarOrden, entregarOrden, anularOrden,
 };
 
 export async function ejecutarPlan(
