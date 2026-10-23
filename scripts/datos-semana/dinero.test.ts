@@ -38,6 +38,39 @@ describe("abrirCaja", () => {
   });
 });
 
+describe("abrirCaja: un solo turno por día y sede", () => {
+  it("busca una caja abierta o abierta ese día (hora de Bogotá) en la sede, y si existe no abre otra", async () => {
+    const create = vi.fn();
+    const findFirst = vi.fn(async (_a: unknown) => ({ id: "cerrada-real" }));
+    const tx = { cajaSesion: { findFirst, create } } as unknown as TenantTx;
+    const estado = nuevoEstado();
+    await abrirCaja(tx, ctx, estado, dia, { tipo: "abrirCaja", hora: "07:45" }, crearAzar(1));
+    expect(create).not.toHaveBeenCalled();
+    expect(estado.cajaAbierta.size).toBe(0);
+    const where = (findFirst.mock.calls[0] as unknown as [{ where: { sedeId: string; OR: Record<string, unknown>[] } }])[0].where;
+    expect(where.sedeId).toBe("s1");
+    expect(where.OR).toContainEqual({ cerradaAt: null });
+    expect(where.OR).toContainEqual({
+      abiertaAt: { gte: new Date("2026-10-20T00:00:00-05:00"), lt: new Date("2026-10-21T00:00:00-05:00") },
+    });
+  });
+
+  it("hoy, antes de la hora de apertura, abiertaAt no queda en el futuro", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const ahora = new Date("2026-10-20T07:30:00-05:00");
+      vi.setSystemTime(ahora);
+      const create = vi.fn(async (_a: unknown) => ({ id: "c1" }));
+      const tx = { cajaSesion: { findFirst: vi.fn(async () => null), create } } as unknown as TenantTx;
+      await abrirCaja(tx, ctx, nuevoEstado(), dia, { tipo: "abrirCaja", hora: "07:50" }, crearAzar(1));
+      const data = (create.mock.calls[0] as unknown as [{ data: Record<string, unknown> }])[0].data;
+      expect((data.abiertaAt as Date).getTime()).toBeLessThanOrEqual(ahora.getTime());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("cerrarCaja", () => {
   it("calcula el esperado con los movimientos en efectivo y guarda contado = esperado + diferencia", async () => {
     const updateMany = vi.fn(async (_a: unknown) => ({ count: 1 }));

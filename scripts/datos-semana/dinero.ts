@@ -6,20 +6,29 @@ import { roundMoney } from "@/lib/money/round";
 import type { Azar } from "./azar";
 import { MARCA, type Contexto } from "./contexto";
 import type { EstadoEjecucion, Manejador, TenantTx } from "./ejecutor";
-import { desfasar, instante } from "./fechas";
+import { desfasar, instante, sumarDias } from "./fechas";
 
 const monto = (v: { toString(): string } | number) => Number(v);
 
-/** abrirCajaAction: una caja abierta por sede; si ya hay una (real), no se toca. */
+/**
+ * abrirCajaAction: una caja abierta por sede; si ya hay una (real), no se toca. Tampoco se abre
+ * si la sede ya abrió una caja ese día (real o de otra corrida): dos cajas sobre la misma ventana
+ * contarían el mismo efectivo dos veces. Sin caja del script, los cobros caen en tarjeta/transferencia.
+ */
 export const abrirCaja: Manejador = async (tx, ctx, estado, dia, evento, az) => {
   if (evento.tipo !== "abrirCaja") return;
-  const abierta = await tx.cajaSesion.findFirst({ where: { sedeId: dia.sedeId, cerradaAt: null }, select: { id: true } });
-  if (abierta) return;
+  const inicioDia = instante(dia.fecha, "00:00");
+  const finDia = instante(sumarDias(dia.fecha, 1), "00:00");
+  const existente = await tx.cajaSesion.findFirst({
+    where: { sedeId: dia.sedeId, OR: [{ cerradaAt: null }, { abiertaAt: { gte: inicioDia, lt: finDia } }] },
+    select: { id: true },
+  });
+  if (existente) return;
   const sesion = await tx.cajaSesion.create({
     data: {
       sedeId: dia.sedeId,
       baseInicial: az.entero(5, 30) * 10_000,
-      abiertaAt: instante(dia.fecha, evento.hora),
+      abiertaAt: new Date(Math.min(instante(dia.fecha, evento.hora).getTime(), Date.now())),
       abiertaPorId: ctx.recepcionistaId,
       notas: MARCA,
     },

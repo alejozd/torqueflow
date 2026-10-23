@@ -13,6 +13,8 @@ export function crearPregunton(): Pregunton {
   return { preguntar: (texto) => rl.question(texto), cerrar: () => rl.close() };
 }
 
+const MAX_DIAS = 31;
+const MAX_CLIENTES_NUEVOS = 200;
 const FORMATO = /^\d{4}-\d{2}-\d{2}$/;
 
 function esFechaReal(f: string): boolean {
@@ -26,6 +28,8 @@ export function validarRango(desde: string, hasta: string, hoy: string): string 
   if (!esFechaReal(desde) || !esFechaReal(hasta)) return "Use el formato AAAA-MM-DD";
   if (hasta > hoy) return "No se permiten fechas futuras";
   if (desde > hasta) return "La fecha desde no puede ser posterior a hasta";
+  const dias = (new Date(`${hasta}T00:00:00Z`).getTime() - new Date(`${desde}T00:00:00Z`).getTime()) / 86_400_000 + 1;
+  if (dias > MAX_DIAS) return `El rango no puede pasar de ${MAX_DIAS} días`;
   return null;
 }
 
@@ -74,6 +78,7 @@ export async function hacerPreguntas(
 
   const clientesNuevos = await preguntarHasta(p, "Clientes nuevos (0 = usar existentes) [0]: ", (r) => {
     const n = r === "" ? 0 : Number(r);
+    if (Number.isInteger(n) && n > MAX_CLIENTES_NUEVOS) return `Máximo ${MAX_CLIENTES_NUEVOS} clientes nuevos`;
     return Number.isInteger(n) && n >= 0 ? { valor: n } : NO_VALIDA;
   });
 

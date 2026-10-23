@@ -65,6 +65,7 @@ const evento = (sobre: Partial<Extract<Evento, { tipo: "crearOrden" }>> = {}): E
   ({ tipo: "crearOrden", hora: "09:30", clave: "o-1", borrador: false, conAnticipo: false, ...sobre });
 
 const datos = (mock: { mock: { calls: unknown[][] } }, i = 0) => (mock.mock.calls[i]![0] as Llamada).data;
+const datosDe = (llamada: unknown[]) => (llamada[0] as Llamada).data;
 
 describe("crearOrden", () => {
   it("crea la orden con la sede, un mecánico de la sede, el creador y los síntomas marcados", async () => {
@@ -119,7 +120,7 @@ describe("crearOrden", () => {
     const { tx, m } = nuevoTx();
     await crearOrden(tx, nuevoCtx(), nuevoEstado(), dia, evento(), crearAzar(5));
     const creada = new Date("2026-10-20T09:30:00-05:00").getTime();
-    for (const c of m.manoDeObra.create.mock.calls) expect(c[0].data.createdAt.getTime()).toBeLessThan(creada + 20 * 60_000);
+    for (const c of m.manoDeObra.create.mock.calls) expect((datosDe(c).createdAt as Date).getTime()).toBeLessThan(creada + 20 * 60_000);
   });
 
   it("si ningún mecánico tiene la sede, usa cualquiera", async () => {

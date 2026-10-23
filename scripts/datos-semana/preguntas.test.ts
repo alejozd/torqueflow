@@ -28,8 +28,27 @@ describe("validarRango", () => {
   it("rechaza fechas futuras", () => {
     expect(validarRango("2026-10-19", "2026-10-23", HOY)).toBe("No se permiten fechas futuras");
   });
+  it("acepta 31 días y rechaza más", () => {
+    expect(validarRango("2026-09-22", "2026-10-22", HOY)).toBeNull(); // 31 días incluidos
+    expect(validarRango("2026-09-21", "2026-10-22", HOY)).toBe("El rango no puede pasar de 31 días");
+  });
   it("rechaza desde posterior a hasta", () => {
     expect(validarRango("2026-10-21", "2026-10-20", HOY)).toMatch(/desde/i);
+  });
+});
+
+describe("hacerPreguntas: topes", () => {
+  it("repite la pregunta si los clientes nuevos pasan de 200", async () => {
+    const { p, textos } = falso(["", "", "2", "201", "200", "bajo", "n"]);
+    const r = await hacerPreguntas(p, ctx, HOY);
+    expect(r.clientesNuevos).toBe(200);
+    expect(textos.some((t) => t.includes("Máximo 200 clientes nuevos"))).toBe(true);
+  });
+  it("repite el rango si pasa de 31 días", async () => {
+    const { p, textos } = falso(["2026-01-01", "", "", "2", "0", "bajo", "n"]);
+    const r = await hacerPreguntas(p, ctx, HOY);
+    expect(r.desde).toBe("2026-10-19");
+    expect(textos.some((t) => t.includes("31 días"))).toBe(true);
   });
 });
 
