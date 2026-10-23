@@ -3,7 +3,7 @@ import { CATEGORIA_LIQUIDACION_ID } from "@/lib/liquidaciones/categorias";
 import { totalLiquidacion } from "@/lib/liquidaciones/calculo";
 import { leerFrecuenciaLiquidacion } from "@/lib/liquidaciones/configuracion";
 import { cargarFilasDelPeriodo } from "@/lib/liquidaciones/filas-periodo";
-import { etiquetaPeriodo, periodoActual } from "@/lib/liquidaciones/periodo";
+import { etiquetaPeriodo, periodoActual, rangoDelPeriodo } from "@/lib/liquidaciones/periodo";
 import { MARCA } from "./contexto";
 import { metodosDePago } from "./compras";
 import type { EstadoEjecucion, Manejador } from "./ejecutor";
@@ -22,7 +22,7 @@ function omitir(estado: EstadoEjecucion, texto: string) {
 /**
  * pagarLiquidacionAction para cada técnico de la sede con esquema configurado: lee el periodo en
  * curso como la pantalla (mano de obra de las órdenes entregadas), crea el gasto de la categoría
- * del sistema y congela el documento PAGADA con la auditoría. Sin ajuste. En efectivo solo con caja
+ * del sistema y congela el documento PAGADA con la auditoría. Nunca toca lo real: omite (con aviso) al técnico que ya tiene una liquidación del periodo o mano de obra de órdenes que no creó la corrida. Sin ajuste. En efectivo solo con caja
  * abierta. Nunca falla el día: si nadie tiene esquema, o la categoría falta, solo avisa.
  */
 export const registrarLiquidacion: Manejador = async (tx, ctx, estado, dia, evento, az) => {
@@ -44,9 +44,29 @@ export const registrarLiquidacion: Manejador = async (tx, ctx, estado, dia, even
     return;
   }
 
+  // Mano de obra del periodo en órdenes que no creó esta corrida: es trabajo real y no se congela ni se paga.
+  const rango = rangoDelPeriodo(frecuencia, periodo);
+  const ordenesReales = await tx.ordenTrabajo.findMany({
+    where: { sedeId: dia.sedeId, estado: "ENTREGADA", entregadaAt: { gte: rango.gte, lt: rango.lt }, id: { notIn: [...estado.ordenes.values()] } },
+    select: { mecanicoId: true, manoDeObra: { select: { mecanicoId: true } } },
+  });
+  const conTrabajoReal = new Set(ordenesReales.flatMap((o) => o.manoDeObra.map((l) => l.mecanicoId ?? o.mecanicoId)));
+
   for (const fila of filas) {
     const { tipo } = fila;
     if (!tipo || fila.pago || fila.solapada) continue; // sin esquema, ya pagada o ya cubierta por otro periodo
+    if (conTrabajoReal.has(fila.usuarioId)) {
+      omitir(estado, `Liquidación de ${fila.nombre} omitida (${etiqueta}): tiene mano de obra de órdenes reales en el periodo.`);
+      continue;
+    }
+    const existente = await tx.liquidacionMecanico.findUnique({
+      where: { periodo_usuarioId_sedeId: { periodo, usuarioId: fila.usuarioId, sedeId: dia.sedeId } },
+      select: { id: true },
+    });
+    if (existente) {
+      omitir(estado, `Liquidación de ${fila.nombre} omitida (${etiqueta}): ya existe una liquidación de ese periodo (no se modifica).`);
+      continue;
+    }
     const montoCalculado = fila.montoSugerido ?? 0;
     const total = totalLiquidacion(montoCalculado, 0);
     if (total <= 0) continue; // nada que pagar (sin trabajo en el periodo)
@@ -84,23 +104,9 @@ export const registrarLiquidacion: Manejador = async (tx, ctx, estado, dia, even
       pagadaPorId: ctx.actorId,
       pagadaAt: cuando,
     };
-    const existente = await tx.liquidacionMecanico.findUnique({
-      where: { periodo_usuarioId_sedeId: { periodo, usuarioId: fila.usuarioId, sedeId: dia.sedeId } },
-      select: { id: true },
-    });
-    let liquidacionId: string;
-    if (existente) {
-      const { count } = await tx.liquidacionMecanico.updateMany({
-        where: { id: existente.id, estado: { not: "PAGADA" } },
-        data: { ...foto, frecuencia, anuladaAt: null, anuladaPorId: null, motivoAnulacion: null },
-      });
-      if (count !== 1) throw new Error(`liquidacion: la liquidación ${existente.id} ya estaba pagada`);
-      liquidacionId = existente.id;
-    } else {
-      liquidacionId = (await tx.liquidacionMecanico.create({
-        data: { ...foto, periodo, frecuencia, sedeId: dia.sedeId, usuarioId: fila.usuarioId },
-      })).id;
-    }
+    const liquidacionId = (await tx.liquidacionMecanico.create({
+      data: { ...foto, periodo, frecuencia, sedeId: dia.sedeId, usuarioId: fila.usuarioId },
+    })).id;
     await registrarEventoAuditoria(tx, {
       tipo: "LIQUIDACION_PAGAR",
       actorId: ctx.actorId,

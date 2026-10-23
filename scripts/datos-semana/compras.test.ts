@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { crearAzar } from "./azar";
 import { registrarAbonoProveedor, registrarPedidoCompra } from "./compras";
 import { conCaja, nuevaBase, nuevoCtx, nuevoEstado, type RepuestoPrueba } from "./soporte-pruebas";
@@ -159,6 +159,21 @@ describe("registrarAbonoProveedor", () => {
       const pago = e.db.pagosProveedor[0]!;
       expect(pago.createdAt.getTime()).toBeLessThan(new Date("2026-10-20T15:00:00-05:00").getTime());
       expect(pago.createdAt.getTime()).toBeGreaterThan(e.db.cuentas[0]!.createdAt.getTime());
+    }
+  });
+
+  it("sin cierre en el día (hoy) el abono nunca queda después de la hora actual", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-10-20T14:00:00-05:00"));
+      for (let semilla = 1; semilla <= 15; semilla++) {
+        const e = await conDeuda(semilla, true);
+        await registrarAbonoProveedor(e.tx, e.ctx, e.estado, dia, abono, e.az);
+        const pago = e.db.pagosProveedor[0];
+        if (pago) expect(pago.createdAt.getTime()).toBeLessThanOrEqual(Date.now());
+      }
+    } finally {
+      vi.useRealTimers();
     }
   });
 
