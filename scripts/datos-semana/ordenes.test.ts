@@ -56,6 +56,7 @@ function nuevoTx(opciones: { kmVehiculo?: number; kmUltimaOrden?: number; estado
     },
     manoDeObra: { create: vi.fn(async (_a: Llamada) => ({})) },
     auditLog: { create: vi.fn(async (_a: unknown) => ({})) },
+    cita: { findUnique: vi.fn(async () => ({ clienteId: "c-cita", vehiculoId: "v-cita" })) },
   };
   return { tx: tx as unknown as TenantTx, m: tx };
 }
@@ -79,6 +80,46 @@ describe("crearOrden", () => {
     expect(d.sintomas).toContain("[datos-semana]");
     expect(d.createdAt).toEqual(new Date("2026-10-20T09:30:00-05:00"));
     expect(estado.ordenes.get("o-1")).toBe("o1");
+  });
+
+  it("una cita completada de esa orden aporta el cliente y el vehículo", async () => {
+    const { tx, m } = nuevoTx();
+    const estado = nuevoEstado();
+    estado.citasPorOrden.set("o-1", "cita1");
+    await crearOrden(tx, nuevoCtx(), estado, dia, evento(), crearAzar(3));
+    expect(m.cita.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "cita1" } }));
+    const d = datos(m.ordenTrabajo.create);
+    expect(d.clienteId).toBe("c-cita");
+    expect(d.vehiculoId).toBe("v-cita");
+  });
+
+  it("hoy, justo después de la hora de la orden, ninguna fila queda con marca de tiempo futura", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const ahora = new Date("2026-10-20T09:32:00-05:00");
+      vi.setSystemTime(ahora);
+      for (let semilla = 1; semilla <= 20; semilla++) {
+        const { tx, m } = nuevoTx();
+        await crearOrden(tx, nuevoCtx(), nuevoEstado(), dia, evento(), crearAzar(semilla));
+        const fechas = [
+          ...m.dvi.create.mock.calls.flatMap((c) => [c[0].data.createdAt, c[0].data.updatedAt]),
+          ...m.itemOrden.create.mock.calls.map((c) => c[0].data.createdAt),
+          ...m.manoDeObra.create.mock.calls.map((c) => c[0].data.createdAt),
+          ...m.ordenTrabajo.update.mock.calls.map((c) => (c[0] as Llamada).data.updatedAt),
+        ].filter(Boolean) as Date[];
+        expect(fechas.length).toBeGreaterThan(0);
+        for (const f of fechas) expect(f.getTime()).toBeLessThanOrEqual(ahora.getTime());
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("el trabajo del taller siempre queda antes de los 20 minutos que tarda en terminarse la orden", async () => {
+    const { tx, m } = nuevoTx();
+    await crearOrden(tx, nuevoCtx(), nuevoEstado(), dia, evento(), crearAzar(5));
+    const creada = new Date("2026-10-20T09:30:00-05:00").getTime();
+    for (const c of m.manoDeObra.create.mock.calls) expect(c[0].data.createdAt.getTime()).toBeLessThan(creada + 20 * 60_000);
   });
 
   it("si ningún mecánico tiene la sede, usa cualquiera", async () => {

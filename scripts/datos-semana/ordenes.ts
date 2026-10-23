@@ -182,7 +182,12 @@ export const crearOrden: Manejador = async (tx, ctx, estado, dia, evento, az) =>
     mecanicoId = az.elegir(mecanicosDeLaSede(ctx, dia.sedeId)).id;
     await tx.ordenTrabajo.update({ where: { id: ordenId }, data: { mecanicoId, updatedAt: creada } });
   } else {
-    const elegido = await elegirClienteYVehiculo(tx, ctx, estado, az, dia.fecha, creada);
+    // Una cita completada "se vuelve" esta orden: el vínculo visible es el mismo cliente y vehículo.
+    const citaId = estado.citasPorOrden.get(evento.clave);
+    const cita = citaId
+      ? await tx.cita.findUnique({ where: { id: citaId }, select: { clienteId: true, vehiculoId: true } })
+      : null;
+    const elegido = cita ?? await elegirClienteYVehiculo(tx, ctx, estado, az, dia.fecha, creada);
     vehiculoId = elegido.vehiculoId;
     mecanicoId = az.elegir(mecanicosDeLaSede(ctx, dia.sedeId)).id;
     ordenId = await abrirOrden(tx, ctx, estado, az, dia.sedeId, elegido.clienteId, vehiculoId, mecanicoId, creada);
@@ -191,8 +196,8 @@ export const crearOrden: Manejador = async (tx, ctx, estado, dia, evento, az) =>
 
   await registrarRecepcion(tx, ctx, estado, az, ordenId, vehiculoId, creada);
   if (!evento.borrador) {
-    // Trabajo en el taller unos minutos después de la recepción.
-    const trabajo = new Date(creada.getTime() + az.entero(5, 40) * 60_000);
+    // Trabajo en el taller unos minutos después de la recepción, sin pasar del presente ni (con 15 máx.) de la terminación a +20 min.
+    const trabajo = desfasar(creada, az.entero(5, 15));
     await registrarChecklist(tx, estado, az, ordenId, mecanicoId, trabajo);
     if (!aprobada) await agregarRepuestos(tx, ctx, estado, az, ordenId, dia.sedeId, trabajo);
     await agregarManoDeObra(tx, ctx, estado, az, ordenId, dia.sedeId, trabajo);
