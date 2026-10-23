@@ -40,6 +40,8 @@ export async function sincronizarCuentaPorPagar(
   tx: ClienteTransaccion,
   entradaId: string,
   creadoPorId: string,
+  /** Solo el script de datos de demostración: fija las marcas de tiempo de la deuda nueva. */
+  creada?: Date,
 ): Promise<void> {
   // El cliente del taller fija el `search_path` con el schema de su URL, así que
   // el nombre de la tabla va sin calificar.
@@ -71,6 +73,7 @@ export async function sincronizarCuentaPorPagar(
         // instante, Prisma guardaba el día UTC y una compra de la noche quedaba al día siguiente.
         fecha: new Date(`${formatoDiaBogota.format(entrada.createdAt)}T00:00:00.000Z`),
         creadoPorId,
+        ...(creada ? { createdAt: creada, updatedAt: creada } : {}),
       },
     });
     return;

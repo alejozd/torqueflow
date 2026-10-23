@@ -7,7 +7,7 @@ type TenantDb = ReturnType<typeof getTenantDb>;
 
 /** Plantillas activas de la sede con los periodos ya confirmados u omitidos. */
 export async function cargarPlantillasParaPendientes(
-  tenantDb: TenantDb,
+  tenantDb: Pick<TenantDb, "gastoRecurrente">,
   sedeId: string,
 ): Promise<PlantillaParaPendientes[]> {
   const plantillas = await tenantDb.gastoRecurrente.findMany({

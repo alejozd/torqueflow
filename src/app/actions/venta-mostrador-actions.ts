@@ -32,6 +32,7 @@ import {
   type RangoVentas,
 } from "@/lib/mostrador/listado-ventas";
 import { puedeDevolver, ventaEnCajaCerrada } from "@/lib/mostrador/plazo-devolucion";
+import { ErrorSinStock, registrarVentaEnTransaccion } from "@/lib/mostrador/registrar-venta";
 import { calcularTotalesVenta } from "@/lib/mostrador/ventas";
 import { roundMoney } from "@/lib/money/round";
 import { scopeRepuesto } from "@/lib/sede/scope";
@@ -50,7 +51,6 @@ import { urlWhatsapp } from "@/lib/whatsapp/url";
 
 const SIN_CAJA = "Abre la caja antes de cobrar en efectivo en el mostrador";
 const SALDO_INSUFICIENTE = "SALDO_INSUFICIENTE";
-const STOCK_INSUFICIENTE = "STOCK_INSUFICIENTE";
 
 export interface VentaMostradorFormState {
   error: string | null;
@@ -180,68 +180,22 @@ export async function crearVentaMostradorAction(
 
   const pagos: PagoEntrada[] = datos.pagos;
 
-  // El stock se descuenta por repuesto, agregando las líneas repetidas (D8).
-  const porRepuesto = new Map<string, { cantidad: number; descripcion: string }>();
-  for (const linea of lineas) {
-    if (!linea.repuestoId) continue;
-    const acumulado = porRepuesto.get(linea.repuestoId);
-    porRepuesto.set(linea.repuestoId, {
-      cantidad: (acumulado?.cantidad ?? 0) + linea.cantidad,
-      descripcion: linea.descripcion,
-    });
-  }
-
   let ventaId: string;
   let numero: number;
   try {
-    const venta = await tenantDb.$transaction(async (tx) => {
-      for (const [repuestoId, linea] of porRepuesto) {
-        const { count } = await tx.repuesto.updateMany({
-          where: { id: repuestoId, stockActual: { gte: linea.cantidad } },
-          data: { stockActual: { decrement: linea.cantidad } },
-        });
-        if (count === 0) throw new ErrorSinStock(repuestoId, linea.descripcion);
-      }
-
-      const creada = await tx.ventaMostrador.create({
-        data: {
-          sedeId,
-          clienteId: datos.clienteId ?? null,
-          subtotal: totales.subtotal,
-          descuento: totales.descuento,
-          iva: totales.iva,
-          total: totales.total,
-          saldoPendiente: resumen.saldo,
-          recibidoEfectivo: hayEfectivo ? (datos.recibidoEfectivo ?? null) : null,
-          vueltas: resumen.vueltas,
-          estado: resumen.saldo === 0 ? "PAGADA" : "PENDIENTE",
-          creadoPorId: session.user.id,
-          items: {
-            create: lineas.map((linea) => ({
-              repuestoId: linea.repuestoId ?? null,
-              descripcion: linea.descripcion,
-              cantidad: linea.cantidad,
-              precioUnitario: linea.precioUnitario,
-            })),
-          },
-        },
-        select: { id: true, numero: true },
-      });
-
-      for (const pago of pagos) {
-        await tx.pagoVentaMostrador.create({
-          data: {
-            ventaId: creada.id,
-            monto: pago.monto,
-            metodoPago: pago.metodoPago,
-            referencia: pago.referencia ?? null,
-            registradoPorId: session.user.id,
-          },
-        });
-      }
-
-      return creada;
-    });
+    const venta = await tenantDb.$transaction((tx) =>
+      registrarVentaEnTransaccion(tx, {
+        sedeId,
+        clienteId: datos.clienteId ?? null,
+        totales,
+        saldo: resumen.saldo,
+        vueltas: resumen.vueltas,
+        recibidoEfectivo: hayEfectivo ? (datos.recibidoEfectivo ?? null) : null,
+        lineas,
+        pagos,
+        creadoPorId: session.user.id,
+      }),
+    );
     ventaId = venta.id;
     numero = venta.numero;
   } catch (err) {
@@ -283,18 +237,6 @@ export async function crearVentaMostradorAction(
     cliente: cliente ? { nombre: cliente.nombre, correo: cliente.email || null } : null,
     urlWhatsapp: enlaceWhatsapp,
   };
-}
-
-/** Stock insuficiente dentro de la transacción: lleva el repuesto para marcar su fila. */
-class ErrorSinStock extends Error {
-  readonly repuestoId: string;
-  readonly descripcion: string;
-
-  constructor(repuestoId: string, descripcion: string) {
-    super(STOCK_INSUFICIENTE);
-    this.repuestoId = repuestoId;
-    this.descripcion = descripcion;
-  }
 }
 
 async function nombreTaller(tenantSchema: string): Promise<string> {

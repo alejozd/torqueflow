@@ -2,11 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { puede, requirePermiso } from "@/lib/auth/guards";
-import { registrarEventoAuditoria } from "@/lib/auditoria/registrarEvento";
 import { exigirCajaParaEfectivo, ultimoCierreDeCaja } from "@/lib/caja/sesion";
 import { leerOpcionesTaller } from "@/lib/configuracion/opciones-taller";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb } from "@/lib/db/tenant-client";
+import {
+  DEVOLUCION_YA_REGISTRADA,
+  registrarDevolucionEnTransaccion,
+  SALDO_CAMBIADO,
+} from "@/lib/mostrador/registrar-devolucion";
 import { puedeDevolver, ventaEnCajaCerrada } from "@/lib/mostrador/plazo-devolucion";
 import {
   cantidadDevolvible,
@@ -33,8 +37,6 @@ import { devolucionMostradorInputSchema } from "@/lib/validation/mostrador";
 
 
 const SIN_CAJA = "Abre la caja antes de devolver dinero en efectivo en el mostrador";
-const DEVOLUCION_YA_REGISTRADA = "DEVOLUCION_YA_REGISTRADA";
-const SALDO_CAMBIADO = "SALDO_CAMBIADO";
 
 export interface DevolucionFormState {
   error: string | null;
@@ -149,82 +151,21 @@ export async function crearDevolucionAction(
   );
   if (errorCaja) return { error: errorCaja, success: false };
 
-  // El stock vuelve por repuesto, agregando las líneas repetidas.
-  const porRepuesto = new Map<string, number>();
-  for (const linea of porItem.values()) {
-    if (!linea.repuestoId) continue;
-    porRepuesto.set(linea.repuestoId, (porRepuesto.get(linea.repuestoId) ?? 0) + linea.cantidad);
-  }
-
   let numero: number;
   try {
-    const devolucion = await tenantDb.$transaction(async (tx) => {
-      // Primero las guardas: cada línea solo avanza si nadie devolvió antes esas
-      // unidades. En una venta ya cobrada `aCuenta` es 0, así que la guarda del
-      // saldo no protege nada aquí: sin esta, dos devoluciones simultáneas de la
-      // misma línea pagarían y reingresarían el stock dos veces.
-      for (const [ventaItemId, linea] of porItem) {
-        const { count } = await tx.ventaMostradorItem.updateMany({
-          where: { id: ventaItemId, devueltoCantidad: { lte: linea.vendida - linea.cantidad } },
-          data: { devueltoCantidad: { increment: linea.cantidad } },
-        });
-        if (count === 0) throw new Error(DEVOLUCION_YA_REGISTRADA);
-      }
-
-      if (aCuenta > 0) {
-        // Guarda: el saldo pudo cambiar entre la lectura y esta escritura.
-        const { count } = await tx.ventaMostrador.updateMany({
-          where: { id: ventaId, saldoPendiente: { gte: aCuenta } },
-          data: { saldoPendiente: { decrement: aCuenta } },
-        });
-        if (count === 0) throw new Error(SALDO_CAMBIADO);
-
-        // Si la devolución terminó de saldar la deuda, la venta queda pagada: el
-        // estado se deriva del saldo, como en el cobro.
-        const actualizada = await tx.ventaMostrador.findUniqueOrThrow({
-          where: { id: ventaId },
-          select: { saldoPendiente: true },
-        });
-        if (Number(actualizada.saldoPendiente) <= 0) {
-          await tx.ventaMostrador.update({ where: { id: ventaId }, data: { estado: "PAGADA" } });
-        }
-      }
-
-      for (const [repuestoId, cantidad] of porRepuesto) {
-        await tx.repuesto.update({ where: { id: repuestoId }, data: { stockActual: { increment: cantidad } } });
-      }
-
-      const creada = await tx.devolucionMostrador.create({
-        data: {
-          ventaId,
-          sedeId,
-          motivo: parsed.data.motivo ?? null,
-          total,
-          montoEnEfectivo: enEfectivo,
-          metodoPago: parsed.data.metodoPago,
-          creadoPorId: session.user.id,
-          items: {
-            create: [...porItem.entries()].map(([ventaItemId, linea]) => ({
-              ventaItemId,
-              repuestoId: linea.repuestoId,
-              cantidad: linea.cantidad,
-              precioUnitario: linea.precioUnitario,
-            })),
-          },
-        },
-        select: { id: true, numero: true },
-      });
-
-      await registrarEventoAuditoria(tx, {
-        tipo: "VENTA_DEVOLVER",
-        actorId: session.user.id,
-        entidadTipo: "DevolucionMostrador",
-        entidadId: creada.id,
-        detalle: { ventaId, numero: creada.numero, total, enEfectivo, aCuenta, motivo: parsed.data.motivo ?? null },
-      });
-
-      return creada;
-    });
+    const devolucion = await tenantDb.$transaction((tx) =>
+      registrarDevolucionEnTransaccion(tx, {
+        ventaId,
+        sedeId,
+        motivo: parsed.data.motivo ?? null,
+        metodoPago: parsed.data.metodoPago,
+        total,
+        aCuenta,
+        enEfectivo,
+        creadoPorId: session.user.id,
+        lineas: porItem,
+      }),
+    );
     numero = devolucion.numero;
   } catch (err) {
     if (err instanceof Error && err.message === DEVOLUCION_YA_REGISTRADA) {

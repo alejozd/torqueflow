@@ -1,8 +1,11 @@
 import { crearAzar, type Azar } from "./azar";
 import type { Contexto, TenantDb } from "./contexto";
 import { registrarCita } from "./citas";
+import { registrarAbonoProveedor, registrarPedidoCompra } from "./compras";
 import { registrarCotizacion } from "./cotizaciones";
 import { crearCliente } from "./clientes";
+import { registrarGasto, registrarGastosRecurrentes } from "./gastos";
+import { registrarVentaMostrador } from "./mostrador";
 import { abrirCaja, cerrarCaja } from "./dinero";
 import { anularOrden, crearOrden, entregarOrden, terminarOrden } from "./ordenes";
 import type { ClaveOrden, Evento, PlanDia } from "./tipos";
@@ -17,6 +20,9 @@ export interface EstadoEjecucion {
   clientesUsados: Set<string>;        // clientes creados que ya se asignaron a un evento
   citasPorOrden: Map<ClaveOrden, string>; // cita COMPLETADA → se enlaza al crear su orden
   anticiposPendientes: ClaveOrden[];  // órdenes con anticipo por registrar (Task 7)
+  vendidos?: Map<string, number>;     // repuestoId → unidades netas vendidas en el mostrador
+  ultimoPedidoCompra?: Evento;        // el último pedidoCompra del plan (no reponer dos de los más vendidos)
+  entradasRecibidas?: string[];       // entradas de pedidos recibidos por el script: sus deudas son las únicas que se abonan
 }
 
 export type Manejador = (
@@ -30,6 +36,8 @@ const ESPERA_MAXIMA_TRANSACCION = 10_000;
 /** Se llena en las tareas 5 a 10. */
 export const MANEJADORES: Partial<Record<Evento["tipo"], Manejador>> = {
   abrirCaja, cerrarCaja, crearCliente, cita: registrarCita, cotizacion: registrarCotizacion, crearOrden, terminarOrden, entregarOrden, anularOrden,
+  ventaMostrador: registrarVentaMostrador, gasto: registrarGasto, gastosRecurrentes: registrarGastosRecurrentes,
+  pedidoCompra: registrarPedidoCompra, abonoProveedor: registrarAbonoProveedor,
 };
 
 export async function ejecutarPlan(
@@ -37,6 +45,7 @@ export async function ejecutarPlan(
 ): Promise<EstadoEjecucion> {
   const estado: EstadoEjecucion = { ordenes: new Map(), cajaAbierta: new Map(), creados: {},
     clientesCreados: [], clientesUsados: new Set(), citasPorOrden: new Map(), anticiposPendientes: [] };
+  estado.ultimoPedidoCompra = plan.flatMap((d) => d.eventos).filter((e) => e.tipo === "pedidoCompra").at(-1);
   const az = crearAzar(semilla);
   for (const dia of plan) {
     const sede = ctx.sedes.find((s) => s.id === dia.sedeId)?.nombre ?? dia.sedeId;

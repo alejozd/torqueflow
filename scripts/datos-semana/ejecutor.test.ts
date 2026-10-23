@@ -3,6 +3,7 @@ import type { Contexto, TenantDb } from "./contexto";
 import { ejecutarPlan, MANEJADORES, recortarAlPresente } from "./ejecutor";
 import type { PlanDia } from "./tipos";
 
+const gastoOriginal = MANEJADORES.gasto;
 const ctx = { sedes: [{ id: "s1", nombre: "Principal" }] } as unknown as Contexto;
 
 function dbFalsa() {
@@ -39,7 +40,7 @@ describe("ejecutarPlan", () => {
       expect(estado.creados.gasto).toBe(2);
       expect(estado.creados["omitido:liquidacion"]).toBe(1);
     } finally {
-      delete MANEJADORES.gasto;
+      MANEJADORES.gasto = gastoOriginal;
     }
   });
 
@@ -56,7 +57,7 @@ describe("ejecutarPlan", () => {
       ).rejects.toThrow('Falló el 2026-10-20 (sede Principal) en "gasto": boom');
       expect(vistos).toEqual(["2026-10-19", "2026-10-20"]);
     } finally {
-      delete MANEJADORES.gasto;
+      MANEJADORES.gasto = gastoOriginal;
     }
   });
 });
@@ -101,5 +102,28 @@ describe("recortarAlPresente", () => {
   it("no muta el plan original", () => {
     recortarAlPresente(plan, hoy, "10:00");
     expect(plan[1].eventos.length).toBe(7);
+  });
+});
+
+describe("ejecutarPlan: último pedido de compra", () => {
+  it("marca el último pedidoCompra del plan para que compras no reponga dos de los más vendidos", async () => {
+    const { db } = dbFalsa();
+    const visto: unknown[] = [];
+    const anterior = MANEJADORES.pedidoCompra;
+    MANEJADORES.pedidoCompra = async (_tx, _c, estado, _d, evento) => {
+      visto.push(evento === estado.ultimoPedidoCompra);
+    };
+    try {
+      await ejecutarPlan(db, ctx, [dia("2026-10-19", "pedidoCompra"), dia("2026-10-20", "pedidoCompra", "liquidacion")], 1, () => {});
+      expect(visto).toEqual([false, true]);
+    } finally {
+      MANEJADORES.pedidoCompra = anterior;
+    }
+  });
+
+  it("registra los manejadores de mostrador, gastos y compras", () => {
+    for (const tipo of ["ventaMostrador", "gasto", "gastosRecurrentes", "pedidoCompra", "abonoProveedor"] as const) {
+      expect(MANEJADORES[tipo]).toBeTypeOf("function");
+    }
   });
 });
