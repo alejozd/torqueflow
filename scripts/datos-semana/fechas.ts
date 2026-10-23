@@ -1,3 +1,5 @@
+import type { PlanDia } from "./tipos";
+
 const MS_DIA = 86_400_000;
 
 function aUtc(fecha: string): number {
@@ -41,4 +43,14 @@ export function hoyBogota(ahora: Date = new Date()): string {
 /** `base` más `minutos`, sin pasar del presente (los datos de demostración no pueden quedar en el futuro). */
 export function desfasar(base: Date, minutos: number): Date {
   return new Date(Math.min(base.getTime() + minutos * 60_000, Date.now()));
+}
+
+/**
+ * `t` sin pasar del presente ni del cierre de caja del día (si el plan lo trae): el cierre cuenta
+ * la ventana [apertura, cierre), así que lo que mueve efectivo debe quedar estrictamente antes.
+ */
+export function acotarAlCierre(t: Date, dia: PlanDia): Date {
+  const cierre = dia.eventos.find((e) => e.tipo === "cerrarCaja");
+  const limite = cierre ? instante(dia.fecha, cierre.hora).getTime() - 1000 : Infinity;
+  return new Date(Math.min(t.getTime(), limite, Date.now()));
 }

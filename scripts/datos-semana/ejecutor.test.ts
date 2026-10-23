@@ -33,12 +33,12 @@ describe("ejecutarPlan", () => {
       estado.creados.gasto = (estado.creados.gasto ?? 0) + 1;
     };
     try {
-      const estado = await ejecutarPlan(db, ctx, [dia("2026-10-19", "gasto", "liquidacion"), dia("2026-10-20", "gasto")], 1, () => {});
+      const estado = await ejecutarPlan(db, ctx, [dia("2026-10-19", "gasto", "sinManejador"), dia("2026-10-20", "gasto")], 1, () => {});
       expect(cuenta()).toBe(2);
       expect(opciones).toEqual([{ timeout: 120_000, maxWait: 10_000 }, { timeout: 120_000, maxWait: 10_000 }]);
       expect(vistos).toEqual(["2026-10-19:gasto", "2026-10-20:gasto"]);
       expect(estado.creados.gasto).toBe(2);
-      expect(estado.creados["omitido:liquidacion"]).toBe(1);
+      expect(estado.creados["omitido:sinManejador"]).toBe(1);
     } finally {
       MANEJADORES.gasto = gastoOriginal;
     }
@@ -114,7 +114,7 @@ describe("ejecutarPlan: último pedido de compra", () => {
       visto.push(evento === estado.ultimoPedidoCompra);
     };
     try {
-      await ejecutarPlan(db, ctx, [dia("2026-10-19", "pedidoCompra"), dia("2026-10-20", "pedidoCompra", "liquidacion")], 1, () => {});
+      await ejecutarPlan(db, ctx, [dia("2026-10-19", "pedidoCompra"), dia("2026-10-20", "pedidoCompra", "sinManejador")], 1, () => {});
       expect(visto).toEqual([false, true]);
     } finally {
       MANEJADORES.pedidoCompra = anterior;

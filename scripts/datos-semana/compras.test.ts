@@ -150,4 +150,22 @@ describe("registrarAbonoProveedor", () => {
     await registrarAbonoProveedor(e.tx, e.ctx, e.estado, dia, abono, e.az);
     expect(e.db.pagosProveedor).toHaveLength(0);
   });
+
+  it("el abono nunca queda después del cierre de caja del día", async () => {
+    const conCierre: PlanDia = { ...dia, eventos: [{ tipo: "cerrarCaja", hora: "15:00", diferencia: 0 }] };
+    for (let semilla = 1; semilla <= 15; semilla++) {
+      const e = await conDeuda(semilla, true);
+      await registrarAbonoProveedor(e.tx, e.ctx, e.estado, conCierre, abono, e.az);
+      const pago = e.db.pagosProveedor[0]!;
+      expect(pago.createdAt.getTime()).toBeLessThan(new Date("2026-10-20T15:00:00-05:00").getTime());
+      expect(pago.createdAt.getTime()).toBeGreaterThan(e.db.cuentas[0]!.createdAt.getTime());
+    }
+  });
+
+  it("si el cierre deja el abono antes de la deuda, no abona", async () => {
+    const e = await conDeuda(3, true);
+    const cierreTemprano: PlanDia = { ...dia, eventos: [{ tipo: "cerrarCaja", hora: "08:00", diferencia: 0 }] };
+    await registrarAbonoProveedor(e.tx, e.ctx, e.estado, cierreTemprano, abono, e.az);
+    expect(e.db.pagosProveedor).toHaveLength(0);
+  });
 });

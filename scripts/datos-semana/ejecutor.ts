@@ -5,6 +5,7 @@ import { registrarAbonoProveedor, registrarPedidoCompra } from "./compras";
 import { registrarCotizacion } from "./cotizaciones";
 import { crearCliente } from "./clientes";
 import { registrarGasto, registrarGastosRecurrentes } from "./gastos";
+import { registrarLiquidacion } from "./liquidaciones";
 import { registrarVentaMostrador } from "./mostrador";
 import { abrirCaja, cerrarCaja } from "./dinero";
 import { anularOrden, crearOrden, entregarOrden, terminarOrden } from "./ordenes";
@@ -22,6 +23,11 @@ export interface EstadoEjecucion {
   anticiposPendientes: ClaveOrden[];  // órdenes con anticipo por registrar (Task 7)
   vendidos?: Map<string, number>;     // repuestoId → unidades netas vendidas en el mostrador
   ultimoPedidoCompra?: Evento;        // el último pedidoCompra del plan (no reponer dos de los más vendidos)
+  facturasCreadas?: string[];         // facturas emitidas por el script (verificación de cuadre)
+  ventasMostrador?: string[];         // ventas de mostrador creadas por el script
+  cajasCerradas?: string[];           // cajas que el script abrió y cerró
+  stockCargaInicial?: Map<string, number>; // repuestos creados en la corrida → stock con el que nacieron
+  advertencias?: string[];            // avisos que se imprimen al final (p. ej. liquidación omitida)
   entradasRecibidas?: string[];       // entradas de pedidos recibidos por el script: sus deudas son las únicas que se abonan
 }
 
@@ -37,7 +43,7 @@ const ESPERA_MAXIMA_TRANSACCION = 10_000;
 export const MANEJADORES: Partial<Record<Evento["tipo"], Manejador>> = {
   abrirCaja, cerrarCaja, crearCliente, cita: registrarCita, cotizacion: registrarCotizacion, crearOrden, terminarOrden, entregarOrden, anularOrden,
   ventaMostrador: registrarVentaMostrador, gasto: registrarGasto, gastosRecurrentes: registrarGastosRecurrentes,
-  pedidoCompra: registrarPedidoCompra, abonoProveedor: registrarAbonoProveedor,
+  pedidoCompra: registrarPedidoCompra, abonoProveedor: registrarAbonoProveedor, liquidacion: registrarLiquidacion,
 };
 
 export async function ejecutarPlan(

@@ -48,6 +48,7 @@ export const cerrarCaja: Manejador = async (tx, ctx, estado, dia, evento) => {
     },
   });
   estado.cajaAbierta.delete(dia.sedeId);
+  (estado.cajasCerradas ??= []).push(cajaId);
 };
 
 /** Sin caja abierta en la sede el efectivo no se puede registrar (exigirCajaParaEfectivo): solo tarjeta o transferencia. */
@@ -114,6 +115,7 @@ export async function facturarYCobrar(
 ): Promise<void> {
   const factura = await emitirFacturaEnTransaccion(tx, orden, 0, ctx.recepcionistaId, creada);
   estado.creados.factura = (estado.creados.factura ?? 0) + 1;
+  (estado.facturasCreadas ??= []).push(factura.id);
 
   const montos = repartirPagos(pago, factura.saldoPendiente, az);
   const disponibles = [...metodosDeCobro(estado, sedeId)];

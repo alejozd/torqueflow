@@ -4,7 +4,7 @@ import { roundMoney } from "@/lib/money/round";
 import type { Azar } from "./azar";
 import { MARCA, type Contexto } from "./contexto";
 import type { EstadoEjecucion, Manejador, TenantTx } from "./ejecutor";
-import { desfasar, instante } from "./fechas";
+import { acotarAlCierre, desfasar, instante } from "./fechas";
 
 const PROVEEDORES_MINIMOS = [
   { nombre: "Autopartes Andina", diasEntrega: 2 },
@@ -72,6 +72,7 @@ export async function bodegasConCatalogo(
         proveedorId,
       },
     });
+    (estado.stockCargaInicial ??= new Map()).set(creado.id, stockActual);
     ctx.repuestos.push({
       id: creado.id, nombre: basico.nombre, precioCompra: basico.precioCompra, precioVenta: basico.precioVenta,
       stockActual, stockMinimo: STOCK_MINIMO_BASICO, bodegaId, proveedorId,
@@ -181,7 +182,7 @@ const centenas = (v: number) => Math.floor(v / 100) * 100;
 
 /**
  * abonarCuentaPorPagarAction: abona a una deuda que el script creó (nunca a las reales). El monto
- * nunca pasa del saldo; en efectivo solo con caja abierta; queda después de que la mercancía llegó.
+ * nunca pasa del saldo; en efectivo solo con caja abierta; queda después de que la mercancía llegó y antes del cierre de caja del día.
  */
 export const registrarAbonoProveedor: Manejador = async (tx, ctx, estado, dia, evento, az) => {
   if (evento.tipo !== "abonoProveedor") return;
@@ -198,7 +199,9 @@ export const registrarAbonoProveedor: Manejador = async (tx, ctx, estado, dia, e
   const parcial = Math.max(1000, centenas(saldo * (0.3 + az.azar() * 0.6)));
   const monto = roundMoney(az.probabilidad(0.35) || parcial >= saldo ? saldo : parcial);
   const metodoPago = az.elegir(metodosDePago(estado, dia.sedeId));
-  const abonado = desfasar(new Date(Math.max(instante(dia.fecha, evento.hora).getTime(), cuenta.createdAt.getTime() + 5 * MS_MINUTO)), 0);
+  const abonado = acotarAlCierre(
+    desfasar(new Date(Math.max(instante(dia.fecha, evento.hora).getTime(), cuenta.createdAt.getTime() + 5 * MS_MINUTO)), 0), dia);
+  if (abonado.getTime() <= cuenta.createdAt.getTime()) return; // el cierre de caja deja el abono antes de la deuda
 
   // Guarda atómica: el abono no puede pasarse del saldo.
   const { count } = await tx.cuentaPorPagar.updateMany({

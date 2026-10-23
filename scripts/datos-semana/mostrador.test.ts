@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { crearAzar } from "./azar";
 import { registrarVentaMostrador } from "./mostrador";
 import { calcularTotalesVenta } from "@/lib/mostrador/ventas";
@@ -154,5 +154,32 @@ describe("registrarVentaMostrador", () => {
     expect(ctx.repuestos).toHaveLength(6);
     expect(ctx.proveedores).toHaveLength(2);
     expect(base.db.ventas).toHaveLength(1);
+  });
+
+  it("la devolución nunca queda después del cierre de caja del día", async () => {
+    const conCierre: PlanDia = { ...dia, eventos: [{ tipo: "cerrarCaja", hora: "11:30", diferencia: 0 }] };
+    for (let semilla = 1; semilla <= 20; semilla++) {
+      const e = escenario(6, semilla);
+      conCaja(e.estado);
+      await registrarVentaMostrador(e.tx, e.ctx, e.estado, conCierre, venta(false, true), e.az);
+      const d = e.db.devoluciones[0]!;
+      expect(d.createdAt.getTime()).toBeLessThan(new Date("2026-10-20T11:30:00-05:00").getTime());
+      expect(d.createdAt.getTime()).toBeGreaterThan(e.db.ventas[0]!.createdAt.getTime());
+    }
+  });
+
+  it("sin cierre en el día (hoy) la devolución nunca queda después de la hora actual", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-10-20T11:10:00-05:00"));
+      for (let semilla = 1; semilla <= 20; semilla++) {
+        const e = escenario(6, semilla);
+        conCaja(e.estado);
+        await registrarVentaMostrador(e.tx, e.ctx, e.estado, dia, venta(false, true), e.az);
+        expect(e.db.devoluciones[0]!.createdAt.getTime()).toBeLessThanOrEqual(Date.now());
+      }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

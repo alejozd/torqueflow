@@ -14,7 +14,8 @@ import { MARCA, type Contexto } from "./contexto";
 import { elegirClienteYVehiculo } from "./clientes";
 import { bodegasConCatalogo, metodosDePago } from "./compras";
 import type { EstadoEjecucion, Manejador, TenantTx } from "./ejecutor";
-import { desfasar, instante } from "./fechas";
+import { acotarAlCierre, desfasar, instante } from "./fechas";
+import type { PlanDia } from "./tipos";
 
 const MOTIVOS = ["No era la referencia correcta", "El cliente se arrepintió", "Pieza que no le servía al vehículo"] as const;
 
@@ -55,9 +56,9 @@ function repartirPagos(total: number, fiada: boolean, metodos: readonly Metodo[]
   ];
 }
 
-/** crearDevolucionAction sobre una parte de la venta recién hecha; el dinero respeta la caja abierta. */
+/** crearDevolucionAction sobre una parte de la venta recién hecha; el dinero respeta la caja abierta y queda antes del cierre del día. */
 async function devolverParte(
-  tx: TenantTx, ctx: Contexto, estado: EstadoEjecucion, sedeId: string, ventaId: string, creada: Date, az: Azar,
+  tx: TenantTx, ctx: Contexto, estado: EstadoEjecucion, dia: PlanDia, ventaId: string, creada: Date, az: Azar,
 ): Promise<void> {
   const venta = await tx.ventaMostrador.findUniqueOrThrow({
     where: { id: ventaId },
@@ -80,15 +81,15 @@ async function devolverParte(
 
   await registrarDevolucionEnTransaccion(tx, {
     ventaId,
-    sedeId,
+    sedeId: dia.sedeId,
     motivo: `${MARCA} ${az.elegir(MOTIVOS)}`,
-    metodoPago: az.elegir(metodosDePago(estado, sedeId)),
+    metodoPago: az.elegir(metodosDePago(estado, dia.sedeId)),
     total,
     aCuenta,
     enEfectivo,
     creadoPorId: ctx.recepcionistaId,
     lineas: new Map([[item.id, { cantidad, vendida: item.cantidad, repuestoId: item.repuestoId, precioUnitario }]]),
-  }, desfasar(creada, az.entero(20, 120)));
+  }, acotarAlCierre(desfasar(creada, az.entero(20, 120)), dia));
 
   if (item.repuestoId) {
     const repuesto = ctx.repuestos.find((r) => r.id === item.repuestoId);
@@ -145,6 +146,7 @@ export const registrarVentaMostrador: Manejador = async (tx, ctx, estado, dia, e
     pagos,
     creadoPorId: ctx.recepcionistaId,
   }, creada);
+  (estado.ventasMostrador ??= []).push(venta.id);
   const vendidos = (estado.vendidos ??= new Map());
   for (const { repuesto, cantidad } of lineas) {
     repuesto.stockActual -= cantidad;
@@ -152,5 +154,5 @@ export const registrarVentaMostrador: Manejador = async (tx, ctx, estado, dia, e
   }
   sumar(estado, "ventaMostrador");
 
-  if (evento.devolucion) await devolverParte(tx, ctx, estado, dia.sedeId, venta.id, creada, az);
+  if (evento.devolucion) await devolverParte(tx, ctx, estado, dia, venta.id, creada, az);
 };

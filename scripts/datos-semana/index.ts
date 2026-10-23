@@ -3,6 +3,7 @@ import { cargarContexto, exigirSchemaPermitido, SCHEMA_PERMITIDO } from "./conte
 import { ejecutarPlan, recortarAlPresente } from "./ejecutor";
 import { hoyBogota } from "./fechas";
 import { armarPlan, contarEventos } from "./plan";
+import { verificarTodo } from "./verificacion";
 import { confirmar, crearPregunton, hacerPreguntas } from "./preguntas";
 
 /** Hora actual en Bogotá como "HH:MM". */
@@ -38,9 +39,18 @@ export async function main(argv: string[]): Promise<void> {
       console.log("Cancelado, no se creó nada.");
       return;
     }
+    const stockInicial = new Map(ctx.repuestos.map((r) => [r.id, r.stockActual]));
     const estado = await ejecutarPlan(db, ctx, plan, semilla, console.log);
     console.log("Listo. Registros creados:");
     for (const [tipo, n] of Object.entries(estado.creados)) console.log(`  ${tipo}: ${n}`);
+    for (const aviso of estado.advertencias ?? []) console.log(`Aviso: ${aviso}`);
+    const descuadres = await verificarTodo(db, ctx, estado, stockInicial);
+    if (descuadres.length === 0) {
+      console.log("Todo cuadra ✓");
+    } else {
+      console.log(`ATENCIÓN: ${descuadres.length} descuadre(s) (no se borró nada):`);
+      for (const d of descuadres) console.log(`  [${d.tipo}] ${d.id}: ${d.detalle}`);
+    }
     console.log(`Semilla: ${semilla}`);
   } finally {
     preguntas.cerrar();
