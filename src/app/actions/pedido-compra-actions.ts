@@ -6,7 +6,7 @@ import { requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { publicDb } from "@/lib/db/public-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
-import { sincronizarCuentaPorPagar } from "@/lib/proveedores/sincronizar-cuenta";
+import { PEDIDO_YA_RECIBIDO, recibirPedidoEnTransaccion } from "@/lib/pedido-compra/recibir";
 import { CANTIDAD_MAXIMA_LINEA } from "@/lib/validation/inventario";
 import { CONFIGURACION_SMTP_ID, descifrarConfiguracionSmtp, type ConfiguracionSmtpAlmacenada } from "@/lib/email/smtp-config";
 import { enviarEmail } from "@/lib/email/enviar-email";
@@ -308,39 +308,19 @@ export async function recibirPedidoCompraAction(
   let entradaId: string;
   try {
     entradaId = await tenantDb.$transaction(async (tx) => {
-      const entrada = await tx.entradaMercancia.create({
-        data: {
-          proveedorId: pedido.proveedor.id,
-          bodegaId: pedido.bodega.id,
-          creadoPorId: session.user.id,
-          items: {
-            create: lineas.map((linea) => {
-              const item = itemsPorId.get(linea.itemId)!;
-              return { repuestoId: item.repuestoId, cantidad: linea.cantidad, precioCompraUnitario: item.precioCompraUnitario };
-            }),
-          },
-        },
-        select: { id: true },
+      return recibirPedidoEnTransaccion(tx, {
+        id,
+        proveedorId: pedido.proveedor.id,
+        bodegaId: pedido.bodega.id,
+        creadoPorId: session.user.id,
+        lineas: lineas.map((linea) => {
+          const item = itemsPorId.get(linea.itemId)!;
+          return { repuestoId: item.repuestoId, cantidad: linea.cantidad, precioCompraUnitario: item.precioCompraUnitario };
+        }),
       });
-      for (const linea of lineas) {
-        await tx.repuesto.update({
-          where: { id: itemsPorId.get(linea.itemId)!.repuestoId },
-          data: { stockActual: { increment: linea.cantidad } },
-        });
-      }
-      // La deuda con el proveedor nace con la mercancía (Fase 24, D5).
-      await sincronizarCuentaPorPagar(tx, entrada.id, session.user.id);
-      // estado guard inside the transaction: two people receiving at once
-      // must not create two entradas for the same pedido.
-      const { count } = await tx.pedidoCompra.updateMany({
-        where: { id, estado: "ENVIADO" },
-        data: { estado: "RECIBIDO", recibidoAt: new Date(), entradaId: entrada.id },
-      });
-      if (count === 0) throw new Error("PEDIDO_YA_RECIBIDO");
-      return entrada.id;
     });
   } catch (err) {
-    if (err instanceof Error && err.message === "PEDIDO_YA_RECIBIDO") {
+    if (err instanceof Error && err.message === PEDIDO_YA_RECIBIDO) {
       return { error: "Este pedido ya fue recibido.", entradaId: null };
     }
     return { error: friendlyPrismaErrorMessage(err, "Error al recibir el pedido"), entradaId: null };

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { montoExacto } from "@/lib/money/monto-exacto";
 
 const opcionesTaller = { exigirActaFirmada: false, usarControlCaja: true };
 
@@ -145,8 +146,8 @@ describe("crearDevolucionAction", () => {
 
     expect(r.success).toBe(true);
     expect(tx.ventaMostrador.updateMany).toHaveBeenCalledWith({
-      where: { id: "v1", saldoPendiente: { gte: 59500 } },
-      data: { saldoPendiente: { decrement: 59500 } },
+      where: { id: "v1", saldoPendiente: { gte: montoExacto(59500) } },
+      data: { saldoPendiente: { decrement: montoExacto(59500) } },
     });
     const creada = tx.devolucionMostrador.create.mock.calls[0]![0].data;
     expect(Number(creada.total)).toBe(59500);

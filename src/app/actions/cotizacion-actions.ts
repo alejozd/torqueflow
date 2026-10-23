@@ -14,6 +14,7 @@ import { isValidEstadoTransition } from "@/lib/cotizacion/estado-transitions";
 import { assertCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
 import { recomputeCotizacionTotales } from "@/lib/cotizacion/recompute-totales";
 import { prismaCotizacionesVencidasGateway } from "@/lib/cotizacion/marcar-vencidas-gateway-prisma";
+import { crearOrdenDesdeCotizacion } from "@/lib/cotizacion/orden-desde-cotizacion";
 import { porcentajeVisible } from "@/lib/cotizacion/totales";
 import { construirMensajeCotizacion } from "@/lib/cotizacion/plantilla-envio";
 import { scopeCotizacion } from "@/lib/sede/scope";
@@ -439,53 +440,9 @@ export async function aprobarCotizacionAction(
 
   let ordenId: string;
   try {
-    const orden = await tenantDb.$transaction(async (tx) => {
-      const creada = await tx.ordenTrabajo.create({
-        data: {
-          clienteId: cotizacion.clienteId,
-          vehiculoId: cotizacion.vehiculoId,
-          sedeId: cotizacion.sedeId,
-          creadoPorId: session.user.id,
-        },
-      });
-
-      for (const item of cotizacion.items) {
-        // La orden recuerda de qué kit salió cada línea, igual que la cotización.
-        const grupo = {
-          grupoKitId: item.grupoKitId,
-          grupoKitNombre: item.grupoKitNombre,
-          servicioId: item.servicioId,
-        };
-        if (item.tipo === "REPUESTO") {
-          await tx.itemOrden.create({
-            data: {
-              ordenId: creada.id,
-              repuestoId: item.repuestoId,
-              descripcion: item.descripcion,
-              cantidad: Math.round(Number(item.cantidad)),
-              precioUnitario: item.precioUnitario,
-              ...grupo,
-            },
-          });
-        } else {
-          await tx.manoDeObra.create({
-            data: {
-              ordenId: creada.id,
-              descripcion: item.descripcion,
-              valor: Number(item.cantidad) * Number(item.precioUnitario),
-              ...grupo,
-            },
-          });
-        }
-      }
-
-      await tx.cotizacion.update({
-        where: { id: cotizacionId },
-        data: { estado: "APROBADA", ordenId: creada.id },
-      });
-
-      return creada;
-    });
+    const orden = await tenantDb.$transaction((tx) =>
+      crearOrdenDesdeCotizacion(tx, cotizacion, session.user.id),
+    );
     ordenId = orden.id;
   } catch (err) {
     return { error: friendlyPrismaErrorMessage(err, "Error al aprobar la cotización"), success: false, ordenId: null };

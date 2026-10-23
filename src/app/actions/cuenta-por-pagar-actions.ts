@@ -7,6 +7,7 @@ import { leerOpcionesTaller } from "@/lib/configuracion/opciones-taller";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { inicioDiaBogota } from "@/lib/fecha-bogota";
+import { montoExacto } from "@/lib/money/monto-exacto";
 import { roundMoney } from "@/lib/money/round";
 import {
   agruparCuentasPorPagar,
@@ -74,8 +75,8 @@ export async function abonarCuentaPorPagarAction(
     saldoRestante = await tenantDb.$transaction(async (tx) => {
       // Guarda atómica: dos personas abonando a la vez no pueden pasarse del saldo.
       const { count } = await tx.cuentaPorPagar.updateMany({
-        where: { id: cuentaId, saldoPendiente: { gte: parsed.data.monto } },
-        data: { saldoPendiente: { decrement: parsed.data.monto } },
+        where: { id: cuentaId, saldoPendiente: { gte: montoExacto(parsed.data.monto) } },
+        data: { saldoPendiente: { decrement: montoExacto(parsed.data.monto) } },
       });
       if (count === 0) throw new Error(SALDO_INSUFICIENTE);
 
@@ -183,8 +184,8 @@ export async function abonarProveedorAction(
         if (porcion.recibe <= 0) continue;
         // Guarda atómica: si alguien abonó a esta cuenta mientras tanto, se deshace todo.
         const { count } = await tx.cuentaPorPagar.updateMany({
-          where: { id: porcion.cuentaId, saldoPendiente: { gte: porcion.recibe } },
-          data: { saldoPendiente: { decrement: porcion.recibe } },
+          where: { id: porcion.cuentaId, saldoPendiente: { gte: montoExacto(porcion.recibe) } },
+          data: { saldoPendiente: { decrement: montoExacto(porcion.recibe) } },
         });
         if (count === 0) throw new Error(SALDO_INSUFICIENTE);
 

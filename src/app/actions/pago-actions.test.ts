@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { montoExacto } from "@/lib/money/monto-exacto";
 
 const opcionesTaller = { exigirActaFirmada: false, usarControlCaja: true };
 
@@ -146,8 +147,8 @@ describe("registrarPagoAction", () => {
 
     expect(result).toEqual({ error: null, success: true });
     expect(mockFacturaUpdateMany).toHaveBeenCalledWith({
-      where: { id: "f1", saldoPendiente: { gte: 100 } },
-      data: { saldoPendiente: { decrement: 100 } },
+      where: { id: "f1", saldoPendiente: { gte: montoExacto(100) } },
+      data: { saldoPendiente: { decrement: montoExacto(100) } },
     });
     expect(mockPagoCreate).toHaveBeenCalledWith({
       data: { facturaId: "f1", monto: 100, metodoPago: "EFECTIVO", referencia: null, registradoPorId: "u1" },
