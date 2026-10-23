@@ -13,7 +13,7 @@ export interface EstadoEjecucion {
   ordenes: Map<ClaveOrden, string>;   // clave del plan → id real
   cajaAbierta: Map<string, string>;   // sedeId → id de CajaSesion abierta
   creados: Record<string, number>;    // para el resumen final
-  clientesCreados: { clienteId: string; vehiculoIds: string[] }[]; // creados por el script
+  clientesCreados: { clienteId: string; vehiculoIds: string[]; creadoEn: Date }[]; // creados por el script
   clientesUsados: Set<string>;        // clientes creados que ya se asignaron a un evento
   citasPorOrden: Map<ClaveOrden, string>; // cita COMPLETADA → se enlaza al crear su orden
   anticiposPendientes: ClaveOrden[];  // órdenes con anticipo por registrar (Task 7)

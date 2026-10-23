@@ -78,7 +78,7 @@ async function registrarSeguimiento(
  * estado ENVIADA y su vigencia) + aprobar/rechazar. VENCIDA queda como la dejaría el barrido de
  * `marcarVencidas`: ENVIADA con la vigencia ya pasada, vista como VENCIDA. Las aprobadas y
  * rechazadas se crearon unos días antes y se deciden en la hora del evento; las enviadas y las
- * vencidas se envían al crearlas (las vencidas, hace 10 a 20 días).
+ * vencidas se envían al crearlas (las vencidas, hace su vigencia más 1 a 3 días).
  */
 export const registrarCotizacion: Manejador = async (tx, ctx, estado, dia, evento, az) => {
   if (evento.tipo !== "cotizacion") return;
@@ -91,7 +91,8 @@ export const registrarCotizacion: Manejador = async (tx, ctx, estado, dia, event
   }
 
   const decision = instante(dia.fecha, evento.hora);
-  const diasAntes = destino === "VENCIDA" ? az.entero(10, 20) : destino === "ENVIADA" ? 0 : az.entero(1, 3);
+  const vigenciaVencida = az.elegir([3, 5, 7]);
+  const diasAntes = destino === "VENCIDA" ? vigenciaVencida + az.entero(1, 3) : destino === "ENVIADA" ? 0 : az.entero(1, 3);
   const creada = diasAntes === 0 ? decision : instante(sumarDias(dia.fecha, -diasAntes), evento.hora);
   const enviada = desfasar(creada, az.entero(3, 20));
 
@@ -127,7 +128,7 @@ export const registrarCotizacion: Manejador = async (tx, ctx, estado, dia, event
   // enviarCotizacionAction: BORRADOR → ENVIADA con la vigencia en días. Una cotización que sigue
   // enviada debe vencer después de hoy; la vencida, antes del evento.
   const diasPasados = Math.ceil((Date.now() - enviada.getTime()) / MS_DIA);
-  const vigenciaDias = destino === "VENCIDA" ? az.elegir([3, 5, 7]) : Math.max(az.elegir([3, 5, 7, 10, 15]), diasPasados + 2);
+  const vigenciaDias = destino === "VENCIDA" ? vigenciaVencida : Math.max(az.elegir([3, 5, 7, 10, 15]), diasPasados + 2);
   const validaHasta = new Date(enviada.getTime() + vigenciaDias * MS_DIA);
   await tx.cotizacion.update({
     where: { id: cotizacion.id },

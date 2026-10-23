@@ -69,7 +69,7 @@ describe("elegirClienteYVehiculo", () => {
   it("usa primero los creados por el script y luego los existentes con vehículo", async () => {
     const existentes = [{ id: "e1", vehiculoIds: ["ev1"] }, { id: "sin", vehiculoIds: [] }];
     const estado = nuevoEstado();
-    estado.clientesCreados.push({ clienteId: "n1", vehiculoIds: ["nv1"] });
+    estado.clientesCreados.push({ clienteId: "n1", vehiculoIds: ["nv1"], creadoEn: new Date("2026-10-20T08:00:00-05:00") });
     const { tx } = txFalsa();
     const az = crearAzar(5);
     const ctx = ctxCon([], existentes);

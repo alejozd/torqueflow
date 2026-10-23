@@ -147,6 +147,37 @@ describe("registrarCotizacion", () => {
   });
 });
 
+describe("cotización atrasada y clientes del script", () => {
+  it.each(["VENCIDA", "RECHAZADA"] as const)("%s nunca usa un cliente creado después de ella", async (destino) => {
+    const { tx, m } = nuevoTx();
+    const estado = nuevoEstado();
+    estado.clientesCreados.push({ clienteId: "nuevo", vehiculoIds: ["nv"], creadoEn: new Date("2026-10-20T09:00:00-05:00") });
+    await registrarCotizacion(tx, nuevoCtx(), estado, dia, evento(destino), crearAzar(5));
+    expect(datos(m.cotizacion.create)).toMatchObject({ clienteId: "c1", vehiculoId: "v1" });
+    expect(estado.clientesUsados.has("nuevo")).toBe(false);
+  });
+
+  it("ENVIADA (sin atraso) sí puede usar un cliente creado antes del evento", async () => {
+    const { tx, m } = nuevoTx();
+    const estado = nuevoEstado();
+    estado.clientesCreados.push({ clienteId: "nuevo", vehiculoIds: ["nv"], creadoEn: new Date("2026-10-20T08:00:00-05:00") });
+    await registrarCotizacion(tx, nuevoCtx(), estado, dia, evento("ENVIADA"), crearAzar(5));
+    expect(datos(m.cotizacion.create)).toMatchObject({ clienteId: "nuevo", vehiculoId: "nv" });
+  });
+
+  it("VENCIDA: vigencia ya pasada y creada como mucho vigencia + 3 días antes", async () => {
+    for (let semilla = 1; semilla <= 20; semilla++) {
+      const { tx, m } = nuevoTx();
+      await registrarCotizacion(tx, nuevoCtx(), nuevoEstado(), dia, evento("VENCIDA"), crearAzar(semilla));
+      const inicio = new Date("2026-10-20T09:30:00-05:00").getTime();
+      const enviada = todas(m.cotizacion.update).find((d) => d.estado === "ENVIADA")!;
+      const vigencia = (enviada.validaHasta as Date).getTime();
+      expect(vigencia).toBeLessThan(inicio);
+      expect(inicio - (datos(m.cotizacion.create).createdAt as Date).getTime()).toBeLessThanOrEqual(10.1 * 86_400_000);
+    }
+  });
+});
+
 describe("crearOrden sobre una orden aprobada", () => {
   it("la completa (recepción, DVI, mano de obra, EN_PROCESO) sin crear otra ni más repuestos", async () => {
     const { tx, m } = nuevoTx();

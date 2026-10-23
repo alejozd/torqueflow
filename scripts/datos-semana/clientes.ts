@@ -71,7 +71,7 @@ export async function crearClienteConVehiculos(
     sumar(estado, "vehiculo");
   }
   sumar(estado, "cliente");
-  estado.clientesCreados.push({ clienteId: cliente.id, vehiculoIds });
+  estado.clientesCreados.push({ clienteId: cliente.id, vehiculoIds, creadoEn: cuando ?? new Date() });
   return { clienteId: cliente.id, vehiculoIds };
 }
 
@@ -82,12 +82,15 @@ export const crearCliente: Manejador = async (tx, ctx, estado, dia, evento, az) 
 
 /**
  * Cliente y vehículo para una cita/orden/venta: primero los creados por el script que aún no se
- * usaron, luego los existentes con vehículo; si no hay ninguno, crea uno nuevo.
+ * usaron (y ya existían en `cuando`), luego los existentes con vehículo; si no hay ninguno, crea uno nuevo.
  */
 export async function elegirClienteYVehiculo(
   tx: TenantTx, ctx: Contexto, estado: EstadoEjecucion, az: Azar, fecha: string, cuando?: Date,
 ): Promise<{ clienteId: string; vehiculoId: string }> {
-  const sinUsar = estado.clientesCreados.find((c) => !estado.clientesUsados.has(c.clienteId));
+  // Un registro con fecha propia no puede usar un cliente creado después de esa fecha.
+  const sinUsar = estado.clientesCreados.find(
+    (c) => !estado.clientesUsados.has(c.clienteId) && (!cuando || c.creadoEn <= cuando),
+  );
   if (sinUsar) {
     estado.clientesUsados.add(sinUsar.clienteId);
     return { clienteId: sinUsar.clienteId, vehiculoId: az.elegir(sinUsar.vehiculoIds) };
