@@ -319,7 +319,36 @@ build y reiniciar:
 3. Solo entonces `sudo ./deploy.sh`. Migrar antes es seguro: agregar columnas y valores a un enum no rompe
    el código viejo.
 
+**Datos de demostración de una semana** (`npm run datos:semana`, código en `scripts/datos-semana/`,
+diseño `docs/superpowers/specs/2026-10-22-datos-semana-design.md`). Pregunta en consola desde/hasta, sede,
+clientes nuevos, volumen (bajo/medio/alto) y si liquidar; muestra un resumen y solo escribe si se confirma.
+Crea un día de taller completo por día hábil (caja, citas, cotizaciones, órdenes con recepción y DVI,
+entregas con factura y pagos, mostrador, gastos, compras y abonos), una transacción por día y sede, y al
+final imprime el cuadre (facturas, stock, cajas, cuentas por pagar): "Todo cuadra ✓" o la lista de descuadres.
+
+- **Solo `taller_dev`** (fijo en el código; cualquier otro schema falla antes de leer). Nunca envía correos
+  ni WhatsApp (correos inventados `@ejemplo.test`). No toca usuarios, sedes, configuración, ni a
+  Andrea Valencia Ríos ni las placas `JKT482`, `MRW615`, `HBL290`, `DFN734`; no modifica registros reales
+  (liquidaciones, plantillas de gastos recurrentes y cajas existentes se respetan y se avisa).
+- Todo lo creado lleva la marca **`[datos-semana]`** en su primer campo de texto libre.
+- Cada escritura replica la server action correspondiente; la lógica compartida vive en `src/lib`
+  (`caja/movimientos`, `factura/emitir`, `factura/registrar-pago`, `cotizacion/orden-desde-cotizacion`,
+  `mostrador/registrar-venta`, `mostrador/registrar-devolucion`, `pedido-compra/recibir`,
+  `liquidaciones/filas-periodo`).
+- **Semilla**: `npm run datos:semana -- --semilla 4821` repite el mismo plan; sin ella se elige al azar y se
+  imprime al final. Si se corre hoy, no crea nada con hora posterior a la actual.
+- **Ojo con "desde"**: por defecto es el lunes de la semana; para un solo día hay que escribir la fecha. Si
+  falla un día, los anteriores quedan grabados y ese día se revierte completo; volver a correr el mismo
+  rango duplica los días que ya existían. Máximo 31 días por corrida.
+- La entrada es interactiva (readline): no funciona pasándole las respuestas por una tubería.
+
 ## 7. Trampas conocidas (lecciones que costaron tiempo)
+
+- **Montos con centavos contra columnas `Decimal`**: un `number` de JS como `852594.93` es en binario
+  `852594.93000000005`; en un filtro `saldoPendiente: { gte: monto }` Prisma lo manda como flotante y
+  Postgres lo compara como mayor que el decimal guardado, así que pagar exactamente el saldo fallaba con
+  `SALDO_INSUFICIENTE`. Usa `montoExacto` (`src/lib/money/monto-exacto.ts`) en esas comparaciones y
+  decrementos. Lo destapó el script de datos de la semana (2026-10-23).
 
 - **Los tests mockean la base** (`getTenantDb`): si te falta una columna en la migración, **los tests siguen
   en verde**. Por eso el cierre exige comprobar contra la base real (`migrate diff` vacío).
