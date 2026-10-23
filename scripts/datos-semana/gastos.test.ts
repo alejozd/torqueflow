@@ -81,12 +81,23 @@ describe("registrarGastosRecurrentes", () => {
   it("no repite un mes ya confirmado ni toca meses anteriores", async () => {
     const ctx = nuevoCtx({ categorias: ["Arriendo"] });
     const { tx, db } = nuevaBase();
-    db.plantillas.push({ id: "gr0", sedeId: "s1", categoriaId: "cg1", descripcion: "Arriendo", montoEstimado: 1_200_000, diaDelMes: 5, desde: "2026-08", activo: true });
+    db.plantillas.push({ id: "gr0", sedeId: "s1", categoriaId: "cg1", descripcion: "[datos-semana] Arriendo", montoEstimado: 1_200_000, diaDelMes: 5, desde: "2026-08", activo: true });
     await registrarGastosRecurrentes(tx, ctx, nuevoEstado(), dia, recurrentes, crearAzar(1));
     expect(db.gastos).toHaveLength(1); // solo octubre, no agosto ni septiembre
     expect(db.gastos[0]).toMatchObject({ periodo: "2026-10", gastoRecurrenteId: "gr0", monto: 1_200_000 });
-    expect(db.plantillas).toHaveLength(1); // ya había plantilla: no crea otras
+    expect(db.plantillas).toHaveLength(1); // ya había plantilla del script: no crea otras
     await registrarGastosRecurrentes(tx, ctx, nuevoEstado(), dia, recurrentes, crearAzar(1));
     expect(db.gastos).toHaveLength(1);
+  });
+
+  it("nunca confirma una plantilla real (sin marca): crea las suyas y solo confirma esas", async () => {
+    const ctx = nuevoCtx({ categorias: ["Arriendo"] });
+    const { tx, db } = nuevaBase();
+    db.plantillas.push({ id: "real", sedeId: "s1", categoriaId: "cg1", descripcion: "Arriendo", montoEstimado: 1_200_000, diaDelMes: 5, desde: "2026-08", activo: true });
+    await registrarGastosRecurrentes(tx, ctx, nuevoEstado(), dia, recurrentes, crearAzar(1));
+    expect(db.gastos.some((g) => g.gastoRecurrenteId === "real")).toBe(false);
+    expect(db.plantillas).toHaveLength(3); // la real + las dos del script
+    expect(db.gastos).toHaveLength(2);
+    expect(db.gastos.every((g) => g.gastoRecurrenteId !== "real" && g.descripcion.startsWith("[datos-semana]"))).toBe(true);
   });
 });

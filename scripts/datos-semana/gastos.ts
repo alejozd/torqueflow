@@ -65,7 +65,7 @@ export const registrarGasto: Manejador = async (tx, ctx, estado, dia, evento, az
 };
 
 /**
- * crearGastoRecurrenteAction (si la sede no tiene plantillas: arriendo y servicios) +
+ * crearGastoRecurrenteAction (si la sede no tiene plantillas del script: arriendo y servicios) +
  * calcularRecurrentesPendientes + confirmarRecurrenteAction. Solo se confirma el mes del día del
  * evento: los meses anteriores olvidados no se tocan para no dejar gastos fuera de la semana.
  */
@@ -74,7 +74,10 @@ export const registrarGastosRecurrentes: Manejador = async (tx, ctx, estado, dia
   const creado = instante(dia.fecha, evento.hora);
   const periodo = periodoActualBogota(creado);
 
-  let plantillas = await cargarPlantillasParaPendientes(tx, dia.sedeId);
+  // Solo las plantillas creadas por el script: confirmar una real cambiaría su estado (p. ej. el arriendo real dejaría de estar pendiente).
+  const propias = async () =>
+    (await cargarPlantillasParaPendientes(tx, dia.sedeId)).filter((p) => p.descripcion.startsWith(MARCA));
+  let plantillas = await propias();
   if (plantillas.length === 0) {
     for (const p of PLANTILLAS) {
       await tx.gastoRecurrente.create({
@@ -89,7 +92,7 @@ export const registrarGastosRecurrentes: Manejador = async (tx, ctx, estado, dia
       });
       sumar(estado, "gastoRecurrente");
     }
-    plantillas = await cargarPlantillasParaPendientes(tx, dia.sedeId);
+    plantillas = await propias();
   }
 
   const categorias = new Map(
