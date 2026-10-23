@@ -1,4 +1,5 @@
 import type { MetodoPago, Prisma } from "@/generated/prisma-tenant";
+import { montoExacto } from "@/lib/money/monto-exacto";
 
 export const SALDO_INSUFICIENTE = "SALDO_INSUFICIENTE";
 
@@ -14,8 +15,8 @@ export async function registrarPagoEnTransaccion(
   creadoAt?: Date,
 ): Promise<void> {
   const { count } = await tx.factura.updateMany({
-    where: { id: pago.facturaId, saldoPendiente: { gte: pago.monto } },
-    data: { saldoPendiente: { decrement: pago.monto } },
+    where: { id: pago.facturaId, saldoPendiente: { gte: montoExacto(pago.monto) } },
+    data: { saldoPendiente: { decrement: montoExacto(pago.monto) } },
   });
   if (count === 0) {
     throw new Error(SALDO_INSUFICIENTE);

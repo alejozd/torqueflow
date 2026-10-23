@@ -1,5 +1,6 @@
 import type { MetodoPago, Prisma } from "@/generated/prisma-tenant";
 import { registrarEventoAuditoria } from "@/lib/auditoria/registrarEvento";
+import { montoExacto } from "@/lib/money/monto-exacto";
 
 export const DEVOLUCION_YA_REGISTRADA = "DEVOLUCION_YA_REGISTRADA";
 export const SALDO_CAMBIADO = "SALDO_CAMBIADO";
@@ -50,8 +51,8 @@ export async function registrarDevolucionEnTransaccion(
   if (aCuenta > 0) {
     // Guarda: el saldo pudo cambiar entre la lectura y esta escritura.
     const { count } = await tx.ventaMostrador.updateMany({
-      where: { id: ventaId, saldoPendiente: { gte: aCuenta } },
-      data: { saldoPendiente: { decrement: aCuenta } },
+      where: { id: ventaId, saldoPendiente: { gte: montoExacto(aCuenta) } },
+      data: { saldoPendiente: { decrement: montoExacto(aCuenta) } },
     });
     if (count === 0) throw new Error(SALDO_CAMBIADO);
 

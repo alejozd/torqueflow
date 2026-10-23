@@ -4,6 +4,7 @@ const opcionesTaller = { exigirActaFirmada: false, usarControlCaja: true, descue
 
 const mockRequirePermiso = vi.fn();
 import { permisosEfectivos } from "@/lib/auth/permisos";
+import { montoExacto } from "@/lib/money/monto-exacto";
 vi.mock("@/lib/auth/guards", () => ({
   requirePermiso: (...args: unknown[]) => mockRequirePermiso(...args),
   puede: (session: { user: { permisos: string[] } }, permiso: string) => session.user.permisos.includes(permiso),
@@ -485,11 +486,19 @@ describe("cobrarVentaMostradorAction", () => {
     expect(r).toEqual({ error: null, success: true, numero: 7 });
     expect(mockRequirePermiso).toHaveBeenCalledWith("mostrador.vender");
     expect(tx.ventaMostrador.updateMany).toHaveBeenCalledWith({
-      where: { id: "v1", saldoPendiente: { gte: 59500 } },
-      data: { saldoPendiente: { decrement: 59500 } },
+      where: { id: "v1", saldoPendiente: { gte: montoExacto(59500) } },
+      data: { saldoPendiente: { decrement: montoExacto(59500) } },
     });
     expect(tx.pagoVentaMostrador.create).toHaveBeenCalled();
     expect(tx.ventaMostrador.update).toHaveBeenCalledWith({ where: { id: "v1" }, data: { estado: "PAGADA" } });
+  });
+
+  it("cobrar exactamente el saldo compara como decimal exacto (852594.93)", async () => {
+    db.ventaMostrador.findFirst.mockResolvedValue({ id: "v1", numero: 7, saldoPendiente: "852594.93" });
+    await cobrarVentaMostradorAction("v1", inicial, fd({ monto: "852594.93", metodoPago: "TARJETA" }));
+    const arg = tx.ventaMostrador.updateMany.mock.calls[0]![0];
+    expect(typeof arg.where.saldoPendiente.gte).toBe("object");
+    expect(String(arg.where.saldoPendiente.gte)).toBe("852594.93");
   });
 
   it("un abono parcial no marca la venta como pagada", async () => {

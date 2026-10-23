@@ -34,6 +34,7 @@ import {
 import { puedeDevolver, ventaEnCajaCerrada } from "@/lib/mostrador/plazo-devolucion";
 import { ErrorSinStock, registrarVentaEnTransaccion } from "@/lib/mostrador/registrar-venta";
 import { calcularTotalesVenta } from "@/lib/mostrador/ventas";
+import { montoExacto } from "@/lib/money/monto-exacto";
 import { roundMoney } from "@/lib/money/round";
 import { scopeRepuesto } from "@/lib/sede/scope";
 import { cobroVentaSchema, ventaMostradorInputSchema, type VentaMostradorInput } from "@/lib/validation/mostrador";
@@ -765,8 +766,8 @@ export async function cobrarVentaMostradorAction(
     await tenantDb.$transaction(async (tx) => {
       // Guarda atómica: si otra persona cobró o el saldo cambió, no se cobra dos veces.
       const { count } = await tx.ventaMostrador.updateMany({
-        where: { id: ventaId, saldoPendiente: { gte: parsed.data.monto } },
-        data: { saldoPendiente: { decrement: parsed.data.monto } },
+        where: { id: ventaId, saldoPendiente: { gte: montoExacto(parsed.data.monto) } },
+        data: { saldoPendiente: { decrement: montoExacto(parsed.data.monto) } },
       });
       if (count === 0) throw new Error(SALDO_INSUFICIENTE);
 

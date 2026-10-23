@@ -25,6 +25,7 @@ const db = {
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => db }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
+import { montoExacto } from "@/lib/money/monto-exacto";
 import { abonarCuentaPorPagarAction, abonarProveedorAction, getCuentasPorPagar } from "./cuenta-por-pagar-actions";
 
 const SESION = { user: { id: "u1", role: "RECEPCION", permisos: permisosEfectivos({ role: "RECEPCION" }), tenantSchema: "taller", sedeActivaId: "sede-1" } };
@@ -54,13 +55,21 @@ describe("abonarCuentaPorPagarAction", () => {
     expect(r).toEqual({ error: null, success: true, montoRegistrado: 170000, saldoRestante: 0, cuentaId: "c1" });
     expect(mockRequirePermiso).toHaveBeenCalledWith("cuentasPorPagar.usar");
     expect(tx.cuentaPorPagar.updateMany).toHaveBeenCalledWith({
-      where: { id: "c1", saldoPendiente: { gte: 170000 } },
-      data: { saldoPendiente: { decrement: 170000 } },
+      where: { id: "c1", saldoPendiente: { gte: montoExacto(170000) } },
+      data: { saldoPendiente: { decrement: montoExacto(170000) } },
     });
     expect(tx.pagoProveedor.create).toHaveBeenCalledWith({
       data: { cuentaId: "c1", monto: 170000, metodoPago: "TRANSFERENCIA", referencia: null, registradoPorId: "u1" },
     });
     expect(tx.cuentaPorPagar.update).toHaveBeenCalledWith({ where: { id: "c1" }, data: { estado: "PAGADA" } });
+  });
+
+  it("abonar exactamente el saldo compara como decimal exacto (852594.93)", async () => {
+    db.cuentaPorPagar.findFirst.mockResolvedValue({ id: "c1", saldoPendiente: "852594.93" });
+    await abonarCuentaPorPagarAction("c1", inicial, fd({ monto: "852594.93", metodoPago: "EFECTIVO" }));
+    const arg = tx.cuentaPorPagar.updateMany.mock.calls[0]![0];
+    expect(typeof arg.where.saldoPendiente.gte).toBe("object");
+    expect(String(arg.where.saldoPendiente.gte)).toBe("852594.93");
   });
 
   it("un abono parcial no marca la cuenta como pagada", async () => {
@@ -322,8 +331,8 @@ describe("abonarProveedorAction", () => {
       }),
     );
     expect(tx.cuentaPorPagar.updateMany.mock.calls).toEqual([
-      [{ where: { id: "g1", saldoPendiente: { gte: 3948632 } }, data: { saldoPendiente: { decrement: 3948632 } } }],
-      [{ where: { id: "g2", saldoPendiente: { gte: 1051368 } }, data: { saldoPendiente: { decrement: 1051368 } } }],
+      [{ where: { id: "g1", saldoPendiente: { gte: montoExacto(3948632) } }, data: { saldoPendiente: { decrement: montoExacto(3948632) } } }],
+      [{ where: { id: "g2", saldoPendiente: { gte: montoExacto(1051368) } }, data: { saldoPendiente: { decrement: montoExacto(1051368) } } }],
     ]);
     expect(tx.pagoProveedor.create.mock.calls.map(([arg]) => arg.data)).toEqual([
       { cuentaId: "g1", monto: 3948632, metodoPago: "TRANSFERENCIA", referencia: "004581233", registradoPorId: "u1" },
@@ -332,6 +341,14 @@ describe("abonarProveedorAction", () => {
     // Solo la que llegó a cero queda pagada.
     expect(tx.cuentaPorPagar.update).toHaveBeenCalledTimes(1);
     expect(tx.cuentaPorPagar.update).toHaveBeenCalledWith({ where: { id: "g1" }, data: { estado: "PAGADA" } });
+  });
+
+  it("el reparto compara cada porción como decimal exacto (852594.93)", async () => {
+    tx.cuentaPorPagar.findMany.mockResolvedValue([{ id: "g1", fecha: dia("2026-08-07"), saldoPendiente: "852594.93" }]);
+    await abonarProveedorAction("prov-gates", { error: null, success: false }, fd({ monto: "852594.93", metodoPago: "EFECTIVO" }));
+    const arg = tx.cuentaPorPagar.updateMany.mock.calls[0]![0];
+    expect(typeof arg.where.saldoPendiente.gte).toBe("object");
+    expect(String(arg.where.saldoPendiente.gte)).toBe("852594.93");
   });
 
   it("no acepta más de lo que se le debe al proveedor", async () => {
