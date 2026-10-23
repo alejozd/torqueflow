@@ -171,17 +171,30 @@ async function cambiarEstado(
 export const crearOrden: Manejador = async (tx, ctx, estado, dia, evento, az) => {
   if (evento.tipo !== "crearOrden") return;
   const creada = instante(dia.fecha, evento.hora);
-  const { clienteId, vehiculoId } = await elegirClienteYVehiculo(tx, ctx, estado, az, dia.fecha, creada);
-  const mecanicoId = az.elegir(mecanicosDeLaSede(ctx, dia.sedeId)).id;
-  const ordenId = await abrirOrden(tx, ctx, estado, az, dia.sedeId, clienteId, vehiculoId, mecanicoId, creada);
-  estado.ordenes.set(evento.clave, ordenId);
+  // Si una cotización aprobada ya creó esta orden (con sus repuestos y líneas), solo se completa.
+  const aprobada = estado.ordenes.get(evento.clave);
+  let ordenId: string, vehiculoId: string, mecanicoId: string;
+  if (aprobada) {
+    const previa = await tx.ordenTrabajo.findUnique({ where: { id: aprobada }, select: { vehiculoId: true } });
+    if (!previa) throw new Error(`crearOrden: la orden ${aprobada} de la cotización ya no existe`);
+    ordenId = aprobada;
+    vehiculoId = previa.vehiculoId;
+    mecanicoId = az.elegir(mecanicosDeLaSede(ctx, dia.sedeId)).id;
+    await tx.ordenTrabajo.update({ where: { id: ordenId }, data: { mecanicoId, updatedAt: creada } });
+  } else {
+    const elegido = await elegirClienteYVehiculo(tx, ctx, estado, az, dia.fecha, creada);
+    vehiculoId = elegido.vehiculoId;
+    mecanicoId = az.elegir(mecanicosDeLaSede(ctx, dia.sedeId)).id;
+    ordenId = await abrirOrden(tx, ctx, estado, az, dia.sedeId, elegido.clienteId, vehiculoId, mecanicoId, creada);
+    estado.ordenes.set(evento.clave, ordenId);
+  }
 
   await registrarRecepcion(tx, ctx, estado, az, ordenId, vehiculoId, creada);
   if (!evento.borrador) {
     // Trabajo en el taller unos minutos después de la recepción.
     const trabajo = new Date(creada.getTime() + az.entero(5, 40) * 60_000);
     await registrarChecklist(tx, estado, az, ordenId, mecanicoId, trabajo);
-    await agregarRepuestos(tx, ctx, estado, az, ordenId, dia.sedeId, trabajo);
+    if (!aprobada) await agregarRepuestos(tx, ctx, estado, az, ordenId, dia.sedeId, trabajo);
     await agregarManoDeObra(tx, ctx, estado, az, ordenId, dia.sedeId, trabajo);
     // BORRADOR → EN_PROCESO (updateEstadoOrdenAction); la orden es nueva, no hay estado que verificar.
     await tx.ordenTrabajo.update({ where: { id: ordenId }, data: { estado: "EN_PROCESO", updatedAt: trabajo } });

@@ -1,6 +1,7 @@
 import { crearAzar, type Azar } from "./azar";
 import type { Contexto, TenantDb } from "./contexto";
 import { registrarCita } from "./citas";
+import { registrarCotizacion } from "./cotizaciones";
 import { crearCliente } from "./clientes";
 import { abrirCaja, cerrarCaja } from "./dinero";
 import { anularOrden, crearOrden, entregarOrden, terminarOrden } from "./ordenes";
@@ -28,7 +29,7 @@ const ESPERA_MAXIMA_TRANSACCION = 10_000;
 
 /** Se llena en las tareas 5 a 10. */
 export const MANEJADORES: Partial<Record<Evento["tipo"], Manejador>> = {
-  abrirCaja, cerrarCaja, crearCliente, cita: registrarCita, crearOrden, terminarOrden, entregarOrden, anularOrden,
+  abrirCaja, cerrarCaja, crearCliente, cita: registrarCita, cotizacion: registrarCotizacion, crearOrden, terminarOrden, entregarOrden, anularOrden,
 };
 
 export async function ejecutarPlan(
