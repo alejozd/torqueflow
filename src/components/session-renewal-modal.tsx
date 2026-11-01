@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { cerrarSesion } from "@/lib/auth/cerrar-sesion";
 import {
   EXPIRY_WARNING_LEAD_MS,
   EXPIRY_WARNING_RESPONSE_MS,
@@ -39,7 +40,7 @@ export function SessionRenewalModal({ loginPath = "/login" }: { loginPath?: stri
   const responseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const forceLogout = useCallback(() => {
-    void signOut({ callbackUrl: `${window.location.origin}${loginPath}` });
+    void cerrarSesion(loginPath);
   }, [loginPath]);
 
   useEffect(() => {

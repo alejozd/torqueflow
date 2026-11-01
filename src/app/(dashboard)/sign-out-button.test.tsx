@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 const mockSignOut = vi.fn();
 
-vi.mock("next-auth/react", () => ({ signOut: (...args: unknown[]) => mockSignOut(...args) }));
+vi.mock("@/lib/auth/cerrar-sesion", () => ({ cerrarSesion: (...args: unknown[]) => mockSignOut(...args) }));
 
 import { SignOutButton } from "./sign-out-button";
 
@@ -22,8 +22,6 @@ describe("SignOutButton", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Cerrar sesión" }));
 
-    expect(mockSignOut).toHaveBeenCalledWith({
-      callbackUrl: `${window.location.origin}/login`,
-    });
+    expect(mockSignOut).toHaveBeenCalledWith("/login");
   });
 });
