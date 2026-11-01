@@ -3,7 +3,7 @@ import { elegirClienteYVehiculo } from "./clientes";
 import type { Manejador } from "./ejecutor";
 import { instante, sumarDias } from "./fechas";
 
-const MOTIVOS = [
+export const MOTIVOS = [
   "Cambio de aceite y filtros", "Revisión de frenos", "Alineación y balanceo", "Diagnóstico de ruidos",
   "Mantenimiento de 10.000 km", "Revisión preventiva", "Cambio de llantas", "Falla en el arranque",
 ] as const;

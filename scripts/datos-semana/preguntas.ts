@@ -17,7 +17,7 @@ const MAX_DIAS = 31;
 const MAX_CLIENTES_NUEVOS = 200;
 const FORMATO = /^\d{4}-\d{2}-\d{2}$/;
 
-function esFechaReal(f: string): boolean {
+export function esFechaReal(f: string): boolean {
   if (!FORMATO.test(f)) return false;
   const d = new Date(`${f}T00:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === f;
@@ -39,7 +39,7 @@ function lunesDeLaSemana(hoy: string): string {
 }
 
 /** Repite la pregunta mientras `convertir` devuelva un texto (el mensaje de error). */
-async function preguntarHasta<T>(
+export async function preguntarHasta<T>(
   p: Pregunton, texto: string, convertir: (respuesta: string) => { valor: T } | string,
 ): Promise<T> {
   let prefijo = "";
