@@ -341,6 +341,11 @@ final imprime el cuadre (facturas, stock, cajas, cuentas por pagar): "Todo cuadr
   falla un día, los anteriores quedan grabados y ese día se revierte completo; volver a correr el mismo
   rango duplica los días que ya existían. Máximo 31 días por corrida.
 - La entrada es interactiva (readline): no funciona pasándole las respuestas por una tubería.
+- **Citas a futuro**: `npm run datos:citas` (código en `scripts/datos-semana/citas-futuras.ts`) es lo único
+  que sí puede ir al futuro. Pregunta desde (hoy por defecto, no acepta pasado), hasta (hoy + 6), sede y
+  citas por día y sede (3, máximo 20); las agenda PROGRAMADA/CONFIRMADA en la grilla del selector (7:00 a
+  17:30 cada 30 min, sin domingos, sin repetir franja, y hoy solo después de la hora actual) con clientes
+  existentes, marcadas `[datos-semana]` y con `createdAt` de ahora. Todo en una sola transacción.
 
 ## 7. Trampas conocidas (lecciones que costaron tiempo)
 

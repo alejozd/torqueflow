@@ -40,6 +40,13 @@ export function hoyBogota(ahora: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(ahora);
 }
 
+/** Hora actual en Bogotá como "HH:MM". */
+export function horaBogota(ahora: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Bogota", hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(ahora);
+}
+
 /** `base` más `minutos`, sin pasar del presente (los datos de demostración no pueden quedar en el futuro). */
 export function desfasar(base: Date, minutos: number): Date {
   return new Date(Math.min(base.getTime() + minutos * 60_000, Date.now()));

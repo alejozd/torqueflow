@@ -18,6 +18,7 @@
     "repuestos:seed": "tsx scripts/cli/seed-repuestos.ts",
     "clientes:seed": "tsx scripts/cli/seed-clientes.ts",
     "datos:semana": "tsx scripts/cli/datos-semana.ts",
+    "datos:citas": "tsx scripts/cli/datos-citas.ts",
     "inventario:seed-demo": "tsx scripts/cli/seed-demo-inventario.ts",
     "superadmin:seed": "tsx scripts/cli/seed-super-admin.ts",
     "test:db": "vitest run --project db"

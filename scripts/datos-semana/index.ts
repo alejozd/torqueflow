@@ -1,17 +1,10 @@
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { cargarContexto, exigirSchemaPermitido, SCHEMA_PERMITIDO } from "./contexto";
 import { ejecutarPlan, recortarAlPresente } from "./ejecutor";
-import { hoyBogota } from "./fechas";
+import { horaBogota, hoyBogota } from "./fechas";
 import { armarPlan, contarEventos } from "./plan";
 import { verificarTodo } from "./verificacion";
 import { confirmar, crearPregunton, hacerPreguntas } from "./preguntas";
-
-/** Hora actual en Bogotá como "HH:MM". */
-function horaBogota(ahora: Date = new Date()): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "America/Bogota", hour: "2-digit", minute: "2-digit", hour12: false,
-  }).format(ahora);
-}
 
 function leerSemilla(argv: string[]): number {
   const i = argv.indexOf("--semilla");
