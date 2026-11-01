@@ -12,7 +12,10 @@ let mockSessionState: {
 
 vi.mock("next-auth/react", () => ({
   useSession: () => mockSessionState,
-  signOut: (...args: unknown[]) => mockSignOut(...args),
+}));
+
+vi.mock("@/lib/auth/cerrar-sesion", () => ({
+  cerrarSesion: (...args: unknown[]) => mockSignOut(...args),
 }));
 
 import { SessionRenewalModal } from "./session-renewal-modal";
@@ -96,7 +99,7 @@ describe("SessionRenewalModal", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Cerrar sesión" }));
 
-    expect(mockSignOut).toHaveBeenCalledWith({ callbackUrl: `${window.location.origin}/login` });
+    expect(mockSignOut).toHaveBeenCalledWith("/login");
   });
 
   it("signs out automatically when the warning gets no response in time", () => {
@@ -107,7 +110,7 @@ describe("SessionRenewalModal", () => {
       vi.advanceTimersByTime(EXPIRY_WARNING_RESPONSE_MS);
     });
 
-    expect(mockSignOut).toHaveBeenCalledWith({ callbackUrl: `${window.location.origin}/login` });
+    expect(mockSignOut).toHaveBeenCalledWith("/login");
   });
 
   it("signs out once the JWT itself expires, even without a warning render", () => {
@@ -118,7 +121,7 @@ describe("SessionRenewalModal", () => {
       vi.advanceTimersByTime(SESSION_EXPIRY_CHECK_INTERVAL_MS);
     });
 
-    expect(mockSignOut).toHaveBeenCalledWith({ callbackUrl: `${window.location.origin}/login` });
+    expect(mockSignOut).toHaveBeenCalledWith("/login");
   });
 
   it("sends a super-admin back to its own login page", () => {
@@ -129,7 +132,7 @@ describe("SessionRenewalModal", () => {
       vi.advanceTimersByTime(INACTIVITY_TIMEOUT_MS);
     });
 
-    expect(mockSignOut).toHaveBeenCalledWith({ callbackUrl: `${window.location.origin}/superadmin/login` });
+    expect(mockSignOut).toHaveBeenCalledWith("/superadmin/login");
   });
 
   it("signs out after 15 minutes with no user activity", () => {
@@ -140,7 +143,7 @@ describe("SessionRenewalModal", () => {
       vi.advanceTimersByTime(INACTIVITY_TIMEOUT_MS);
     });
 
-    expect(mockSignOut).toHaveBeenCalledWith({ callbackUrl: `${window.location.origin}/login` });
+    expect(mockSignOut).toHaveBeenCalledWith("/login");
   });
 
   it("resets the inactivity timer when the user is active", () => {

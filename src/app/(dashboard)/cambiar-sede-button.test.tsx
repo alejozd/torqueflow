@@ -3,7 +3,7 @@ import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockSignOut = vi.fn();
-vi.mock("next-auth/react", () => ({ signOut: (...args: unknown[]) => mockSignOut(...args) }));
+vi.mock("@/lib/auth/cerrar-sesion", () => ({ cerrarSesion: (...args: unknown[]) => mockSignOut(...args) }));
 
 import { CambiarSedeButton } from "./cambiar-sede-button";
 
@@ -21,6 +21,6 @@ describe("CambiarSedeButton", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Cambiar de sede" }));
 
-    expect(mockSignOut).toHaveBeenCalledWith({ callbackUrl: `${window.location.origin}/login` });
+    expect(mockSignOut).toHaveBeenCalledWith("/login");
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { signOut } from "next-auth/react";
+import { cerrarSesion } from "@/lib/auth/cerrar-sesion";
 import { MapPinned } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -11,9 +11,8 @@ import { Button } from "@/components/ui/button";
  * -- new auth machinery this phase deliberately does not add (see the plan's
  * Global Constraints). Signposting the round trip is the honest v1 answer.
  *
- * `${window.location.origin}` is required, not decorative: with AUTH_URL set,
- * a bare "/login" callbackUrl resolves against a fixed origin and drops the
- * tenant subdomain. Same fix as SignOutButton, Fase 5 Task 11.
+ * cerrarSesion() returns to /login on the CURRENT origin: NextAuth's own
+ * redirect would land on AUTH_URL's origin and drop the tenant subdomain.
  */
 export function CambiarSedeButton() {
   return (
@@ -21,7 +20,7 @@ export function CambiarSedeButton() {
       type="button"
       variant="ghost"
       size="sm"
-      onClick={() => signOut({ callbackUrl: `${window.location.origin}/login` })}
+      onClick={() => void cerrarSesion("/login")}
     >
       <MapPinned />
       Cambiar de sede
