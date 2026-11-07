@@ -9,6 +9,7 @@ export const crearCotizacionInputSchema = z.object({
   vehiculoId: z.string().min(1, "Selecciona un vehículo"),
   motivo: z.string().min(1, "El motivo es obligatorio").max(500, "El motivo es demasiado largo"),
   validaHasta: z.coerce.date().optional(),
+  kilometraje: z.coerce.number().int("El kilometraje va sin decimales").min(0, "El kilometraje no puede ser negativo").max(3_000_000, "Revisa el kilometraje").optional(),
 });
 
 export type CrearCotizacionInput = z.infer<typeof crearCotizacionInputSchema>;

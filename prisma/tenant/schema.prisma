@@ -753,6 +753,8 @@ model Cotizacion {
   sedeId       String                  @map("sede_id")
   sede         Sede                    @relation(fields: [sedeId], references: [id], onDelete: Restrict)
   motivo       String
+  /// Kilometraje con que llegó el vehículo a cotizar. Opcional; pasa a la orden al aprobar.
+  kilometraje  Int?
   validaHasta  DateTime?               @map("valida_hasta")
   descuentoTipo  TipoDescuento           @default(PORCENTAJE) @map("descuento_tipo")
   descuentoPct Decimal                 @default(0) @map("descuento_pct") @db.Decimal(5, 2)

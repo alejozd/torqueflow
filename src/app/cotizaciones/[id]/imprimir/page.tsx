@@ -87,6 +87,9 @@ export default async function ImprimirCotizacionPage({ params }: { params: Promi
             {cotizacion.vehiculo.marca} {cotizacion.vehiculo.modelo}
             {cotizacion.vehiculo.anio ? ` ${cotizacion.vehiculo.anio}` : ""}
           </p>
+          {cotizacion.kilometraje != null ? (
+            <p className="text-black/70">{cotizacion.kilometraje.toLocaleString("es-CO")} km</p>
+          ) : null}
         </div>
       </section>
 

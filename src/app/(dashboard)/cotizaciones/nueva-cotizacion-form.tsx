@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { CampoFecha } from "@/components/campo-fecha";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { DialogClose } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -32,6 +33,7 @@ const nuevaCotizacionFormSchema = crearCotizacionInputSchema.extend({
     (v) => (v === "" ? undefined : v),
     crearCotizacionInputSchema.shape.validaHasta,
   ),
+  kilometraje: z.preprocess((v) => (v === "" ? undefined : v), crearCotizacionInputSchema.shape.kilometraje),
 });
 type NuevaCotizacionFormInput = z.input<typeof nuevaCotizacionFormSchema>;
 
@@ -48,7 +50,7 @@ export function NuevaCotizacionForm({ vehiculos }: { vehiculos: VehiculoOption[]
     resolver: zodResolver(nuevaCotizacionFormSchema),
     // Válida hasta defaults to the last day of the current month (Bogota) --
     // still freely editable, just saves the common case of "vigente este mes".
-    defaultValues: { vehiculoId: "", motivo: "", validaHasta: finDeMesBogotaIso(new Date()) },
+    defaultValues: { vehiculoId: "", motivo: "", validaHasta: finDeMesBogotaIso(new Date()), kilometraje: "" },
   });
   const { field: vehiculoIdField } = useController({ name: "vehiculoId", control });
 
@@ -61,6 +63,7 @@ export function NuevaCotizacionForm({ vehiculos }: { vehiculos: VehiculoOption[]
       })),
     [vehiculos],
   );
+  const kilometrajeGuardado = vehiculosPorId.get(vehiculoIdField.value)?.kilometraje;
 
   if (vehiculos.length === 0) {
     return (
@@ -78,6 +81,9 @@ export function NuevaCotizacionForm({ vehiculos }: { vehiculos: VehiculoOption[]
       const formData = new FormData();
       formData.set("vehiculoId", data.vehiculoId);
       formData.set("motivo", data.motivo);
+      if (data.kilometraje !== undefined && data.kilometraje !== "") {
+        formData.set("kilometraje", String(data.kilometraje));
+      }
       if (data.validaHasta) {
         formData.set("validaHasta", String(data.validaHasta));
       }
@@ -119,6 +125,30 @@ export function NuevaCotizacionForm({ vehiculos }: { vehiculos: VehiculoOption[]
           }}
         />
         {errors.vehiculoId ? <p id="vehiculoId-error" className="text-xs text-destructive">{errors.vehiculoId.message}</p> : null}
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="kilometraje">Kilometraje (opcional)</Label>
+        <Input
+          id="kilometraje"
+          type="number"
+          inputMode="numeric"
+          min="0"
+          placeholder="Ej: 85000"
+          className="font-mono"
+          aria-invalid={errors.kilometraje ? true : undefined}
+          aria-describedby={errors.kilometraje ? "kilometraje-error" : "kilometraje-ayuda"}
+          {...register("kilometraje")}
+        />
+        {errors.kilometraje ? (
+          <p id="kilometraje-error" className="text-xs text-destructive">{String(errors.kilometraje.message)}</p>
+        ) : (
+          <p id="kilometraje-ayuda" className="text-xs text-muted-foreground">
+            {kilometrajeGuardado !== null && kilometrajeGuardado !== undefined
+              ? `Último registrado: ${kilometrajeGuardado.toLocaleString("es-CO")} km`
+              : "El que marca el tablero hoy."}
+          </p>
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5">

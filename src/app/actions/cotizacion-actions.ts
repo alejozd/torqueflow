@@ -59,6 +59,8 @@ export interface VehiculoOption {
   marca: string;
   modelo: string;
   clienteNombre: string;
+  /** Último kilometraje guardado del vehículo, para orientar al digitar el de la cotización. */
+  kilometraje: number | null;
 }
 
 const COTIZACION_DETAIL_INCLUDE = {
@@ -156,6 +158,7 @@ export async function listVehiculosParaCotizacion(): Promise<VehiculoOption[]> {
       placa: true,
       marca: true,
       modelo: true,
+      kilometraje: true,
       cliente: { select: { nombre: true } },
     },
     orderBy: { placa: "asc" },
@@ -167,6 +170,7 @@ export async function listVehiculosParaCotizacion(): Promise<VehiculoOption[]> {
     marca: vehiculo.marca,
     modelo: vehiculo.modelo,
     clienteNombre: vehiculo.cliente.nombre,
+    kilometraje: vehiculo.kilometraje,
   }));
 }
 
@@ -182,6 +186,7 @@ export async function crearCotizacionAction(
     vehiculoId: formData.get("vehiculoId") ?? "",
     motivo: formData.get("motivo") ?? "",
     validaHasta: formData.get("validaHasta") || undefined,
+    kilometraje: formData.get("kilometraje") || undefined,
   });
 
   if (!parsed.success) {
@@ -193,22 +198,32 @@ export async function crearCotizacionAction(
 
   const vehiculo = await tenantDb.vehiculo.findUnique({
     where: { id: parsed.data.vehiculoId },
-    select: { id: true, clienteId: true },
+    select: { id: true, clienteId: true, kilometraje: true },
   });
   if (!vehiculo) {
     return { error: "El vehículo seleccionado no existe.", success: false, cotizacionId: null };
   }
 
+  const { kilometraje } = parsed.data;
   try {
-    const cotizacion = await tenantDb.cotizacion.create({
-      data: {
-        clienteId: vehiculo.clienteId,
-        vehiculoId: vehiculo.id,
-        sedeId: session.user.sedeActivaId,
-        motivo: parsed.data.motivo,
-        validaHasta: parsed.data.validaHasta,
-        creadoPorId: session.user.id,
-      },
+    const cotizacion = await tenantDb.$transaction(async (tx) => {
+      const creada = await tx.cotizacion.create({
+        data: {
+          clienteId: vehiculo.clienteId,
+          vehiculoId: vehiculo.id,
+          sedeId: session.user.sedeActivaId,
+          motivo: parsed.data.motivo,
+          validaHasta: parsed.data.validaHasta,
+          kilometraje,
+          creadoPorId: session.user.id,
+        },
+      });
+      // El vehículo guarda el último kilometraje conocido: solo sube, nunca baja
+      // por un dato mal digitado o una cotización vieja.
+      if (kilometraje !== undefined && (vehiculo.kilometraje === null || kilometraje > vehiculo.kilometraje)) {
+        await tx.vehiculo.update({ where: { id: vehiculo.id }, data: { kilometraje } });
+      }
+      return creada;
     });
     revalidarCotizaciones();
     return { error: null, success: true, cotizacionId: cotizacion.id };
