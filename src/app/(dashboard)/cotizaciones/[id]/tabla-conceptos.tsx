@@ -58,6 +58,14 @@ export function TablaConceptos({
   const [destello, setDestello] = useState<string | null>(null);
 
   const bloques = useMemo(() => agruparConceptos(conceptos), [conceptos]);
+
+  // Cotización vacía: lo primero que se hace es buscar, así que el cursor arranca ahí.
+  const vacia = conceptos.length === 0;
+  useEffect(() => {
+    if (puedeEditar && vacia) buscadorRef.current?.focus();
+    // Solo al montar: no robar el foco después de quitar la última línea.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const conteo = contarConceptos(conceptos);
 
   // Los kits llegan cerrados; uno recién aplicado se abre para ver sus partes.
@@ -307,6 +315,15 @@ export function TablaConceptos({
 
   return (
     <div className="flex flex-col gap-3">
+      {puedeEditar ? (
+        <div className="flex flex-col gap-1.5">
+          <BuscadorConceptos ref={buscadorRef} onSeleccionar={agregar} ocupado={agregando} />
+          <p className="px-1 text-xs text-muted-foreground">
+            Escribe el nombre o el código y pulsa Enter. Lo que no esté en el catálogo se agrega como concepto libre.
+          </p>
+        </div>
+      ) : null}
+
       <div className="overflow-x-auto rounded-lg border border-border">
         {/* Anchos fijos para que el importe nunca se salga: el concepto toma lo que sobre. */}
         <table className="w-full min-w-[540px] table-fixed border-collapse text-sm">
@@ -335,7 +352,7 @@ export function TablaConceptos({
               <tr>
                 <td colSpan={puedeEditar ? 6 : 5} className="px-3 py-8 text-center text-sm text-muted-foreground">
                   {puedeEditar
-                    ? "Aún no hay conceptos. Búscalos abajo por nombre o código."
+                    ? "Aún no hay conceptos. Búscalos arriba por nombre o código."
                     : "Esta cotización no tiene conceptos."}
                 </td>
               </tr>
@@ -403,8 +420,6 @@ export function TablaConceptos({
           </tbody>
         </table>
       </div>
-
-      {puedeEditar ? <BuscadorConceptos ref={buscadorRef} onSeleccionar={agregar} ocupado={agregando} /> : null}
 
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">

@@ -65,7 +65,9 @@ export const BuscadorConceptos = forwardRef<
       aOpciones={aOpciones}
       onSeleccionar={onSeleccionar}
       ocupado={ocupado}
-      placeholder="Agregar repuesto, servicio o kit…"
+      destacado
+      listaAlEnfocar={false}
+      placeholder="Buscar repuesto, servicio o kit para agregar…"
       etiqueta="Agregar repuesto, servicio o kit"
     />
   );
