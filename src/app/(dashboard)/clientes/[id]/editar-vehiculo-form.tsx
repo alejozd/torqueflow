@@ -55,6 +55,7 @@ export function EditarVehiculoForm({
       modeloId: vehiculo.modeloId ?? "",
       color: vehiculo.color ?? "",
       anio: vehiculo.anio ?? "",
+      cilindraje: vehiculo.cilindraje ?? "",
       combustible: vehiculo.combustible ?? "",
       kilometraje: vehiculo.kilometraje ?? "",
       proximoMantenimiento: toDateInputValue(vehiculo.proximoMantenimiento),

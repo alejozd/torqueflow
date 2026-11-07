@@ -59,6 +59,8 @@ export interface VehiculoOption {
   marca: string;
   modelo: string;
   clienteNombre: string;
+  /** Último kilometraje guardado del vehículo, para orientar al digitar el de la cotización. */
+  kilometraje: number | null;
 }
 
 const COTIZACION_DETAIL_INCLUDE = {
@@ -147,6 +149,22 @@ export async function getCotizacion(id: string): Promise<CotizacionConDetalle | 
  * taller, so any sede must be able to quote it. Mirrors listVehiculosParaCita
  * (src/app/actions/cita-actions.ts).
  */
+// Mismo "kilometraje actual" que muestran la ficha del vehículo y la del cliente:
+// el de la orden más reciente que lo anotó y, si no hay, el guardado en el vehículo.
+const KILOMETRAJE_ULTIMA_ORDEN = {
+  where: { kilometrajeIngreso: { not: null } },
+  select: { kilometrajeIngreso: true },
+  orderBy: { createdAt: "desc" },
+  take: 1,
+} as const;
+
+function kilometrajeActual(vehiculo: {
+  kilometraje: number | null;
+  ordenes?: { kilometrajeIngreso: number | null }[];
+}): number | null {
+  return vehiculo.ordenes?.[0]?.kilometrajeIngreso ?? vehiculo.kilometraje;
+}
+
 export async function listVehiculosParaCotizacion(): Promise<VehiculoOption[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
@@ -156,7 +174,9 @@ export async function listVehiculosParaCotizacion(): Promise<VehiculoOption[]> {
       placa: true,
       marca: true,
       modelo: true,
+      kilometraje: true,
       cliente: { select: { nombre: true } },
+      ordenes: KILOMETRAJE_ULTIMA_ORDEN,
     },
     orderBy: { placa: "asc" },
   });
@@ -167,6 +187,7 @@ export async function listVehiculosParaCotizacion(): Promise<VehiculoOption[]> {
     marca: vehiculo.marca,
     modelo: vehiculo.modelo,
     clienteNombre: vehiculo.cliente.nombre,
+    kilometraje: kilometrajeActual(vehiculo),
   }));
 }
 
@@ -182,6 +203,7 @@ export async function crearCotizacionAction(
     vehiculoId: formData.get("vehiculoId") ?? "",
     motivo: formData.get("motivo") ?? "",
     validaHasta: formData.get("validaHasta") || undefined,
+    kilometraje: formData.get("kilometraje") || undefined,
   });
 
   if (!parsed.success) {
@@ -193,22 +215,33 @@ export async function crearCotizacionAction(
 
   const vehiculo = await tenantDb.vehiculo.findUnique({
     where: { id: parsed.data.vehiculoId },
-    select: { id: true, clienteId: true },
+    select: { id: true, clienteId: true, kilometraje: true, ordenes: KILOMETRAJE_ULTIMA_ORDEN },
   });
   if (!vehiculo) {
     return { error: "El vehículo seleccionado no existe.", success: false, cotizacionId: null };
   }
 
+  const { kilometraje } = parsed.data;
   try {
-    const cotizacion = await tenantDb.cotizacion.create({
-      data: {
-        clienteId: vehiculo.clienteId,
-        vehiculoId: vehiculo.id,
-        sedeId: session.user.sedeActivaId,
-        motivo: parsed.data.motivo,
-        validaHasta: parsed.data.validaHasta,
-        creadoPorId: session.user.id,
-      },
+    const cotizacion = await tenantDb.$transaction(async (tx) => {
+      const creada = await tx.cotizacion.create({
+        data: {
+          clienteId: vehiculo.clienteId,
+          vehiculoId: vehiculo.id,
+          sedeId: session.user.sedeActivaId,
+          motivo: parsed.data.motivo,
+          validaHasta: parsed.data.validaHasta,
+          kilometraje,
+          creadoPorId: session.user.id,
+        },
+      });
+      // El vehículo guarda el último kilometraje conocido: solo sube, nunca baja
+      // por un dato mal digitado o una cotización vieja.
+      const actual = kilometrajeActual(vehiculo);
+      if (kilometraje !== undefined && (actual === null || kilometraje > actual)) {
+        await tx.vehiculo.update({ where: { id: vehiculo.id }, data: { kilometraje } });
+      }
+      return creada;
     });
     revalidarCotizaciones();
     return { error: null, success: true, cotizacionId: cotizacion.id };

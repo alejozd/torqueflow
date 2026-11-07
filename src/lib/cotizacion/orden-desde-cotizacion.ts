@@ -5,6 +5,8 @@ export interface CotizacionParaOrden {
   clienteId: string;
   vehiculoId: string;
   sedeId: string;
+  /** Kilometraje anotado al cotizar; si viene, es el de ingreso de la orden. */
+  kilometraje?: number | null;
   items: {
     tipo: "REPUESTO" | "MANO_OBRA";
     repuestoId: string | null;
@@ -42,6 +44,7 @@ export async function crearOrdenDesdeCotizacion(
       vehiculoId: cotizacion.vehiculoId,
       sedeId: cotizacion.sedeId,
       creadoPorId,
+      ...(cotizacion.kilometraje != null ? { kilometrajeIngreso: cotizacion.kilometraje } : {}),
       ...(opciones.sintomas ? { sintomas: opciones.sintomas } : {}),
       ...tiempos,
     },

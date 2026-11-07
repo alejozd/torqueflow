@@ -62,6 +62,8 @@ export interface DatosCabeceraCotizacion {
   validaHasta: Date | null;
   sede: string;
   motivo: string;
+  /** Kilometraje anotado al crear la cotización (null si no se anotó). */
+  kilometraje?: number | null;
   placa: string;
   marca: string;
   modelo: string;
@@ -167,6 +169,11 @@ export function CabeceraCotizacion({
           <Dato etiqueta="Sede">
             <span className="font-medium">{datos.sede}</span>
           </Dato>
+          {datos.kilometraje != null ? (
+            <Dato etiqueta="Kilometraje">
+              <span className="font-mono font-medium">{datos.kilometraje.toLocaleString("es-CO")} km</span>
+            </Dato>
+          ) : null}
         </div>
         {datos.motivo.trim() ? (
           <p className="mt-2 text-sm">
@@ -176,7 +183,10 @@ export function CabeceraCotizacion({
         ) : null}
       </div>
       <div className="flex flex-col items-start gap-2 md:items-end">
-        <span className="font-mono text-xs text-muted-foreground">Cotización #{datos.numero}</span>
+        <p className="flex items-baseline gap-1.5 leading-none md:flex-col md:items-end md:gap-1">
+          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Cotización</span>
+          <span className="font-mono text-2xl font-bold text-foreground">#{datos.numero}</span>
+        </p>
         {acciones}
       </div>
     </Card>

@@ -87,6 +87,7 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
           validaHasta: cotizacion.validaHasta,
           sede: cotizacion.sede.nombre,
           motivo: cotizacion.motivo,
+          kilometraje: cotizacion.kilometraje,
           placa: cotizacion.vehiculo.placa,
           marca: cotizacion.vehiculo.marca,
           modelo: cotizacion.vehiculo.modelo,

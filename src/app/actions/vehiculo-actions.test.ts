@@ -195,6 +195,7 @@ describe("updateVehiculoAction", () => {
         marca: "Toyota",
         modelo: "Corolla",
         anio: 2020,
+        cilindraje: null,
         combustible: "GASOLINA",
         kilometraje: 78420,
         proximoMantenimiento: new Date("2026-12-01"),

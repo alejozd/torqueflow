@@ -1,6 +1,14 @@
 import { z } from "zod";
 import { requiredMoney } from "./money";
 
+const OFFSET_TALLER = "-05:00"; // America/Bogota, sin horario de verano
+
+function finDelDiaTaller(valor: unknown): unknown {
+  return typeof valor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(valor)
+    ? new Date(`${valor}T23:59:59.999${OFFSET_TALLER}`)
+    : valor;
+}
+
 // clienteId is deliberately not part of this schema: same rule
 // createOrdenDesdeVehiculoAction documents (src/app/actions/orden-actions.ts) --
 // it is derived server-side from the vehículo so "create a cotización for
@@ -8,7 +16,11 @@ import { requiredMoney } from "./money";
 export const crearCotizacionInputSchema = z.object({
   vehiculoId: z.string().min(1, "Selecciona un vehículo"),
   motivo: z.string().min(1, "El motivo es obligatorio").max(500, "El motivo es demasiado largo"),
-  validaHasta: z.coerce.date().optional(),
+  // "aaaa-mm-dd" del calendario = vigente hasta el final de ese día en Bogotá.
+  // z.coerce.date() solo lo tomaba como medianoche UTC: se veía un día antes y
+  // la cotización vencía ~29 h antes de lo elegido.
+  validaHasta: z.preprocess(finDelDiaTaller, z.coerce.date().optional()),
+  kilometraje: z.coerce.number().int("El kilometraje va sin decimales").min(0, "El kilometraje no puede ser negativo").max(3_000_000, "Revisa el kilometraje").optional(),
 });
 
 export type CrearCotizacionInput = z.infer<typeof crearCotizacionInputSchema>;

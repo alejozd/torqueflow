@@ -22,8 +22,8 @@ function renderInDialog(ui: Parameters<typeof render>[0]) {
 }
 
 const vehiculos = [
-  { id: "v1", placa: "WGT-451", marca: "Mazda", modelo: "3", clienteNombre: "María Gómez" },
-  { id: "v2", placa: "PLR-902", marca: "Renault", modelo: "Duster", clienteNombre: "Jorge Cardona" },
+  { id: "v1", placa: "WGT-451", marca: "Mazda", modelo: "3", clienteNombre: "María Gómez", kilometraje: 84000 },
+  { id: "v2", placa: "PLR-902", marca: "Renault", modelo: "Duster", clienteNombre: "Jorge Cardona", kilometraje: null },
 ];
 
 describe("NuevaCotizacionForm", () => {

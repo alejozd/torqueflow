@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Car, CheckCircle2, Clock, Gauge, IdCard, Mail, Phone, Wrench } from "lucide-react";
+import { ArrowLeft, Cake, Car, CheckCircle2, Clock, Gauge, IdCard, Mail, Phone, Wrench } from "lucide-react";
+import { infoCumpleanos, textoCumpleanos } from "@/lib/cliente/cumpleanos";
+import { formatoDiaBogota } from "@/lib/fecha-bogota";
 import { getCliente } from "@/app/actions/cliente-actions";
 import { listTecnicos } from "@/app/actions/orden-actions";
 import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/vehiculo-marca-modelo-actions";
@@ -131,6 +133,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
     telefono: cliente.telefono,
     email: cliente.email,
     documento: cliente.documento,
+    fechaNacimiento: cliente.fechaNacimiento,
     createdAt: cliente.createdAt,
     updatedAt: cliente.updatedAt,
   };
@@ -248,6 +251,11 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
                       </div>
                       <span className="text-base font-semibold text-foreground">
                         {vehiculo.marca} {vehiculo.modelo} {vehiculo.anio ?? ""}
+                        {vehiculo.cilindraje !== null ? (
+                          <span className="ml-1.5 font-mono text-xs font-normal text-muted-foreground">
+                            {vehiculo.cilindraje.toLocaleString("es-CO")} cc
+                          </span>
+                        ) : null}
                       </span>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
@@ -335,6 +343,13 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
                 </p>
                 <p className="font-mono text-sm">{cliente.documento ?? "—"}</p>
               </div>
+              <div>
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Cake className="size-3.5" />
+                  Cumpleaños
+                </p>
+                <Cumpleanos fechaNacimiento={cliente.fechaNacimiento} />
+              </div>
             </CardContent>
           </Card>
 
@@ -372,5 +387,23 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
         </div>
       </div>
     </main>
+  );
+}
+
+// @db.Date llega como medianoche UTC: se formatea en UTC para que el día no se corra.
+const formatoNacimiento = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+
+/** Fecha de nacimiento con la edad y la cuenta regresiva; resaltada si cumple en 7 días o menos. */
+function Cumpleanos({ fechaNacimiento }: { fechaNacimiento: Date | null }) {
+  if (!fechaNacimiento) return <p className="text-sm">—</p>;
+  const info = infoCumpleanos(fechaNacimiento.toISOString().slice(0, 10), formatoDiaBogota.format(new Date()));
+  const pronto = info.diasParaCumple <= 7;
+  return (
+    <div className="flex flex-col">
+      <p className="text-sm">{formatoNacimiento.format(fechaNacimiento)}</p>
+      <p className={cn("text-xs", pronto ? "font-medium text-[oklch(0.55_0.15_60)]" : "text-muted-foreground")}>
+        {textoCumpleanos(info)}
+      </p>
+    </div>
   );
 }

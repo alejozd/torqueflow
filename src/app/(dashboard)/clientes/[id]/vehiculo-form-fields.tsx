@@ -30,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 const blankToUndefined = (v: unknown) => (v === "" ? undefined : v);
 export const vehiculoFormSchema = vehiculoInputSchema.extend({
   anio: z.preprocess(blankToUndefined, vehiculoInputSchema.shape.anio),
+  cilindraje: z.preprocess(blankToUndefined, vehiculoInputSchema.shape.cilindraje),
   combustible: z.preprocess(blankToUndefined, vehiculoInputSchema.shape.combustible),
   kilometraje: z.preprocess(blankToUndefined, vehiculoInputSchema.shape.kilometraje),
   proximoMantenimiento: z.preprocess(blankToUndefined, vehiculoInputSchema.shape.proximoMantenimiento),
@@ -173,7 +174,7 @@ export function VehiculoFormFields({
       </FormGroup>
 
       <FormGroup label="Vehículo">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-7">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="marca-combobox">Marca</Label>
             <input type="hidden" {...register("marca")} />
@@ -235,7 +236,7 @@ export function VehiculoFormFields({
             {errors.modelo ? <p id="modelo-error" className="text-xs text-destructive">{errors.modelo.message}</p> : null}
           </div>
 
-          <div className="flex flex-col gap-1.5 sm:col-span-1">
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="color">Color</Label>
             <Input
               id="color"
@@ -246,7 +247,7 @@ export function VehiculoFormFields({
             {errors.color ? <p id="color-error" className="text-xs text-destructive">{errors.color.message}</p> : null}
           </div>
 
-          <div className="flex flex-col gap-1.5 sm:col-span-1">
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="anio">Año</Label>
             <Input
               id="anio"
@@ -261,7 +262,25 @@ export function VehiculoFormFields({
             {errors.anio ? <p id="anio-error" className="text-xs text-destructive">{errors.anio.message}</p> : null}
           </div>
 
-          <div className="flex flex-col gap-1.5 sm:col-span-1">
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <Label htmlFor="cilindraje">Cilindraje (cc)</Label>
+            <Input
+              id="cilindraje"
+              type="number"
+              min="50"
+              max="20000"
+              placeholder="1600"
+              className="font-mono"
+              aria-invalid={errors.cilindraje ? true : undefined}
+              aria-describedby={errors.cilindraje ? "cilindraje-error" : undefined}
+              {...register("cilindraje")}
+            />
+            {errors.cilindraje ? (
+              <p id="cilindraje-error" className="text-xs text-destructive">{errors.cilindraje.message}</p>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="combustible">Combustible</Label>
             <SelectField
               id="combustible"

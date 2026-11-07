@@ -174,6 +174,7 @@ export default async function VehiculoDetailPage({ params }: { params: Promise<{
           </div>
           <p className="text-sm text-muted-foreground">
             {vehiculo.marca} {vehiculo.modelo} {vehiculo.anio ?? ""} ·{" "}
+            {vehiculo.cilindraje !== null ? `${vehiculo.cilindraje.toLocaleString("es-CO")} cc · ` : ""}
             {kilometrajeActual !== null
               ? `${kilometrajeActual.toLocaleString("es-CO")} km`
               : "Kilometraje no registrado"}

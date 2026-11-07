@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CampoFechaNacimiento } from "@/app/(dashboard)/clientes/campo-fecha-nacimiento";
 
 const initialState: ClienteFormState = { error: null, success: false };
 
@@ -23,6 +24,7 @@ export function EditarClienteForm({ cliente }: { cliente: Cliente }) {
   const formRef = useRef<HTMLFormElement>(null);
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors },
   } = useForm<ClienteInput>({
@@ -32,6 +34,7 @@ export function EditarClienteForm({ cliente }: { cliente: Cliente }) {
       telefono: cliente.telefono ?? "",
       email: cliente.email ?? "",
       documento: cliente.documento ?? "",
+      fechaNacimiento: cliente.fechaNacimiento ? cliente.fechaNacimiento.toISOString().slice(0, 10) : "",
     },
   });
 
@@ -66,6 +69,8 @@ export function EditarClienteForm({ cliente }: { cliente: Cliente }) {
             />
             {errors.documento ? <p id="documento-error" className="text-xs text-destructive">{errors.documento.message}</p> : null}
           </div>
+
+          <CampoFechaNacimiento control={control} errors={errors} />
         </div>
       </FormGroup>
 

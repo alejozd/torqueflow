@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CampoFechaNacimiento } from "@/app/(dashboard)/clientes/campo-fecha-nacimiento";
 
 const initialState: ClienteFormState = { error: null, success: false };
 
@@ -33,11 +34,12 @@ export function NuevoClienteForm({
   const formRef = useRef<HTMLFormElement>(null);
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors },
   } = useForm<ClienteInput>({
     resolver: zodResolver(clienteInputSchema),
-    defaultValues: { nombre: "", telefono: "", email: "", documento: "" },
+    defaultValues: { nombre: "", telefono: "", email: "", documento: "", fechaNacimiento: "" },
   });
 
   function onValid() {
@@ -79,6 +81,8 @@ export function NuevoClienteForm({
             />
             {errors.documento ? <p id="documento-error" className="text-xs text-destructive">{errors.documento.message}</p> : null}
           </div>
+
+          <CampoFechaNacimiento control={control} errors={errors} />
         </div>
       </FormGroup>
 

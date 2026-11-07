@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { getCotizacion } from "@/app/actions/cotizacion-actions";
 import { requirePermiso } from "@/lib/auth/guards";
 import type { EstadoCotizacion } from "@/generated/prisma-tenant";
-import { formatoFechaCorta } from "@/lib/fecha-bogota";
 import { agruparConceptos, conceptosDesdeItems, importeConcepto, type ConceptoVista } from "@/lib/cotizacion/agrupar-conceptos";
 import { etiquetaDescuento, porcentajeVisible } from "@/lib/cotizacion/totales";
 import { ImprimirButton } from "./imprimir-button";
@@ -27,6 +26,8 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", {
 });
 
 const formatoCantidad = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 2 });
+// El servidor puede no estar en hora de Colombia: la fecha se formatea siempre en Bogotá.
+const formatoFechaBogota = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeZone: "America/Bogota" });
 
 function FilaConcepto({ concepto, dentroDeKit }: { concepto: ConceptoVista; dentroDeKit: boolean }) {
   return (
@@ -69,7 +70,7 @@ export default async function ImprimirCotizacionPage({ params }: { params: Promi
       <header className="flex flex-col gap-1 border-b border-black/20 pb-4">
         <h1 className="text-lg font-semibold">{cotizacion.sede.nombre}</h1>
         <p className="text-sm text-black/70">
-          Cotización #{cotizacion.numero} · {formatoFechaCorta.format(cotizacion.createdAt)} ·{" "}
+          Cotización #{cotizacion.numero} · {formatoFechaBogota.format(cotizacion.createdAt)} ·{" "}
           {ESTADO_LABELS[cotizacion.estado]}
         </p>
       </header>
@@ -87,6 +88,9 @@ export default async function ImprimirCotizacionPage({ params }: { params: Promi
             {cotizacion.vehiculo.marca} {cotizacion.vehiculo.modelo}
             {cotizacion.vehiculo.anio ? ` ${cotizacion.vehiculo.anio}` : ""}
           </p>
+          {cotizacion.kilometraje != null ? (
+            <p className="text-black/70">{cotizacion.kilometraje.toLocaleString("es-CO")} km</p>
+          ) : null}
         </div>
       </section>
 
@@ -166,7 +170,7 @@ export default async function ImprimirCotizacionPage({ params }: { params: Promi
       ) : null}
 
       {cotizacion.validaHasta ? (
-        <p className="text-sm text-black/70">Válida hasta {formatoFechaCorta.format(cotizacion.validaHasta)}</p>
+        <p className="text-sm text-black/70">Válida hasta {formatoFechaBogota.format(cotizacion.validaHasta)}</p>
       ) : null}
     </main>
   );

@@ -113,9 +113,17 @@ export function CeldaEditable({
   );
 }
 
-/** "38.000", "$ 38.000" o "38000,5" → "38000.5". Punto = miles, coma = decimales (es-CO). */
+/**
+ * "38.000", "$ 38.000" o "38000,5" → "38000.5". Punto = miles, coma = decimales (es-CO).
+ * Excepción: sin coma, un único punto seguido de 1 o 2 cifras es decimal ("198686.62"),
+ * que es el valor crudo que la celda muestra al tomar el foco; leerlo como miles
+ * multiplicaba el precio por 100 con solo entrar y salir de la celda.
+ */
 export function interpretarPrecio(texto: string): string | null {
-  const limpio = texto.replace(/[^\d,]/g, "").replace(",", ".");
+  const sinSimbolos = texto.replace(/[^\d.,]/g, "");
+  const limpio = /^\d+\.\d{1,2}$/.test(sinSimbolos)
+    ? sinSimbolos
+    : sinSimbolos.replace(/\./g, "").replace(",", ".");
   if (limpio === "" || Number.isNaN(Number(limpio))) return null;
   const numero = Number(limpio);
   return numero < 0 ? null : String(numero);
