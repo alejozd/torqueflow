@@ -33,7 +33,7 @@ vi.mock("./garantias-card", () => ({ GarantiasCard: () => <div>TARJETA-GARANTIAS
 import VehiculoDetailPage from "./page";
 
 const VEHICULO = {
-  id: "v1", placa: "ABC123", marca: "Renault", modelo: "Logan", anio: 2020, color: "Gris", tipo: "AUTOMOVIL",
+  id: "v1", placa: "ABC123", marca: "Renault", modelo: "Logan", anio: 2020, cilindraje: null, color: "Gris", tipo: "AUTOMOVIL",
   kilometraje: 1000, cliente: { id: "c1", nombre: "Ana", telefono: null, email: null }, clienteId: "c1",
   vencimientoSoat: null, vencimientoTecnomecanica: null, vin: null, notas: null,
 };

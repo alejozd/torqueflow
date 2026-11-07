@@ -229,6 +229,8 @@ model Vehiculo {
   modeloRef            ModeloVehiculo?       @relation(fields: [modeloId], references: [id], onDelete: Restrict)
   color                String?
   anio                 Int?
+  /// Cilindraje del motor en cc (p. ej. 1600). Opcional.
+  cilindraje           Int?
   combustible          TipoCombustible?
   kilometraje          Int?
   proximoMantenimiento DateTime?             @map("proximo_mantenimiento")

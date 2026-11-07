@@ -42,6 +42,7 @@ export const vehiculoInputSchema = z.object({
   modeloId: z.string().optional(),
   color: z.string().optional(),
   anio: z.coerce.number().int().min(1900).max(2100).optional(),
+  cilindraje: z.coerce.number().int("El cilindraje va en cc, sin decimales").min(50, "El cilindraje va en cc (ej. 1600)").max(20000, "El cilindraje va en cc (ej. 1600)").optional(),
   combustible: tipoCombustibleSchema.optional(),
   kilometraje: z.coerce.number().int().min(0, "El kilometraje no puede ser negativo").optional(),
   proximoMantenimiento: z.coerce.date().optional(),

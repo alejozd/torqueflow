@@ -38,6 +38,7 @@ const vehiculo = {
   modeloId: "mo1",
   color: "Rojo",
   anio: 2020,
+  cilindraje: null,
   combustible: "GASOLINA" as const,
   kilometraje: 45000,
   proximoMantenimiento: new Date("2026-12-01T00:00:00.000Z"),

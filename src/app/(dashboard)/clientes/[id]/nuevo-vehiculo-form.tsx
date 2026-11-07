@@ -51,6 +51,7 @@ export function NuevoVehiculoForm({
       modeloId: "",
       color: "",
       anio: "",
+      cilindraje: "",
       combustible: "",
       kilometraje: "",
       proximoMantenimiento: "",

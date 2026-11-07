@@ -248,6 +248,11 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
                       </div>
                       <span className="text-base font-semibold text-foreground">
                         {vehiculo.marca} {vehiculo.modelo} {vehiculo.anio ?? ""}
+                        {vehiculo.cilindraje !== null ? (
+                          <span className="ml-1.5 font-mono text-xs font-normal text-muted-foreground">
+                            {vehiculo.cilindraje.toLocaleString("es-CO")} cc
+                          </span>
+                        ) : null}
                       </span>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
