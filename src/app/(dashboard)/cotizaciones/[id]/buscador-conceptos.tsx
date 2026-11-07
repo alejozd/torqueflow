@@ -10,6 +10,7 @@ import {
 } from "@/app/actions/buscar-cotizacion-actions";
 import { BuscadorConceptos as BuscadorCompartido, type OpcionBuscador } from "@/components/buscador-conceptos";
 import { estadoDisponibilidad } from "@/lib/cotizacion/disponibilidad";
+import { tipoSugeridoLibre } from "@/lib/cotizacion/tipo-sugerido-libre";
 import { cn } from "@/lib/utils";
 import { formatoPesos } from "./formato";
 
@@ -33,13 +34,18 @@ function aOpciones({ kits, repuestos }: ResultadosBusquedaCotizacion, texto: str
   return [
     ...kits.map((kit) => construir({ clase: "kit", kit }, `kit-${kit.id}`, "Kits y servicios")),
     ...repuestos.map((repuesto) => construir({ clase: "repuesto", repuesto }, `rep-${repuesto.id}`, "Repuestos")),
-    ...(descripcionLibre
-      ? [
-          construir({ clase: "libre", tipo: "REPUESTO", descripcion: descripcionLibre }, "libre-repuesto", "No está en el catálogo"),
-          construir({ clase: "libre", tipo: "MANO_OBRA", descripcion: descripcionLibre }, "libre-mano", "No está en el catálogo"),
-        ]
-      : []),
+    ...(descripcionLibre ? opcionesLibres(descripcionLibre, construir) : []),
   ];
+}
+
+/** Las dos opciones libres, con primero el tipo que sugiere el texto (Enter toma la primera). */
+function opcionesLibres(
+  descripcion: string,
+  construir: (valor: SeleccionBuscador, clave: string, seccion: string) => OpcionBuscador<SeleccionBuscador>,
+): OpcionBuscador<SeleccionBuscador>[] {
+  const repuesto = construir({ clase: "libre", tipo: "REPUESTO", descripcion }, "libre-repuesto", "No está en el catálogo");
+  const mano = construir({ clase: "libre", tipo: "MANO_OBRA", descripcion }, "libre-mano", "No está en el catálogo");
+  return tipoSugeridoLibre(descripcion) === "MANO_OBRA" ? [mano, repuesto] : [repuesto, mano];
 }
 
 /**
