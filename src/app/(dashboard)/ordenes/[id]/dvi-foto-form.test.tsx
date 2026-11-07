@@ -41,14 +41,14 @@ describe("DviFotoForm", () => {
 
     expect(screen.queryByLabelText("Foto")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Subir foto" })).not.toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /antes de la inspección/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /de ingreso del vehículo/ })).toBeInTheDocument();
   });
 
   it("submits the momento the user actually picked, not just the default", async () => {
     render(<DviFotoForm ordenId="o1" fotos={[]} />);
 
     await userEvent.click(screen.getByLabelText("Momento"));
-    await userEvent.click(await screen.findByRole("option", { name: "Después" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Salida" }));
 
     const file = new File(["x"], "foto.jpg", { type: "image/jpeg" });
     await userEvent.upload(screen.getByLabelText("Foto"), file);
@@ -84,12 +84,12 @@ describe("DviFotoForm", () => {
       />,
     );
 
-    const antesFigure = screen.getByAltText("Foto antes de la inspección").closest("figure") as HTMLElement;
-    const despuesFigure = screen.getByAltText("Foto después de la inspección").closest("figure") as HTMLElement;
+    const antesFigure = screen.getByAltText("Foto de ingreso del vehículo").closest("figure") as HTMLElement;
+    const despuesFigure = screen.getByAltText("Foto de salida del vehículo").closest("figure") as HTMLElement;
     expect(antesFigure).toHaveClass("border");
     expect(despuesFigure).toHaveClass("border");
-    expect(within(antesFigure).getByText("Antes")).toBeInTheDocument();
-    expect(within(despuesFigure).getByText("Después")).toBeInTheDocument();
+    expect(within(antesFigure).getByText("Ingreso")).toBeInTheDocument();
+    expect(within(despuesFigure).getByText("Salida")).toBeInTheDocument();
   });
 
   it("offers a remove button per foto only when puedeEliminar", () => {

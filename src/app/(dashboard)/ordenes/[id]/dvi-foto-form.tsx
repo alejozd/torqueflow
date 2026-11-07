@@ -11,6 +11,9 @@ import { Label } from "@/components/ui/label";
 import { QuitarConConfirmacion } from "@/components/quitar-con-confirmacion";
 import { SelectField } from "@/components/ui/select-field";
 
+/** En la base siguen ANTES/DESPUES; en el taller se habla de la foto al ingreso y a la salida. */
+const MOMENTO_FOTO = { ANTES: "Ingreso", DESPUES: "Salida" } as const;
+
 const initialState: DviFormState = { error: null, success: false };
 
 type DviFoto = NonNullable<OrdenWithDetalle["dvi"]>["fotos"][number];
@@ -44,8 +47,8 @@ export function DviFotoForm({
                 defaultValue="ANTES"
                 className="w-28"
                 items={[
-                  { value: "ANTES", label: "Antes" },
-                  { value: "DESPUES", label: "Después" },
+                  { value: "ANTES", label: MOMENTO_FOTO.ANTES },
+                  { value: "DESPUES", label: MOMENTO_FOTO.DESPUES },
                 ]}
               />
             </div>
@@ -90,14 +93,14 @@ export function DviFotoForm({
               {/* eslint-disable-next-line @next/next/no-img-element -- auth-gated route, next/image's optimizer can't reach it */}
               <img
                 src={foto.url}
-                alt={`Foto ${foto.momento === "ANTES" ? "antes" : "después"} de la inspección`}
+                alt={`Foto de ${MOMENTO_FOTO[foto.momento].toLowerCase()} del vehículo`}
                 className="aspect-4/3 w-full object-cover"
               />
               <figcaption className="flex items-center justify-between gap-2 px-2 py-1 text-[11px] text-muted-foreground">
-                {foto.momento === "ANTES" ? "Antes" : "Después"}
+                {MOMENTO_FOTO[foto.momento]}
                 {puedeEliminar ? (
                   <QuitarConConfirmacion
-                    etiqueta={`Eliminar foto ${foto.momento === "ANTES" ? "antes" : "después"}`}
+                    etiqueta={`Eliminar foto de ${MOMENTO_FOTO[foto.momento].toLowerCase()}`}
                     pregunta="¿Quitar esta foto? No se puede deshacer."
                     accion={() => deleteDviFotoFormAction(foto.id, ordenId)}
                   />
