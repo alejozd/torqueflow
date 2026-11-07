@@ -215,6 +215,24 @@ describe("crearCotizacionAction", () => {
     expect(mockVehiculoUpdateTx).toHaveBeenCalledWith({ where: { id: "v1" }, data: { kilometraje: 85000 } });
   });
 
+  it("compara contra el kilometraje de la orden más reciente, igual que la ficha", async () => {
+    mockVehiculoFindUnique.mockResolvedValue({
+      id: "v1",
+      clienteId: "c1",
+      kilometraje: 80000,
+      ordenes: [{ kilometrajeIngreso: 95000 }],
+    });
+    mockCotizacionCreate.mockResolvedValue({ id: "q1" });
+    const formData = new FormData();
+    formData.set("vehiculoId", "v1");
+    formData.set("motivo", "Cambio de aceite");
+    formData.set("kilometraje", "90000");
+
+    await crearCotizacionAction(cotizacionInitial, formData);
+
+    expect(mockVehiculoUpdateTx).not.toHaveBeenCalled();
+  });
+
   it("no baja el kilometraje del vehículo si el de la cotización es menor", async () => {
     mockVehiculoFindUnique.mockResolvedValue({ id: "v1", clienteId: "c1", kilometraje: 90000 });
     mockCotizacionCreate.mockResolvedValue({ id: "q1" });

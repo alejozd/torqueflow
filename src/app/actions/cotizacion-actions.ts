@@ -149,6 +149,22 @@ export async function getCotizacion(id: string): Promise<CotizacionConDetalle | 
  * taller, so any sede must be able to quote it. Mirrors listVehiculosParaCita
  * (src/app/actions/cita-actions.ts).
  */
+// Mismo "kilometraje actual" que muestran la ficha del vehículo y la del cliente:
+// el de la orden más reciente que lo anotó y, si no hay, el guardado en el vehículo.
+const KILOMETRAJE_ULTIMA_ORDEN = {
+  where: { kilometrajeIngreso: { not: null } },
+  select: { kilometrajeIngreso: true },
+  orderBy: { createdAt: "desc" },
+  take: 1,
+} as const;
+
+function kilometrajeActual(vehiculo: {
+  kilometraje: number | null;
+  ordenes?: { kilometrajeIngreso: number | null }[];
+}): number | null {
+  return vehiculo.ordenes?.[0]?.kilometrajeIngreso ?? vehiculo.kilometraje;
+}
+
 export async function listVehiculosParaCotizacion(): Promise<VehiculoOption[]> {
   const session = await requireSession();
   const tenantDb = getTenantDb(session.user.tenantSchema);
@@ -160,6 +176,7 @@ export async function listVehiculosParaCotizacion(): Promise<VehiculoOption[]> {
       modelo: true,
       kilometraje: true,
       cliente: { select: { nombre: true } },
+      ordenes: KILOMETRAJE_ULTIMA_ORDEN,
     },
     orderBy: { placa: "asc" },
   });
@@ -170,7 +187,7 @@ export async function listVehiculosParaCotizacion(): Promise<VehiculoOption[]> {
     marca: vehiculo.marca,
     modelo: vehiculo.modelo,
     clienteNombre: vehiculo.cliente.nombre,
-    kilometraje: vehiculo.kilometraje,
+    kilometraje: kilometrajeActual(vehiculo),
   }));
 }
 
@@ -198,7 +215,7 @@ export async function crearCotizacionAction(
 
   const vehiculo = await tenantDb.vehiculo.findUnique({
     where: { id: parsed.data.vehiculoId },
-    select: { id: true, clienteId: true, kilometraje: true },
+    select: { id: true, clienteId: true, kilometraje: true, ordenes: KILOMETRAJE_ULTIMA_ORDEN },
   });
   if (!vehiculo) {
     return { error: "El vehículo seleccionado no existe.", success: false, cotizacionId: null };
@@ -220,7 +237,8 @@ export async function crearCotizacionAction(
       });
       // El vehículo guarda el último kilometraje conocido: solo sube, nunca baja
       // por un dato mal digitado o una cotización vieja.
-      if (kilometraje !== undefined && (vehiculo.kilometraje === null || kilometraje > vehiculo.kilometraje)) {
+      const actual = kilometrajeActual(vehiculo);
+      if (kilometraje !== undefined && (actual === null || kilometraje > actual)) {
         await tx.vehiculo.update({ where: { id: vehiculo.id }, data: { kilometraje } });
       }
       return creada;
