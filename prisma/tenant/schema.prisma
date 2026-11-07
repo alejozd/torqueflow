@@ -1429,3 +1429,20 @@ model PagoProveedor {
   @@index([cuentaId])
   @@map("pagos_proveedor")
 }
+
+/// Tarifas de IVA que el taller puede elegir en cada línea (cotización, orden,
+/// mostrador). Los documentos guardan una COPIA del porcentaje, no una
+/// referencia: desactivar o renombrar una tarifa no altera lo ya hecho, y por
+/// eso el porcentaje no se edita después de creada. Exactamente una
+/// predeterminada (activa); la regla se cuida en las acciones.
+model TarifaIva {
+  id             String   @id @default(cuid())
+  porcentaje     Decimal  @unique @db.Decimal(5, 2)
+  nombre         String
+  activa         Boolean  @default(true)
+  predeterminada Boolean  @default(false)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("tarifas_iva")
+}

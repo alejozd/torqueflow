@@ -19,6 +19,7 @@ import {
   MapPin,
   Package,
   PackagePlus,
+  Percent,
   Receipt,
   ShieldAlert,
   Store,
@@ -116,6 +117,7 @@ const ADMINISTRACION: NavGroup = {
     { href: "/usuarios", label: "Usuarios", icon: UserCog, permiso: "usuarios.gestionar" },
     { href: "/auditoria", label: "Auditoría", icon: History, permiso: "auditoria.ver" },
     { href: "/configuracion-smtp", label: "SMTP", icon: Mail, permiso: "configuracion.taller" },
+    { href: "/configuracion-iva", label: "Tarifas de IVA", icon: Percent, permiso: "configuracion.taller" },
     IMPORTAR,
   ],
 };
