@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// vitest.setup.ts lo simula para los formularios; aquí se prueba el real.
+vi.unmock("@/app/actions/tarifa-iva-actions");
+
 const mockRequirePermiso = vi.fn();
 const mockRequireSession = vi.fn();
 vi.mock("@/lib/auth/guards", () => ({

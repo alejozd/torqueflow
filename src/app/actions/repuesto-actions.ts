@@ -7,6 +7,7 @@ import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { repuestoInputSchema, repuestoStockInicialSchema as stockInicialSchema } from "@/lib/validation/inventario";
 import { scopeBodega, scopeRepuesto } from "@/lib/sede/scope";
 import { comprometidoPorRepuesto } from "@/lib/inventario/comprometido";
+import { leerIvaPct, resolverIvaPct } from "@/lib/iva/resolver";
 import type { Prisma } from "@/generated/prisma-tenant";
 
 export interface RepuestoFormState {
@@ -145,6 +146,9 @@ export async function createRepuestoAction(
 
   const tenantDb = getTenantDb(session.user.tenantSchema);
 
+  const iva = await resolverIvaPct(tenantDb, leerIvaPct(formData.get("ivaPct")));
+  if (!iva.ok) return { error: iva.error, success: false, repuestoId: null };
+
   const bodega = await tenantDb.bodega.findFirst({
     where: { id: parsed.data.bodegaId, ...scopeBodega(session.user.sedeActivaId) },
     select: { id: true },
@@ -162,6 +166,7 @@ export async function createRepuestoAction(
         descripcion: parsed.data.descripcion || null,
         precioCompra: verCostos ? parsed.data.precioCompra : 0,
         precioVenta: parsed.data.precioVenta,
+        ivaPct: iva.ivaPct,
         stockActual: parsedStock.data,
         stockMinimo: parsed.data.stockMinimo,
         stockMaximo: parsed.data.stockMaximo ?? null,
@@ -200,6 +205,20 @@ export async function updateRepuestoAction(
     return { error: BODEGA_AJENA, success: false, repuestoId: null };
   }
 
+  // Sin el campo (formularios viejos) el IVA no se toca; con él, se valida
+  // contra las tarifas activas salvo que sea el mismo que ya tenía.
+  const ivaPedido = leerIvaPct(formData.get("ivaPct"));
+  let ivaPct: number | undefined;
+  if (ivaPedido !== undefined) {
+    const actual = await tenantDb.repuesto.findFirst({
+      where: { id, ...scopeRepuesto(session.user.sedeActivaId) },
+      select: { ivaPct: true },
+    });
+    const iva = await resolverIvaPct(tenantDb, ivaPedido, actual ? Number(actual.ivaPct) : undefined);
+    if (!iva.ok) return { error: iva.error, success: false, repuestoId: null };
+    ivaPct = iva.ivaPct;
+  }
+
   try {
     const { count } = await tenantDb.repuesto.updateMany({
       where: { id, ...scopeRepuesto(session.user.sedeActivaId) },
@@ -209,6 +228,7 @@ export async function updateRepuestoAction(
         descripcion: parsed.data.descripcion || null,
         ...(verCostos ? { precioCompra: parsed.data.precioCompra } : {}),
         precioVenta: parsed.data.precioVenta,
+        ...(ivaPct !== undefined ? { ivaPct } : {}),
         stockMinimo: parsed.data.stockMinimo,
         stockMaximo: parsed.data.stockMaximo ?? null,
         multiploCompra: parsed.data.multiploCompra,

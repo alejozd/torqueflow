@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { puede, requirePermiso } from "@/lib/auth/guards";
+import { leerIvaPct, resolverIvaPct } from "@/lib/iva/resolver";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { roundMoney } from "@/lib/money/round";
@@ -33,6 +34,8 @@ export interface ServicioVista {
   nombre: string;
   descripcion: string | null;
   precioManoObra: number;
+  /** Tarifa de IVA de la mano de obra del servicio. */
+  ivaPct: number;
   activo: boolean;
   repuestos: ServicioRepuestoVista[];
   /** Mano de obra + repuestos del kit a precio de venta actual. */
@@ -169,6 +172,7 @@ export async function listServicios(opciones: { soloActivos?: boolean } = {}): P
       nombre: true,
       descripcion: true,
       precioManoObra: true,
+      ivaPct: true,
       activo: true,
       repuestos: {
         where: soloActivos ? { repuesto: scopeRepuesto(session.user.sedeActivaId) } : {},
@@ -196,6 +200,7 @@ export async function listServicios(opciones: { soloActivos?: boolean } = {}): P
       nombre: fila.nombre,
       descripcion: fila.descripcion,
       precioManoObra,
+      ivaPct: Number(fila.ivaPct),
       activo: fila.activo,
       repuestos,
       totalEstimado: roundMoney(
@@ -218,6 +223,8 @@ export async function crearServicioAction(
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
 
   const tenantDb = getTenantDb(session.user.tenantSchema);
+  const iva = await resolverIvaPct(tenantDb, leerIvaPct(formData.get("ivaPct")));
+  if (!iva.ok) return { error: iva.error, success: false };
   try {
     if (await existeNombre(tenantDb, parsed.data.nombre)) return { error: MENSAJE_DUPLICADO, success: false };
     await tenantDb.servicio.create({
@@ -225,6 +232,7 @@ export async function crearServicioAction(
         nombre: parsed.data.nombre,
         descripcion: parsed.data.descripcion,
         precioManoObra: parsed.data.precioManoObra,
+        ivaPct: iva.ivaPct,
       },
     });
   } catch (err) {
@@ -248,6 +256,15 @@ export async function actualizarServicioAction(
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
 
   const tenantDb = getTenantDb(session.user.tenantSchema);
+  // Sin el campo el IVA no se toca; con él se valida, salvo que sea el que ya tenía.
+  const ivaPedido = leerIvaPct(formData.get("ivaPct"));
+  let ivaPct: number | undefined;
+  if (ivaPedido !== undefined) {
+    const actual = await tenantDb.servicio.findUnique({ where: { id: servicioId }, select: { ivaPct: true } });
+    const iva = await resolverIvaPct(tenantDb, ivaPedido, actual ? Number(actual.ivaPct) : undefined);
+    if (!iva.ok) return { error: iva.error, success: false };
+    ivaPct = iva.ivaPct;
+  }
   try {
     if (await existeNombre(tenantDb, parsed.data.nombre, servicioId)) return { error: MENSAJE_DUPLICADO, success: false };
     await tenantDb.servicio.update({
@@ -256,6 +273,7 @@ export async function actualizarServicioAction(
         nombre: parsed.data.nombre,
         descripcion: parsed.data.descripcion,
         precioManoObra: parsed.data.precioManoObra,
+        ...(ivaPct !== undefined ? { ivaPct } : {}),
       },
     });
   } catch (err) {

@@ -500,6 +500,8 @@ model Repuesto {
   descripcion          String?
   precioCompra         Decimal                @map("precio_compra") @db.Decimal(10, 2)
   precioVenta          Decimal                @map("precio_venta") @db.Decimal(10, 2)
+  /// Tarifa de IVA con que entra el repuesto a una línea (copia del porcentaje, ver TarifaIva).
+  ivaPct               Decimal                @default(19) @map("iva_pct") @db.Decimal(5, 2)
   stockActual          Int                    @default(0) @map("stock_actual")
   stockMinimo          Int                    @default(0) @map("stock_minimo")
   /// Hasta dónde reponer al pedir; sin valor, las alertas usan 2 × stockMinimo.
@@ -1065,6 +1067,8 @@ model Servicio {
   nombre         String              @unique
   descripcion    String?
   precioManoObra Decimal             @map("precio_mano_obra") @db.Decimal(10, 2)
+  /// Tarifa de IVA de la mano de obra del servicio; sus repuestos usan la de cada repuesto.
+  ivaPct         Decimal             @default(19) @map("iva_pct") @db.Decimal(5, 2)
   activo         Boolean             @default(true)
   repuestos      ServicioRepuesto[]
   itemsCotizacion ItemCotizacion[]

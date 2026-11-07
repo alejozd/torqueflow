@@ -23,7 +23,7 @@ const servicio: ServicioVista = {
   id: "s1",
   nombre: "Cambio de aceite",
   descripcion: null,
-  precioManoObra: 45000,
+  precioManoObra: 45000, ivaPct: 19,
   activo: true,
   repuestos: [{ repuestoId: "r1", codigo: "FA-1", nombre: "Filtro de aceite", cantidad: 2, precioVenta: 25000 }],
   totalEstimado: 95000,

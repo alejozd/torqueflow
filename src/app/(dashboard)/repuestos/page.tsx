@@ -88,6 +88,7 @@ function toEditable(repuesto: RepuestoFila): RepuestoEditable {
     descripcion: repuesto.descripcion,
     ...(repuesto.precioCompra === undefined ? {} : { precioCompra: Number(repuesto.precioCompra) }),
     precioVenta: Number(repuesto.precioVenta),
+    ivaPct: Number(repuesto.ivaPct),
     stockMinimo: repuesto.stockMinimo,
     stockMaximo: repuesto.stockMaximo,
     multiploCompra: repuesto.multiploCompra,

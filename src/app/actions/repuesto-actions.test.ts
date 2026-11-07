@@ -17,6 +17,9 @@ vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     repuesto: { create: mockCreate, updateMany: mockUpdateMany, deleteMany: mockDeleteMany, findMany: mockFindMany },
     bodega: { findFirst: mockBodegaFindFirst },
+    tarifaIva: {
+      findMany: vi.fn().mockResolvedValue([{ porcentaje: 19, predeterminada: true }]),
+    },
   }),
 }));
 
@@ -111,6 +114,7 @@ describe("createRepuestoAction", () => {
         descripcion: null,
         precioCompra: 8,
         precioVenta: 15,
+        ivaPct: 19,
         stockActual: 20,
         stockMinimo: 5,
         stockMaximo: null,

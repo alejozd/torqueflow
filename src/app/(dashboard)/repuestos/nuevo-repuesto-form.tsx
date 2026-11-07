@@ -14,6 +14,7 @@ import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SelectorIva } from "@/components/selector-iva";
 import { SelectField } from "@/components/ui/select-field";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -212,6 +213,11 @@ export function NuevoRepuestoForm({
               {...register("precioVenta")}
             />
             {errors.precioVenta ? <p id="precioVenta-error" className="text-xs text-destructive">{errors.precioVenta.message}</p> : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="ivaPct">IVA</Label>
+            <SelectorIva id="ivaPct" name="ivaPct" />
           </div>
 
           <div className="flex flex-col gap-1.5">

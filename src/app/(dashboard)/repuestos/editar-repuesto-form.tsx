@@ -20,6 +20,7 @@ import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SelectorIva } from "@/components/selector-iva";
 import { SelectField } from "@/components/ui/select-field";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -37,6 +38,8 @@ export interface RepuestoEditable {
   descripcion: string | null;
   precioCompra?: number;
   precioVenta: number;
+  /** Tarifa de IVA del repuesto (copia del porcentaje). */
+  ivaPct: number;
   stockMinimo: number;
   stockMaximo: number | null;
   multiploCompra: number;
@@ -223,6 +226,11 @@ export function EditarRepuestoForm({
               {errors.precioVenta ? (
                 <p id={`precioVenta-${repuesto.id}-error`}>{errors.precioVenta.message}</p>
               ) : null}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`ivaPct-${repuesto.id}`}>IVA</Label>
+              <SelectorIva id={`ivaPct-${repuesto.id}`} name="ivaPct" defaultValue={repuesto.ivaPct} />
             </div>
 
             <div className="flex flex-col gap-1.5">

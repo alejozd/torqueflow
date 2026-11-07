@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { puede, requirePermiso } from "@/lib/auth/guards";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
+import { IVA_PREDETERMINADO_RESPALDO } from "@/lib/iva/tarifas";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import {
   claveCodigo,
@@ -245,7 +246,16 @@ async function importarRepuestos(ctx: Contexto, lectura: LecturaOk): Promise<Res
     return { resumen: hojaOmitida("Repuestos", "Elige la bodega donde entran los repuestos"), novedades: [] };
   }
 
-  const { validas, rechazos } = validarRepuestos(lectura, { bodegaId: ctx.bodegaId, proveedorId: ctx.proveedorId });
+  const tarifas = await ctx.tenantDb.tarifaIva.findMany({ where: { activa: true }, select: { porcentaje: true, predeterminada: true } });
+  const predeterminada = tarifas.find((tarifa) => tarifa.predeterminada);
+  const { validas, rechazos } = validarRepuestos(lectura, {
+    bodegaId: ctx.bodegaId,
+    proveedorId: ctx.proveedorId,
+    tarifasIva: {
+      activas: tarifas.map((tarifa) => Number(tarifa.porcentaje)),
+      predeterminada: predeterminada ? Number(predeterminada.porcentaje) : IVA_PREDETERMINADO_RESPALDO,
+    },
+  });
   const existentesEnBase = await ctx.tenantDb.repuesto.findMany({ select: { codigo: true } });
   const claves = setDeClaves(existentesEnBase.map((repuesto) => claveCodigo(repuesto.codigo)));
   const { nuevas, omitidas } = separarDuplicados(validas, claves, "Repuestos", describirRepuesto);
@@ -267,6 +277,7 @@ async function importarRepuestos(ctx: Contexto, lectura: LecturaOk): Promise<Res
             descripcion: repuesto.descripcion,
             precioCompra: repuesto.precioCompra,
             precioVenta: repuesto.precioVenta,
+            ivaPct: repuesto.ivaPct,
             stockMinimo: repuesto.stockMinimo,
             stockMaximo: repuesto.stockMaximo,
             multiploCompra: repuesto.multiploCompra,
