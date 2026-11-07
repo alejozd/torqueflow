@@ -85,7 +85,7 @@ export function NuevaCotizacionForm({ vehiculos }: { vehiculos: VehiculoOption[]
         formData.set("kilometraje", String(data.kilometraje));
       }
       if (data.validaHasta) {
-        formData.set("validaHasta", String(data.validaHasta));
+        formData.set("validaHasta", data.validaHasta instanceof Date ? data.validaHasta.toISOString() : String(data.validaHasta));
       }
       const result = await crearCotizacionAction(initialState, formData);
       if (result.success && result.cotizacionId) {
