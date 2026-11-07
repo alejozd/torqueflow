@@ -176,7 +176,10 @@ export function CabeceraCotizacion({
         ) : null}
       </div>
       <div className="flex flex-col items-start gap-2 md:items-end">
-        <span className="font-mono text-xs text-muted-foreground">Cotización #{datos.numero}</span>
+        <p className="flex items-baseline gap-1.5 leading-none md:flex-col md:items-end md:gap-1">
+          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Cotización</span>
+          <span className="font-mono text-2xl font-bold text-foreground">#{datos.numero}</span>
+        </p>
         {acciones}
       </div>
     </Card>
