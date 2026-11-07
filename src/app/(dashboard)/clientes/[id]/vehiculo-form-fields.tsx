@@ -174,7 +174,7 @@ export function VehiculoFormFields({
       </FormGroup>
 
       <FormGroup label="Vehículo">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-8">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="marca-combobox">Marca</Label>
             <input type="hidden" {...register("marca")} />
@@ -236,7 +236,7 @@ export function VehiculoFormFields({
             {errors.modelo ? <p id="modelo-error" className="text-xs text-destructive">{errors.modelo.message}</p> : null}
           </div>
 
-          <div className="flex flex-col gap-1.5 sm:col-span-1">
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="color">Color</Label>
             <Input
               id="color"
@@ -247,7 +247,7 @@ export function VehiculoFormFields({
             {errors.color ? <p id="color-error" className="text-xs text-destructive">{errors.color.message}</p> : null}
           </div>
 
-          <div className="flex flex-col gap-1.5 sm:col-span-1">
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="anio">Año</Label>
             <Input
               id="anio"
@@ -262,7 +262,7 @@ export function VehiculoFormFields({
             {errors.anio ? <p id="anio-error" className="text-xs text-destructive">{errors.anio.message}</p> : null}
           </div>
 
-          <div className="flex flex-col gap-1.5 sm:col-span-1">
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="cilindraje">Cilindraje (cc)</Label>
             <Input
               id="cilindraje"
@@ -280,7 +280,7 @@ export function VehiculoFormFields({
             ) : null}
           </div>
 
-          <div className="flex flex-col gap-1.5 sm:col-span-1">
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="combustible">Combustible</Label>
             <SelectField
               id="combustible"
