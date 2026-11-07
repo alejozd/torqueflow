@@ -175,6 +175,8 @@ model Cliente {
   telefono            String?
   email               String?
   documento           String?
+  /// Solo el día (para saber la edad y cuándo cumple años). Opcional.
+  fechaNacimiento     DateTime?                  @map("fecha_nacimiento") @db.Date
   vehiculos           Vehiculo[]
   ordenes             OrdenTrabajo[]
   facturas            Factura[]

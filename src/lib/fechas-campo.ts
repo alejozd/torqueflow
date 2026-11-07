@@ -1,9 +1,10 @@
 import { diaSemana, diasDelMes, formatoDiaLargo, sumarDias } from "@/lib/agenda-cita";
+import { infoCumpleanos, textoCumpleanos } from "@/lib/cliente/cumpleanos";
 
 // Ayudantes de los campos de fecha. Todo con cadenas "aaaa-mm-dd" en hora de
 // Bogotá: nunca Date local, así el día elegido no se corre con la zona horaria.
 
-export type TipoFecha = "pasado" | "vencimiento" | "mantenimiento" | "garantia" | "cotizacion" | "seguimiento";
+export type TipoFecha = "pasado" | "nacimiento" | "vencimiento" | "mantenimiento" | "garantia" | "cotizacion" | "seguimiento";
 export type Tono = "ok" | "aviso" | "vencido" | "neutro";
 export interface Atajo { etiqueta: string; cantidad: number; unidad: "dias" | "meses" }
 export interface Ayuda { texto: string; tono: Tono }
@@ -74,6 +75,7 @@ const meses = (etiqueta: string, cantidad: number): Atajo => ({ etiqueta, cantid
 
 export const ATAJOS: Record<TipoFecha, Atajo[]> = {
   pasado: [dias("Hoy", 0), dias("Ayer", -1)],
+  nacimiento: [],
   vencimiento: [meses("En 6 meses", 6), meses("En 1 año", 12)],
   mantenimiento: [meses("En 3 meses", 3), meses("En 6 meses", 6)],
   garantia: [meses("En 3 meses", 3), meses("En 6 meses", 6), meses("En 1 año", 12)],
@@ -99,6 +101,10 @@ export function ayudaFecha(tipo: TipoFecha, valor: string | null, hoy: string): 
       if (n < 0) return { texto: `Se pasó hace ${duracionTexto(n)}`, tono: "vencido" };
       if (n === 0) return { texto: "Es hoy", tono: "aviso" };
       return { texto: `Faltan ${duracionTexto(n)}`, tono: n <= 30 ? "aviso" : "ok" };
+    case "nacimiento": {
+      const info = infoCumpleanos(valor, hoy);
+      return { texto: textoCumpleanos(info), tono: info.cumpleHoy ? "ok" : "neutro" };
+    }
     case "pasado":
       return { texto: capitalizar(relativoTexto(valor, hoy)), tono: "neutro" };
     case "cotizacion":

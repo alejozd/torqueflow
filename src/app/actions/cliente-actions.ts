@@ -5,7 +5,7 @@ import { puede, requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { scopeFactura, scopeOrdenVisible } from "@/lib/sede/scope";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
-import { clienteInputSchema } from "@/lib/validation/cliente";
+import { clienteInputSchema, fechaNacimientoADate } from "@/lib/validation/cliente";
 import type { Cliente, Prisma } from "@/generated/prisma-tenant";
 import { describirHistorial, sumarConteos } from "@/lib/historial-eliminacion";
 
@@ -21,6 +21,7 @@ function parseClienteFormData(formData: FormData) {
     telefono: formData.get("telefono"),
     email: formData.get("email"),
     documento: formData.get("documento"),
+    fechaNacimiento: formData.get("fechaNacimiento") ?? undefined,
   });
 }
 
@@ -182,6 +183,7 @@ export async function createClienteAction(
         telefono: parsed.data.telefono || null,
         email: parsed.data.email || null,
         documento: parsed.data.documento || null,
+        fechaNacimiento: fechaNacimientoADate(parsed.data.fechaNacimiento),
       },
     });
   } catch (err) {
@@ -213,6 +215,7 @@ export async function updateClienteAction(
         telefono: parsed.data.telefono || null,
         email: parsed.data.email || null,
         documento: parsed.data.documento || null,
+        fechaNacimiento: fechaNacimientoADate(parsed.data.fechaNacimiento),
       },
     });
   } catch (err) {
