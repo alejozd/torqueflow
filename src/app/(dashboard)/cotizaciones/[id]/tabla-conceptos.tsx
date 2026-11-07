@@ -291,8 +291,9 @@ export function TablaConceptos({
           {formatoPesos(importeConcepto(concepto))}
         </td>
         {puedeEditar ? (
-          <td className="py-2 pr-1 text-right align-middle">
+          <td className="relative py-2 pr-1 text-right align-middle">
             <QuitarConConfirmacion
+              flotante
               etiqueta={`Quitar ${concepto.descripcion}`}
               pregunta="¿Quitar este concepto?"
               accion={() => eliminarItemCotizacionFormAction(concepto.id, cotizacionId)}
@@ -381,8 +382,9 @@ export function TablaConceptos({
                       {formatoPesos(bloque.subtotal)}
                     </td>
                     {puedeEditar ? (
-                      <td className="py-2 pr-1 text-right align-middle">
+                      <td className="relative py-2 pr-1 text-right align-middle">
                         <QuitarConConfirmacion
+                          flotante
                           etiqueta={`Quitar el kit ${bloque.nombre}`}
                           pregunta={`¿Quitar el kit completo (${bloque.conceptos.length} conceptos)?`}
                           accion={async () => {
