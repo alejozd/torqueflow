@@ -230,7 +230,7 @@ Propuesta de Stitch (`docs/Evidencias/stitch_inventory_alert_dashboard_redesign/
   «Aprobar y generar orden de trabajo» / «Marcar rechazada».
 - **PDF**: kit como título con subtotal y sus partes debajo; la existencia no se imprime.
 - **Orden**: no se fusionaron sus dos tablas; cada línea de kit lleva la etiqueta «Kit · nombre» y la pestaña
-  Trabajo muestra «Kits aplicados» (`lib/orden/kits-orden.ts`).
+  Trabajo agrupa los kits en la tabla de conceptos (`components/conceptos/tabla-conceptos.tsx`).
 - Descartado de Stitch: «Poner en espera», mecánico en la línea de la cotización, texto de reserva de repuestos,
   enlace de aprobación interactiva.
 

@@ -1,23 +1,21 @@
 import Link from "next/link";
-import { Package } from "lucide-react";
 import { COLOR_TONO, pestanaInicial, pestanasGestionadas, resumenEntrega, resumenInspeccion } from "@/lib/orden/pestanas";
 import { PestanasOrden } from "./pestanas-orden";
-import { AgregarAlTrabajo } from "./agregar-al-trabajo";
 import { notFound } from "next/navigation";
 import { getOrden, listTecnicos } from "@/app/actions/orden-actions";
 import { puede, requirePermiso } from "@/lib/auth/guards";
-import { listRepuestoOptions } from "@/app/actions/repuesto-actions";
 import { listBodegas } from "@/app/actions/bodega-actions";
 import { listProveedores } from "@/app/actions/proveedor-actions";
 import { listDviChecklistItems } from "@/app/actions/dvi-checklist-item-actions";
 import { listAnticiposDeOrden } from "@/app/actions/anticipo-actions";
-import { listServicios } from "@/app/actions/servicio-actions";
 import { getOpcionesTaller } from "@/app/actions/configuracion-taller-actions";
 import { AnticiposSection } from "./anticipos-section";
 import { AvanceFase } from "./avance-fase";
 import { BannerSintomas, CabeceraOrden } from "./cabecera-orden";
 import { CicloOrden } from "./ciclo-orden";
 import { CuentaOrden } from "./cuenta-orden";
+import { ConceptosOrden } from "./conceptos-orden";
+import { conceptosDesdeOrden } from "@/lib/orden/conceptos-orden";
 import { MecanicoMenu } from "./mecanico-menu";
 import { PrioridadBloque } from "../prioridad-bloque";
 import { PRIORIDAD_COLOR } from "../prioridad-tono";
@@ -26,164 +24,20 @@ import { DiagramaDanios } from "./diagrama-danios";
 import { GarantiasSection } from "./garantias-section";
 import { RecepcionForm } from "./recepcion-form";
 import { ActaEntregaForm } from "./acta-entrega-form";
-import { AgregarItemForm } from "./agregar-item-form";
-import { AplicarServicioForm } from "./aplicar-servicio-form";
-import { AgregarManoObraForm } from "./agregar-mano-obra-form";
 import { DviChecklistForm } from "./dvi-checklist-form";
 import { DviFotoForm } from "./dvi-foto-form";
 import { esOrdenMutable } from "@/lib/orden/mutable-guard";
-import { QuitarConConfirmacion } from "@/components/quitar-con-confirmacion";
-import { deleteItemOrdenFormAction } from "@/app/actions/item-orden-actions";
-import { deleteManoDeObraFormAction } from "@/app/actions/mano-de-obra-actions";
-import { IvaLineaOrden } from "./iva-linea-orden";
-import type { ResultadoAccion } from "@/lib/resultado-accion";
 import type { DviChecklist } from "@/lib/dvi/checklist-items";
 import { totalOrden } from "@/lib/dashboard/calculos";
 import { computeFacturaTotales } from "@/lib/factura/totales";
 import { leerDesgloseGuardado } from "@/lib/iva/desglose";
-import { cn } from "@/lib/utils";
-import { resumirKitsDeOrden } from "@/lib/orden/kits-orden";
-import { DataTable, type DataTableColumn } from "@/components/data-table";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-type Orden = NonNullable<Awaited<ReturnType<typeof getOrden>>>;
-type ItemRow = Orden["items"][number];
-type ManoObraRow = Orden["manoDeObra"][number];
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", {
   style: "currency",
   currency: "COP",
   maximumFractionDigits: 0,
 });
-
-/** Marca las líneas que salieron de un kit aplicado (en la cotización o aquí). */
-function EtiquetaKit({ nombre }: { nombre: string | null }) {
-  if (!nombre) return null;
-  return (
-    <span className="mt-0.5 flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-      <Package className="size-3" aria-hidden />
-      Kit · {nombre}
-    </span>
-  );
-}
-
-const ITEMS_COLUMNS: DataTableColumn<ItemRow>[] = [
-  {
-    header: "Concepto",
-    cell: (item) => (
-      <div className="flex flex-col">
-        <span className="text-sm">{item.descripcion}</span>
-        <EtiquetaKit nombre={item.grupoKitNombre} />
-      </div>
-    ),
-  },
-  {
-    header: "Tipo",
-    cell: (item) => (
-      <Badge
-        variant="outline"
-        className={cn(
-          "gap-1.5",
-          item.repuestoId
-            ? "border-transparent bg-[oklch(0.7_0.15_60/0.15)] text-[10px] text-[oklch(0.55_0.15_60)]"
-            : "border-transparent bg-[oklch(0.44_0.12_250/0.1)] text-[10px] text-[oklch(0.44_0.12_250)]"
-        )}
-      >
-        <span
-          className="size-1.5 shrink-0 rounded-full"
-          style={{ background: item.repuestoId ? "oklch(0.55 0.15 60)" : "oklch(0.44 0.12 250)" }}
-        />
-        {item.repuestoId ? "Repuesto" : "Manual"}
-      </Badge>
-    ),
-  },
-  {
-    header: "Cant.",
-    className: "text-right",
-    cell: (item) => <span className="font-mono text-sm">{item.cantidad}</span>,
-  },
-  {
-    header: "Unitario",
-    className: "text-right",
-    cell: (item) => (
-      <span className="font-mono text-sm text-muted-foreground">
-        {formatoMoneda.format(Number(item.precioUnitario))}
-      </span>
-    ),
-  },
-  {
-    header: "Importe",
-    className: "text-right",
-    cell: (item) => (
-      <span className="font-mono text-sm font-medium">
-        {formatoMoneda.format(item.cantidad * Number(item.precioUnitario))}
-      </span>
-    ),
-  },
-];
-
-const MANO_OBRA_COLUMNS: DataTableColumn<ManoObraRow>[] = [
-  {
-    header: "Trabajo",
-    cell: (linea) => (
-      <div className="flex flex-col">
-        <span className="text-sm">{linea.descripcion}</span>
-        <EtiquetaKit nombre={linea.grupoKitNombre} />
-      </div>
-    ),
-  },
-  {
-    header: "Mecánico",
-    cell: (linea) => (
-      <span className="text-sm text-muted-foreground">{linea.mecanico?.nombre ?? "Sin asignar"}</span>
-    ),
-  },
-  {
-    header: "Valor",
-    className: "text-right",
-    cell: (linea) => (
-      <span className="font-mono text-sm font-medium">{formatoMoneda.format(Number(linea.valor))}</span>
-    ),
-  },
-];
-
-// Remove column only while the orden is still editable and for the roles the
-// delete actions accept: `esOrdenMutable(orden) && puede(session, "ordenes.quitar")`,
-// mirroring their requirePermiso. The add forms are looser (only gated by
-// `!orden.factura`; the add actions allow TECNICO).
-function conColumnaQuitar<T extends { id: string }>(
-  columns: DataTableColumn<T>[],
-  puedeQuitar: boolean,
-  quitar: (fila: T) => { etiqueta: string; pregunta: string; accion: () => Promise<ResultadoAccion> },
-): DataTableColumn<T>[] {
-  if (!puedeQuitar) return columns;
-  return [
-    ...columns,
-    {
-      header: "",
-      className: "text-right",
-      cell: (fila) => <QuitarConConfirmacion {...quitar(fila)} />,
-    },
-  ];
-}
-
-/** Agrega la columna "IVA" justo antes de la columna `antesDe` (el precio). */
-function conColumnaIva<T extends { id: string; descripcion: string; ivaPct: unknown }>(
-  columns: DataTableColumn<T>[],
-  antesDe: string,
-  props: { ordenId: string; tipo: "REPUESTO" | "MANO_OBRA"; editable: boolean },
-): DataTableColumn<T>[] {
-  const posicion = columns.findIndex((columna) => columna.header === antesDe);
-  const columnaIva: DataTableColumn<T> = {
-    header: "IVA",
-    className: "text-right",
-    cell: (fila) => (
-      <IvaLineaOrden {...props} lineaId={fila.id} descripcion={fila.descripcion} ivaPct={Number(fila.ivaPct)} />
-    ),
-  };
-  return [...columns.slice(0, posicion), columnaIva, ...columns.slice(posicion)];
-}
 
 export default async function OrdenDetailPage({
   params,
@@ -195,15 +49,13 @@ export default async function OrdenDetailPage({
   const { id } = await params;
   const { tab } = await searchParams;
   const session = await requirePermiso("ordenes.ver");
-  const [orden, repuestos, tecnicos, bodegas, proveedores, dviItems, anticipos, servicios, opcionesTaller] = await Promise.all([
+  const [orden, tecnicos, bodegas, proveedores, dviItems, anticipos, opcionesTaller] = await Promise.all([
     getOrden(id),
-    listRepuestoOptions(),
     listTecnicos(),
     listBodegas(),
     listProveedores(),
     listDviChecklistItems(),
     listAnticiposDeOrden(id),
-    listServicios({ soloActivos: true }),
     getOpcionesTaller(),
   ]);
 
@@ -211,33 +63,12 @@ export default async function OrdenDetailPage({
     notFound();
   }
 
-  const puedeQuitar = esOrdenMutable(orden) && puede(session, "ordenes.quitar");
-  const ivaEditable = esOrdenMutable(orden) && puede(session, "ordenes.trabajar");
-  const itemsColumns = conColumnaQuitar(
-    conColumnaIva(ITEMS_COLUMNS, "Unitario", { ordenId: orden.id, tipo: "REPUESTO", editable: ivaEditable }),
-    puedeQuitar,
-    (item) => ({
-      etiqueta: `Quitar ${item.descripcion}`,
-      pregunta: `¿Quitar ${item.descripcion} de la orden?`,
-      accion: deleteItemOrdenFormAction.bind(null, item.id, orden.id),
-    }),
-  );
-  const manoObraColumns = conColumnaQuitar(
-    conColumnaIva(MANO_OBRA_COLUMNS, "Valor", { ordenId: orden.id, tipo: "MANO_OBRA", editable: ivaEditable }),
-    puedeQuitar,
-    (linea) => ({
-      etiqueta: `Quitar ${linea.descripcion}`,
-      pregunta: `¿Quitar "${linea.descripcion}" de la orden?`,
-      accion: deleteManoDeObraFormAction.bind(null, linea.id, orden.id),
-    }),
-  );
+  const editable = esOrdenMutable(orden);
+  const puedeQuitar = editable && puede(session, "ordenes.quitar");
+  const conceptos = conceptosDesdeOrden(orden.items, orden.manoDeObra);
 
   const repuestosTotal = orden.items.reduce((suma, item) => suma + item.cantidad * Number(item.precioUnitario), 0);
   const manoObraTotal = orden.manoDeObra.reduce((suma, linea) => suma + Number(linea.valor), 0);
-  const kits = resumirKitsDeOrden(
-    orden.items.map((item) => ({ ...item, precioUnitario: Number(item.precioUnitario) })),
-    orden.manoDeObra.map((linea) => ({ ...linea, valor: Number(linea.valor) })),
-  );
   const checklist = (orden.dvi?.checklist as DviChecklist | undefined) ?? null;
   // Solo cuentan los ítems activos: un ítem desactivado no se puede revisar.
   const itemsDviActivos = dviItems.filter((item) => item.activo);
@@ -387,107 +218,23 @@ export default async function OrdenDetailPage({
                       </Card>
                     ))}
                   </div>
-                  {kits.length > 0 ? (
-                    <Card className="gap-2 px-4 py-3">
-                      <span className="text-[11px] tracking-wide text-muted-foreground uppercase">Kits aplicados</span>
-                      <ul className="flex flex-col divide-y divide-border">
-                        {kits.map((kit) => (
-                          <li key={kit.grupoKitId} className="flex items-center justify-between gap-3 py-1.5 text-sm">
-                            <span className="flex items-center gap-2">
-                              <Package className="size-4 text-primary" aria-hidden />
-                              <span className="font-medium">{kit.nombre}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {kit.conceptos === 1 ? "1 concepto" : `${kit.conceptos} conceptos`}
-                              </span>
-                            </span>
-                            <span className="font-mono">{formatoMoneda.format(kit.subtotal)}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </Card>
-                  ) : null}
-                  {!orden.factura && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Agregar al trabajo</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <AgregarAlTrabajo
-                          opciones={[
-                            {
-                              id: "servicio",
-                              etiqueta: "Aplicar servicio",
-                              detalle: "repuestos + mano de obra",
-                              contenido: <AplicarServicioForm ordenId={orden.id} servicios={servicios} />,
-                            },
-                            {
-                              id: "repuesto",
-                              etiqueta: "Repuesto",
-                              contenido: (
-                                <AgregarItemForm
-                                  ordenId={orden.id}
-                                  repuestos={repuestos}
-                                  bodegas={bodegas}
-                                  proveedores={proveedores}
-                                  puedeCrearRepuesto={puede(session, "inventario.editar")}
-                                  verCostos={puede(session, "inventario.costos")}
-                                />
-                              ),
-                            },
-                            {
-                              id: "mano-obra",
-                              etiqueta: "Mano de obra",
-                              contenido: (
-                                <AgregarManoObraForm
-                                  ordenId={orden.id}
-                                  tecnicos={tecnicos}
-                                  mecanicoIdHeader={orden.mecanicoId}
-                                />
-                              ),
-                            },
-                          ]}
-                        />
-                      </CardContent>
-                    </Card>
-                  )}
                   <Card>
                     <CardHeader>
-                      <CardTitle>Repuestos</CardTitle>
-                      <CardAction className="text-sm text-muted-foreground">
-                        {orden.items.length} {orden.items.length === 1 ? "ítem" : "ítems"}
-                      </CardAction>
+                      <CardTitle>Conceptos</CardTitle>
                     </CardHeader>
-                    <CardContent className="flex flex-col gap-2">
-                      <DataTable
-                        columns={itemsColumns}
-                        rows={orden.items}
-                        getRowKey={(item) => item.id}
-                        emptyMessage="Esta orden no tiene repuestos agregados."
+                    <CardContent>
+                      <ConceptosOrden
+                        ordenId={orden.id}
+                        conceptos={conceptos}
+                        puedeEditar={editable && puede(session, "ordenes.trabajar")}
+                        puedeQuitar={puedeQuitar}
+                        tecnicos={tecnicos}
+                        crearRepuesto={
+                          puede(session, "inventario.editar")
+                            ? { bodegas, proveedores, verCostos: puede(session, "inventario.costos") }
+                            : null
+                        }
                       />
-                      <div className="flex justify-between px-2 text-sm font-semibold">
-                        <span>Subtotal repuestos</span>
-                        <span className="font-mono">{formatoMoneda.format(repuestosTotal)}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Mano de obra</CardTitle>
-                      <CardAction className="text-sm text-muted-foreground">
-                        {orden.manoDeObra.length} {orden.manoDeObra.length === 1 ? "línea" : "líneas"}
-                      </CardAction>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-2">
-                      <DataTable
-                        columns={manoObraColumns}
-                        rows={orden.manoDeObra}
-                        getRowKey={(linea) => linea.id}
-                        emptyMessage="Esta orden no tiene mano de obra registrada."
-                      />
-                      <div className="flex justify-between px-2 text-sm font-semibold">
-                        <span>Subtotal mano de obra</span>
-                        <span className="font-mono">{formatoMoneda.format(manoObraTotal)}</span>
-                      </div>
                     </CardContent>
                   </Card>
                 </>

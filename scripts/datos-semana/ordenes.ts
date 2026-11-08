@@ -100,7 +100,7 @@ async function registrarChecklist(
 }
 
 /**
- * addItemOrdenAction: 1 a 3 repuestos de la sede con stock. La acción no toca `stockActual`
+ * Como agregar repuestos a la orden: 1 a 3 repuestos de la sede con stock. La acción no toca `stockActual`
  * (lo descuenta `crearFacturaAction` al facturar), así que aquí solo se reserva en `ctx` para
  * que ninguna orden pida más de lo que habrá al facturar; `anularOrden` devuelve la reserva.
  */
@@ -124,7 +124,7 @@ async function agregarRepuestos(
   }
 }
 
-/** addManoDeObraAction: 1 a 3 líneas repartidas entre los mecánicos de la sede. */
+/** Como agregar mano de obra a la orden: 1 a 3 líneas repartidas entre los mecánicos de la sede. */
 async function agregarManoDeObra(
   tx: TenantTx, ctx: Contexto, estado: EstadoEjecucion, az: Azar, ordenId: string, sedeId: string, creada: Date,
 ): Promise<void> {

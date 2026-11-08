@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { interpretarPrecio } from "./celda-editable";
+import { interpretarCantidadEntera, interpretarPrecio } from "./celda-editable";
 
 describe("interpretarPrecio", () => {
   it("lee el formato colombiano: punto de miles y coma decimal", () => {
@@ -19,5 +19,16 @@ describe("interpretarPrecio", () => {
   it("rechaza vacío", () => {
     expect(interpretarPrecio("")).toBeNull();
     expect(interpretarPrecio("abc")).toBeNull();
+  });
+});
+
+describe("interpretarCantidadEntera", () => {
+  it("acepta enteros de 1 a 9999 y rechaza decimales, cero y texto", () => {
+    expect(interpretarCantidadEntera("3")).toBe("3");
+    expect(interpretarCantidadEntera(" 12 ")).toBe("12");
+    expect(interpretarCantidadEntera("1,5")).toBeNull();
+    expect(interpretarCantidadEntera("0")).toBeNull();
+    expect(interpretarCantidadEntera("abc")).toBeNull();
+    expect(interpretarCantidadEntera("10000")).toBeNull();
   });
 });

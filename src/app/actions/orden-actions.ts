@@ -45,7 +45,7 @@ const ORDEN_DETAIL_INCLUDE = {
   sede: true,
   mecanico: { select: { id: true, nombre: true } },
   creadoPor: { select: { id: true, nombre: true } },
-  items: true,
+  items: { include: { repuesto: { select: { codigo: true, precioVenta: true, stockActual: true } } } },
   manoDeObra: { include: { mecanico: { select: { id: true, nombre: true } } } },
   dvi: { include: { fotos: true } },
   // total is required by the ordenes list page's "Total" column so a

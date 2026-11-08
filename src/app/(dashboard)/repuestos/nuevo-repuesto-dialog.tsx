@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 /**
  * Controlled from the outside (open/onOpenChange), with no DialogTrigger of
  * its own -- unlike NuevoVehiculoDialog, this one is opened programmatically
- * by AgregarItemForm's Combobox ("+ Crear repuesto nuevo"), not by a button
+ * by ConceptosOrden (the orden buscador's "Crear … en el inventario"), not by a button
  * that lives next to it.
  */
 export function NuevoRepuestoDialog({

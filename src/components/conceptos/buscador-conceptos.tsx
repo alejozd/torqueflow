@@ -1,13 +1,12 @@
 "use client";
 
 import { forwardRef } from "react";
-import { Package, Plus, Wrench } from "lucide-react";
-import {
-  buscarParaCotizacionAction,
-  type ResultadoKitBusqueda,
-  type ResultadoRepuestoBusqueda,
-  type ResultadosBusquedaCotizacion,
-} from "@/app/actions/buscar-cotizacion-actions";
+import { Package, PackagePlus, Plus, Wrench } from "lucide-react";
+import type {
+  ResultadoKitBusqueda,
+  ResultadoRepuestoBusqueda,
+  ResultadosBusquedaConceptos,
+} from "@/lib/conceptos/buscar";
 import { BuscadorConceptos as BuscadorCompartido, type OpcionBuscador } from "@/components/buscador-conceptos";
 import { estadoDisponibilidad } from "@/lib/cotizacion/disponibilidad";
 import { tipoSugeridoLibre } from "@/lib/cotizacion/tipo-sugerido-libre";
@@ -17,13 +16,19 @@ import { formatoPesos } from "./formato";
 export type SeleccionBuscador =
   | { clase: "kit"; kit: ResultadoKitBusqueda }
   | { clase: "repuesto"; repuesto: ResultadoRepuestoBusqueda }
-  | { clase: "libre"; tipo: "REPUESTO" | "MANO_OBRA"; descripcion: string };
+  | { clase: "libre"; tipo: "REPUESTO" | "MANO_OBRA"; descripcion: string }
+  /** Solo si el documento lo permite: crear el repuesto en el inventario y agregarlo. */
+  | { clase: "crear"; descripcion: string };
 
 type Opcion = SeleccionBuscador;
 
-const VACIO: ResultadosBusquedaCotizacion = { kits: [], repuestos: [] };
+const VACIO: ResultadosBusquedaConceptos = { kits: [], repuestos: [] };
 
-function aOpciones({ kits, repuestos }: ResultadosBusquedaCotizacion, texto: string): OpcionBuscador<SeleccionBuscador>[] {
+function aOpciones(
+  { kits, repuestos }: ResultadosBusquedaConceptos,
+  texto: string,
+  permitirCrear: boolean,
+): OpcionBuscador<SeleccionBuscador>[] {
   const descripcionLibre = texto.trim();
   const construir = (valor: SeleccionBuscador, clave: string, seccion: string): OpcionBuscador<SeleccionBuscador> => ({
     clave,
@@ -35,6 +40,9 @@ function aOpciones({ kits, repuestos }: ResultadosBusquedaCotizacion, texto: str
     ...kits.map((kit) => construir({ clase: "kit", kit }, `kit-${kit.id}`, "Kits y servicios")),
     ...repuestos.map((repuesto) => construir({ clase: "repuesto", repuesto }, `rep-${repuesto.id}`, "Repuestos")),
     ...(descripcionLibre ? opcionesLibres(descripcionLibre, construir) : []),
+    ...(descripcionLibre && permitirCrear
+      ? [construir({ clase: "crear", descripcion: descripcionLibre }, "crear-repuesto", "No está en el catálogo")]
+      : []),
   ];
 }
 
@@ -55,14 +63,19 @@ function opcionesLibres(
  */
 export const BuscadorConceptos = forwardRef<
   HTMLInputElement,
-  { onSeleccionar: (seleccion: SeleccionBuscador) => void; ocupado?: boolean }
->(function BuscadorConceptos({ onSeleccionar, ocupado = false }, ref) {
+  {
+    buscar: (texto: string) => Promise<ResultadosBusquedaConceptos>;
+    onSeleccionar: (seleccion: SeleccionBuscador) => void;
+    ocupado?: boolean;
+    permitirCrear?: boolean;
+  }
+>(function BuscadorConceptos({ buscar, onSeleccionar, ocupado = false, permitirCrear = false }, ref) {
   return (
-    <BuscadorCompartido<ResultadosBusquedaCotizacion, SeleccionBuscador>
+    <BuscadorCompartido<ResultadosBusquedaConceptos, SeleccionBuscador>
       inputRef={ref}
-      buscar={buscarParaCotizacionAction}
+      buscar={buscar}
       vacio={VACIO}
-      aOpciones={aOpciones}
+      aOpciones={(resultados, texto) => aOpciones(resultados, texto, permitirCrear)}
       onSeleccionar={onSeleccionar}
       ocupado={ocupado}
       destacado
@@ -105,6 +118,14 @@ function ContenidoOpcion({ opcion }: { opcion: Opcion }) {
         </span>
         <Existencia stockActual={repuesto.stockActual} />
         <span className="w-24 shrink-0 text-right font-mono text-xs">{formatoPesos(repuesto.precioVenta)}</span>
+      </>
+    );
+  }
+  if (opcion.clase === "crear") {
+    return (
+      <>
+        <PackagePlus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <span className="min-w-0 flex-1 truncate">Crear «{opcion.descripcion}» en el inventario</span>
       </>
     );
   }
