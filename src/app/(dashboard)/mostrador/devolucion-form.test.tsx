@@ -11,10 +11,10 @@ import { DevolucionForm, type VentaDevolvible } from "./devolucion-form";
 
 /** Venta pagada de 2 × 25.000 con IVA = 59.500. */
 function venta(items: VentaDevolvible["items"], cambios: Partial<VentaDevolvible> = {}): VentaDevolvible {
-  return { id: "v1", subtotal: 50000, total: 59500, saldoPendiente: 0, totalDevuelto: 0, items, ...cambios };
+  return { id: "v1", subtotal: 50000, descuento: 0, total: 59500, saldoPendiente: 0, totalDevuelto: 0, items, ...cambios };
 }
 
-const ITEM = { id: "i1", descripcion: "Filtro de aceite", cantidad: 2, devueltoCantidad: 0, precioUnitario: 25000 };
+const ITEM = { id: "i1", descripcion: "Filtro de aceite", cantidad: 2, devueltoCantidad: 0, precioUnitario: 25000, ivaPct: 19 };
 
 describe("DevolucionForm", () => {
   beforeEach(() => {

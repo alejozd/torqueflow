@@ -35,13 +35,13 @@ function fila(cambios: Partial<VentaMostradorFila> = {}): VentaMostradorFila {
     numero: 7,
     createdAt: new Date("2026-10-17T15:00:00Z"),
     clienteNombre: null,
-    subtotal: 50000,
+    subtotal: 50000, descuento: 0,
     total: 59500,
     saldoPendiente: 0,
     totalDevuelto: 0,
     estado: "PAGADA",
     metodos: "Efectivo",
-    items: [{ id: "i1", descripcion: "Filtro de aceite", cantidad: 2, devueltoCantidad: 0, precioUnitario: 25000 }],
+    items: [{ id: "i1", descripcion: "Filtro de aceite", cantidad: 2, devueltoCantidad: 0, precioUnitario: 25000, ivaPct: 19 }],
     devolucion: { permitido: true, motivo: null },
     ...cambios,
   };
@@ -56,8 +56,8 @@ const A_CREDITO = fila({
   estado: "A_CREDITO",
   metodos: "Efectivo",
   items: [
-    { id: "i2", descripcion: "Bujía", cantidad: 4, devueltoCantidad: 0, precioUnitario: 10000 },
-    { id: "i3", descripcion: "Aceite 20W50", cantidad: 1, devueltoCantidad: 0, precioUnitario: 9000 },
+    { id: "i2", descripcion: "Bujía", cantidad: 4, devueltoCantidad: 0, precioUnitario: 10000, ivaPct: 19 },
+    { id: "i3", descripcion: "Aceite 20W50", cantidad: 1, devueltoCantidad: 0, precioUnitario: 9000, ivaPct: 19 },
   ],
 });
 
@@ -173,7 +173,7 @@ describe("PanelVentas", () => {
     pintar([
       fila({
         estado: "DEVUELTA",
-        items: [{ id: "i1", descripcion: "Filtro de aceite", cantidad: 2, devueltoCantidad: 2, precioUnitario: 25000 }],
+        items: [{ id: "i1", descripcion: "Filtro de aceite", cantidad: 2, devueltoCantidad: 2, precioUnitario: 25000, ivaPct: 19 }],
       }),
     ]);
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useReducer, useRef } from "react";
 import type { ResultadoRepuestoMostrador } from "@/app/actions/venta-mostrador-actions";
+import { porcentajePredeterminado, useTarifasIva } from "@/components/selector-iva";
 
 /** Una línea del carrito: un repuesto del inventario o una línea libre (mano de obra, etc.). */
 export interface LineaCarrito {
@@ -11,18 +12,21 @@ export interface LineaCarrito {
   descripcion: string;
   codigo?: string;
   precioUnitario: number;
+  /** IVA de la línea: el del repuesto o, en una línea libre, la tarifa predeterminada; se puede cambiar. */
+  ivaPct: number;
   cantidad: number;
   /** Unidades libres del repuesto al agregarlo: es el tope de la cantidad. `null` en líneas libres. */
   disponible: number | null;
 }
 
 /** Lo mínimo que el carrito necesita de un resultado de búsqueda. */
-export type RepuestoParaCarrito = Pick<ResultadoRepuestoMostrador, "id" | "codigo" | "nombre" | "precioVenta" | "disponible">;
+export type RepuestoParaCarrito = Pick<ResultadoRepuestoMostrador, "id" | "codigo" | "nombre" | "precioVenta" | "ivaPct" | "disponible">;
 
 export type AccionCarrito =
   | { tipo: "agregarRepuesto"; repuesto: RepuestoParaCarrito }
-  | { tipo: "agregarLibre"; id: string; descripcion: string; precio: number }
+  | { tipo: "agregarLibre"; id: string; descripcion: string; precio: number; ivaPct: number }
   | { tipo: "cambiarCantidad"; id: string; cantidad: number }
+  | { tipo: "cambiarIva"; id: string; ivaPct: number }
   | { tipo: "quitar"; id: string }
   | { tipo: "vaciar" };
 
@@ -53,6 +57,7 @@ export function carritoReducer(lineas: LineaCarrito[], accion: AccionCarrito): L
           descripcion: repuesto.nombre,
           codigo: repuesto.codigo,
           precioUnitario: repuesto.precioVenta,
+          ivaPct: repuesto.ivaPct,
           cantidad: 1,
           disponible: repuesto.disponible,
         },
@@ -63,13 +68,23 @@ export function carritoReducer(lineas: LineaCarrito[], accion: AccionCarrito): L
       if (descripcion === "" || !Number.isFinite(accion.precio) || accion.precio < 0) return lineas;
       return [
         ...lineas,
-        { id: accion.id, repuestoId: null, descripcion, precioUnitario: accion.precio, cantidad: 1, disponible: null },
+        {
+          id: accion.id,
+          repuestoId: null,
+          descripcion,
+          precioUnitario: accion.precio,
+          ivaPct: accion.ivaPct,
+          cantidad: 1,
+          disponible: null,
+        },
       ];
     }
     case "cambiarCantidad":
       return lineas.map((linea) =>
         linea.id === accion.id ? { ...linea, cantidad: acotar(accion.cantidad, linea.disponible) } : linea,
       );
+    case "cambiarIva":
+      return lineas.map((linea) => (linea.id === accion.id ? { ...linea, ivaPct: accion.ivaPct } : linea));
     case "quitar":
       return lineas.filter((linea) => linea.id !== accion.id);
     case "vaciar":
@@ -81,6 +96,8 @@ export function carritoReducer(lineas: LineaCarrito[], accion: AccionCarrito): L
 export function useCarrito() {
   const [lineas, despachar] = useReducer(carritoReducer, [] as LineaCarrito[]);
   const contadorLibres = useRef(0);
+  const tarifas = useTarifasIva();
+  const ivaLibre = porcentajePredeterminado(tarifas);
 
   const agregarRepuesto = useCallback(
     (repuesto: RepuestoParaCarrito) => despachar({ tipo: "agregarRepuesto", repuesto }),
@@ -88,10 +105,14 @@ export function useCarrito() {
   );
   const agregarLibre = useCallback((descripcion: string, precio: number) => {
     contadorLibres.current += 1;
-    despachar({ tipo: "agregarLibre", id: `libre-${contadorLibres.current}`, descripcion, precio });
-  }, []);
+    despachar({ tipo: "agregarLibre", id: `libre-${contadorLibres.current}`, descripcion, precio, ivaPct: ivaLibre });
+  }, [ivaLibre]);
   const cambiarCantidad = useCallback(
     (id: string, cantidad: number) => despachar({ tipo: "cambiarCantidad", id, cantidad }),
+    [],
+  );
+  const cambiarIva = useCallback(
+    (id: string, ivaPct: number) => despachar({ tipo: "cambiarIva", id, ivaPct }),
     [],
   );
   const quitar = useCallback((id: string) => despachar({ tipo: "quitar", id }), []);
@@ -104,6 +125,7 @@ export function useCarrito() {
     agregarRepuesto,
     agregarLibre,
     cambiarCantidad,
+    cambiarIva,
     quitar,
     vaciar,
     totalUnidades,

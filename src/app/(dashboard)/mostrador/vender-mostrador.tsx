@@ -143,6 +143,7 @@ export function VenderMostrador({
           descripcion: linea.descripcion,
           cantidad: linea.cantidad,
           precioUnitario: linea.precioUnitario,
+          ivaPct: linea.ivaPct,
         })),
       ),
     );
@@ -212,6 +213,7 @@ export function VenderMostrador({
           descuento={totales.descuento}
           etiquetaDescuento={`Descuento ${formatoPorcentaje.format(evaluacion.porcentaje)} %`}
           iva={totales.iva}
+          desgloseIva={totales.desgloseIva}
           total={totales.total}
           etiquetaTotal="Total a cobrar"
           editorDescuento={

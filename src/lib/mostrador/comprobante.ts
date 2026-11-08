@@ -1,4 +1,5 @@
 import type { MetodoPago } from "@/generated/prisma-tenant";
+import { etiquetaTramoIva, type TramoIva } from "@/lib/iva/desglose";
 import type { MensajeEmail } from "@/lib/email/enviar-email";
 import { roundMoney } from "@/lib/money/round";
 
@@ -32,10 +33,12 @@ export interface ComprobanteVenta {
   fecha: Date;
   /** null = Consumidor final. */
   cliente: { nombre: string; documento: string | null; telefono: string | null; email: string | null } | null;
-  lineas: { id: string; descripcion: string; cantidad: number; precioUnitario: number }[];
+  lineas: { id: string; descripcion: string; cantidad: number; precioUnitario: number; ivaPct?: number }[];
   subtotal: number;
   descuento: number;
   iva: number;
+  /** Una línea por tarifa; sin él (o vacío) sale una sola línea "IVA". */
+  desgloseIva?: TramoIva[];
   total: number;
   /** Un renglón por método, ya sumado. */
   pagos: PagoComprobante[];
@@ -72,7 +75,9 @@ function lineasTotales(datos: ComprobanteVenta): string[] {
   return [
     `Subtotal: ${pesos(datos.subtotal)}`,
     ...(datos.descuento > 0 ? [`Descuento: -${pesos(datos.descuento)}`] : []),
-    `IVA: ${pesos(datos.iva)}`,
+    ...(datos.desgloseIva && datos.desgloseIva.length > 0
+      ? datos.desgloseIva.map((tramo) => `${etiquetaTramoIva(tramo)} sobre ${pesos(tramo.base)}: ${pesos(tramo.iva)}`)
+      : [`IVA: ${pesos(datos.iva)}`]),
     `Total: ${pesos(datos.total)}`,
     ...agruparPagos(datos.pagos).map((pago) => `${ETIQUETA_METODO_PAGO[pago.metodoPago]}: ${pesos(pago.monto)}`),
     ...(datos.recibidoEfectivo !== null && datos.vueltas > 0

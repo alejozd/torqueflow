@@ -1306,6 +1306,8 @@ model VentaMostrador {
   subtotal       Decimal       @db.Decimal(10, 2)
   descuento      Decimal       @default(0) @db.Decimal(10, 2)
   iva            Decimal       @db.Decimal(10, 2)
+  /// IVA por tarifa al vender ([{ ivaPct, base, iva }]), igual que en la factura.
+  desgloseIva    Json          @default("[]") @map("desglose_iva")
   total          Decimal       @db.Decimal(10, 2)
   saldoPendiente Decimal       @map("saldo_pendiente") @db.Decimal(10, 2)
   /// Lo que entregó el cliente en efectivo (null si no se anotó); los pagos quedan netos.
@@ -1335,6 +1337,8 @@ model VentaMostradorItem {
   cantidad       Int
   /// Precio copiado al vender: cambiar el precio del repuesto no reescribe la venta.
   precioUnitario Decimal        @map("precio_unitario") @db.Decimal(10, 2)
+  /// Copia del porcentaje de IVA de la línea (no una referencia a la tarifa).
+  ivaPct         Decimal        @default(19) @map("iva_pct") @db.Decimal(5, 2)
   devueltoCantidad Int          @default(0) @map("devuelto_cantidad")
   devoluciones   DevolucionMostradorItem[]
   createdAt      DateTime       @default(now()) @map("created_at")

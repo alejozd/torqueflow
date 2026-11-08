@@ -32,8 +32,10 @@ import {
   type RangoVentas,
 } from "@/lib/mostrador/listado-ventas";
 import { puedeDevolver, ventaEnCajaCerrada } from "@/lib/mostrador/plazo-devolucion";
-import { ErrorSinStock, registrarVentaEnTransaccion } from "@/lib/mostrador/registrar-venta";
+import { ErrorSinStock, registrarVentaEnTransaccion, type VentaParaRegistrar } from "@/lib/mostrador/registrar-venta";
 import { calcularTotalesVenta } from "@/lib/mostrador/ventas";
+import { resolverIvaPct } from "@/lib/iva/resolver";
+import { leerDesgloseGuardado } from "@/lib/iva/desglose";
 import { montoExacto } from "@/lib/money/monto-exacto";
 import { roundMoney } from "@/lib/money/round";
 import { scopeRepuesto } from "@/lib/sede/scope";
@@ -131,25 +133,36 @@ export async function crearVentaMostradorAction(
   // podría vender una pieza a $1 con otro nombre (hallazgo M2). Las líneas libres
   // (sin repuesto) sí conservan lo que se escribió.
   const idsRepuesto = [...new Set(datos.lineas.flatMap((linea) => (linea.repuestoId ? [linea.repuestoId] : [])))];
-  const catalogo = new Map<string, { nombre: string; precioVenta: number }>();
+  const catalogo = new Map<string, { nombre: string; precioVenta: number; ivaPct: number }>();
   if (idsRepuesto.length > 0) {
     const propios = await tenantDb.repuesto.findMany({
       where: { id: { in: idsRepuesto }, ...scopeRepuesto(sedeId) },
-      select: { id: true, nombre: true, precioVenta: true },
+      select: { id: true, nombre: true, precioVenta: true, ivaPct: true },
     });
     if (propios.length !== idsRepuesto.length) {
       return { error: "Alguno de los repuestos no pertenece a tu sede activa", success: false };
     }
     for (const repuesto of propios) {
-      catalogo.set(repuesto.id, { nombre: repuesto.nombre, precioVenta: Number(repuesto.precioVenta) });
+      catalogo.set(repuesto.id, {
+        nombre: repuesto.nombre,
+        precioVenta: Number(repuesto.precioVenta),
+        ivaPct: Number(repuesto.ivaPct),
+      });
     }
   }
-  const lineas = datos.lineas.map((linea) => {
+  // El IVA de cada línea: el que eligió el cajero si es una tarifa activa (o el
+  // mismo del catálogo); sin elegir, el del repuesto o la tarifa predeterminada.
+  const lineas: VentaParaRegistrar["lineas"] = [];
+  for (const linea of datos.lineas) {
     const repuesto = linea.repuestoId ? catalogo.get(linea.repuestoId) : undefined;
-    return repuesto
-      ? { ...linea, descripcion: repuesto.nombre, precioUnitario: repuesto.precioVenta }
-      : { ...linea, repuestoId: undefined };
-  });
+    const iva = await resolverIvaPct(tenantDb, linea.ivaPct ?? repuesto?.ivaPct, repuesto?.ivaPct);
+    if (!iva.ok) return { error: iva.error, success: false };
+    lineas.push(
+      repuesto
+        ? { ...linea, descripcion: repuesto.nombre, precioUnitario: repuesto.precioVenta, ivaPct: iva.ivaPct }
+        : { ...linea, repuestoId: undefined, ivaPct: iva.ivaPct },
+    );
+  }
 
   // El esquema ya comparó el descuento con el subtotal del navegador; con los
   // precios reales hay que volver a hacerlo (un total negativo sería un cobro negativo).
@@ -261,6 +274,7 @@ async function cargarComprobante(
       subtotal: true,
       descuento: true,
       iva: true,
+      desgloseIva: true,
       total: true,
       saldoPendiente: true,
       recibidoEfectivo: true,
@@ -268,7 +282,7 @@ async function cargarComprobante(
       sede: { select: { nombre: true } },
       cliente: { select: { nombre: true, documento: true, telefono: true, email: true } },
       items: {
-        select: { id: true, descripcion: true, cantidad: true, precioUnitario: true },
+        select: { id: true, descripcion: true, cantidad: true, precioUnitario: true, ivaPct: true },
         orderBy: { createdAt: "asc" },
       },
       pagos: { select: { metodoPago: true, monto: true }, orderBy: { createdAt: "asc" } },
@@ -295,10 +309,12 @@ async function cargarComprobante(
       descripcion: item.descripcion,
       cantidad: item.cantidad,
       precioUnitario: Number(item.precioUnitario),
+      ivaPct: Number(item.ivaPct),
     })),
     subtotal: Number(venta.subtotal),
     descuento: Number(venta.descuento),
     iva: Number(venta.iva),
+    desgloseIva: leerDesgloseGuardado(venta.desgloseIva),
     total: Number(venta.total),
     pagos: agruparPagos(venta.pagos.map((pago) => ({ metodoPago: pago.metodoPago, monto: Number(pago.monto) }))),
     saldoPendiente: Number(venta.saldoPendiente),
@@ -354,6 +370,8 @@ export interface RepuestoMostrador {
   codigo: string;
   nombre: string;
   precioVenta: number;
+  /** IVA del catálogo: el carrito lo toma al agregar la línea. */
+  ivaPct: number;
   stockActual: number;
   /** Lo que queda libre: stock menos las unidades comprometidas en órdenes abiertas. */
   disponible: number;
@@ -367,7 +385,7 @@ export interface ResultadoRepuestoMostrador extends RepuestoMostrador {
 const MAX_RESULTADOS_MOSTRADOR = 20;
 
 function aRepuestoMostrador(
-  repuesto: { id: string; codigo: string; nombre: string; precioVenta: unknown; stockActual: number },
+  repuesto: { id: string; codigo: string; nombre: string; precioVenta: unknown; ivaPct: unknown; stockActual: number },
   comprometido: Map<string, number>,
 ): RepuestoMostrador {
   const tomado = comprometido.get(repuesto.id) ?? 0;
@@ -376,6 +394,7 @@ function aRepuestoMostrador(
     codigo: repuesto.codigo,
     nombre: repuesto.nombre,
     precioVenta: Number(repuesto.precioVenta),
+    ivaPct: Number(repuesto.ivaPct),
     stockActual: repuesto.stockActual,
     disponible: Math.max(0, repuesto.stockActual - tomado),
   };
@@ -392,7 +411,7 @@ export async function buscarParaMostradorAction(texto: string): Promise<Resultad
   if (q === "") return [];
   const tenantDb = getTenantDb(session.user.tenantSchema);
   const sedeId = session.user.sedeActivaId;
-  const select = { id: true, codigo: true, nombre: true, precioVenta: true, stockActual: true } as const;
+  const select = { id: true, codigo: true, nombre: true, precioVenta: true, ivaPct: true, stockActual: true } as const;
 
   const [exactos, coincidencias, comprometido] = await Promise.all([
     tenantDb.repuesto.findMany({
@@ -497,6 +516,7 @@ export interface VentaMostradorFila {
   createdAt: Date;
   clienteNombre: string | null;
   subtotal: number;
+  descuento: number;
   total: number;
   saldoPendiente: number;
   /** Suma de las devoluciones ya registradas (el tope de lo que aún se puede devolver). */
@@ -510,6 +530,7 @@ export interface VentaMostradorFila {
     cantidad: number;
     devueltoCantidad: number;
     precioUnitario: number;
+    ivaPct: number;
   }[];
   /** Si quien mira puede devolverla hoy (30 días; caja cerrada solo ADMIN) y por qué no. */
   devolucion: { permitido: boolean; motivo: string | null };
@@ -546,11 +567,12 @@ const SELECT_FILA = {
   numero: true,
   createdAt: true,
   subtotal: true,
+  descuento: true,
   total: true,
   saldoPendiente: true,
   cliente: { select: { nombre: true } },
   items: {
-    select: { id: true, descripcion: true, cantidad: true, devueltoCantidad: true, precioUnitario: true },
+    select: { id: true, descripcion: true, cantidad: true, devueltoCantidad: true, precioUnitario: true, ivaPct: true },
     orderBy: { createdAt: "asc" },
   },
   pagos: { select: { metodoPago: true, monto: true }, orderBy: { createdAt: "asc" } },
@@ -601,6 +623,7 @@ async function leerFilas(
       cantidad: item.cantidad,
       devueltoCantidad: item.devueltoCantidad,
       precioUnitario: Number(item.precioUnitario),
+      ivaPct: Number(item.ivaPct),
     }));
     const saldoPendiente = Number(venta.saldoPendiente);
     const cajaCerrada = ventaEnCajaCerrada({
@@ -615,6 +638,7 @@ async function leerFilas(
       createdAt: venta.createdAt,
       clienteNombre: venta.cliente?.nombre ?? null,
       subtotal: Number(venta.subtotal),
+      descuento: Number(venta.descuento),
       total: Number(venta.total),
       saldoPendiente,
       totalDevuelto: venta.devoluciones.reduce((suma, devolucion) => suma + Number(devolucion.total), 0),

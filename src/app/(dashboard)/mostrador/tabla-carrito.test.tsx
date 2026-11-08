@@ -13,9 +13,9 @@ import { useCarrito } from "./use-carrito";
 import { useAtajosMostrador } from "./use-atajos-mostrador";
 
 const REPUESTOS: RepuestoMostrador[] = [
-  { id: "r1", codigo: "FLT-001", nombre: "Filtro de aceite", precioVenta: 50000, stockActual: 4, disponible: 2 },
-  { id: "r2", codigo: "BJ-4", nombre: "Bujía", precioVenta: 20000, stockActual: 0, disponible: 0 },
-  { id: "r3", codigo: "ACE-1", nombre: "Aceite 20W50", precioVenta: 32000, stockActual: 30, disponible: 30 },
+  { id: "r1", codigo: "FLT-001", nombre: "Filtro de aceite", precioVenta: 50000, ivaPct: 19, stockActual: 4, disponible: 2 },
+  { id: "r2", codigo: "BJ-4", nombre: "Bujía", precioVenta: 20000, ivaPct: 19, stockActual: 0, disponible: 0 },
+  { id: "r3", codigo: "ACE-1", nombre: "Aceite 20W50", precioVenta: 32000, ivaPct: 19, stockActual: 30, disponible: 30 },
 ];
 
 function Probador() {

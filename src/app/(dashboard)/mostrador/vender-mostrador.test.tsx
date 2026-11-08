@@ -32,7 +32,7 @@ import { PestanasMostrador } from "./pestanas-mostrador";
 import { VenderMostrador } from "./vender-mostrador";
 
 const REPUESTOS: RepuestoMostrador[] = [
-  { id: "r1", codigo: "FLT-001", nombre: "Filtro de aceite", precioVenta: 100000, stockActual: 4, disponible: 3 },
+  { id: "r1", codigo: "FLT-001", nombre: "Filtro de aceite", precioVenta: 100000, ivaPct: 19, stockActual: 4, disponible: 3 },
 ];
 
 const textoPesos = (n: number) =>
@@ -93,7 +93,7 @@ describe("VenderMostrador", () => {
     await waitFor(() => expect(mockCrear).toHaveBeenCalled());
     const datos = mockCrear.mock.calls[0][1] as FormData;
     expect(JSON.parse(String(datos.get("lineas")))).toEqual([
-      { repuestoId: "r1", descripcion: "Filtro de aceite", cantidad: 1, precioUnitario: 100000 },
+      { repuestoId: "r1", descripcion: "Filtro de aceite", cantidad: 1, precioUnitario: 100000, ivaPct: 19 },
     ]);
     expect(JSON.parse(String(datos.get("pagos")))).toEqual([{ metodoPago: "EFECTIVO", monto: 113050 }]);
     expect(datos.get("descuento")).toBe("5000");
