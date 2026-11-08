@@ -216,7 +216,7 @@ describe("listOrdenes", () => {
     sede: true,
     mecanico: { select: { id: true, nombre: true } },
     creadoPor: { select: { id: true, nombre: true } },
-    items: true,
+    items: { include: { repuesto: { select: { codigo: true, precioVenta: true, stockActual: true } } } },
     manoDeObra: { include: { mecanico: { select: { id: true, nombre: true } } } },
     dvi: { include: { fotos: true } },
     // total is required by the ordenes list page to show a "Total" column for
