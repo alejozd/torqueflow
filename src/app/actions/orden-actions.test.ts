@@ -222,7 +222,7 @@ describe("listOrdenes", () => {
     // total is required by the ordenes list page to show a "Total" column for
     // ya-facturada orders without recomputing it from items/manoDeObra (which
     // would drift once descuento/iva are applied at facturación time).
-    factura: { select: { id: true, numero: true, total: true } },
+    factura: { select: { id: true, numero: true, total: true, descuento: true, desgloseIva: true } },
   };
 
   it("lists only órdenes of the sede activa", async () => {
