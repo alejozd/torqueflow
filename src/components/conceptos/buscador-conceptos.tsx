@@ -5,8 +5,8 @@ import { Package, PackagePlus, Plus, Wrench } from "lucide-react";
 import type {
   ResultadoKitBusqueda,
   ResultadoRepuestoBusqueda,
-  ResultadosBusquedaCotizacion,
-} from "@/app/actions/buscar-cotizacion-actions";
+  ResultadosBusquedaConceptos,
+} from "@/lib/conceptos/buscar";
 import { BuscadorConceptos as BuscadorCompartido, type OpcionBuscador } from "@/components/buscador-conceptos";
 import { estadoDisponibilidad } from "@/lib/cotizacion/disponibilidad";
 import { tipoSugeridoLibre } from "@/lib/cotizacion/tipo-sugerido-libre";
@@ -22,10 +22,10 @@ export type SeleccionBuscador =
 
 type Opcion = SeleccionBuscador;
 
-const VACIO: ResultadosBusquedaCotizacion = { kits: [], repuestos: [] };
+const VACIO: ResultadosBusquedaConceptos = { kits: [], repuestos: [] };
 
 function aOpciones(
-  { kits, repuestos }: ResultadosBusquedaCotizacion,
+  { kits, repuestos }: ResultadosBusquedaConceptos,
   texto: string,
   permitirCrear: boolean,
 ): OpcionBuscador<SeleccionBuscador>[] {
@@ -64,14 +64,14 @@ function opcionesLibres(
 export const BuscadorConceptos = forwardRef<
   HTMLInputElement,
   {
-    buscar: (texto: string) => Promise<ResultadosBusquedaCotizacion>;
+    buscar: (texto: string) => Promise<ResultadosBusquedaConceptos>;
     onSeleccionar: (seleccion: SeleccionBuscador) => void;
     ocupado?: boolean;
     permitirCrear?: boolean;
   }
 >(function BuscadorConceptos({ buscar, onSeleccionar, ocupado = false, permitirCrear = false }, ref) {
   return (
-    <BuscadorCompartido<ResultadosBusquedaCotizacion, SeleccionBuscador>
+    <BuscadorCompartido<ResultadosBusquedaConceptos, SeleccionBuscador>
       inputRef={ref}
       buscar={buscar}
       vacio={VACIO}

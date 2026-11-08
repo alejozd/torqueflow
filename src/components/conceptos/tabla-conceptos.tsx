@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, useTransition, type Rea
 import { useRouter } from "next/navigation";
 import { ChevronRight, Minus, Plus, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
-import type { ResultadosBusquedaCotizacion } from "@/app/actions/buscar-cotizacion-actions";
+import type { ResultadosBusquedaConceptos } from "@/lib/conceptos/buscar";
 import {
   agruparConceptos,
   contarConceptos,
@@ -48,7 +48,7 @@ export interface CambiosConcepto {
 
 /** Lo que cada documento (cotización, orden) le da a la tabla para guardar. */
 export interface AdaptadorConceptos {
-  buscar(texto: string): Promise<ResultadosBusquedaCotizacion>;
+  buscar(texto: string): Promise<ResultadosBusquedaConceptos>;
   agregarRepuesto(repuestoId: string): Promise<ResultadoConcepto>;
   agregarLibre(input: { tipo: "REPUESTO" | "MANO_OBRA"; descripcion: string }): Promise<ResultadoConcepto>;
   aplicarServicio(servicioId: string): Promise<ResultadoServicioConceptos>;
