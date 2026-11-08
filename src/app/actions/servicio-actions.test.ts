@@ -511,8 +511,8 @@ describe("aplicarServicioACotizacionAction", () => {
     tx.cotizacion.findUniqueOrThrow.mockResolvedValue({
       descuentoPct: 0,
       items: [
-        { tipo: "MANO_OBRA", cantidad: 1, precioUnitario: 45000 },
-        { tipo: "REPUESTO", cantidad: 2, precioUnitario: 40000 },
+        { tipo: "MANO_OBRA", cantidad: 1, precioUnitario: 45000, ivaPct: 19 },
+        { tipo: "REPUESTO", cantidad: 2, precioUnitario: 40000, ivaPct: 19 },
       ],
     });
     db.servicio.findFirst.mockResolvedValue({

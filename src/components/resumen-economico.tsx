@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Calculator } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TituloSeccion } from "@/components/titulo-seccion";
+import { etiquetaTramoIva, type TramoIva } from "@/lib/iva/desglose";
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
@@ -26,6 +27,7 @@ export function ResumenEconomico({
   descuento,
   etiquetaDescuento,
   iva,
+  desgloseIva,
   total,
   etiquetaTotal,
   notaTotal = "Incluye IVA",
@@ -39,6 +41,8 @@ export function ResumenEconomico({
   descuento: number;
   etiquetaDescuento: string;
   iva: number;
+  /** Una fila por tarifa; sin él se muestra una sola fila "IVA (19 %)". */
+  desgloseIva?: TramoIva[];
   total: number;
   etiquetaTotal: string;
   notaTotal?: string;
@@ -89,7 +93,28 @@ export function ResumenEconomico({
           </div>
         ) : null}
 
-        <Fila etiqueta="IVA (19 %)" valor={formatoMoneda.format(iva)} />
+        {desgloseIva ? (
+          desgloseIva.length === 0 ? (
+            <Fila etiqueta="IVA" valor={formatoMoneda.format(iva)} />
+          ) : (
+            desgloseIva.map((tramo) => (
+              <Fila
+                key={tramo.ivaPct}
+                etiqueta={
+                  <span>
+                    {etiquetaTramoIva(tramo)}
+                    <span className="block text-xs text-muted-foreground/80">
+                      sobre {formatoMoneda.format(tramo.base)}
+                    </span>
+                  </span>
+                }
+                valor={formatoMoneda.format(tramo.iva)}
+              />
+            ))
+          )
+        ) : (
+          <Fila etiqueta="IVA (19 %)" valor={formatoMoneda.format(iva)} />
+        )}
 
         <div className="mt-3 flex flex-wrap items-end justify-between gap-x-3 gap-y-1 rounded-lg bg-primary/10 px-3 py-3 ring-1 ring-primary/20">
           <div>

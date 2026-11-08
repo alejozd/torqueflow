@@ -67,6 +67,7 @@ export const actualizarItemCotizacionInputSchema = z
     precioUnitario: requiredMoney("El precio debe ser 0 o mayor").optional(),
     descripcion: descripcionItem.optional(),
     tipo: z.enum(["REPUESTO", "MANO_OBRA"]).optional(),
+    ivaPct: z.number().min(0, "El IVA no puede ser negativo").max(100, "El IVA no puede pasar de 100 %").optional(),
   })
   .refine((data) => Object.values(data).some((valor) => valor !== undefined), { message: "No hay cambios que guardar" });
 

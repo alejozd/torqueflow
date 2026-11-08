@@ -23,7 +23,7 @@ export async function recomputeCotizacionTotales(
       descuentoTipo: true,
       descuentoPct: true,
       descuentoMonto: true,
-      items: { select: { tipo: true, cantidad: true, precioUnitario: true } },
+      items: { select: { tipo: true, cantidad: true, precioUnitario: true, ivaPct: true } },
     },
   });
   const { subtotal, descuento, iva, total } = computeCotizacionTotales({
@@ -31,6 +31,7 @@ export async function recomputeCotizacionTotales(
       tipo: item.tipo,
       cantidad: Number(item.cantidad),
       precioUnitario: Number(item.precioUnitario),
+      ivaPct: Number(item.ivaPct),
     })),
     descuentoTipo: cotizacion.descuentoTipo,
     descuentoPct: Number(cotizacion.descuentoPct),

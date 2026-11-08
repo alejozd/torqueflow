@@ -10,6 +10,8 @@ import { SelectField } from "@/components/ui/select-field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { etiquetaDescuento } from "@/lib/cotizacion/totales";
+import { filasIva } from "@/lib/cotizacion/plantilla-envio";
+import type { TramoIva } from "@/lib/iva/desglose";
 
 const initialState: EnviarCotizacionFormState = { error: null, success: false };
 
@@ -53,6 +55,7 @@ export function EnviarCotizacionForm({
     /** null cuando el descuento es un monto fijo. */
     descuentoPct: number | null;
     iva: number;
+    desgloseIva?: TramoIva[];
     total: number;
   };
   esReenvio?: boolean;
@@ -97,7 +100,7 @@ export function EnviarCotizacionForm({
         ...(resumen.descuento > 0
           ? [`*${etiquetaDescuento(resumen.descuentoPct)}:* -${formatoMoneda.format(resumen.descuento)}`]
           : []),
-        `*IVA:* ${formatoMoneda.format(resumen.iva)}`,
+        ...filasIva(resumen).map((fila) => `*${fila.etiqueta}:* ${fila.valor}`),
         `*Total:* ${formatoMoneda.format(resumen.total)}`,
         "",
         "Cualquier duda, contáctanos.",

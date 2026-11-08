@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ResumenEconomico } from "@/components/resumen-economico";
+import type { TramoIva } from "@/lib/iva/desglose";
 
 /**
  * Resumen económico de la cotización: repuestos y mano de obra con los mismos
@@ -14,6 +15,7 @@ export function ResumenCotizacion({
   descuento,
   etiquetaDescuento,
   iva,
+  desgloseIva,
   total,
   editorDescuento,
 }: {
@@ -23,6 +25,7 @@ export function ResumenCotizacion({
   descuento: number;
   etiquetaDescuento: string;
   iva: number;
+  desgloseIva: TramoIva[];
   total: number;
   editorDescuento?: ReactNode;
 }) {
@@ -36,6 +39,7 @@ export function ResumenCotizacion({
       descuento={descuento}
       etiquetaDescuento={etiquetaDescuento}
       iva={iva}
+      desgloseIva={desgloseIva}
       total={total}
       etiquetaTotal="Total cotizado"
       editorDescuento={editorDescuento}

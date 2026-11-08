@@ -792,6 +792,8 @@ model ItemCotizacion {
   descripcion    String
   cantidad       Decimal            @db.Decimal(6, 2)
   precioUnitario Decimal            @map("precio_unitario") @db.Decimal(10, 2)
+  /// Copia del porcentaje de IVA de la línea (no una referencia a la tarifa).
+  ivaPct         Decimal            @default(19) @map("iva_pct") @db.Decimal(5, 2)
   /// Kit del que salió la fila: un id por cada vez que se aplica un servicio
   /// (el mismo kit dos veces da dos grupos) y una copia del nombre, para que
   /// renombrar o borrar el servicio no altere cotizaciones ya hechas.

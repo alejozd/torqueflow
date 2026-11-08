@@ -42,6 +42,7 @@ export function porcentajePredeterminado(tarifas: TarifaIvaVista[] | null): numb
  *
  * - Controlado: `value` + `onChange` (líneas de cotización, orden, mostrador).
  * - Dentro de un <form>: `name` (+ `defaultValue`) y viaja en el FormData.
+ * - `compacto`: solo el porcentaje ("19 %"), para las celdas de una tabla.
  */
 export function SelectorIva({
   id,
@@ -52,6 +53,8 @@ export function SelectorIva({
   disabled,
   size,
   className,
+  compacto,
+  etiqueta,
 }: {
   id?: string;
   name?: string;
@@ -61,6 +64,9 @@ export function SelectorIva({
   disabled?: boolean;
   size?: "sm" | "default";
   className?: string;
+  compacto?: boolean;
+  /** aria-label cuando no hay un <label> visible. */
+  etiqueta?: string;
 }) {
   const tarifas = useTarifasIva();
   const [interno, setInterno] = useState<number | undefined>(defaultValue);
@@ -68,10 +74,18 @@ export function SelectorIva({
 
   const items = (tarifas ?? [])
     .filter((t) => t.activa)
-    .map((t) => ({ value: String(t.porcentaje), label: `${textoPorcentaje(t.porcentaje)} · ${t.nombre}` }));
+    .map((t) => ({
+      value: String(t.porcentaje),
+      label: compacto ? textoPorcentaje(t.porcentaje) : `${textoPorcentaje(t.porcentaje)} · ${t.nombre}`,
+    }));
   if (elegido !== undefined && !items.some((item) => Number(item.value) === elegido)) {
     const inactiva = tarifas?.find((t) => t.porcentaje === elegido);
-    items.push({ value: String(elegido), label: `${textoPorcentaje(elegido)}${inactiva ? ` · ${inactiva.nombre}` : ""} (inactiva)` });
+    items.push({
+      value: String(elegido),
+      label: compacto
+        ? `${textoPorcentaje(elegido)} (inactiva)`
+        : `${textoPorcentaje(elegido)}${inactiva ? ` · ${inactiva.nombre}` : ""} (inactiva)`,
+    });
   }
 
   return (
@@ -80,6 +94,7 @@ export function SelectorIva({
       name={name}
       size={size}
       className={className}
+      aria-label={etiqueta}
       disabled={disabled || tarifas === null}
       placeholder={tarifas === null ? "Cargando…" : "IVA"}
       items={items}

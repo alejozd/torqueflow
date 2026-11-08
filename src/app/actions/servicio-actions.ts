@@ -96,7 +96,12 @@ function revalidar() {
 type ServicioAplicable = {
   id: string;
   nombre: string;
-  repuestos: { cantidad: number; repuesto: { id: string; nombre: string; precioVenta: Prisma.Decimal } }[];
+  /** IVA de la mano de obra del servicio. */
+  ivaPct: Prisma.Decimal;
+  repuestos: {
+    cantidad: number;
+    repuesto: { id: string; nombre: string; precioVenta: Prisma.Decimal; ivaPct: Prisma.Decimal };
+  }[];
 };
 
 type ResultadoServicioAplicable =
@@ -115,9 +120,10 @@ async function cargarServicioAplicable(
       activo: true,
       nombre: true,
       precioManoObra: true,
+      ivaPct: true,
       repuestos: {
         where: { repuesto: scopeRepuesto(sedeActivaId) },
-        select: { cantidad: true, repuesto: { select: { id: true, nombre: true, precioVenta: true } } },
+        select: { cantidad: true, repuesto: { select: { id: true, nombre: true, precioVenta: true, ivaPct: true } } },
       },
     },
   });
@@ -526,6 +532,7 @@ export async function aplicarServicioACotizacionAction(
             descripcion: servicio.nombre,
             cantidad: 1,
             precioUnitario: valor,
+            ivaPct: servicio.ivaPct,
             ...grupo,
           },
         });
@@ -539,6 +546,7 @@ export async function aplicarServicioACotizacionAction(
             descripcion: linea.repuesto.nombre,
             cantidad: linea.cantidad,
             precioUnitario: linea.repuesto.precioVenta,
+            ivaPct: linea.repuesto.ivaPct,
             ...grupo,
           },
         });

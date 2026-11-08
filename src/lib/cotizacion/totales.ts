@@ -1,11 +1,11 @@
 import { roundMoney } from "@/lib/money/round";
-
-export const IVA_RATE = 0.19;
+import { desglosarIva, type TramoIva } from "@/lib/iva/desglose";
 
 export type TipoDescuentoCotizacion = "PORCENTAJE" | "MONTO";
 
 export interface CotizacionTotalesInput {
-  items: { tipo: "REPUESTO" | "MANO_OBRA"; cantidad: number; precioUnitario: number }[];
+  /** `ivaPct` de la línea; sin valor, 19 % (las líneas de antes de las tarifas). */
+  items: { tipo: "REPUESTO" | "MANO_OBRA"; cantidad: number; precioUnitario: number; ivaPct?: number }[];
   descuentoPct: number;
   /** Sin valor se asume PORCENTAJE, el único tipo que existía antes. */
   descuentoTipo?: TipoDescuentoCotizacion;
@@ -18,6 +18,8 @@ export interface CotizacionTotales {
   subtotal: number;
   descuento: number;
   iva: number;
+  /** Una fila por tarifa usada, de la más alta a la más baja. */
+  desgloseIva: TramoIva[];
   total: number;
 }
 
@@ -40,9 +42,12 @@ export function computeCotizacionTotales({
       ? roundMoney(Math.min(Math.max(descuentoMonto, 0), subtotal))
       : roundMoney(subtotal * (descuentoPct / 100));
   const base = roundMoney(subtotal - descuento);
-  const iva = roundMoney(base * IVA_RATE);
+  const { tramos, iva } = desglosarIva(
+    items.map((item) => ({ importe: item.cantidad * item.precioUnitario, ivaPct: item.ivaPct })),
+    descuento,
+  );
   const total = roundMoney(base + iva);
-  return { subtotalRepuestos, subtotalManoObra, subtotal, descuento, iva, total };
+  return { subtotalRepuestos, subtotalManoObra, subtotal, descuento, iva, desgloseIva: tramos, total };
 }
 
 /** "Descuento (10%)" o, si es un monto fijo, solo "Descuento". */

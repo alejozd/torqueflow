@@ -51,6 +51,7 @@ function concepto(overrides: Partial<ConceptoVista>): ConceptoVista {
     codigo: "149BOE",
     cantidad: 1,
     precioUnitario: 192840,
+    ivaPct: 19,
     precioCatalogo: 192840,
     stockActual: 5,
     grupoKitId: null,

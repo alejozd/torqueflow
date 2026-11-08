@@ -15,8 +15,27 @@ describe("computeCotizacionTotales", () => {
       subtotal: 200_000,
       descuento: 20_000,
       iva: 34_200,
+      desgloseIva: [{ ivaPct: 19, base: 180_000, iva: 34_200 }],
       total: 214_200,
     });
+  });
+
+  it("con varias tarifas reparte el descuento entre las bases y suma el IVA de cada una", () => {
+    const totales = computeCotizacionTotales({
+      items: [
+        { tipo: "REPUESTO", cantidad: 1, precioUnitario: 100_000, ivaPct: 19 },
+        { tipo: "REPUESTO", cantidad: 1, precioUnitario: 50_000, ivaPct: 5 },
+        { tipo: "MANO_OBRA", cantidad: 1, precioUnitario: 50_000, ivaPct: 0 },
+      ],
+      descuentoPct: 10,
+    });
+    expect(totales.desgloseIva).toEqual([
+      { ivaPct: 19, base: 90_000, iva: 17_100 },
+      { ivaPct: 5, base: 45_000, iva: 2_250 },
+      { ivaPct: 0, base: 45_000, iva: 0 },
+    ]);
+    expect(totales.iva).toBe(19_350);
+    expect(totales.total).toBe(180_000 + 19_350);
   });
 
   it("sin tipo de descuento se comporta como porcentaje", () => {

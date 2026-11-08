@@ -10,6 +10,7 @@ function concepto(overrides: Partial<ConceptoVista>): ConceptoVista {
     codigo: "C-1",
     cantidad: 1,
     precioUnitario: 1000,
+    ivaPct: 19,
     precioCatalogo: 1000,
     stockActual: 10,
     grupoKitId: null,
@@ -88,6 +89,7 @@ describe("conceptosDesdeItems", () => {
         repuestoId: "r1",
         cantidad: "2.5",
         precioUnitario: "1000",
+        ivaPct: "5.00",
         grupoKitId: "g1",
         grupoKitNombre: "Kit",
         repuesto: { codigo: "F-1", precioVenta: "1200", stockActual: 3 },
@@ -99,13 +101,14 @@ describe("conceptosDesdeItems", () => {
         repuestoId: null,
         cantidad: "1",
         precioUnitario: "5000",
+        ivaPct: "19.00",
         grupoKitId: null,
         grupoKitNombre: null,
         repuesto: null,
       },
     ]);
 
-    expect(desdeInventario).toMatchObject({ cantidad: 2.5, precioUnitario: 1000, codigo: "F-1", precioCatalogo: 1200, stockActual: 3 });
+    expect(desdeInventario).toMatchObject({ cantidad: 2.5, precioUnitario: 1000, ivaPct: 5, codigo: "F-1", precioCatalogo: 1200, stockActual: 3 });
     expect(libre).toMatchObject({ codigo: null, precioCatalogo: null, stockActual: null });
   });
 });
