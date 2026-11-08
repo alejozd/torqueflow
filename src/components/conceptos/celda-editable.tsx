@@ -135,3 +135,10 @@ export function interpretarCantidad(texto: string): string | null {
   if (!Number.isFinite(numero) || numero <= 0 || numero > 9999) return null;
   return String(Math.round(numero * 100) / 100);
 }
+
+/** Cantidad de los repuestos de la orden: solo enteros (la columna es Int). */
+export function interpretarCantidadEntera(texto: string): string | null {
+  const numero = Number(texto.trim().replace(",", "."));
+  if (!Number.isInteger(numero) || numero <= 0 || numero > 9999) return null;
+  return String(numero);
+}

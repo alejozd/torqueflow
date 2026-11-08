@@ -56,6 +56,8 @@ function concepto(overrides: Partial<ConceptoVista>): ConceptoVista {
     stockActual: 5,
     grupoKitId: null,
     grupoKitNombre: null,
+    editableCantidad: true,
+    mecanico: null,
     ...overrides,
   };
 }
