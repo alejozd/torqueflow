@@ -449,7 +449,7 @@ export async function aplicarServicioAOrdenAction(
     await tenantDb.$transaction(async (tx) => {
       if (conManoDeObra) {
         await tx.manoDeObra.create({
-          data: { ordenId, descripcion: servicio.nombre, valor, mecanicoId, ...grupo },
+          data: { ordenId, descripcion: servicio.nombre, valor, mecanicoId, ivaPct: servicio.ivaPct, ...grupo },
         });
       }
       for (const linea of servicio.repuestos) {
@@ -460,6 +460,7 @@ export async function aplicarServicioAOrdenAction(
             descripcion: linea.repuesto.nombre,
             cantidad: linea.cantidad,
             precioUnitario: linea.repuesto.precioVenta,
+            ivaPct: linea.repuesto.ivaPct,
             ...grupo,
           },
         });

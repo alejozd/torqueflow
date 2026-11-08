@@ -377,6 +377,8 @@ model ItemOrden {
   descripcion    String
   cantidad       Int
   precioUnitario Decimal      @map("precio_unitario") @db.Decimal(10, 2)
+  /// Copia del porcentaje de IVA de la línea (no una referencia a la tarifa).
+  ivaPct         Decimal      @default(19) @map("iva_pct") @db.Decimal(5, 2)
   /// Mismo agrupado de kit que ItemCotizacion (se copia al aprobar).
   grupoKitId     String?      @map("grupo_kit_id")
   grupoKitNombre String?      @map("grupo_kit_nombre")
@@ -397,6 +399,8 @@ model ManoDeObra {
   orden       OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
   descripcion String
   valor       Decimal      @db.Decimal(10, 2)
+  /// Copia del porcentaje de IVA de la línea (no una referencia a la tarifa).
+  ivaPct      Decimal      @default(19) @map("iva_pct") @db.Decimal(5, 2)
   // Distinto del mecanicoId de la orden (OrdenTrabajo.mecanicoId): cada tarea
   // puede quedar en manos de un técnico distinto al mecánico asignado en la
   // cabecera (p.ej. pastillas vs. correa de repartición).
