@@ -367,7 +367,7 @@ describe("aplicarServicioAOrdenAction", () => {
     expect(tx.manoDeObra.create).toHaveBeenCalledWith({
       data: { ordenId: "o1", descripcion: "Cambio de aceite", valor: 45000, mecanicoId: "m1", grupoKitId: expect.any(String), grupoKitNombre: "Cambio de aceite", servicioId: "s1" },
     });
-    // El mecánico heredado se revalida contra la sede activa, como en addManoDeObraAction.
+    // El mecánico heredado se revalida contra la sede activa, como en las acciones de conceptos de la orden.
     expect(db.usuario.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "m1", role: { in: ["TECNICO", "JEFE_TALLER"] }, sedes: { some: { sedeId: "sede-1" } } } }),
     );

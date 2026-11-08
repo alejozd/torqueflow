@@ -37,7 +37,7 @@ export function NuevoRepuestoForm({
   bodegas: Bodega[];
   proveedores: Proveedor[];
   /**
-   * When provided (embedded in NuevoRepuestoDialog from AgregarItemForm),
+   * When provided (embedded in NuevoRepuestoDialog from ConceptosOrden),
    * called with the created repuesto's id instead of showing the inline
    * "Repuesto creado" status -- the caller closes the dialog and selects it.
    * Manual useTransition + await, not useActionState + useEffect: same

@@ -151,7 +151,7 @@ describe("crearOrden", () => {
     }
   });
 
-  it("copia descripción y precio del repuesto, como addItemOrdenAction", async () => {
+  it("copia descripción y precio del repuesto, como al agregar un repuesto a la orden", async () => {
     const { tx, m } = nuevoTx();
     await crearOrden(tx, nuevoCtx(), nuevoEstado(), dia, evento(), crearAzar(5));
     const item = datos(m.itemOrden.create);

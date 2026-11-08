@@ -138,7 +138,7 @@ async function cargarServicioAplicable(
 
 /**
  * El mecánico de la orden se hereda en la línea de mano de obra, pero solo si
- * sigue perteneciendo a la sede activa: addManoDeObraAction hace esta misma
+ * sigue perteneciendo a la sede activa: actualizarConceptoOrdenAction hace esta misma
  * comprobación sobre el id que llega del formulario, y aquí el id viene de la
  * orden, que pudo asignarse antes de que el técnico saliera de la sede.
  * Si ya no pertenece, la línea se crea sin mecánico en vez de arrastrar uno
@@ -407,7 +407,7 @@ export async function quitarRepuestoDeServicioAction(
  * Aplica un servicio del catálogo a una orden: una línea de mano de obra con el
  * precio base (solo si es mayor que 0) y una línea de repuesto por cada repuesto
  * del kit, al precio de venta *actual* del repuesto. Todo en una transacción, con
- * las mismas validaciones que addItemOrdenAction (roles, sede, orden mutable).
+ * las mismas validaciones que agregarRepuestoAOrdenAction (roles, sede, orden mutable).
  *
  * El kit se resuelve contra la sede activa (D10): un servicio armado en otra sede
  * no puede meter repuestos ajenos en esta orden. Si no aporta nada en esta sede

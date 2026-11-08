@@ -279,3 +279,26 @@ describe("quitarKitOrdenAction", () => {
     expect((await quitarKitOrdenAction("o1", "g1")).error).toBe("El kit ya no está en esta orden");
   });
 });
+
+describe("D7: el técnico solo trabaja en sus órdenes", () => {
+  it("una orden ajena no se encuentra y no se agrega nada", async () => {
+    mockRequirePermiso.mockResolvedValue({
+      user: { id: "tec-1", tenantSchema: "taller", sedeActivaId: "sede-1", permisos: ["ordenes.trabajar"] },
+    });
+    db.ordenTrabajo.findFirst.mockResolvedValue(null);
+
+    const r = await agregarLibreAOrdenAction("ajena", { tipo: "REPUESTO", descripcion: "Pastillas" });
+
+    expect(r.error).toBe("Orden no encontrada");
+    expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "ajena",
+          sedeId: "sede-1",
+          OR: [{ mecanicoId: "tec-1" }, { manoDeObra: { some: { mecanicoId: "tec-1" } } }],
+        },
+      }),
+    );
+    expect(db.itemOrden.create).not.toHaveBeenCalled();
+  });
+});
