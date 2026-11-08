@@ -21,6 +21,12 @@ const db = {
   configuracionTaller: { findUnique: async () => opcionesTaller },
   cliente: { findFirst: vi.fn(), findMany: vi.fn() },
   repuesto: { findMany: vi.fn() },
+  tarifaIva: {
+    findMany: async () => [
+      { porcentaje: "0", predeterminada: false },
+      { porcentaje: "19", predeterminada: true },
+    ],
+  },
   itemOrden: { groupBy: vi.fn() },
   ventaMostrador: { findFirst: vi.fn(), findMany: vi.fn(), groupBy: vi.fn() },
   configuracionSmtp: { findUnique: vi.fn() },
@@ -105,7 +111,7 @@ describe("crearVentaMostradorAction", () => {
     db.cajaSesion.findFirst.mockResolvedValue({ id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
     db.cliente.findFirst.mockResolvedValue({ nombre: "Ana Gómez", telefono: null, email: null });
     // Precio y nombre del repuesto salen de aquí, no del formulario (fase de consolidación, D6).
-    db.repuesto.findMany.mockResolvedValue([{ id: "r1", nombre: "Filtro de aceite", precioVenta: "25000" }]);
+    db.repuesto.findMany.mockResolvedValue([{ id: "r1", nombre: "Filtro de aceite", precioVenta: "25000", ivaPct: "19.00" }]);
     tx.repuesto.updateMany.mockResolvedValue({ count: 1 });
     tx.ventaMostrador.create.mockResolvedValue({ id: "v1", numero: 7 });
     tx.pagoVentaMostrador.create.mockResolvedValue({});
@@ -152,12 +158,13 @@ describe("crearVentaMostradorAction", () => {
     expect(r.error).toBeNull();
     const creada = tx.ventaMostrador.create.mock.calls[0]![0].data;
     expect(creada.items.create).toEqual([
-      { repuestoId: "r1", descripcion: "Filtro de aceite", cantidad: 2, precioUnitario: 25000 },
+      { repuestoId: "r1", descripcion: "Filtro de aceite", cantidad: 2, precioUnitario: 25000, ivaPct: 19 },
     ]);
     expect(Number(creada.total)).toBe(59500);
+    expect(creada.desgloseIva).toEqual([{ ivaPct: 19, base: 50000, iva: 9500 }]);
     expect(db.repuesto.findMany).toHaveBeenCalledWith({
       where: { id: { in: ["r1"] }, bodega: { sedeId: "sede-1" } },
-      select: { id: true, nombre: true, precioVenta: true },
+      select: { id: true, nombre: true, precioVenta: true, ivaPct: true },
     });
   });
 
@@ -167,8 +174,24 @@ describe("crearVentaMostradorAction", () => {
     await crearVentaMostradorAction(inicial, venta({ lineas: JSON.stringify([libre]), totalEsperado: "47600", pagos: JSON.stringify([{ metodoPago: "EFECTIVO", monto: 47600 }]) }));
 
     expect(tx.ventaMostrador.create.mock.calls[0]![0].data.items.create).toEqual([
-      { repuestoId: null, descripcion: "Lavado de motor", cantidad: 1, precioUnitario: 40000 },
+      { repuestoId: null, descripcion: "Lavado de motor", cantidad: 1, precioUnitario: 40000, ivaPct: 19 },
     ]);
+  });
+
+  it("una línea exenta no paga IVA y una tarifa que no está activa se rechaza", async () => {
+    const exenta = { descripcion: "Lavado de motor", cantidad: 1, precioUnitario: 40000, ivaPct: 0 };
+    const pagos = JSON.stringify([{ metodoPago: "EFECTIVO", monto: 40000 }]);
+
+    const r = await crearVentaMostradorAction(inicial, venta({ lineas: JSON.stringify([exenta]), totalEsperado: "40000", pagos }));
+
+    expect(r.error).toBeNull();
+    expect(tx.ventaMostrador.create.mock.calls[0]![0].data.desgloseIva).toEqual([{ ivaPct: 0, base: 40000, iva: 0 }]);
+
+    const otra = await crearVentaMostradorAction(
+      inicial,
+      venta({ lineas: JSON.stringify([{ ...exenta, ivaPct: 7 }]), totalEsperado: "42800", pagos }),
+    );
+    expect(otra.error).toMatch(/no está activa/);
   });
 
   it("el descuento se compara con el subtotal a precios del servidor", async () => {
@@ -564,6 +587,7 @@ describe("buscarParaMostradorAction", () => {
     codigo,
     nombre,
     precioVenta: "25000",
+    ivaPct: "19.00",
     stockActual,
   });
 
@@ -606,8 +630,8 @@ describe("buscarParaMostradorAction", () => {
     const r = await buscarParaMostradorAction("filtro");
 
     expect(r).toEqual([
-      { id: "r1", codigo: "FLT-1", nombre: "Filtro", precioVenta: 25000, stockActual: 5, disponible: 2 },
-      { id: "r2", codigo: "FLT-2", nombre: "Filtro grande", precioVenta: 25000, stockActual: 0, disponible: 0 },
+      { id: "r1", codigo: "FLT-1", nombre: "Filtro", precioVenta: 25000, ivaPct: 19, stockActual: 5, disponible: 2 },
+      { id: "r2", codigo: "FLT-2", nombre: "Filtro grande", precioVenta: 25000, ivaPct: 19, stockActual: 0, disponible: 0 },
     ]);
   });
 
@@ -795,10 +819,11 @@ function filaGuardada(cambios: Record<string, unknown> = {}) {
     numero: 7,
     createdAt: new Date("2026-10-17T15:00:00Z"),
     subtotal: "50000",
+    descuento: "0",
     total: "59500",
     saldoPendiente: "0",
     cliente: { nombre: "Ana Gómez" },
-    items: [{ id: "i1", descripcion: "Filtro de aceite", cantidad: 2, devueltoCantidad: 0, precioUnitario: "25000" }],
+    items: [{ id: "i1", descripcion: "Filtro de aceite", cantidad: 2, devueltoCantidad: 0, precioUnitario: "25000", ivaPct: "19.00" }],
     pagos: [
       { metodoPago: "EFECTIVO", monto: "40000" },
       { metodoPago: "TARJETA", monto: "19500" },
@@ -849,12 +874,13 @@ describe("listarVentasMostradorAction", () => {
         createdAt: new Date("2026-10-17T15:00:00Z"),
         clienteNombre: "Ana Gómez",
         subtotal: 50000,
+        descuento: 0,
         total: 59500,
         saldoPendiente: 0,
         totalDevuelto: 0,
         estado: "PAGADA",
         metodos: "Efectivo + Tarjeta",
-        items: [{ id: "i1", descripcion: "Filtro de aceite", cantidad: 2, devueltoCantidad: 0, precioUnitario: 25000 }],
+        items: [{ id: "i1", descripcion: "Filtro de aceite", cantidad: 2, devueltoCantidad: 0, precioUnitario: 25000, ivaPct: 19 }],
         devolucion: { permitido: true, motivo: null },
       },
     ]);
@@ -880,7 +906,7 @@ describe("listarVentasMostradorAction", () => {
       filaGuardada({ id: "ayer", createdAt: new Date("2026-10-16T15:00:00Z"), saldoPendiente: "20000", pagos: [] }),
       filaGuardada({
         id: "parcial",
-        items: [{ id: "i1", descripcion: "Filtro de aceite", cantidad: 2, devueltoCantidad: 1, precioUnitario: "25000" }],
+        items: [{ id: "i1", descripcion: "Filtro de aceite", cantidad: 2, devueltoCantidad: 1, precioUnitario: "25000", ivaPct: "19.00" }],
         devoluciones: [{ total: "29750" }],
       }),
     ]);

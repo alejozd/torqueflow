@@ -1,4 +1,5 @@
 import type { MensajeEmail } from "@/lib/email/enviar-email";
+import { etiquetaTramoIva, type TramoIva } from "@/lib/iva/desglose";
 import { formatoFechaCorta } from "@/lib/fecha-bogota";
 import { etiquetaDescuento } from "@/lib/cotizacion/totales";
 
@@ -33,6 +34,8 @@ export interface DatosMensajeCotizacion {
   /** null cuando el descuento es un monto fijo: la etiqueta no lleva porcentaje. */
   descuentoPct: number | null;
   iva: number;
+  /** Una línea por tarifa; sin él (o vacío) sale una sola línea "IVA". */
+  desgloseIva?: TramoIva[];
   total: number;
   validaHasta: Date;
   tallerNombre: string;
@@ -56,6 +59,17 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", {
   maximumFractionDigits: 0,
 });
 
+/** "IVA 19 % sobre $ 180.000" → "$ 34.200", una por tarifa. Compartido por el correo y WhatsApp. */
+export function filasIva(datos: { iva: number; desgloseIva?: TramoIva[] }): { etiqueta: string; valor: string }[] {
+  if (!datos.desgloseIva || datos.desgloseIva.length === 0) {
+    return [{ etiqueta: "IVA", valor: formatoMoneda.format(datos.iva) }];
+  }
+  return datos.desgloseIva.map((tramo) => ({
+    etiqueta: `${etiquetaTramoIva(tramo)} sobre ${formatoMoneda.format(tramo.base)}`,
+    valor: formatoMoneda.format(tramo.iva),
+  }));
+}
+
 export function construirMensajeCotizacion(para: string, datos: DatosMensajeCotizacion): MensajeEmail {
   const vehiculo = `${datos.marca} ${datos.modelo} (${datos.placa})`;
   const totalTexto = formatoMoneda.format(datos.total);
@@ -69,7 +83,7 @@ export function construirMensajeCotizacion(para: string, datos: DatosMensajeCoti
   const lineasTotalesTexto = [
     `Subtotal: ${formatoMoneda.format(datos.subtotal)}`,
     ...(datos.descuento > 0 ? [`${etiquetaDescuento(datos.descuentoPct)}: -${formatoMoneda.format(datos.descuento)}`] : []),
-    `IVA: ${formatoMoneda.format(datos.iva)}`,
+    ...filasIva(datos).map((fila) => `${fila.etiqueta}: ${fila.valor}`),
     `Total: ${totalTexto}`,
   ];
 
@@ -130,7 +144,9 @@ export function construirMensajeCotizacion(para: string, datos: DatosMensajeCoti
     (datos.descuento > 0
       ? filaTotal(etiquetaDescuento(datos.descuentoPct), `-${escaparHtml(formatoMoneda.format(datos.descuento))}`)
       : "") +
-    filaTotal("IVA", escaparHtml(formatoMoneda.format(datos.iva))) +
+    filasIva(datos)
+      .map((fila) => filaTotal(escaparHtml(fila.etiqueta), escaparHtml(fila.valor)))
+      .join("") +
     filaTotal("Total", escaparHtml(totalTexto), true) +
     `</tbody>` +
     `</table>`;

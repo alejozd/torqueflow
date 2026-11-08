@@ -45,6 +45,7 @@ function SelectField({
   alignItemWithTrigger,
   "aria-invalid": ariaInvalid,
   "aria-describedby": ariaDescribedBy,
+  "aria-label": ariaLabel,
 }: {
   items: SelectFieldOption[]
   value?: string
@@ -75,6 +76,8 @@ function SelectField({
   alignItemWithTrigger?: boolean
   "aria-invalid"?: boolean | undefined
   "aria-describedby"?: string | undefined
+  /** Para un selector sin <label> visible (p. ej. dentro de una celda de tabla). */
+  "aria-label"?: string | undefined
 }) {
   const isControlled = value !== undefined
   // Mirrors combobox.tsx: a value with no matching item (e.g. "" used as an
@@ -100,6 +103,7 @@ function SelectField({
         size={size}
         aria-invalid={ariaInvalid}
         aria-describedby={ariaDescribedBy}
+        aria-label={ariaLabel}
         className={className}
       >
         <SelectValue placeholder={placeholder} />

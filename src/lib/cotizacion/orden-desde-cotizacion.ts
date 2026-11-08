@@ -13,6 +13,8 @@ export interface CotizacionParaOrden {
     descripcion: string;
     cantidad: Prisma.Decimal | number;
     precioUnitario: Prisma.Decimal | number;
+    /** IVA de la línea; se copia tal cual a la orden (sin valor, el 19 % de la columna). */
+    ivaPct?: Prisma.Decimal | number;
     grupoKitId: string | null;
     grupoKitNombre: string | null;
     servicioId: string | null;
@@ -56,6 +58,7 @@ export async function crearOrdenDesdeCotizacion(
       grupoKitId: item.grupoKitId,
       grupoKitNombre: item.grupoKitNombre,
       servicioId: item.servicioId,
+      ...(item.ivaPct !== undefined ? { ivaPct: item.ivaPct } : {}),
     };
     const lineaCreada = opciones.creada ? { createdAt: opciones.creada } : {};
     if (item.tipo === "REPUESTO") {

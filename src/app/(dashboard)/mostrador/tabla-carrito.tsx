@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { estadoDisponibilidad } from "@/lib/cotizacion/disponibilidad";
 import { cn } from "@/lib/utils";
 import type { Carrito, LineaCarrito } from "./use-carrito";
+import { SelectorIva } from "@/components/selector-iva";
 
 const SIN_RESULTADOS: ResultadoRepuestoMostrador[] = [];
 
@@ -61,7 +62,8 @@ export function TablaCarrito({
   /** Repuestos que el servidor rechazó por stock al cobrar: su fila se marca en rojo. */
   sinStock?: readonly string[];
 }) {
-  const { lineas, agregarRepuesto, agregarLibre, cambiarCantidad, quitar, vaciar, totalProductos, totalUnidades } = carrito;
+  const { lineas, agregarRepuesto, agregarLibre, cambiarCantidad, cambiarIva, quitar, vaciar, totalProductos, totalUnidades } =
+    carrito;
   const internoRef = useRef<HTMLInputElement | null>(null);
   const filas = useRef(new Map<string, HTMLTableRowElement>());
   /** Fila con la confirmación abierta y si se abrió con el teclado (foco en "Sí") o con el ratón (foco en "No"). */
@@ -214,6 +216,7 @@ export function TablaCarrito({
             <tr className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
               <th className="px-3 py-2 font-medium">Producto</th>
               <th className="w-44 px-3 py-2 font-medium">Cantidad</th>
+              <th className="w-24 px-3 py-2 font-medium">IVA</th>
               <th className="w-28 px-3 py-2 text-right font-medium">Precio</th>
               <th className="w-28 px-3 py-2 text-right font-medium">Importe</th>
               <th className="w-10 px-3 py-2">
@@ -283,6 +286,16 @@ export function TablaCarrito({
                         </Button>
                       </div>
                     </td>
+                    <td className="px-3 py-2">
+                      <SelectorIva
+                        compacto
+                        size="sm"
+                        etiqueta={`IVA de ${linea.descripcion}`}
+                        value={linea.ivaPct}
+                        onChange={(ivaPct) => cambiarIva(linea.id, ivaPct)}
+                        className="w-[84px] px-1.5 font-mono text-xs"
+                      />
+                    </td>
                     <td className="px-3 py-2 text-right font-mono">{formatoMoneda.format(linea.precioUnitario)}</td>
                     <td className="px-3 py-2 text-right font-mono">
                       {formatoMoneda.format(linea.cantidad * linea.precioUnitario)}
@@ -302,7 +315,7 @@ export function TablaCarrito({
                   </tr>
                   {confirmando?.id === linea.id ? (
                     <tr className="border-b bg-destructive/5">
-                      <td colSpan={5} className="px-3 py-2">
+                      <td colSpan={6} className="px-3 py-2">
                         <div
                           onKeyDown={(event) =>
                             teclasConfirmacion(event, () => cancelarQuitar(linea.id))
@@ -324,7 +337,7 @@ export function TablaCarrito({
             })}
             {lineas.length === 0 ? (
               <tr className="border-b">
-                <td colSpan={5} className="px-3 py-6 text-center text-sm text-muted-foreground">
+                <td colSpan={6} className="px-3 py-6 text-center text-sm text-muted-foreground">
                   Escanea el código o escribe el nombre del repuesto
                 </td>
               </tr>

@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SelectorIva } from "@/components/selector-iva";
 import { Textarea } from "@/components/ui/textarea";
 
 type ServicioFormInput = z.input<typeof servicioInputSchema>;
@@ -41,6 +42,7 @@ interface ServicioDialogProps {
 function ServicioForm({ modo, servicio, onGuardado }: ServicioDialogProps & { onGuardado: () => void }) {
   const [state, setState] = useState<ServicioFormState>(initialState);
   const [isPending, startTransition] = useTransition();
+  const [ivaPct, setIvaPct] = useState<number | undefined>(servicio?.ivaPct);
   const {
     register,
     handleSubmit,
@@ -61,6 +63,7 @@ function ServicioForm({ modo, servicio, onGuardado }: ServicioDialogProps & { on
         formData.set("nombre", values.nombre);
         formData.set("descripcion", values.descripcion ?? "");
         formData.set("precioManoObra", String(values.precioManoObra));
+        if (ivaPct !== undefined) formData.set("ivaPct", String(ivaPct));
 
         const result =
           modo === "editar" && servicio
@@ -126,6 +129,12 @@ function ServicioForm({ modo, servicio, onGuardado }: ServicioDialogProps & { on
         <p className="text-xs text-muted-foreground">
           Puede ser 0 si el servicio solo agrupa repuestos (kit sin mano de obra propia).
         </p>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="servicio-iva">IVA de la mano de obra</Label>
+        <SelectorIva id="servicio-iva" value={ivaPct} onChange={setIvaPct} />
+        <p className="text-xs text-muted-foreground">Los repuestos del kit usan el IVA de cada repuesto.</p>
       </div>
 
       {state.error ? (

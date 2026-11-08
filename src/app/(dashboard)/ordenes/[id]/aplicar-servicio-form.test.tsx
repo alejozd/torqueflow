@@ -18,7 +18,7 @@ const servicios: ServicioVista[] = [
     id: "s1",
     nombre: "Cambio de aceite",
     descripcion: null,
-    precioManoObra: 45000,
+    precioManoObra: 45000, ivaPct: 19,
     activo: true,
     repuestos: [
       { repuestoId: "r1", codigo: "FA-1", nombre: "Filtro de aceite", cantidad: 1, precioVenta: 25000 },
@@ -30,7 +30,7 @@ const servicios: ServicioVista[] = [
     id: "s2",
     nombre: "Alineación",
     descripcion: null,
-    precioManoObra: 30000,
+    precioManoObra: 30000, ivaPct: 19,
     activo: true,
     repuestos: [],
     totalEstimado: 30000,

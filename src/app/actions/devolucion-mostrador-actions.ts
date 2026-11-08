@@ -81,10 +81,13 @@ export async function crearDevolucionAction(
     select: {
       id: true,
       subtotal: true,
+      descuento: true,
       total: true,
       saldoPendiente: true,
       createdAt: true,
-      items: { select: { id: true, repuestoId: true, descripcion: true, cantidad: true, precioUnitario: true, devueltoCantidad: true } },
+      items: {
+        select: { id: true, repuestoId: true, descripcion: true, cantidad: true, precioUnitario: true, ivaPct: true, devueltoCantidad: true },
+      },
       devoluciones: { select: { total: true } },
     },
   });
@@ -106,7 +109,7 @@ export async function crearDevolucionAction(
   // Cada línea elegida tiene que existir en esta venta y caber en lo devolvible.
   const porItem = new Map<
     string,
-    { cantidad: number; vendida: number; repuestoId: string | null; descripcion: string; precioUnitario: number }
+    { cantidad: number; vendida: number; repuestoId: string | null; descripcion: string; precioUnitario: number; ivaPct: number }
   >();
   for (const pedida of parsed.data.lineas) {
     const item = venta.items.find((candidato) => candidato.id === pedida.ventaItemId);
@@ -128,13 +131,14 @@ export async function crearDevolucionAction(
       repuestoId: item.repuestoId,
       descripcion: item.descripcion,
       precioUnitario: Number(item.precioUnitario),
+      ivaPct: Number(item.ivaPct),
     });
   }
 
   const yaDevuelto = venta.devoluciones.reduce((suma, devolucion) => suma + Number(devolucion.total), 0);
   const calculado = totalDevolucion(
-    [...porItem.values()].map((linea) => ({ cantidad: linea.cantidad, precioUnitario: linea.precioUnitario })),
-    { subtotal: Number(venta.subtotal), total: Number(venta.total) },
+    [...porItem.values()].map((linea) => ({ cantidad: linea.cantidad, precioUnitario: linea.precioUnitario, ivaPct: linea.ivaPct })),
+    { subtotal: Number(venta.subtotal), descuento: Number(venta.descuento) },
   );
   const total = montoADevolverPermitido(Number(venta.total), yaDevuelto, calculado);
 

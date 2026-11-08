@@ -17,6 +17,7 @@ const tx = {
 
 const db = {
   servicio: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+  tarifaIva: { findMany: vi.fn().mockResolvedValue([{ porcentaje: 19, predeterminada: true }]) },
   servicioRepuesto: { findUnique: vi.fn(), upsert: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
   repuesto: { findFirst: vi.fn() },
   ordenTrabajo: { findFirst: vi.fn() },
@@ -144,7 +145,7 @@ describe("crearServicioAction", () => {
     expect(mockRequirePermiso).toHaveBeenCalledWith("servicios.gestionar");
     expect(r).toEqual({ error: null, success: true });
     expect(db.servicio.create).toHaveBeenCalledWith({
-      data: { nombre: "Cambio de aceite", descripcion: "Aceite y filtro", precioManoObra: 45000 },
+      data: { nombre: "Cambio de aceite", descripcion: "Aceite y filtro", precioManoObra: 45000, ivaPct: 19 },
     });
   });
 
@@ -510,8 +511,8 @@ describe("aplicarServicioACotizacionAction", () => {
     tx.cotizacion.findUniqueOrThrow.mockResolvedValue({
       descuentoPct: 0,
       items: [
-        { tipo: "MANO_OBRA", cantidad: 1, precioUnitario: 45000 },
-        { tipo: "REPUESTO", cantidad: 2, precioUnitario: 40000 },
+        { tipo: "MANO_OBRA", cantidad: 1, precioUnitario: 45000, ivaPct: 19 },
+        { tipo: "REPUESTO", cantidad: 2, precioUnitario: 40000, ivaPct: 19 },
       ],
     });
     db.servicio.findFirst.mockResolvedValue({

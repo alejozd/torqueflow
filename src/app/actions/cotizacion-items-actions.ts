@@ -6,6 +6,7 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { assertCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
 import { recomputeCotizacionTotales } from "@/lib/cotizacion/recompute-totales";
+import { resolverIvaPct } from "@/lib/iva/resolver";
 import { scopeCotizacion, scopeRepuesto } from "@/lib/sede/scope";
 import {
   actualizarItemCotizacionInputSchema,
@@ -70,7 +71,7 @@ export async function agregarRepuestoACotizacionAction(
 
   const repuesto = await tenantDb.repuesto.findFirst({
     where: { id: repuestoId, ...scopeRepuesto(session.user.sedeActivaId) },
-    select: { id: true, nombre: true, precioVenta: true },
+    select: { id: true, nombre: true, precioVenta: true, ivaPct: true },
   });
   if (!repuesto) return { error: "Repuesto no encontrado", itemId: null };
 
@@ -93,6 +94,7 @@ export async function agregarRepuestoACotizacionAction(
             descripcion: repuesto.nombre,
             cantidad: 1,
             precioUnitario: repuesto.precioVenta,
+            ivaPct: repuesto.ivaPct,
           },
           select: { id: true },
         });
@@ -124,6 +126,9 @@ export async function agregarItemLibreCotizacionAction(
 
   try {
     const creado = await tenantDb.$transaction(async (tx) => {
+      // Fuera del catálogo no hay de dónde copiar el IVA: va la tarifa predeterminada.
+      const iva = await resolverIvaPct(tx, undefined);
+      const ivaPct = iva.ok ? iva.ivaPct : undefined;
       const item = await tx.itemCotizacion.create({
         data: {
           cotizacionId,
@@ -132,6 +137,7 @@ export async function agregarItemLibreCotizacionAction(
           descripcion: parsed.data.descripcion,
           cantidad: 1,
           precioUnitario: 0,
+          ivaPct,
         },
         select: { id: true },
       });
@@ -146,7 +152,7 @@ export async function agregarItemLibreCotizacionAction(
 }
 
 /**
- * Guarda una celda editada. Cantidad y precio se editan en cualquier fila;
+ * Guarda una celda editada. Cantidad, precio e IVA se editan en cualquier fila;
  * descripción y tipo solo en los ítems libres, porque en los demás vienen del
  * inventario o del kit.
  */
@@ -166,9 +172,14 @@ export async function actualizarItemCotizacionAction(
 
   const item = await tenantDb.itemCotizacion.findFirst({
     where: { id: itemId, cotizacionId },
-    select: { id: true, repuestoId: true, grupoKitId: true },
+    select: { id: true, repuestoId: true, grupoKitId: true, ivaPct: true },
   });
   if (!item) return { error: "Ítem no encontrado en esta cotización", itemId: null };
+
+  if (parsed.data.ivaPct !== undefined) {
+    const iva = await resolverIvaPct(tenantDb, parsed.data.ivaPct, Number(item.ivaPct));
+    if (!iva.ok) return { error: iva.error, itemId: null };
+  }
 
   const esLibre = item.repuestoId === null && item.grupoKitId === null;
   if (!esLibre && (parsed.data.descripcion !== undefined || parsed.data.tipo !== undefined)) {

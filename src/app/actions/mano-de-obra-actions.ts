@@ -9,6 +9,7 @@ import { manoDeObraInputSchema } from "@/lib/validation/orden";
 import { assertOrdenMutable } from "@/lib/orden/mutable-guard";
 import { scopeOrdenVisible } from "@/lib/sede/scope";
 import { ROLES_MECANICO } from "@/lib/auth/permisos";
+import { resolverIvaPct } from "@/lib/iva/resolver";
 
 export interface ManoDeObraFormState {
   error: string | null;
@@ -59,6 +60,9 @@ export async function addManoDeObraAction(
     }
   }
 
+  // Una línea escrita a mano no viene del catálogo: lleva la tarifa predeterminada.
+  const iva = await resolverIvaPct(tenantDb, undefined);
+
   try {
     await tenantDb.manoDeObra.create({
       data: {
@@ -66,6 +70,7 @@ export async function addManoDeObraAction(
         descripcion: parsed.data.descripcion,
         valor: parsed.data.valor,
         mecanicoId,
+        ivaPct: iva.ok ? iva.ivaPct : undefined,
       },
     });
   } catch (err) {

@@ -11,17 +11,30 @@ const mockCreate = vi.fn();
 const mockDeleteMany = vi.fn();
 const mockOrdenFindFirst = vi.fn();
 const mockRepuestoFindFirst = vi.fn();
+const mockItemFindFirst = vi.fn();
+const mockUpdate = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
-    itemOrden: { create: mockCreate, deleteMany: mockDeleteMany },
+    itemOrden: { create: mockCreate, deleteMany: mockDeleteMany, findFirst: mockItemFindFirst, update: mockUpdate },
     ordenTrabajo: { findFirst: mockOrdenFindFirst },
     repuesto: { findFirst: mockRepuestoFindFirst },
+    tarifaIva: {
+      findMany: async () => [
+        { porcentaje: "0", predeterminada: false },
+        { porcentaje: "19", predeterminada: true },
+      ],
+    },
   }),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { addItemOrdenAction, deleteItemOrdenAction, type ItemOrdenFormState } from "./item-orden-actions";
+import {
+  addItemOrdenAction,
+  cambiarIvaLineaOrdenAction,
+  deleteItemOrdenAction,
+  type ItemOrdenFormState,
+} from "./item-orden-actions";
 
 const initialState: ItemOrdenFormState = { error: null, success: false };
 const SESSION = { user: { role: "TECNICO", permisos: ["ordenes.verTodas"], tenantSchema: "taller_perez", sedeActivaId: "sede-1" } };
@@ -84,12 +97,12 @@ describe("addItemOrdenAction", () => {
     expect(result).toEqual({ error: null, success: true });
     expect(mockRepuestoFindFirst).not.toHaveBeenCalled();
     expect(mockCreate).toHaveBeenCalledWith({
-      data: { ordenId: "o1", repuestoId: null, descripcion: "Filtro de aceite", cantidad: 2, precioUnitario: 15.5 },
+      data: { ordenId: "o1", repuestoId: null, descripcion: "Filtro de aceite", cantidad: 2, precioUnitario: 15.5, ivaPct: 19 },
     });
   });
 
   it("creates a catalog-linked item, using descripcion from the Repuesto but the submitted precioUnitario (the suggested price is editable)", async () => {
-    mockRepuestoFindFirst.mockResolvedValue({ id: "r1", nombre: "Filtro de aceite Bosch", precioVenta: 18.9 });
+    mockRepuestoFindFirst.mockResolvedValue({ id: "r1", nombre: "Filtro de aceite Bosch", precioVenta: 18.9, ivaPct: "5.00" });
     mockCreate.mockResolvedValue({ id: "i1" });
     const formData = new FormData();
     formData.set("repuestoId", "r1");
@@ -109,6 +122,7 @@ describe("addItemOrdenAction", () => {
         descripcion: "Filtro de aceite Bosch",
         cantidad: 3,
         precioUnitario: 20,
+        ivaPct: 5,
       },
     });
   });
@@ -269,5 +283,34 @@ describe("D7: el técnico solo trabaja en sus órdenes (ítems)", () => {
     expect(result).toEqual({ error: "Orden no encontrada", success: false });
     expect(mockOrdenFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: WHERE_D7("ajena") }));
     expect(mockCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("cambiarIvaLineaOrdenAction", () => {
+  beforeEach(() => {
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
+    mockOrdenFindFirst.mockReset().mockResolvedValue({ estado: "EN_PROCESO", factura: null });
+    mockItemFindFirst.mockReset().mockResolvedValue({ ivaPct: "19.00" });
+    mockUpdate.mockReset();
+  });
+
+  it("cambia el IVA de un repuesto de la orden a otra tarifa activa", async () => {
+    await expect(cambiarIvaLineaOrdenAction("o1", "REPUESTO", "i1", 0)).resolves.toEqual({ error: null, success: true });
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.trabajar");
+    expect(mockItemFindFirst).toHaveBeenCalledWith({ where: { id: "i1", ordenId: "o1" }, select: { ivaPct: true } });
+    expect(mockUpdate).toHaveBeenCalledWith({ where: { id: "i1" }, data: { ivaPct: 0 } });
+  });
+
+  it("rechaza una tarifa que no está activa", async () => {
+    const r = await cambiarIvaLineaOrdenAction("o1", "REPUESTO", "i1", 7);
+    expect(r.error).toMatch(/no está activa/);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("no cambia nada en una orden ya facturada", async () => {
+    mockOrdenFindFirst.mockResolvedValue({ estado: "ENTREGADA", factura: { id: "f1" } });
+    const r = await cambiarIvaLineaOrdenAction("o1", "REPUESTO", "i1", 0);
+    expect(r.success).toBe(false);
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });

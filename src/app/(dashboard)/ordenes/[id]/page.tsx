@@ -35,9 +35,12 @@ import { esOrdenMutable } from "@/lib/orden/mutable-guard";
 import { QuitarConConfirmacion } from "@/components/quitar-con-confirmacion";
 import { deleteItemOrdenFormAction } from "@/app/actions/item-orden-actions";
 import { deleteManoDeObraFormAction } from "@/app/actions/mano-de-obra-actions";
+import { IvaLineaOrden } from "./iva-linea-orden";
 import type { ResultadoAccion } from "@/lib/resultado-accion";
 import type { DviChecklist } from "@/lib/dvi/checklist-items";
 import { totalOrden } from "@/lib/dashboard/calculos";
+import { computeFacturaTotales } from "@/lib/factura/totales";
+import { leerDesgloseGuardado } from "@/lib/iva/desglose";
 import { cn } from "@/lib/utils";
 import { resumirKitsDeOrden } from "@/lib/orden/kits-orden";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
@@ -165,6 +168,23 @@ function conColumnaQuitar<T extends { id: string }>(
   ];
 }
 
+/** Agrega la columna "IVA" justo antes de la columna `antesDe` (el precio). */
+function conColumnaIva<T extends { id: string; descripcion: string; ivaPct: unknown }>(
+  columns: DataTableColumn<T>[],
+  antesDe: string,
+  props: { ordenId: string; tipo: "REPUESTO" | "MANO_OBRA"; editable: boolean },
+): DataTableColumn<T>[] {
+  const posicion = columns.findIndex((columna) => columna.header === antesDe);
+  const columnaIva: DataTableColumn<T> = {
+    header: "IVA",
+    className: "text-right",
+    cell: (fila) => (
+      <IvaLineaOrden {...props} lineaId={fila.id} descripcion={fila.descripcion} ivaPct={Number(fila.ivaPct)} />
+    ),
+  };
+  return [...columns.slice(0, posicion), columnaIva, ...columns.slice(posicion)];
+}
+
 export default async function OrdenDetailPage({
   params,
   searchParams,
@@ -192,16 +212,25 @@ export default async function OrdenDetailPage({
   }
 
   const puedeQuitar = esOrdenMutable(orden) && puede(session, "ordenes.quitar");
-  const itemsColumns = conColumnaQuitar(ITEMS_COLUMNS, puedeQuitar, (item) => ({
-    etiqueta: `Quitar ${item.descripcion}`,
-    pregunta: `¿Quitar ${item.descripcion} de la orden?`,
-    accion: deleteItemOrdenFormAction.bind(null, item.id, orden.id),
-  }));
-  const manoObraColumns = conColumnaQuitar(MANO_OBRA_COLUMNS, puedeQuitar, (linea) => ({
-    etiqueta: `Quitar ${linea.descripcion}`,
-    pregunta: `¿Quitar "${linea.descripcion}" de la orden?`,
-    accion: deleteManoDeObraFormAction.bind(null, linea.id, orden.id),
-  }));
+  const ivaEditable = esOrdenMutable(orden) && puede(session, "ordenes.trabajar");
+  const itemsColumns = conColumnaQuitar(
+    conColumnaIva(ITEMS_COLUMNS, "Unitario", { ordenId: orden.id, tipo: "REPUESTO", editable: ivaEditable }),
+    puedeQuitar,
+    (item) => ({
+      etiqueta: `Quitar ${item.descripcion}`,
+      pregunta: `¿Quitar ${item.descripcion} de la orden?`,
+      accion: deleteItemOrdenFormAction.bind(null, item.id, orden.id),
+    }),
+  );
+  const manoObraColumns = conColumnaQuitar(
+    conColumnaIva(MANO_OBRA_COLUMNS, "Valor", { ordenId: orden.id, tipo: "MANO_OBRA", editable: ivaEditable }),
+    puedeQuitar,
+    (linea) => ({
+      etiqueta: `Quitar ${linea.descripcion}`,
+      pregunta: `¿Quitar "${linea.descripcion}" de la orden?`,
+      accion: deleteManoDeObraFormAction.bind(null, linea.id, orden.id),
+    }),
+  );
 
   const repuestosTotal = orden.items.reduce((suma, item) => suma + item.cantidad * Number(item.precioUnitario), 0);
   const manoObraTotal = orden.manoDeObra.reduce((suma, linea) => suma + Number(linea.valor), 0);
@@ -235,6 +264,25 @@ export default async function OrdenDetailPage({
     items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
     manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor) })),
   });
+  // La cuenta con IVA: si ya hay factura, lo que quedó en ella; si no, el IVA de cada línea.
+  const cuenta = orden.factura
+    ? {
+        descuento: Number(orden.factura.descuento),
+        desgloseIva: leerDesgloseGuardado(orden.factura.desgloseIva),
+        total: Number(orden.factura.total),
+      }
+    : (() => {
+        const calculo = computeFacturaTotales({
+          items: orden.items.map((item) => ({
+            cantidad: item.cantidad,
+            precioUnitario: Number(item.precioUnitario),
+            ivaPct: Number(item.ivaPct),
+          })),
+          manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor), ivaPct: Number(linea.ivaPct) })),
+          descuento: 0,
+        });
+        return { descuento: 0, desgloseIva: calculo.desgloseIva, total: calculo.total };
+      })();
 
   return (
     <main className="flex flex-col gap-4">
@@ -603,7 +651,9 @@ export default async function OrdenDetailPage({
                 estado={orden.estado}
                 repuestos={repuestosTotal}
                 manoDeObra={manoObraTotal}
-                total={total}
+                descuento={cuenta.descuento}
+                desgloseIva={cuenta.desgloseIva}
+                total={cuenta.total}
                 anticipos={anticiposVigentes}
                 factura={orden.factura ? { id: orden.factura.id, numero: orden.factura.numero } : null}
               />

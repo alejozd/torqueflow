@@ -47,6 +47,7 @@ const ITEM = {
   descripcion: "Filtro de aceite",
   cantidad: 2,
   precioUnitario: "25000",
+  ivaPct: "19.00",
   devueltoCantidad: 0,
 };
 
@@ -55,6 +56,7 @@ function venta(cambios: Record<string, unknown> = {}) {
   return {
     id: "v1",
     subtotal: "50000",
+    descuento: "0",
     total: "59500",
     saldoPendiente: "0",
     // 10:00 en Bogotá, con la caja abierta a las 08:00 (ver beforeEach).

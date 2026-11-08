@@ -63,8 +63,8 @@ async function devolverParte(
   const venta = await tx.ventaMostrador.findUniqueOrThrow({
     where: { id: ventaId },
     select: {
-      subtotal: true, total: true, saldoPendiente: true,
-      items: { select: { id: true, repuestoId: true, cantidad: true, precioUnitario: true, devueltoCantidad: true } },
+      subtotal: true, descuento: true, total: true, saldoPendiente: true,
+      items: { select: { id: true, repuestoId: true, cantidad: true, precioUnitario: true, ivaPct: true, devueltoCantidad: true } },
       devoluciones: { select: { total: true } },
     },
   });
@@ -75,7 +75,10 @@ async function devolverParte(
   const precioUnitario = Number(item.precioUnitario);
 
   const yaDevuelto = venta.devoluciones.reduce((suma, d) => suma + Number(d.total), 0);
-  const calculado = totalDevolucion([{ cantidad, precioUnitario }], { subtotal: Number(venta.subtotal), total: Number(venta.total) });
+  const calculado = totalDevolucion([{ cantidad, precioUnitario, ivaPct: Number(item.ivaPct) }], {
+    subtotal: Number(venta.subtotal),
+    descuento: Number(venta.descuento),
+  });
   const total = montoADevolverPermitido(Number(venta.total), yaDevuelto, calculado);
   const { aCuenta, enEfectivo } = repartoDevolucion(total, Number(venta.saldoPendiente));
 
@@ -127,6 +130,7 @@ export const registrarVentaMostrador: Manejador = async (tx, ctx, estado, dia, e
 
   const ventaLineas = lineas.map(({ repuesto, cantidad }) => ({
     repuestoId: repuesto.id, descripcion: `${MARCA} ${repuesto.nombre}`, cantidad, precioUnitario: repuesto.precioVenta,
+    ivaPct: 19,
   }));
   const totales = calcularTotalesVenta(ventaLineas, 0);
   const pagos = repartirPagos(totales.total, evento.fiada, metodosDePago(estado, dia.sedeId), az);

@@ -58,6 +58,7 @@ export interface RepuestoImportado {
   descripcion: string | null;
   precioCompra: number;
   precioVenta: number;
+  ivaPct: number;
   stockMinimo: number;
   stockMaximo: number | null;
   multiploCompra: number;
@@ -410,7 +411,11 @@ export function validarVehiculos(lectura: LecturaOk): ValidacionHoja<VehiculoImp
 export interface OpcionesRepuestos {
   bodegaId: string;
   proveedorId: string | null;
+  /** Tarifas de IVA activas del taller y la predeterminada (para la columna "IVA %"). */
+  tarifasIva?: { activas: number[]; predeterminada: number };
 }
+
+const TARIFAS_IVA_POR_DEFECTO = { activas: [0, 5, 19], predeterminada: 19 };
 
 export function validarRepuestos(lectura: LecturaOk, opciones: OpcionesRepuestos): ValidacionHoja<RepuestoImportado> {
   const validas: RepuestoImportado[] = [];
@@ -443,9 +448,23 @@ export function validarRepuestos(lectura: LecturaOk, opciones: OpcionesRepuestos
     const cantidadInicial =
       recolectado.tomar(campoEntero(lectura, fila, "cantidadInicial", { min: 0 }), "Cantidad inicial", "cantidadInicial") ??
       0;
+    const tarifas = opciones.tarifasIva ?? TARIFAS_IVA_POR_DEFECTO;
+    const ivaEscrito = recolectado.tomar(campoDinero(lectura, fila, "ivaPct"), "IVA %", "ivaPct");
 
     if (recolectado.problemas.length > 0) {
       rechazos.push(...recolectado.problemas);
+      continue;
+    }
+
+    if (ivaEscrito != null && !tarifas.activas.includes(ivaEscrito)) {
+      rechazos.push(
+        rechazo(
+          HOJA_REPUESTOS,
+          fila.numeroFila,
+          "IVA %",
+          `${ivaEscrito} % no es una tarifa activa (activas: ${tarifas.activas.join(", ")} %)`,
+        ),
+      );
       continue;
     }
 
@@ -491,6 +510,7 @@ export function validarRepuestos(lectura: LecturaOk, opciones: OpcionesRepuestos
       descripcion: descripcion ? normalizarTexto(descripcion) : null,
       precioCompra,
       precioVenta,
+      ivaPct: ivaEscrito ?? tarifas.predeterminada,
       stockMinimo,
       stockMaximo: stockMaximo ?? null,
       multiploCompra,

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { carritoReducer, type LineaCarrito, type RepuestoParaCarrito } from "./use-carrito";
 
-const FILTRO: RepuestoParaCarrito = { id: "r1", codigo: "FLT-1", nombre: "Filtro", precioVenta: 50000, disponible: 3 };
-const BUJIA: RepuestoParaCarrito = { id: "r2", codigo: "BJ-4", nombre: "Bujía", precioVenta: 20000, disponible: 1 };
+const FILTRO: RepuestoParaCarrito = { id: "r1", codigo: "FLT-1", nombre: "Filtro", precioVenta: 50000, ivaPct: 19, disponible: 3 };
+const BUJIA: RepuestoParaCarrito = { id: "r2", codigo: "BJ-4", nombre: "Bujía", precioVenta: 20000, ivaPct: 19, disponible: 1 };
 
 function agregar(lineas: LineaCarrito[], repuesto: RepuestoParaCarrito) {
   return carritoReducer(lineas, { tipo: "agregarRepuesto", repuesto });
@@ -44,15 +44,24 @@ describe("carritoReducer", () => {
   });
 
   it("la línea libre guarda descripción y precio, no tiene tope y no se fusiona", () => {
-    let lineas = carritoReducer([], { tipo: "agregarLibre", id: "libre-1", descripcion: " Mano de obra ", precio: 28000 });
-    lineas = carritoReducer(lineas, { tipo: "agregarLibre", id: "libre-2", descripcion: "Mano de obra", precio: 28000 });
+    let lineas = carritoReducer([], { tipo: "agregarLibre", id: "libre-1", descripcion: " Mano de obra ", precio: 28000, ivaPct: 19 });
+    lineas = carritoReducer(lineas, { tipo: "agregarLibre", id: "libre-2", descripcion: "Mano de obra", precio: 28000, ivaPct: 19 });
     expect(lineas).toHaveLength(2);
     expect(lineas[0]).toMatchObject({ repuestoId: null, descripcion: "Mano de obra", disponible: null, cantidad: 1 });
     expect(carritoReducer(lineas, { tipo: "cambiarCantidad", id: "libre-1", cantidad: 50 })[0].cantidad).toBe(50);
   });
 
   it("una línea libre sin descripción o con precio negativo se ignora", () => {
-    expect(carritoReducer([], { tipo: "agregarLibre", id: "l", descripcion: "  ", precio: 10 })).toEqual([]);
-    expect(carritoReducer([], { tipo: "agregarLibre", id: "l", descripcion: "x", precio: -1 })).toEqual([]);
+    expect(carritoReducer([], { tipo: "agregarLibre", id: "l", descripcion: "  ", precio: 10, ivaPct: 19 })).toEqual([]);
+    expect(carritoReducer([], { tipo: "agregarLibre", id: "l", descripcion: "x", precio: -1, ivaPct: 19 })).toEqual([]);
+  });
+});
+
+describe("IVA de las líneas del carrito", () => {
+  it("el repuesto llega con el IVA del catálogo y se puede cambiar en su línea", () => {
+    const conFiltro = carritoReducer([], { tipo: "agregarRepuesto", repuesto: { ...FILTRO, ivaPct: 5 } });
+    expect(conFiltro[0]?.ivaPct).toBe(5);
+    const exento = carritoReducer(conFiltro, { tipo: "cambiarIva", id: "r1", ivaPct: 0 });
+    expect(exento[0]?.ivaPct).toBe(0);
   });
 });

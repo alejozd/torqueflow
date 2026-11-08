@@ -25,6 +25,7 @@ const db = {
   cliente: { findMany: vi.fn() },
   vehiculo: { findMany: vi.fn() },
   repuesto: { findMany: vi.fn() },
+  tarifaIva: { findMany: vi.fn().mockResolvedValue([{ porcentaje: 0, predeterminada: false }, { porcentaje: 19, predeterminada: true }]) },
   servicio: { findMany: vi.fn() },
   bodega: { findFirst: vi.fn() },
   proveedor: { findFirst: vi.fn() },

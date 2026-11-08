@@ -15,6 +15,7 @@ const mockItemUpdateTx = vi.fn();
 const mockItemDeleteManyTx = vi.fn();
 const mockCotizacionFindUniqueOrThrowTx = vi.fn();
 const mockCotizacionUpdateTx = vi.fn();
+const mockTarifaFindMany = vi.fn();
 
 const mockTransaction = vi.fn((cb: (tx: unknown) => unknown) =>
   cb({
@@ -25,6 +26,7 @@ const mockTransaction = vi.fn((cb: (tx: unknown) => unknown) =>
       deleteMany: mockItemDeleteManyTx,
     },
     cotizacion: { findUniqueOrThrow: mockCotizacionFindUniqueOrThrowTx, update: mockCotizacionUpdateTx },
+    tarifaIva: { findMany: mockTarifaFindMany },
   }),
 );
 
@@ -33,6 +35,7 @@ vi.mock("@/lib/db/tenant-client", () => ({
     cotizacion: { findFirst: mockCotizacionFindFirst },
     repuesto: { findFirst: mockRepuestoFindFirst },
     itemCotizacion: { findFirst: mockItemFindFirst },
+    tarifaIva: { findMany: mockTarifaFindMany },
     $transaction: mockTransaction,
   }),
 }));
@@ -61,6 +64,10 @@ beforeEach(() => {
     .mockReset()
     .mockResolvedValue({ descuentoTipo: "PORCENTAJE", descuentoPct: "0", descuentoMonto: "0", items: [] });
   mockCotizacionUpdateTx.mockReset().mockResolvedValue({});
+  mockTarifaFindMany.mockReset().mockResolvedValue([
+    { porcentaje: "0", predeterminada: false },
+    { porcentaje: "19", predeterminada: true },
+  ]);
   mockTransaction.mockClear();
 });
 
@@ -129,6 +136,7 @@ describe("agregarItemLibreCotizacionAction", () => {
         descripcion: "Bujía importada",
         cantidad: 1,
         precioUnitario: 0,
+        ivaPct: 19,
       },
       select: { id: true },
     });
@@ -178,6 +186,24 @@ describe("actualizarItemCotizacionAction", () => {
 
     expect(result.error).toBeNull();
     expect(mockItemUpdateTx).toHaveBeenCalledWith({ where: { id: "i3" }, data: { tipo: "MANO_OBRA" } });
+  });
+
+  it("cambia el IVA de la línea a otra tarifa activa", async () => {
+    mockItemFindFirst.mockResolvedValue({ id: "i1", repuestoId: "r1", grupoKitId: null, ivaPct: "19" });
+
+    const result = await actualizarItemCotizacionAction("q1", "i1", { ivaPct: 0 });
+
+    expect(result.error).toBeNull();
+    expect(mockItemUpdateTx).toHaveBeenCalledWith({ where: { id: "i1" }, data: { ivaPct: 0 } });
+  });
+
+  it("no acepta un IVA que no es una tarifa activa", async () => {
+    mockItemFindFirst.mockResolvedValue({ id: "i1", repuestoId: "r1", grupoKitId: null, ivaPct: "19" });
+
+    const result = await actualizarItemCotizacionAction("q1", "i1", { ivaPct: 7 });
+
+    expect(result.error).toMatch(/no está activa/);
+    expect(mockTransaction).not.toHaveBeenCalled();
   });
 
   it("rechaza una cantidad en cero o sin cambios", async () => {

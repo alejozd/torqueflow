@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { puede, requirePermiso } from "@/lib/auth/guards";
+import { leerIvaPct, resolverIvaPct } from "@/lib/iva/resolver";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { roundMoney } from "@/lib/money/round";
@@ -33,6 +34,8 @@ export interface ServicioVista {
   nombre: string;
   descripcion: string | null;
   precioManoObra: number;
+  /** Tarifa de IVA de la mano de obra del servicio. */
+  ivaPct: number;
   activo: boolean;
   repuestos: ServicioRepuestoVista[];
   /** Mano de obra + repuestos del kit a precio de venta actual. */
@@ -93,7 +96,12 @@ function revalidar() {
 type ServicioAplicable = {
   id: string;
   nombre: string;
-  repuestos: { cantidad: number; repuesto: { id: string; nombre: string; precioVenta: Prisma.Decimal } }[];
+  /** IVA de la mano de obra del servicio. */
+  ivaPct: Prisma.Decimal;
+  repuestos: {
+    cantidad: number;
+    repuesto: { id: string; nombre: string; precioVenta: Prisma.Decimal; ivaPct: Prisma.Decimal };
+  }[];
 };
 
 type ResultadoServicioAplicable =
@@ -112,9 +120,10 @@ async function cargarServicioAplicable(
       activo: true,
       nombre: true,
       precioManoObra: true,
+      ivaPct: true,
       repuestos: {
         where: { repuesto: scopeRepuesto(sedeActivaId) },
-        select: { cantidad: true, repuesto: { select: { id: true, nombre: true, precioVenta: true } } },
+        select: { cantidad: true, repuesto: { select: { id: true, nombre: true, precioVenta: true, ivaPct: true } } },
       },
     },
   });
@@ -169,6 +178,7 @@ export async function listServicios(opciones: { soloActivos?: boolean } = {}): P
       nombre: true,
       descripcion: true,
       precioManoObra: true,
+      ivaPct: true,
       activo: true,
       repuestos: {
         where: soloActivos ? { repuesto: scopeRepuesto(session.user.sedeActivaId) } : {},
@@ -196,6 +206,7 @@ export async function listServicios(opciones: { soloActivos?: boolean } = {}): P
       nombre: fila.nombre,
       descripcion: fila.descripcion,
       precioManoObra,
+      ivaPct: Number(fila.ivaPct),
       activo: fila.activo,
       repuestos,
       totalEstimado: roundMoney(
@@ -218,6 +229,8 @@ export async function crearServicioAction(
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
 
   const tenantDb = getTenantDb(session.user.tenantSchema);
+  const iva = await resolverIvaPct(tenantDb, leerIvaPct(formData.get("ivaPct")));
+  if (!iva.ok) return { error: iva.error, success: false };
   try {
     if (await existeNombre(tenantDb, parsed.data.nombre)) return { error: MENSAJE_DUPLICADO, success: false };
     await tenantDb.servicio.create({
@@ -225,6 +238,7 @@ export async function crearServicioAction(
         nombre: parsed.data.nombre,
         descripcion: parsed.data.descripcion,
         precioManoObra: parsed.data.precioManoObra,
+        ivaPct: iva.ivaPct,
       },
     });
   } catch (err) {
@@ -248,6 +262,15 @@ export async function actualizarServicioAction(
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos", success: false };
 
   const tenantDb = getTenantDb(session.user.tenantSchema);
+  // Sin el campo el IVA no se toca; con él se valida, salvo que sea el que ya tenía.
+  const ivaPedido = leerIvaPct(formData.get("ivaPct"));
+  let ivaPct: number | undefined;
+  if (ivaPedido !== undefined) {
+    const actual = await tenantDb.servicio.findUnique({ where: { id: servicioId }, select: { ivaPct: true } });
+    const iva = await resolverIvaPct(tenantDb, ivaPedido, actual ? Number(actual.ivaPct) : undefined);
+    if (!iva.ok) return { error: iva.error, success: false };
+    ivaPct = iva.ivaPct;
+  }
   try {
     if (await existeNombre(tenantDb, parsed.data.nombre, servicioId)) return { error: MENSAJE_DUPLICADO, success: false };
     await tenantDb.servicio.update({
@@ -256,6 +279,7 @@ export async function actualizarServicioAction(
         nombre: parsed.data.nombre,
         descripcion: parsed.data.descripcion,
         precioManoObra: parsed.data.precioManoObra,
+        ...(ivaPct !== undefined ? { ivaPct } : {}),
       },
     });
   } catch (err) {
@@ -425,7 +449,7 @@ export async function aplicarServicioAOrdenAction(
     await tenantDb.$transaction(async (tx) => {
       if (conManoDeObra) {
         await tx.manoDeObra.create({
-          data: { ordenId, descripcion: servicio.nombre, valor, mecanicoId, ...grupo },
+          data: { ordenId, descripcion: servicio.nombre, valor, mecanicoId, ivaPct: servicio.ivaPct, ...grupo },
         });
       }
       for (const linea of servicio.repuestos) {
@@ -436,6 +460,7 @@ export async function aplicarServicioAOrdenAction(
             descripcion: linea.repuesto.nombre,
             cantidad: linea.cantidad,
             precioUnitario: linea.repuesto.precioVenta,
+            ivaPct: linea.repuesto.ivaPct,
             ...grupo,
           },
         });
@@ -508,6 +533,7 @@ export async function aplicarServicioACotizacionAction(
             descripcion: servicio.nombre,
             cantidad: 1,
             precioUnitario: valor,
+            ivaPct: servicio.ivaPct,
             ...grupo,
           },
         });
@@ -521,6 +547,7 @@ export async function aplicarServicioACotizacionAction(
             descripcion: linea.repuesto.nombre,
             cantidad: linea.cantidad,
             precioUnitario: linea.repuesto.precioVenta,
+            ivaPct: linea.repuesto.ivaPct,
             ...grupo,
           },
         });

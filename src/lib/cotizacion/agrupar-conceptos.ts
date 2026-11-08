@@ -10,6 +10,8 @@ export interface ConceptoVista {
   codigo: string | null;
   cantidad: number;
   precioUnitario: number;
+  /** Copia del IVA de la línea (19, 5, 0…). */
+  ivaPct: number;
   /** Precio de venta actual del repuesto; null en mano de obra e ítems libres. */
   precioCatalogo: number | null;
   /** Existencia en la bodega del repuesto; null si no viene del inventario. */
@@ -95,6 +97,7 @@ export interface ItemCotizacionConRepuesto {
   repuestoId: string | null;
   cantidad: unknown;
   precioUnitario: unknown;
+  ivaPct: unknown;
   grupoKitId: string | null;
   grupoKitNombre: string | null;
   repuesto: { codigo: string; precioVenta: unknown; stockActual: number } | null;
@@ -110,6 +113,7 @@ export function conceptosDesdeItems(items: ItemCotizacionConRepuesto[]): Concept
     codigo: item.repuesto?.codigo ?? null,
     cantidad: Number(item.cantidad),
     precioUnitario: Number(item.precioUnitario),
+    ivaPct: Number(item.ivaPct),
     precioCatalogo: item.repuesto ? Number(item.repuesto.precioVenta) : null,
     stockActual: item.repuesto ? item.repuesto.stockActual : null,
     grupoKitId: item.grupoKitId,

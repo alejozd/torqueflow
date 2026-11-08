@@ -194,6 +194,7 @@ describe("crearFacturaAction", () => {
         subtotal: 127.8,
         descuento: 0,
         iva: 24.28,
+        desgloseIva: [{ ivaPct: 19, base: 127.8, iva: 24.28 }],
         total: 152.08,
         saldoPendiente: 152.08,
         emitidaPorId: "u1",

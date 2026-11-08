@@ -16,6 +16,12 @@ vi.mock("@/lib/db/tenant-client", () => ({
     manoDeObra: { create: mockCreate, deleteMany: mockDeleteMany },
     ordenTrabajo: { findFirst: mockOrdenFindFirst },
     usuario: { findFirst: mockUsuarioFindFirst },
+    tarifaIva: {
+      findMany: async () => [
+        { porcentaje: "0", predeterminada: false },
+        { porcentaje: "19", predeterminada: true },
+      ],
+    },
   }),
 }));
 
@@ -69,7 +75,7 @@ describe("addManoDeObraAction", () => {
 
     expect(result).toEqual({ error: null, success: true });
     expect(mockCreate).toHaveBeenCalledWith({
-      data: { ordenId: "o1", descripcion: "Cambio de pastillas de freno", valor: 30000, mecanicoId: null },
+      data: { ordenId: "o1", descripcion: "Cambio de pastillas de freno", valor: 30000, mecanicoId: null, ivaPct: 19 },
     });
     expect(mockUsuarioFindFirst).not.toHaveBeenCalled();
   });
@@ -89,7 +95,7 @@ describe("addManoDeObraAction", () => {
       select: { id: true },
     });
     expect(mockCreate).toHaveBeenCalledWith({
-      data: { ordenId: "o1", descripcion: "Cambio de pastillas de freno", valor: 30000, mecanicoId: "t1" },
+      data: { ordenId: "o1", descripcion: "Cambio de pastillas de freno", valor: 30000, mecanicoId: "t1", ivaPct: 19 },
     });
   });
 

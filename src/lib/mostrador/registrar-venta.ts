@@ -18,11 +18,17 @@ export class ErrorSinStock extends Error {
 export interface VentaParaRegistrar {
   sedeId: string;
   clienteId: string | null;
-  totales: { subtotal: number; descuento: number; iva: number; total: number };
+  totales: {
+    subtotal: number;
+    descuento: number;
+    iva: number;
+    desgloseIva: { ivaPct: number; base: number; iva: number }[];
+    total: number;
+  };
   saldo: number;
   vueltas: number;
   recibidoEfectivo: number | null;
-  lineas: { repuestoId?: string; descripcion: string; cantidad: number; precioUnitario: number }[];
+  lineas: { repuestoId?: string; descripcion: string; cantidad: number; precioUnitario: number; ivaPct: number }[];
   pagos: PagoEntrada[];
   creadoPorId: string;
 }
@@ -63,6 +69,7 @@ export async function registrarVentaEnTransaccion(
       subtotal: venta.totales.subtotal,
       descuento: venta.totales.descuento,
       iva: venta.totales.iva,
+      desgloseIva: venta.totales.desgloseIva.map((tramo) => ({ ...tramo })),
       total: venta.totales.total,
       saldoPendiente: venta.saldo,
       recibidoEfectivo: venta.recibidoEfectivo,
@@ -76,6 +83,7 @@ export async function registrarVentaEnTransaccion(
           descripcion: linea.descripcion,
           cantidad: linea.cantidad,
           precioUnitario: linea.precioUnitario,
+          ivaPct: linea.ivaPct,
           ...tiempos,
         })),
       },

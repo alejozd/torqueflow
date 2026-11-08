@@ -36,6 +36,8 @@ export function BuscadorConceptos<R, S>({
   inputRef,
   onFlechaAbajo,
   alEnterSinResultados,
+  destacado = false,
+  listaAlEnfocar = true,
 }: {
   buscar: (texto: string) => Promise<R>;
   vacio: R;
@@ -54,6 +56,13 @@ export function BuscadorConceptos<R, S>({
    * mensaje a anunciar si no. Sin esta prop el comportamiento no cambia.
    */
   alEnterSinResultados?: (texto: string) => Promise<string | null>;
+  /** Más alto y con borde de color: donde el buscador es la acción principal (la cotización). */
+  destacado?: boolean;
+  /**
+   * Con false, tomar el foco (p. ej. el foco automático al abrir la página) no
+   * despliega las sugerencias: se abren al hacer clic o al escribir.
+   */
+  listaAlEnfocar?: boolean;
 }) {
   const [texto, setTexto] = useState("");
   const [abierto, setAbierto] = useState(false);
@@ -207,11 +216,18 @@ export function BuscadorConceptos<R, S>({
 
   return (
     <div className="relative">
-      <div className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 px-3 focus-within:border-ring focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/30">
+      <div
+        className={cn(
+          "flex items-center gap-2 rounded-lg px-3 focus-within:bg-background focus-within:ring-2",
+          destacado
+            ? "border-2 border-primary/60 bg-primary/5 shadow-sm focus-within:border-primary focus-within:ring-primary/25"
+            : "border border-dashed border-border bg-muted/30 focus-within:border-ring focus-within:ring-ring/30",
+        )}
+      >
         {ocupado ? (
-          <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />
+          <Loader2 className={cn("shrink-0 animate-spin text-muted-foreground", destacado ? "size-5" : "size-4")} aria-hidden />
         ) : (
-          <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <Search className={cn("shrink-0", destacado ? "size-5 text-primary" : "size-4 text-muted-foreground")} aria-hidden />
         )}
         <input
           ref={inputRef}
@@ -230,10 +246,16 @@ export function BuscadorConceptos<R, S>({
             setAbierto(true);
             limpiarAviso();
           }}
-          onFocus={() => setAbierto(true)}
+          onFocus={() => {
+            if (listaAlEnfocar || texto.trim() !== "") setAbierto(true);
+          }}
+          onClick={() => setAbierto(true)}
           onBlur={() => setAbierto(false)}
           onKeyDown={onKeyDown}
-          className="h-10 w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          className={cn(
+            "w-full min-w-0 bg-transparent outline-none placeholder:text-muted-foreground",
+            destacado ? "h-12 text-base" : "h-10 text-sm",
+          )}
         />
       </div>
 

@@ -6,6 +6,8 @@ import { requirePermiso } from "@/lib/auth/guards";
 import type { EstadoCotizacion } from "@/generated/prisma-tenant";
 import { agruparConceptos, conceptosDesdeItems, importeConcepto, type ConceptoVista } from "@/lib/cotizacion/agrupar-conceptos";
 import { etiquetaDescuento, porcentajeVisible } from "@/lib/cotizacion/totales";
+import { desglosarIva, etiquetaTramoIva } from "@/lib/iva/desglose";
+import { textoPorcentaje } from "@/lib/iva/tarifas";
 import { ImprimirButton } from "./imprimir-button";
 
 // Same BORRADOR/ENVIADA/APROBADA/RECHAZADA/VENCIDA convention as
@@ -35,6 +37,7 @@ function FilaConcepto({ concepto, dentroDeKit }: { concepto: ConceptoVista; dent
       <td className={dentroDeKit ? "py-1 pr-2 pl-5 text-black/80" : "py-1.5 pr-2"}>{concepto.descripcion}</td>
       <td className="py-1.5 pr-2">{concepto.tipo === "REPUESTO" ? "Repuesto" : "Mano de obra"}</td>
       <td className="py-1.5 pr-2 text-right">{formatoCantidad.format(concepto.cantidad)}</td>
+      <td className="py-1.5 pr-2 text-right">{textoPorcentaje(concepto.ivaPct)}</td>
       <td className="py-1.5 pr-2 text-right">{formatoMoneda.format(concepto.precioUnitario)}</td>
       <td className={dentroDeKit ? "py-1.5 text-right text-black/70" : "py-1.5 text-right"}>
         {formatoMoneda.format(importeConcepto(concepto))}
@@ -55,8 +58,13 @@ export default async function ImprimirCotizacionPage({ params }: { params: Promi
 
   // Cada kit sale con su nombre y subtotal como título y sus partes debajo,
   // para que el cliente vea el desglose sin perder que es un solo trabajo.
-  const bloques = agruparConceptos(conceptosDesdeItems(cotizacion.items));
+  const conceptos = conceptosDesdeItems(cotizacion.items);
+  const bloques = agruparConceptos(conceptos);
   const descuento = Number(cotizacion.descuento);
+  const { tramos } = desglosarIva(
+    conceptos.map((concepto) => ({ importe: importeConcepto(concepto), ivaPct: concepto.ivaPct })),
+    descuento,
+  );
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-8 text-black">
@@ -102,6 +110,7 @@ export default async function ImprimirCotizacionPage({ params }: { params: Promi
               <th className="py-1.5 pr-2">Concepto</th>
               <th className="py-1.5 pr-2">Tipo</th>
               <th className="py-1.5 pr-2 text-right">Cant.</th>
+              <th className="py-1.5 pr-2 text-right">IVA</th>
               <th className="py-1.5 pr-2 text-right">Precio unit.</th>
               <th className="py-1.5 text-right">Importe</th>
             </tr>
@@ -109,7 +118,7 @@ export default async function ImprimirCotizacionPage({ params }: { params: Promi
           <tbody>
             {bloques.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-3 text-center text-black/60">
+                <td colSpan={6} className="py-3 text-center text-black/60">
                   Esta cotización no tiene conceptos agregados.
                 </td>
               </tr>
@@ -120,7 +129,7 @@ export default async function ImprimirCotizacionPage({ params }: { params: Promi
                 ) : (
                   <Fragment key={bloque.grupoKitId}>
                     <tr className="border-b border-black/20 bg-black/[0.04] break-after-avoid">
-                      <td colSpan={4} className="py-1.5 pr-2 font-semibold">
+                      <td colSpan={5} className="py-1.5 pr-2 font-semibold">
                         {bloque.nombre}
                         <span className="ml-2 text-xs font-normal text-black/60">
                           {bloque.conceptos.length === 1 ? "1 concepto" : `${bloque.conceptos.length} conceptos`}
@@ -152,10 +161,21 @@ export default async function ImprimirCotizacionPage({ params }: { params: Promi
             <span>−{formatoMoneda.format(descuento)}</span>
           </div>
         ) : null}
-        <div className="flex justify-between">
-          <span className="text-black/70">IVA (19%)</span>
-          <span>{formatoMoneda.format(Number(cotizacion.iva))}</span>
-        </div>
+        {tramos.length === 0 ? (
+          <div className="flex justify-between">
+            <span className="text-black/70">IVA</span>
+            <span>{formatoMoneda.format(Number(cotizacion.iva))}</span>
+          </div>
+        ) : (
+          tramos.map((tramo) => (
+            <div key={tramo.ivaPct} className="flex justify-between gap-3">
+              <span className="text-black/70">
+                {etiquetaTramoIva(tramo)} sobre {formatoMoneda.format(tramo.base)}
+              </span>
+              <span>{formatoMoneda.format(tramo.iva)}</span>
+            </div>
+          ))
+        )}
         <div className="mt-1 flex justify-between border-t border-black/40 pt-1.5 font-semibold">
           <span>Total</span>
           <span>{formatoMoneda.format(Number(cotizacion.total))}</span>

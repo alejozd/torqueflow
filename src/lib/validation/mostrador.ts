@@ -25,6 +25,8 @@ export const lineaVentaSchema = z.object({
     (valor) => valor <= MONTO_MAXIMO_VENTA,
     "El precio es demasiado alto",
   ),
+  /** IVA elegido en el carrito; el servidor lo valida contra las tarifas activas. */
+  ivaPct: z.coerce.number().min(0).max(100).optional(),
 });
 
 /** Dinero con centavos a lo sumo: evita montos como 10.005 que se redondean distinto. */

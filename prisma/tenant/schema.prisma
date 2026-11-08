@@ -377,6 +377,8 @@ model ItemOrden {
   descripcion    String
   cantidad       Int
   precioUnitario Decimal      @map("precio_unitario") @db.Decimal(10, 2)
+  /// Copia del porcentaje de IVA de la línea (no una referencia a la tarifa).
+  ivaPct         Decimal      @default(19) @map("iva_pct") @db.Decimal(5, 2)
   /// Mismo agrupado de kit que ItemCotizacion (se copia al aprobar).
   grupoKitId     String?      @map("grupo_kit_id")
   grupoKitNombre String?      @map("grupo_kit_nombre")
@@ -397,6 +399,8 @@ model ManoDeObra {
   orden       OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
   descripcion String
   valor       Decimal      @db.Decimal(10, 2)
+  /// Copia del porcentaje de IVA de la línea (no una referencia a la tarifa).
+  ivaPct      Decimal      @default(19) @map("iva_pct") @db.Decimal(5, 2)
   // Distinto del mecanicoId de la orden (OrdenTrabajo.mecanicoId): cada tarea
   // puede quedar en manos de un técnico distinto al mecánico asignado en la
   // cabecera (p.ej. pastillas vs. correa de repartición).
@@ -500,6 +504,8 @@ model Repuesto {
   descripcion          String?
   precioCompra         Decimal                @map("precio_compra") @db.Decimal(10, 2)
   precioVenta          Decimal                @map("precio_venta") @db.Decimal(10, 2)
+  /// Tarifa de IVA con que entra el repuesto a una línea (copia del porcentaje, ver TarifaIva).
+  ivaPct               Decimal                @default(19) @map("iva_pct") @db.Decimal(5, 2)
   stockActual          Int                    @default(0) @map("stock_actual")
   stockMinimo          Int                    @default(0) @map("stock_minimo")
   /// Hasta dónde reponer al pedir; sin valor, las alertas usan 2 × stockMinimo.
@@ -586,6 +592,8 @@ model Factura {
   subtotal       Decimal       @db.Decimal(10, 2)
   descuento      Decimal       @default(0) @db.Decimal(10, 2)
   iva            Decimal       @db.Decimal(10, 2)
+  /// IVA por tarifa al emitir ([{ ivaPct, base, iva }]): no cambia si después se edita la orden.
+  desgloseIva    Json          @default("[]") @map("desglose_iva")
   total          Decimal       @db.Decimal(10, 2)
   saldoPendiente Decimal       @map("saldo_pendiente") @db.Decimal(10, 2)
   emitidaPorId   String        @map("emitida_por_id")
@@ -790,6 +798,8 @@ model ItemCotizacion {
   descripcion    String
   cantidad       Decimal            @db.Decimal(6, 2)
   precioUnitario Decimal            @map("precio_unitario") @db.Decimal(10, 2)
+  /// Copia del porcentaje de IVA de la línea (no una referencia a la tarifa).
+  ivaPct         Decimal            @default(19) @map("iva_pct") @db.Decimal(5, 2)
   /// Kit del que salió la fila: un id por cada vez que se aplica un servicio
   /// (el mismo kit dos veces da dos grupos) y una copia del nombre, para que
   /// renombrar o borrar el servicio no altere cotizaciones ya hechas.
@@ -1065,6 +1075,8 @@ model Servicio {
   nombre         String              @unique
   descripcion    String?
   precioManoObra Decimal             @map("precio_mano_obra") @db.Decimal(10, 2)
+  /// Tarifa de IVA de la mano de obra del servicio; sus repuestos usan la de cada repuesto.
+  ivaPct         Decimal             @default(19) @map("iva_pct") @db.Decimal(5, 2)
   activo         Boolean             @default(true)
   repuestos      ServicioRepuesto[]
   itemsCotizacion ItemCotizacion[]
@@ -1294,6 +1306,8 @@ model VentaMostrador {
   subtotal       Decimal       @db.Decimal(10, 2)
   descuento      Decimal       @default(0) @db.Decimal(10, 2)
   iva            Decimal       @db.Decimal(10, 2)
+  /// IVA por tarifa al vender ([{ ivaPct, base, iva }]), igual que en la factura.
+  desgloseIva    Json          @default("[]") @map("desglose_iva")
   total          Decimal       @db.Decimal(10, 2)
   saldoPendiente Decimal       @map("saldo_pendiente") @db.Decimal(10, 2)
   /// Lo que entregó el cliente en efectivo (null si no se anotó); los pagos quedan netos.
@@ -1323,6 +1337,8 @@ model VentaMostradorItem {
   cantidad       Int
   /// Precio copiado al vender: cambiar el precio del repuesto no reescribe la venta.
   precioUnitario Decimal        @map("precio_unitario") @db.Decimal(10, 2)
+  /// Copia del porcentaje de IVA de la línea (no una referencia a la tarifa).
+  ivaPct         Decimal        @default(19) @map("iva_pct") @db.Decimal(5, 2)
   devueltoCantidad Int          @default(0) @map("devuelto_cantidad")
   devoluciones   DevolucionMostradorItem[]
   createdAt      DateTime       @default(now()) @map("created_at")
@@ -1428,4 +1444,21 @@ model PagoProveedor {
 
   @@index([cuentaId])
   @@map("pagos_proveedor")
+}
+
+/// Tarifas de IVA que el taller puede elegir en cada línea (cotización, orden,
+/// mostrador). Los documentos guardan una COPIA del porcentaje, no una
+/// referencia: desactivar o renombrar una tarifa no altera lo ya hecho, y por
+/// eso el porcentaje no se edita después de creada. Exactamente una
+/// predeterminada (activa); la regla se cuida en las acciones.
+model TarifaIva {
+  id             String   @id @default(cuid())
+  porcentaje     Decimal  @unique @db.Decimal(5, 2)
+  nombre         String
+  activa         Boolean  @default(true)
+  predeterminada Boolean  @default(false)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("tarifas_iva")
 }

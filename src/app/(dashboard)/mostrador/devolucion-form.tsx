@@ -33,7 +33,7 @@ const METODOS = [
 
 export type VentaDevolvible = Pick<
   VentaMostradorFila,
-  "id" | "subtotal" | "total" | "saldoPendiente" | "totalDevuelto" | "items"
+  "id" | "subtotal" | "descuento" | "total" | "saldoPendiente" | "totalDevuelto" | "items"
 >;
 
 /**
@@ -86,8 +86,8 @@ export function DevolucionForm({ venta, onExito }: { venta: VentaDevolvible; onE
     venta.total,
     venta.totalDevuelto,
     totalDevolucion(
-      devolvibles.map((item) => ({ cantidad: cantidades[item.id] ?? 0, precioUnitario: item.precioUnitario })),
-      { subtotal: venta.subtotal, total: venta.total },
+      devolvibles.map((item) => ({ cantidad: cantidades[item.id] ?? 0, precioUnitario: item.precioUnitario, ivaPct: item.ivaPct })),
+      { subtotal: venta.subtotal, descuento: venta.descuento },
     ),
   );
   const { aCuenta, enEfectivo } = repartoDevolucion(valor, venta.saldoPendiente);

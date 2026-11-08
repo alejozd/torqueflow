@@ -22,7 +22,9 @@ import {
 import { estadoDisponibilidad } from "@/lib/cotizacion/disponibilidad";
 import { mensajeServicioAplicado } from "@/lib/servicio/mensaje-aplicado";
 import type { ActualizarItemCotizacionInput } from "@/lib/validation/cotizacion";
+import { textoPorcentaje } from "@/lib/iva/tarifas";
 import { QuitarConConfirmacion } from "@/components/quitar-con-confirmacion";
+import { SelectorIva } from "@/components/selector-iva";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { BuscadorConceptos, type SeleccionBuscador } from "./buscador-conceptos";
@@ -58,6 +60,14 @@ export function TablaConceptos({
   const [destello, setDestello] = useState<string | null>(null);
 
   const bloques = useMemo(() => agruparConceptos(conceptos), [conceptos]);
+
+  // Cotización vacía: lo primero que se hace es buscar, así que el cursor arranca ahí.
+  const vacia = conceptos.length === 0;
+  useEffect(() => {
+    if (puedeEditar && vacia) buscadorRef.current?.focus();
+    // Solo al montar: no robar el foco después de quitar la última línea.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const conteo = contarConceptos(conceptos);
 
   // Los kits llegan cerrados; uno recién aplicado se abre para ver sus partes.
@@ -256,6 +266,22 @@ export function TablaConceptos({
             <p className="text-right font-mono text-sm">{formatoUnidades(concepto.cantidad)}</p>
           )}
         </td>
+        <td className="py-2 pr-1 align-middle">
+          {puedeEditar ? (
+            <SelectorIva
+              compacto
+              size="sm"
+              etiqueta={`IVA de ${concepto.descripcion}`}
+              value={concepto.ivaPct}
+              onChange={(ivaPct) => {
+                if (ivaPct !== concepto.ivaPct) void guardar(concepto, { ivaPct });
+              }}
+              className="w-full px-1.5 font-mono text-xs"
+            />
+          ) : (
+            <p className="text-center font-mono text-sm text-muted-foreground">{textoPorcentaje(concepto.ivaPct)}</p>
+          )}
+        </td>
         <td className="py-2 pr-2 align-middle">
           {puedeEditar ? (
             <div className="flex items-center justify-end gap-0.5">
@@ -307,13 +333,23 @@ export function TablaConceptos({
 
   return (
     <div className="flex flex-col gap-3">
+      {puedeEditar ? (
+        <div className="flex flex-col gap-1.5">
+          <BuscadorConceptos ref={buscadorRef} onSeleccionar={agregar} ocupado={agregando} />
+          <p className="px-1 text-xs text-muted-foreground">
+            Escribe el nombre o el código y pulsa Enter. Lo que no esté en el catálogo se agrega como concepto libre.
+          </p>
+        </div>
+      ) : null}
+
       <div className="overflow-x-auto rounded-lg border border-border">
         {/* Anchos fijos para que el importe nunca se salga: el concepto toma lo que sobre. */}
-        <table className="w-full min-w-[540px] table-fixed border-collapse text-sm">
+        <table className="w-full min-w-[620px] table-fixed border-collapse text-sm">
           <colgroup>
             <col />
             <col className="w-[88px]" />
             <col className="w-[72px] pointer-coarse:w-[124px]" />
+            <col className="w-[84px]" />
             <col className="w-[120px]" />
             <col className="w-[108px]" />
             {puedeEditar ? <col className="w-10" /> : null}
@@ -325,6 +361,7 @@ export function TablaConceptos({
                 Stock
               </th>
               <th className="py-2 pr-1 text-center font-semibold">Cant.</th>
+              <th className="py-2 pr-1 text-center font-semibold">IVA</th>
               <th className="py-2 pr-2 text-right font-semibold">Precio unit.</th>
               <th className="py-2 pr-2 text-right font-semibold">Importe</th>
               {puedeEditar ? <th aria-label="Acciones" /> : null}
@@ -333,9 +370,9 @@ export function TablaConceptos({
           <tbody>
             {bloques.length === 0 ? (
               <tr>
-                <td colSpan={puedeEditar ? 6 : 5} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                <td colSpan={puedeEditar ? 7 : 6} className="px-3 py-8 text-center text-sm text-muted-foreground">
                   {puedeEditar
-                    ? "Aún no hay conceptos. Búscalos abajo por nombre o código."
+                    ? "Aún no hay conceptos. Búscalos arriba por nombre o código."
                     : "Esta cotización no tiene conceptos."}
                 </td>
               </tr>
@@ -368,7 +405,7 @@ export function TablaConceptos({
                         </span>
                       </button>
                     </td>
-                    <td colSpan={3} className="py-2 pr-2 align-middle">
+                    <td colSpan={4} className="py-2 pr-2 align-middle">
                       {bloque.sinExistencia > 0 ? (
                         <span className="flex items-center gap-1.5 text-xs leading-tight text-[oklch(0.55_0.15_60)]">
                           <span className="size-1.5 shrink-0 rounded-full bg-[oklch(0.7_0.15_60)]" />
@@ -403,8 +440,6 @@ export function TablaConceptos({
           </tbody>
         </table>
       </div>
-
-      {puedeEditar ? <BuscadorConceptos ref={buscadorRef} onSeleccionar={agregar} ocupado={agregando} /> : null}
 
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">

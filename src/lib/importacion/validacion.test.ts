@@ -227,6 +227,7 @@ describe("validarRepuestos", () => {
       descripcion: null,
       precioCompra: 12500.5,
       precioVenta: 25000,
+      ivaPct: 19,
       stockMinimo: 0,
       stockMaximo: null,
       multiploCompra: 1,
@@ -345,5 +346,28 @@ describe("validarServicios", () => {
       motivo: "El nombre admite máximo 80 caracteres",
       tipo: "rechazada",
     });
+  });
+});
+
+describe("validarRepuestos — columna IVA %", () => {
+  const opciones = { bodegaId: "b1", proveedorId: null, tarifasIva: { activas: [0, 19], predeterminada: 19 } };
+  const cabeceras = ["Código", "Nombre", "Precio compra", "Precio venta", "IVA %"];
+
+  it("usa el IVA escrito si es una tarifa activa y la predeterminada si viene vacío", () => {
+    const { validas, rechazos } = validarRepuestos(
+      leer("Repuestos", [cabeceras, ["A-1", "Aceite", "10.000", "20.000", "0"], ["B-1", "Filtro", "10.000", "20.000", ""]]),
+      opciones,
+    );
+    expect(rechazos).toEqual([]);
+    expect(validas.map((fila) => fila.ivaPct)).toEqual([0, 19]);
+  });
+
+  it("rechaza la fila si el IVA no es una tarifa activa", () => {
+    const { validas, rechazos } = validarRepuestos(
+      leer("Repuestos", [cabeceras, ["A-1", "Aceite", "10.000", "20.000", "5"]]),
+      opciones,
+    );
+    expect(validas).toEqual([]);
+    expect(rechazos[0]?.columna).toBe("IVA %");
   });
 });
