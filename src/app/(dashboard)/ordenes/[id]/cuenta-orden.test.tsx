@@ -5,7 +5,7 @@ vi.mock("./generar-factura-form", () => ({ GenerarFacturaForm: () => <button typ
 
 import { CuentaOrden } from "./cuenta-orden";
 
-const BASE = { ordenId: "o1", repuestos: 149401, manoDeObra: 250000, total: 399401, factura: null };
+const BASE = { ordenId: "o1", repuestos: 149401, manoDeObra: 250000, desgloseIva: [], total: 399401, factura: null };
 
 describe("CuentaOrden", () => {
   it("resta los anticipos y muestra el saldo por cobrar", () => {
@@ -16,6 +16,24 @@ describe("CuentaOrden", () => {
   it("si los anticipos pasan el total, el saldo es a favor del cliente", () => {
     render(<CuentaOrden {...BASE} estado="BORRADOR" anticipos={500000} />);
     expect(screen.getByText("Saldo a favor del cliente").nextSibling).toHaveTextContent("100.599");
+  });
+
+  it("muestra el IVA de cada tarifa y el total con IVA", () => {
+    render(
+      <CuentaOrden
+        {...BASE}
+        estado="EN_PROCESO"
+        anticipos={0}
+        desgloseIva={[
+          { ivaPct: 19, base: 100000, iva: 19000 },
+          { ivaPct: 0, base: 50000, iva: 0 },
+        ]}
+        total={169000}
+      />,
+    );
+    expect(screen.getByText("IVA 19 %")).toBeInTheDocument();
+    expect(screen.getByText("Exento")).toBeInTheDocument();
+    expect(screen.getByText("Total con IVA").nextSibling).toHaveTextContent("169.000");
   });
 
   it("mientras se arma la orden, la factura espera a que termine", () => {

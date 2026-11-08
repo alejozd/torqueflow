@@ -52,7 +52,7 @@ const ORDEN_DETAIL_INCLUDE = {
   // ya-facturada orden shows the real invoiced amount (with descuento/iva
   // applied) instead of a recomputation from items/manoDeObra that would
   // drift from it.
-  factura: { select: { id: true, numero: true, total: true } },
+  factura: { select: { id: true, numero: true, total: true, descuento: true, desgloseIva: true } },
 } satisfies Prisma.OrdenTrabajoInclude;
 
 export type OrdenWithDetalle = Prisma.OrdenTrabajoGetPayload<{ include: typeof ORDEN_DETAIL_INCLUDE }>;

@@ -39,6 +39,8 @@ import { IvaLineaOrden } from "./iva-linea-orden";
 import type { ResultadoAccion } from "@/lib/resultado-accion";
 import type { DviChecklist } from "@/lib/dvi/checklist-items";
 import { totalOrden } from "@/lib/dashboard/calculos";
+import { computeFacturaTotales } from "@/lib/factura/totales";
+import { leerDesgloseGuardado } from "@/lib/iva/desglose";
 import { cn } from "@/lib/utils";
 import { resumirKitsDeOrden } from "@/lib/orden/kits-orden";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
@@ -262,6 +264,25 @@ export default async function OrdenDetailPage({
     items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
     manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor) })),
   });
+  // La cuenta con IVA: si ya hay factura, lo que quedó en ella; si no, el IVA de cada línea.
+  const cuenta = orden.factura
+    ? {
+        descuento: Number(orden.factura.descuento),
+        desgloseIva: leerDesgloseGuardado(orden.factura.desgloseIva),
+        total: Number(orden.factura.total),
+      }
+    : (() => {
+        const calculo = computeFacturaTotales({
+          items: orden.items.map((item) => ({
+            cantidad: item.cantidad,
+            precioUnitario: Number(item.precioUnitario),
+            ivaPct: Number(item.ivaPct),
+          })),
+          manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor), ivaPct: Number(linea.ivaPct) })),
+          descuento: 0,
+        });
+        return { descuento: 0, desgloseIva: calculo.desgloseIva, total: calculo.total };
+      })();
 
   return (
     <main className="flex flex-col gap-4">
@@ -630,7 +651,9 @@ export default async function OrdenDetailPage({
                 estado={orden.estado}
                 repuestos={repuestosTotal}
                 manoDeObra={manoObraTotal}
-                total={total}
+                descuento={cuenta.descuento}
+                desgloseIva={cuenta.desgloseIva}
+                total={cuenta.total}
                 anticipos={anticiposVigentes}
                 factura={orden.factura ? { id: orden.factura.id, numero: orden.factura.numero } : null}
               />

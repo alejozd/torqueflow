@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { desglosarIva, etiquetaTramoIva } from "./desglose";
+import { desglosarIva, etiquetaTramoIva, leerDesgloseGuardado } from "./desglose";
 
 describe("desglosarIva", () => {
   it("con una sola tarifa da lo mismo que (subtotal − descuento) × 19 %", () => {
@@ -34,5 +34,14 @@ describe("etiquetaTramoIva", () => {
   it("nombra el porcentaje o Exento", () => {
     expect(etiquetaTramoIva({ ivaPct: 19 })).toBe("IVA 19 %");
     expect(etiquetaTramoIva({ ivaPct: 0 })).toBe("Exento");
+  });
+});
+
+describe("leerDesgloseGuardado", () => {
+  it("convierte el JSON de la factura y descarta lo que no sirve", () => {
+    expect(leerDesgloseGuardado([{ ivaPct: 19, base: "1000.00", iva: 190 }, { ivaPct: "x" }, null])).toEqual([
+      { ivaPct: 19, base: 1000, iva: 190 },
+    ]);
+    expect(leerDesgloseGuardado("nada")).toEqual([]);
   });
 });

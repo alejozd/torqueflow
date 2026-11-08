@@ -9,8 +9,14 @@ export const ANTICIPO_CAMBIO = "ANTICIPO_CAMBIO";
 export interface OrdenParaFacturar {
   id: string;
   clienteId: string;
-  items: { repuestoId: string | null; cantidad: number; precioUnitario: number | { toString(): string } }[];
-  manoDeObra: { valor: number | { toString(): string } }[];
+  items: {
+    repuestoId: string | null;
+    cantidad: number;
+    precioUnitario: number | { toString(): string };
+    /** Sin valor, 19 % (como las líneas anteriores a las tarifas). */
+    ivaPct?: number | { toString(): string };
+  }[];
+  manoDeObra: { valor: number | { toString(): string }; ivaPct?: number | { toString(): string } }[];
 }
 
 /**
@@ -27,9 +33,16 @@ export async function emitirFacturaEnTransaccion(
   emitidaPorId: string,
   creadaAt?: Date,
 ): Promise<{ id: string; total: number; saldoPendiente: number }> {
-  const { subtotal, iva, total } = computeFacturaTotales({
-    items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
-    manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor) })),
+  const { subtotal, iva, desgloseIva, total } = computeFacturaTotales({
+    items: orden.items.map((item) => ({
+      cantidad: item.cantidad,
+      precioUnitario: Number(item.precioUnitario),
+      ivaPct: item.ivaPct === undefined ? undefined : Number(item.ivaPct),
+    })),
+    manoDeObra: orden.manoDeObra.map((linea) => ({
+      valor: Number(linea.valor),
+      ivaPct: linea.ivaPct === undefined ? undefined : Number(linea.ivaPct),
+    })),
     descuento,
   });
   if (descuento > subtotal) throw new Error("El descuento no puede ser mayor al subtotal");
@@ -48,6 +61,7 @@ export async function emitirFacturaEnTransaccion(
       subtotal,
       descuento,
       iva,
+      desgloseIva: desgloseIva.map((tramo) => ({ ...tramo })),
       total,
       saldoPendiente: total,
       emitidaPorId,

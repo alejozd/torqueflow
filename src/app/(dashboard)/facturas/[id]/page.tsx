@@ -10,6 +10,8 @@ import { KPI_TONE } from "@/components/ui/kpi-card";
 import { formatoFechaCorta } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
 import { requirePermiso } from "@/lib/auth/guards";
+import { etiquetaTramoIva, leerDesgloseGuardado } from "@/lib/iva/desglose";
+import { textoPorcentaje } from "@/lib/iva/tarifas";
 
 const METODO_PAGO_LABELS: Record<MetodoPago, string> = {
   EFECTIVO: "Efectivo",
@@ -61,6 +63,7 @@ type DetalleRow = {
   descripcion: string;
   cantidad: number | null;
   precioUnitario: number;
+  ivaPct: number;
   importe: number;
 };
 
@@ -71,6 +74,7 @@ function buildDetalleRows(factura: Factura): DetalleRow[] {
     descripcion: item.descripcion,
     cantidad: item.cantidad,
     precioUnitario: Number(item.precioUnitario),
+    ivaPct: Number(item.ivaPct),
     importe: item.cantidad * Number(item.precioUnitario),
   }));
   const manoDeObra: DetalleRow[] = factura.orden.manoDeObra.map((linea) => ({
@@ -79,6 +83,7 @@ function buildDetalleRows(factura: Factura): DetalleRow[] {
     descripcion: linea.descripcion,
     cantidad: null,
     precioUnitario: Number(linea.valor),
+    ivaPct: Number(linea.ivaPct),
     importe: Number(linea.valor),
   }));
   return [...items, ...manoDeObra];
@@ -108,6 +113,11 @@ const DETALLE_COLUMNS: DataTableColumn<DetalleRow>[] = [
     header: "Cant.",
     className: "text-right",
     cell: (row) => <span className="font-mono text-sm">{row.cantidad ?? "—"}</span>,
+  },
+  {
+    header: "IVA",
+    className: "text-right",
+    cell: (row) => <span className="font-mono text-sm text-muted-foreground">{textoPorcentaje(row.ivaPct)}</span>,
   },
   {
     header: "Precio unit.",
@@ -153,6 +163,8 @@ export default async function FacturaDetailPage({ params }: { params: Promise<{ 
   }
 
   const detalleRows = buildDetalleRows(factura);
+  // El desglose que quedó al emitir: no se recalcula aunque la orden cambie después.
+  const desgloseIva = leerDesgloseGuardado(factura.desgloseIva);
   const cobrado = Number(factura.total) - Number(factura.saldoPendiente);
   const saldoTone = Number(factura.saldoPendiente) > 0 ? KPI_TONE.warning : KPI_TONE.success;
 
@@ -284,10 +296,24 @@ export default async function FacturaDetailPage({ params }: { params: Promise<{ 
                 <span className="text-muted-foreground">Descuento</span>
                 <span className="font-mono">−{formatoMoneda.format(Number(factura.descuento))}</span>
               </div>
-              <div className="flex items-center justify-between py-1.5 text-sm">
-                <span className="text-muted-foreground">IVA (19%)</span>
-                <span className="font-mono">{formatoMoneda.format(Number(factura.iva))}</span>
-              </div>
+              {desgloseIva.length === 0 ? (
+                <div className="flex items-center justify-between py-1.5 text-sm">
+                  <span className="text-muted-foreground">IVA</span>
+                  <span className="font-mono">{formatoMoneda.format(Number(factura.iva))}</span>
+                </div>
+              ) : (
+                desgloseIva.map((tramo) => (
+                  <div key={tramo.ivaPct} className="flex items-center justify-between py-1.5 text-sm">
+                    <span className="text-muted-foreground">
+                      {etiquetaTramoIva(tramo)}
+                      <span className="block text-xs text-muted-foreground/80">
+                        sobre {formatoMoneda.format(tramo.base)}
+                      </span>
+                    </span>
+                    <span className="font-mono">{formatoMoneda.format(tramo.iva)}</span>
+                  </div>
+                ))
+              )}
               <div className="mt-1 flex items-baseline justify-between border-t border-border pt-2.5">
                 <span className="text-sm font-semibold">Total</span>
                 <span className="font-mono text-lg font-semibold">{formatoMoneda.format(Number(factura.total))}</span>

@@ -59,3 +59,15 @@ export function desglosarIva(
 export function etiquetaTramoIva(tramo: Pick<TramoIva, "ivaPct">): string {
   return tramo.ivaPct === 0 ? "Exento" : `IVA ${textoPorcentaje(tramo.ivaPct)}`;
 }
+
+/** Lee el desglose guardado en una factura (JSON); lo que no tenga la forma esperada se ignora. */
+export function leerDesgloseGuardado(valor: unknown): TramoIva[] {
+  if (!Array.isArray(valor)) return [];
+  return valor.flatMap((tramo) => {
+    if (typeof tramo !== "object" || tramo === null) return [];
+    const { ivaPct, base, iva } = tramo as Record<string, unknown>;
+    const numeros = [ivaPct, base, iva].map(Number);
+    if (numeros.some((n) => !Number.isFinite(n))) return [];
+    return [{ ivaPct: numeros[0], base: numeros[1], iva: numeros[2] }];
+  });
+}

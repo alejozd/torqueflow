@@ -592,6 +592,8 @@ model Factura {
   subtotal       Decimal       @db.Decimal(10, 2)
   descuento      Decimal       @default(0) @db.Decimal(10, 2)
   iva            Decimal       @db.Decimal(10, 2)
+  /// IVA por tarifa al emitir ([{ ivaPct, base, iva }]): no cambia si después se edita la orden.
+  desgloseIva    Json          @default("[]") @map("desglose_iva")
   total          Decimal       @db.Decimal(10, 2)
   saldoPendiente Decimal       @map("saldo_pendiente") @db.Decimal(10, 2)
   emitidaPorId   String        @map("emitida_por_id")

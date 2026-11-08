@@ -18,7 +18,7 @@ describe("calcularTotalesVenta", () => {
   });
 
   it("sin descuento y sin líneas da cero", () => {
-    expect(calcularTotalesVenta([], 0)).toEqual({ subtotal: 0, descuento: 0, iva: 0, total: 0 });
+    expect(calcularTotalesVenta([], 0)).toEqual({ subtotal: 0, descuento: 0, iva: 0, desgloseIva: [], total: 0 });
   });
 
   it("un descuento negativo se trata como cero", () => {
