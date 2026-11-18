@@ -52,6 +52,13 @@ vi.mock("@/lib/email/enviar-email", () => ({
 const mockRevalidatePath = vi.fn();
 vi.mock("next/cache", () => ({ revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args) }));
 
+// `after` corre después de responder: aquí se guarda el callback y el test lo corre a mano.
+const pendientesAfter: Array<() => unknown> = [];
+vi.mock("next/server", () => ({ after: (cb: () => unknown) => pendientesAfter.push(cb) }));
+async function correrAfter() {
+  while (pendientesAfter.length) await pendientesAfter.shift()!();
+}
+
 import { permisosEfectivos } from "@/lib/auth/permisos";
 import { cifrarSecreto } from "@/lib/crypto/secret-box";
 import {
@@ -62,6 +69,7 @@ import {
   getOrden,
   listTecnicos,
   updateEstadoOrdenAction,
+  avisarClienteEstadoOrdenAction,
   asignarMecanicoAction,
   cambiarPrioridadAction,
   type OrdenFormState,
@@ -223,6 +231,7 @@ describe("listOrdenes", () => {
     // ya-facturada orders without recomputing it from items/manoDeObra (which
     // would drift once descuento/iva are applied at facturación time).
     factura: { select: { id: true, numero: true, total: true, descuento: true } },
+    cotizacion: { select: { numero: true, descuentoTipo: true, descuentoPct: true, descuentoMonto: true } },
   };
 
   it("lists only órdenes of the sede activa", async () => {
@@ -470,103 +479,18 @@ describe("updateEstadoOrdenAction", () => {
     });
   });
 
-  it("sends a notification email and returns no advertencia when SMTP is configured and active", async () => {
+  it("cambia el estado sin enviar correo y devuelve el estado nuevo para que la ficha pregunte", async () => {
     mockOrdenFindFirst.mockResolvedValue({ ...ORDEN_BASE, estado: "BORRADOR" });
-    mockUpdate.mockResolvedValue({ id: "o1", estado: "EN_PROCESO" });
     mockConfiguracionSmtpFindUnique.mockResolvedValue(configSmtpActiva());
     const formData = new FormData();
     formData.set("estado", "EN_PROCESO");
 
     const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
+    await correrAfter();
 
-    expect(result).toEqual({ error: null, advertencia: null });
-    expect(mockEnviarEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ host: "smtp.taller.test" }),
-      expect.objectContaining({ para: "ana@cliente.test" }),
-    );
-    expect(mockNotificacionCreate).toHaveBeenCalledWith({
-      data: {
-        ordenId: "o1",
-        clienteId: "c1",
-        estado: "EN_PROCESO",
-        emailDestino: "ana@cliente.test",
-        resultado: "ENVIADA",
-      },
-    });
-  });
-
-  it("returns an advertencia and does not fail the estado change when SMTP is not configured", async () => {
-    mockOrdenFindFirst.mockResolvedValue({ ...ORDEN_BASE, estado: "BORRADOR" });
-    mockUpdate.mockResolvedValue({ id: "o1", estado: "EN_PROCESO" });
-    mockConfiguracionSmtpFindUnique.mockResolvedValue(null);
-    const formData = new FormData();
-    formData.set("estado", "EN_PROCESO");
-
-    const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
-
-    expect(result.error).toBeNull();
-    expect(result.advertencia).toBe(
-      "Estado actualizado. El correo del taller no está configurado, no se notificó al cliente.",
-    );
+    expect(result).toEqual({ error: null, advertencia: null, estadoNuevo: "EN_PROCESO" });
     expect(mockEnviarEmail).not.toHaveBeenCalled();
     expect(mockNotificacionCreate).not.toHaveBeenCalled();
-  });
-
-  it("returns an advertencia and does not fail the estado change when the client has no email", async () => {
-    mockOrdenFindFirst.mockResolvedValue({
-      ...ORDEN_BASE,
-      estado: "BORRADOR",
-      cliente: { id: "c1", nombre: "Ana Pérez", email: null },
-    });
-    mockUpdate.mockResolvedValue({ id: "o1", estado: "EN_PROCESO" });
-    mockConfiguracionSmtpFindUnique.mockResolvedValue(configSmtpActiva());
-    const formData = new FormData();
-    formData.set("estado", "EN_PROCESO");
-
-    const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
-
-    expect(result.advertencia).toBe(
-      "Estado actualizado. El cliente no tiene un correo registrado, no se le notificó.",
-    );
-    expect(mockEnviarEmail).not.toHaveBeenCalled();
-  });
-
-  it("returns an advertencia, still succeeds, and records FALLO_ENVIO when the send throws", async () => {
-    mockOrdenFindFirst.mockResolvedValue({ ...ORDEN_BASE, estado: "BORRADOR" });
-    mockUpdate.mockResolvedValue({ id: "o1", estado: "EN_PROCESO" });
-    mockConfiguracionSmtpFindUnique.mockResolvedValue(configSmtpActiva());
-    mockEnviarEmail.mockRejectedValue(new Error("ECONNREFUSED"));
-    const formData = new FormData();
-    formData.set("estado", "EN_PROCESO");
-
-    const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
-
-    expect(result.error).toBeNull();
-    expect(result.advertencia).toBe(
-      "Estado actualizado, pero no se pudo enviar la notificación por correo al cliente.",
-    );
-    expect(mockNotificacionCreate).toHaveBeenCalledWith({
-      data: {
-        ordenId: "o1",
-        clienteId: "c1",
-        estado: "EN_PROCESO",
-        emailDestino: "ana@cliente.test",
-        resultado: "FALLO_ENVIO",
-      },
-    });
-  });
-
-  it("does not fail the action when the audit write itself throws", async () => {
-    mockOrdenFindFirst.mockResolvedValue({ ...ORDEN_BASE, estado: "BORRADOR" });
-    mockUpdate.mockResolvedValue({ id: "o1", estado: "EN_PROCESO" });
-    mockConfiguracionSmtpFindUnique.mockResolvedValue(configSmtpActiva());
-    mockNotificacionCreate.mockRejectedValue(new Error("FK violation"));
-    const formData = new FormData();
-    formData.set("estado", "EN_PROCESO");
-
-    const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
-
-    expect(result).toEqual({ error: null, advertencia: null });
   });
 
   it("registers an ORDEN_ANULAR audit event, inside the same transaction as the estado update, when transitioning to ANULADA", async () => {
@@ -633,21 +557,128 @@ describe("updateEstadoOrdenAction", () => {
     expect(mockAuditLogCreate).not.toHaveBeenCalled();
   });
 
-  it("does not fail the estado change when decrypting the SMTP config throws (rotated/corrupted key)", async () => {
-    mockOrdenFindFirst.mockResolvedValue({ ...ORDEN_BASE, estado: "BORRADOR" });
-    mockUpdate.mockResolvedValue({ id: "o1", estado: "EN_PROCESO" });
-    mockConfiguracionSmtpFindUnique.mockResolvedValue({ ...configSmtpActiva(), passwordCifrado: "basura" });
-    const formData = new FormData();
-    formData.set("estado", "EN_PROCESO");
+});
 
-    const result = await updateEstadoOrdenAction("o1", initialEstadoState, formData);
+describe("avisarClienteEstadoOrdenAction", () => {
+  const CLAVE_VALIDA = "0".repeat(63) + "1";
+  const claveOriginal = process.env.SMTP_ENCRYPTION_KEY;
+  const configSmtpActiva = () => ({
+    id: "singleton",
+    host: "smtp.taller.test",
+    puerto: 587,
+    usuario: "avisos@taller.test",
+    passwordCifrado: cifrarSecreto("secreto"),
+    fromEmail: "avisos@taller.test",
+    fromNombre: "Taller Pérez",
+    activo: true,
+  });
+  const ORDEN = {
+    id: "o1",
+    estado: "EN_PROCESO" as const,
+    clienteId: "c1",
+    cliente: { id: "c1", nombre: "Ana Pérez", email: "ana@cliente.test" },
+    vehiculo: { placa: "ABC123", marca: "Mazda", modelo: "3" },
+  };
+
+  beforeEach(() => {
+    process.env.SMTP_ENCRYPTION_KEY = CLAVE_VALIDA;
+    pendientesAfter.length = 0;
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION);
+    mockOrdenFindFirst.mockReset().mockResolvedValue(ORDEN);
+    mockConfiguracionSmtpFindUnique.mockReset().mockResolvedValue(configSmtpActiva());
+    mockNotificacionCreate.mockReset().mockResolvedValue({});
+    mockEnviarEmail.mockReset().mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    if (claveOriginal === undefined) delete process.env.SMTP_ENCRYPTION_KEY;
+    else process.env.SMTP_ENCRYPTION_KEY = claveOriginal;
+  });
+
+  it("responde enseguida y envía el correo después de responder, con el estado actual de la orden", async () => {
+    const result = await avisarClienteEstadoOrdenAction("o1");
+
+    expect(result).toEqual({ error: null, mensaje: "Se está enviando el aviso a ana@cliente.test." });
+    expect(mockRequirePermiso).toHaveBeenCalledWith("ordenes.cambiarEstado");
+    expect(mockEnviarEmail).not.toHaveBeenCalled();
+
+    await correrAfter();
+
+    expect(mockEnviarEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ host: "smtp.taller.test" }),
+      expect.objectContaining({ para: "ana@cliente.test" }),
+    );
+    expect(mockNotificacionCreate).toHaveBeenCalledWith({
+      data: { ordenId: "o1", clienteId: "c1", estado: "EN_PROCESO", emailDestino: "ana@cliente.test", resultado: "ENVIADA" },
+    });
+  });
+
+  it("si el envío falla lo registra como FALLO_ENVIO", async () => {
+    mockEnviarEmail.mockRejectedValue(new Error("ECONNREFUSED"));
+
+    await avisarClienteEstadoOrdenAction("o1");
+    await correrAfter();
+
+    expect(mockNotificacionCreate).toHaveBeenCalledWith({
+      data: { ordenId: "o1", clienteId: "c1", estado: "EN_PROCESO", emailDestino: "ana@cliente.test", resultado: "FALLO_ENVIO" },
+    });
+  });
+
+  it("no falla si el registro del envío no se puede escribir", async () => {
+    mockNotificacionCreate.mockRejectedValue(new Error("FK violation"));
+
+    const result = await avisarClienteEstadoOrdenAction("o1");
+    await expect(correrAfter()).resolves.toBeUndefined();
 
     expect(result.error).toBeNull();
-    expect(result.advertencia).toBe(
-      "Estado actualizado, pero no se pudo enviar la notificación por correo al cliente.",
-    );
-    expect(mockEnviarEmail).not.toHaveBeenCalled();
-    expect(mockNotificacionCreate).not.toHaveBeenCalled();
+  });
+
+  it("sin correo del cliente avisa al instante y no programa envío", async () => {
+    mockOrdenFindFirst.mockResolvedValue({ ...ORDEN, cliente: { id: "c1", nombre: "Ana Pérez", email: null } });
+
+    const result = await avisarClienteEstadoOrdenAction("o1");
+
+    expect(result).toEqual({ error: "El cliente no tiene un correo registrado.", mensaje: null });
+    expect(pendientesAfter).toHaveLength(0);
+  });
+
+  it("sin correo del taller configurado avisa al instante y no programa envío", async () => {
+    mockConfiguracionSmtpFindUnique.mockResolvedValue(null);
+
+    const result = await avisarClienteEstadoOrdenAction("o1");
+
+    expect(result).toEqual({ error: "El correo del taller no está configurado.", mensaje: null });
+    expect(pendientesAfter).toHaveLength(0);
+  });
+
+  it("con la clave SMTP rota no intenta enviar", async () => {
+    mockConfiguracionSmtpFindUnique.mockResolvedValue({ ...configSmtpActiva(), passwordCifrado: "basura" });
+
+    const result = await avisarClienteEstadoOrdenAction("o1");
+
+    expect(result).toEqual({ error: "No se pudo leer la configuración del correo del taller.", mensaje: null });
+    expect(pendientesAfter).toHaveLength(0);
+  });
+
+  it("no avisa estados que no se notifican (entregada: el cliente está presente)", async () => {
+    mockOrdenFindFirst.mockResolvedValue({ ...ORDEN, estado: "ENTREGADA" });
+
+    const result = await avisarClienteEstadoOrdenAction("o1");
+
+    expect(result.error).toBe("Este estado de la orden no se avisa por correo.");
+    expect(pendientesAfter).toHaveLength(0);
+  });
+
+  it("una orden de otra sede responde 'no encontrada'", async () => {
+    mockOrdenFindFirst.mockResolvedValue(null);
+
+    const result = await avisarClienteEstadoOrdenAction("ajena");
+
+    expect(result).toEqual({ error: "Orden no encontrada", mensaje: null });
+    expect(mockOrdenFindFirst).toHaveBeenCalledWith({
+      where: { id: "ajena", sedeId: "sede-1" },
+      include: { cliente: true, vehiculo: true },
+    });
   });
 });
 

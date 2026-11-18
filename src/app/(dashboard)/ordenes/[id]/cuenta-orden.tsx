@@ -30,6 +30,7 @@ export function CuentaOrden({
   repuestos,
   manoDeObra,
   descuento = 0,
+  etiquetaDescuento = "Descuento",
   total,
   anticipos,
   factura,
@@ -40,7 +41,9 @@ export function CuentaOrden({
   repuestos: number;
   manoDeObra: number;
   descuento?: number;
-  /** Total con el IVA incluido. */
+  /** Sin factura, de dónde viene el descuento (la cotización); también prellena la factura. */
+  etiquetaDescuento?: string;
+  /** Total con el IVA incluido, ya con el descuento. */
   total: number;
   anticipos: number;
   factura: { id: string; numero: number } | null;
@@ -53,7 +56,7 @@ export function CuentaOrden({
     <div className="flex flex-col">
       <Fila etiqueta="Repuestos" valor={formatoMoneda.format(repuestos)} />
       <Fila etiqueta="Mano de obra" valor={formatoMoneda.format(manoDeObra)} />
-      {descuento > 0 ? <Fila etiqueta="Descuento" valor={`− ${formatoMoneda.format(descuento)}`} /> : null}
+      {descuento > 0 ? <Fila etiqueta={etiquetaDescuento} valor={`− ${formatoMoneda.format(descuento)}`} /> : null}
       <div className="mt-1 flex items-center justify-between border-t border-dashed border-border pt-2 text-sm">
         <span>Total (IVA incluido)</span>
         <span className="font-mono">{formatoMoneda.format(total)}</span>
@@ -69,7 +72,7 @@ export function CuentaOrden({
             Ver factura #{factura.numero}
           </Link>
         ) : estado === "TERMINADA" || estado === "ENTREGADA" ? (
-          <GenerarFacturaForm ordenId={ordenId} lineas={lineas} />
+          <GenerarFacturaForm ordenId={ordenId} lineas={lineas} descuentoInicial={descuento} />
         ) : estado === "ANULADA" ? null : (
           <p className="text-xs text-muted-foreground">Factura: al terminar</p>
         )}

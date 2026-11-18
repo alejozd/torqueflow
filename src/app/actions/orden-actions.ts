@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { puede, requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb, type TenantPrismaClient } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
@@ -15,11 +16,8 @@ import {
   type SmtpConfigDescifrada,
 } from "@/lib/email/smtp-config";
 import { enviarEmail } from "@/lib/email/enviar-email";
-import { esEstadoNotificable, type EstadoNotificable } from "@/lib/notificaciones/plantilla";
-import {
-  enviarNotificacionEstadoOrden,
-  type ResultadoNotificacion,
-} from "@/lib/notificaciones/enviar-notificacion-estado";
+import { esEstadoNotificable } from "@/lib/notificaciones/plantilla";
+import { enviarNotificacionEstadoOrden } from "@/lib/notificaciones/enviar-notificacion-estado";
 import { registrarEventoAuditoria } from "@/lib/auditoria/registrarEvento";
 import type { EstadoOrden, Prisma } from "@/generated/prisma-tenant";
 import { ROLES_MECANICO } from "@/lib/auth/permisos";
@@ -53,6 +51,8 @@ const ORDEN_DETAIL_INCLUDE = {
   // applied) instead of a recomputation from items/manoDeObra that would
   // drift from it.
   factura: { select: { id: true, numero: true, total: true, descuento: true } },
+  // El descuento de la cotización pasa a la Cuenta y prellena la factura (tanda 4).
+  cotizacion: { select: { numero: true, descuentoTipo: true, descuentoPct: true, descuentoMonto: true } },
 } satisfies Prisma.OrdenTrabajoInclude;
 
 export type OrdenWithDetalle = Prisma.OrdenTrabajoGetPayload<{ include: typeof ORDEN_DETAIL_INCLUDE }>;
@@ -257,73 +257,75 @@ export async function createOrdenDesdeVehiculoAction(
 export interface EstadoFormState {
   error: string | null;
   advertencia?: string | null;
+  /** El estado al que quedó la orden si el cambio salió bien: la ficha ofrece avisar al cliente. */
+  estadoNuevo?: EstadoOrden | null;
 }
 
-const ADVERTENCIA_POR_RESULTADO: Partial<Record<ResultadoNotificacion, string>> = {
-  SIN_SMTP_ACTIVO:
-    "Estado actualizado. El correo del taller no está configurado, no se notificó al cliente.",
-  SIN_EMAIL_CLIENTE:
-    "Estado actualizado. El cliente no tiene un correo registrado, no se le notificó.",
-  FALLO_ENVIO:
-    "Estado actualizado, pero no se pudo enviar la notificación por correo al cliente.",
-};
+export interface AvisoClienteState {
+  error: string | null;
+  mensaje: string | null;
+}
 
-async function notificarCambioEstadoOrden(
-  tenantDb: TenantPrismaClient,
-  params: {
-    ordenId: string;
-    clienteId: string;
-    clienteNombre: string;
-    clienteEmail: string | null;
-    placa: string;
-    marca: string;
-    modelo: string;
-    estado: EstadoNotificable;
-  },
-): Promise<string | null> {
-  let smtp: SmtpConfigDescifrada | null = null;
+/**
+ * Avisa al cliente por correo el estado actual de la orden (tanda 4). Ya no sale
+ * solo al cambiar el estado: quien lo cambia decide si avisar, para no llenar al
+ * cliente de correos. Lo que se sabe al instante (cliente sin correo, correo del
+ * taller sin configurar) se responde ya; el envío corre con `after`, así la ficha
+ * no se queda esperando al servidor de correo. Un envío fallido queda registrado
+ * en notificaciones_orden_enviadas (FALLO_ENVIO).
+ */
+export async function avisarClienteEstadoOrdenAction(ordenId: string): Promise<AvisoClienteState> {
+  const session = await requirePermiso("ordenes.cambiarEstado");
+  const tenantDb = getTenantDb(session.user.tenantSchema);
+
+  const orden = await tenantDb.ordenTrabajo.findFirst({
+    where: { id: ordenId, ...scopeOrdenVisible(session.user.sedeActivaId, session.user.id, puede(session, "ordenes.verTodas")) },
+    include: { cliente: true, vehiculo: true },
+  });
+  if (!orden) return { error: "Orden no encontrada", mensaje: null };
+
+  const estado = orden.estado;
+  if (!esEstadoNotificable(estado)) {
+    return { error: "Este estado de la orden no se avisa por correo.", mensaje: null };
+  }
+  const email = orden.cliente.email;
+  if (!email) return { error: "El cliente no tiene un correo registrado.", mensaje: null };
+
+  let smtp: SmtpConfigDescifrada | null;
   try {
     const filaSmtp = await tenantDb.configuracionSmtp.findUnique({ where: { id: CONFIGURACION_SMTP_ID } });
     smtp = filaSmtp && filaSmtp.activo ? descifrarConfiguracionSmtp(filaSmtp as ConfiguracionSmtpAlmacenada) : null;
   } catch {
-    // descifrarConfiguracionSmtp throws on a rotated/missing SMTP_ENCRYPTION_KEY
-    // or a corrupted envelope. The estado change already committed by the time
-    // this runs -- nothing was attempted, so no audit row, just the same
-    // FALLO_ENVIO advertencia a send failure would produce.
-    return ADVERTENCIA_POR_RESULTADO.FALLO_ENVIO ?? null;
+    // Clave SMTP_ENCRYPTION_KEY rotada o sobre corrupto: no se intenta enviar.
+    return { error: "No se pudo leer la configuración del correo del taller.", mensaje: null };
   }
+  if (!smtp) return { error: "El correo del taller no está configurado.", mensaje: null };
 
-  const resultado = await enviarNotificacionEstadoOrden(
-    { smtp, enviarEmail },
-    {
-      clienteNombre: params.clienteNombre,
-      clienteEmail: params.clienteEmail,
-      placa: params.placa,
-      marca: params.marca,
-      modelo: params.modelo,
-      estado: params.estado,
-    },
-  );
-
-  if (resultado === "ENVIADA" || resultado === "FALLO_ENVIO") {
-    try {
-      await tenantDb.notificacionOrdenEnviada.create({
-        data: {
-          ordenId: params.ordenId,
-          clienteId: params.clienteId,
-          estado: params.estado,
-          emailDestino: params.clienteEmail as string,
-          resultado,
-        },
-      });
-    } catch {
-      // Best-effort audit row: the email either went out or didn't, and the
-      // estado change already committed either way. A failed log write must
-      // not surface as an action error.
+  const config = smtp;
+  after(async () => {
+    const resultado = await enviarNotificacionEstadoOrden(
+      { smtp: config, enviarEmail },
+      {
+        clienteNombre: orden.cliente.nombre,
+        clienteEmail: email,
+        placa: orden.vehiculo.placa,
+        marca: orden.vehiculo.marca,
+        modelo: orden.vehiculo.modelo,
+        estado,
+      },
+    );
+    if (resultado === "ENVIADA" || resultado === "FALLO_ENVIO") {
+      try {
+        await tenantDb.notificacionOrdenEnviada.create({
+          data: { ordenId, clienteId: orden.clienteId, estado, emailDestino: email, resultado },
+        });
+      } catch {
+        // Registro de mejor esfuerzo: el correo ya salió (o no) y nadie espera esta respuesta.
+      }
     }
-  }
+  });
 
-  return ADVERTENCIA_POR_RESULTADO[resultado] ?? null;
+  return { error: null, mensaje: `Se está enviando el aviso a ${email}.` };
 }
 
 export async function updateEstadoOrdenAction(
@@ -398,21 +400,8 @@ export async function updateEstadoOrdenAction(
   // la tarjeta se quedaría en su columna vieja y los contadores no se moverían.
   revalidatePath("/ordenes");
 
-  const nuevoEstado = parsedEstado.data;
-  const advertencia = esEstadoNotificable(nuevoEstado)
-    ? await notificarCambioEstadoOrden(tenantDb, {
-        ordenId: id,
-        clienteId: orden.clienteId,
-        clienteNombre: orden.cliente.nombre,
-        clienteEmail: orden.cliente.email,
-        placa: orden.vehiculo.placa,
-        marca: orden.vehiculo.marca,
-        modelo: orden.vehiculo.modelo,
-        estado: nuevoEstado,
-      })
-    : null;
-
-  return { error: null, advertencia };
+  // El correo al cliente ya no sale solo: la ficha pregunta (avisarClienteEstadoOrdenAction).
+  return { error: null, advertencia: null, estadoNuevo: parsedEstado.data };
 }
 
 export interface AsignarMecanicoFormState {
