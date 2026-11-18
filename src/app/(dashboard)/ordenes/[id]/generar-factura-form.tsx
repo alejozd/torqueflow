@@ -12,6 +12,18 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SelectorIva } from "@/components/selector-iva";
+
+const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+
+/** Una línea de la orden tal como se revisa antes de facturar. */
+export interface LineaFactura {
+  conceptoId: string;
+  descripcion: string;
+  /** Importe con IVA incluido. */
+  importe: number;
+  ivaPct: number;
+}
 
 const initialState: FacturaFormState = { error: null, success: false, facturaId: null };
 
@@ -23,7 +35,15 @@ const facturaFormSchema = facturarOrdenInputSchema.extend({
 });
 type FacturaFormInput = z.input<typeof facturaFormSchema>;
 
-export function GenerarFacturaForm({ ordenId }: { ordenId: string }) {
+/**
+ * Generar la factura de la orden: descuento y la tarifa de IVA de cada línea
+ * (la del catálogo por defecto, cambiable aquí). Los precios ya traen el IVA;
+ * la factura solo lo separa.
+ */
+export function GenerarFacturaForm({ ordenId, lineas = [] }: { ordenId: string; lineas?: LineaFactura[] }) {
+  const [tarifas, setTarifas] = useState<Record<string, number>>(() =>
+    Object.fromEntries(lineas.map((linea) => [linea.conceptoId, linea.ivaPct])),
+  );
   const router = useRouter();
   const [state, setState] = useState<FacturaFormState>(initialState);
   const [isPending, startTransition] = useTransition();
@@ -61,6 +81,35 @@ export function GenerarFacturaForm({ ordenId }: { ordenId: string }) {
 
   return (
     <form noValidate ref={formRef} onChange={() => setConfirmando(false)} onSubmit={(evento) => handleSubmit(onValid)(evento)} className="flex flex-col gap-6">
+      {lineas.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <p className="text-sm font-medium">IVA de cada línea</p>
+          <ul className="flex flex-col divide-y divide-border rounded-md border border-border text-sm">
+            {lineas.map((linea) => (
+              <li key={linea.conceptoId} className="flex items-center justify-between gap-2 px-2 py-1.5">
+                <span className="min-w-0 flex-1 truncate">{linea.descripcion}</span>
+                <span className="shrink-0 font-mono text-xs text-muted-foreground">{formatoMoneda.format(linea.importe)}</span>
+                <SelectorIva
+                  compacto
+                  size="sm"
+                  etiqueta={`IVA de ${linea.descripcion}`}
+                  value={tarifas[linea.conceptoId]}
+                  onChange={(ivaPct) => {
+                    setConfirmando(false);
+                    setTarifas((actual) => ({ ...actual, [linea.conceptoId]: ivaPct }));
+                  }}
+                  className="w-[84px] shrink-0 px-1.5 font-mono text-xs"
+                />
+              </li>
+            ))}
+          </ul>
+          <input
+            type="hidden"
+            name="tarifas"
+            value={JSON.stringify(lineas.map((linea) => ({ conceptoId: linea.conceptoId, ivaPct: tarifas[linea.conceptoId] })))}
+          />
+        </div>
+      ) : null}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="descuento">Descuento</Label>
         <Input

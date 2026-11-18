@@ -32,7 +32,7 @@ import { PestanasMostrador } from "./pestanas-mostrador";
 import { VenderMostrador } from "./vender-mostrador";
 
 const REPUESTOS: RepuestoMostrador[] = [
-  { id: "r1", codigo: "FLT-001", nombre: "Filtro de aceite", precioVenta: 100000, ivaPct: 19, stockActual: 4, disponible: 3 },
+  { id: "r1", codigo: "FLT-001", nombre: "Filtro de aceite", precioVenta: 119000, ivaPct: 19, stockActual: 4, disponible: 3 },
 ];
 
 const textoPesos = (n: number) =>
@@ -84,8 +84,9 @@ describe("VenderMostrador", () => {
     pintar();
     await agregarFiltro();
     await userEvent.type(screen.getByLabelText("Descuento"), "5");
-    // 100.000 − 5 % = 95.000 + IVA 19 % = 113.050
+    // 119.000 − 5 % = 113.050 (el IVA ya va incluido)
     expect(screen.getByTestId("total-resumen")).toHaveTextContent(textoPesos(113050));
+    expect(screen.getByText(/Incluye IVA 19 % sobre/)).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText("Recibido"), "120000");
     await userEvent.click(botonCobrar());
@@ -93,10 +94,10 @@ describe("VenderMostrador", () => {
     await waitFor(() => expect(mockCrear).toHaveBeenCalled());
     const datos = mockCrear.mock.calls[0][1] as FormData;
     expect(JSON.parse(String(datos.get("lineas")))).toEqual([
-      { repuestoId: "r1", descripcion: "Filtro de aceite", cantidad: 1, precioUnitario: 100000, ivaPct: 19 },
+      { repuestoId: "r1", descripcion: "Filtro de aceite", cantidad: 1, precioUnitario: 119000, ivaPct: 19 },
     ]);
     expect(JSON.parse(String(datos.get("pagos")))).toEqual([{ metodoPago: "EFECTIVO", monto: 113050 }]);
-    expect(datos.get("descuento")).toBe("5000");
+    expect(datos.get("descuento")).toBe("5950");
     expect(datos.get("totalEsperado")).toBe("113050");
     expect(datos.get("recibidoEfectivo")).toBe("120000");
     expect(datos.get("clienteId")).toBeNull();

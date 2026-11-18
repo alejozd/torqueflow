@@ -33,7 +33,10 @@ export function NuevoRepuestoForm({
   onCreated,
   showCancelButton = false,
   verCostos = true,
+  nombreInicial = "",
 }: {
+  /** Nombre ya escrito (lo que se buscó en la cotización u orden). */
+  nombreInicial?: string;
   bodegas: Bodega[];
   proveedores: Proveedor[];
   /**
@@ -69,7 +72,7 @@ export function NuevoRepuestoForm({
     resolver: zodResolver(verCostos ? repuestoFormSchema : repuestoFormSchemaSinCostos) as Resolver<RepuestoFormInput>,
     defaultValues: {
       codigo: "",
-      nombre: "",
+      nombre: nombreInicial,
       descripcion: "",
       precioCompra: "",
       precioVenta: "",

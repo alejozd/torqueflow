@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import { ResumenEconomico } from "@/components/resumen-economico";
-import type { TramoIva } from "@/lib/iva/desglose";
 
 /**
  * Resumen económico de la cotización: repuestos y mano de obra con los mismos
- * colores de la tabla, el descuento en rojo y el total destacado. `editorDescuento`
+ * colores de la tabla, el descuento en rojo y el total destacado, con el IVA
+ * incluido (no se separa: eso pasa en la factura). `editorDescuento`
  * solo llega mientras la cotización se puede modificar. Es el resumen compartido
  * (`components/resumen-economico.tsx`) con las filas de la cotización.
  */
@@ -15,7 +15,6 @@ export function ResumenCotizacion({
   descuento,
   etiquetaDescuento,
   iva,
-  desgloseIva,
   total,
   editorDescuento,
 }: {
@@ -25,7 +24,6 @@ export function ResumenCotizacion({
   descuento: number;
   etiquetaDescuento: string;
   iva: number;
-  desgloseIva: TramoIva[];
   total: number;
   editorDescuento?: ReactNode;
 }) {
@@ -39,8 +37,8 @@ export function ResumenCotizacion({
       descuento={descuento}
       etiquetaDescuento={etiquetaDescuento}
       iva={iva}
-      desgloseIva={desgloseIva}
       total={total}
+      modoIva="incluido"
       etiquetaTotal="Total cotizado"
       editorDescuento={editorDescuento}
     />

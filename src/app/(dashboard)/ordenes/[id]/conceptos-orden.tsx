@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -8,19 +8,17 @@ import {
   agregarLibreAOrdenAction,
   agregarRepuestoAOrdenAction,
   buscarParaOrdenAction,
-  cambiarTipoConceptoOrdenAction,
   quitarKitOrdenAction,
 } from "@/app/actions/conceptos-orden-actions";
 import { deleteItemOrdenFormAction } from "@/app/actions/item-orden-actions";
 import { deleteManoDeObraFormAction } from "@/app/actions/mano-de-obra-actions";
 import type { TecnicoOption } from "@/app/actions/orden-actions";
 import { aplicarServicioAOrdenAction } from "@/app/actions/servicio-actions";
-import type { Bodega, Proveedor } from "@/generated/prisma-tenant";
 import type { ConceptoVista } from "@/lib/conceptos/conceptos";
 import { leerIdConceptoOrden } from "@/lib/orden/conceptos-orden";
 import { TablaConceptos, type AdaptadorConceptos } from "@/components/conceptos/tabla-conceptos";
 import { SelectField } from "@/components/ui/select-field";
-import { NuevoRepuestoDialog } from "../../repuestos/nuevo-repuesto-dialog";
+import { useCrearRepuesto, type DatosCrearRepuesto } from "@/components/conceptos/crear-repuesto";
 
 const ESTADO_APLICAR_INICIAL = { error: null, success: false, agregados: null };
 const SIN_ASIGNAR = "__sin_asignar__";
@@ -43,10 +41,9 @@ export function ConceptosOrden({
   puedeEditar: boolean;
   puedeQuitar: boolean;
   tecnicos: TecnicoOption[];
-  crearRepuesto: { bodegas: Bodega[]; proveedores: Proveedor[]; verCostos: boolean } | null;
+  crearRepuesto: DatosCrearRepuesto | null;
 }) {
   const router = useRouter();
-  const [creando, setCreando] = useState(false);
 
   const adaptador = useMemo<AdaptadorConceptos>(
     () => ({
@@ -59,11 +56,7 @@ export function ConceptosOrden({
         const resultado = await aplicarServicioAOrdenAction(ordenId, ESTADO_APLICAR_INICIAL, formData);
         return { error: resultado.error, agregados: resultado.agregados };
       },
-      // Cambiar de tipo mueve la línea de tabla: tiene su propia acción.
-      actualizar: (concepto, cambios) =>
-        cambios.tipo !== undefined
-          ? cambiarTipoConceptoOrdenAction(ordenId, concepto.id)
-          : actualizarConceptoOrdenAction(ordenId, concepto.id, cambios),
+      actualizar: (concepto, cambios) => actualizarConceptoOrdenAction(ordenId, concepto.id, cambios),
       async quitar(concepto) {
         const linea = leerIdConceptoOrden(concepto.id);
         if (!linea) return { error: "La línea ya no está en esta orden", success: false };
@@ -87,6 +80,8 @@ export function ConceptosOrden({
       toast.error("No se pudo cambiar el mecánico");
     }
   }
+
+  const creacion = useCrearRepuesto(crearRepuesto, (repuestoId) => agregarRepuestoAOrdenAction(ordenId, repuestoId));
 
   function detalleFila(concepto: ConceptoVista) {
     if (concepto.tipo !== "MANO_OBRA") return null;
@@ -124,29 +119,10 @@ export function ConceptosOrden({
         puedeQuitar={puedeQuitar}
         cantidadEntera
         detalleFila={detalleFila}
-        crearRepuesto={crearRepuesto ? () => setCreando(true) : undefined}
+        crearRepuesto={creacion.abrir}
         textoVacio="Esta orden no tiene conceptos."
       />
-      {crearRepuesto ? (
-        <NuevoRepuestoDialog
-          open={creando}
-          onOpenChange={setCreando}
-          bodegas={crearRepuesto.bodegas}
-          proveedores={crearRepuesto.proveedores}
-          verCostos={crearRepuesto.verCostos}
-          onCreated={async (repuestoId) => {
-            setCreando(false);
-            try {
-              const resultado = await agregarRepuestoAOrdenAction(ordenId, repuestoId);
-              if (resultado.error) toast.error(resultado.error);
-              else toast.success("Repuesto creado y agregado a la orden");
-            } catch {
-              toast.error("El repuesto se creó, pero no se pudo agregar a la orden");
-            }
-            router.refresh();
-          }}
-        />
-      ) : null}
+      {creacion.dialogo}
     </>
   );
 }

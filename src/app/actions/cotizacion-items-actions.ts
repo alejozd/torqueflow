@@ -153,7 +153,7 @@ export async function agregarItemLibreCotizacionAction(
 
 /**
  * Guarda una celda editada. Cantidad, precio e IVA se editan en cualquier fila;
- * descripción y tipo solo en los ítems libres, porque en los demás vienen del
+ * descripción solo en los ítems libres, porque en los demás viene del
  * inventario o del kit.
  */
 export async function actualizarItemCotizacionAction(
@@ -182,8 +182,8 @@ export async function actualizarItemCotizacionAction(
   }
 
   const esLibre = item.repuestoId === null && item.grupoKitId === null;
-  if (!esLibre && (parsed.data.descripcion !== undefined || parsed.data.tipo !== undefined)) {
-    return { error: "Solo los ítems libres permiten cambiar la descripción o el tipo", itemId: null };
+  if (!esLibre && parsed.data.descripcion !== undefined) {
+    return { error: "Solo los ítems libres permiten cambiar la descripción", itemId: null };
   }
 
   try {

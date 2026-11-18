@@ -46,16 +46,16 @@ const ITEM = {
   repuestoId: "r1",
   descripcion: "Filtro de aceite",
   cantidad: 2,
-  precioUnitario: "25000",
+  precioUnitario: "29750",
   ivaPct: "19.00",
   devueltoCantidad: 0,
 };
 
-/** Venta pagada de 2 × 25.000 con IVA = 59.500. */
+/** Venta pagada de 2 × 29.750 (IVA incluido) = 59.500. */
 function venta(cambios: Record<string, unknown> = {}) {
   return {
     id: "v1",
-    subtotal: "50000",
+    subtotal: "59500",
     descuento: "0",
     total: "59500",
     saldoPendiente: "0",

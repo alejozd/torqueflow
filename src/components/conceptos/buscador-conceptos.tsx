@@ -9,14 +9,14 @@ import type {
 } from "@/lib/conceptos/buscar";
 import { BuscadorConceptos as BuscadorCompartido, type OpcionBuscador } from "@/components/buscador-conceptos";
 import { estadoDisponibilidad } from "@/lib/cotizacion/disponibilidad";
-import { tipoSugeridoLibre } from "@/lib/cotizacion/tipo-sugerido-libre";
 import { cn } from "@/lib/utils";
 import { formatoPesos } from "./formato";
 
 export type SeleccionBuscador =
   | { clase: "kit"; kit: ResultadoKitBusqueda }
   | { clase: "repuesto"; repuesto: ResultadoRepuestoBusqueda }
-  | { clase: "libre"; tipo: "REPUESTO" | "MANO_OBRA"; descripcion: string }
+  /** Lo que no está en el inventario solo entra como mano de obra. */
+  | { clase: "libre"; tipo: "MANO_OBRA"; descripcion: string }
   /** Solo si el documento lo permite: crear el repuesto en el inventario y agregarlo. */
   | { clase: "crear"; descripcion: string };
 
@@ -46,14 +46,12 @@ function aOpciones(
   ];
 }
 
-/** Las dos opciones libres, con primero el tipo que sugiere el texto (Enter toma la primera). */
+/** Lo escrito que no está en el catálogo se ofrece como mano de obra (los repuestos salen del inventario). */
 function opcionesLibres(
   descripcion: string,
   construir: (valor: SeleccionBuscador, clave: string, seccion: string) => OpcionBuscador<SeleccionBuscador>,
 ): OpcionBuscador<SeleccionBuscador>[] {
-  const repuesto = construir({ clase: "libre", tipo: "REPUESTO", descripcion }, "libre-repuesto", "No está en el catálogo");
-  const mano = construir({ clase: "libre", tipo: "MANO_OBRA", descripcion }, "libre-mano", "No está en el catálogo");
-  return tipoSugeridoLibre(descripcion) === "MANO_OBRA" ? [mano, repuesto] : [repuesto, mano];
+  return [construir({ clase: "libre", tipo: "MANO_OBRA", descripcion }, "libre-mano", "No está en el catálogo")];
 }
 
 /**
@@ -133,7 +131,7 @@ function ContenidoOpcion({ opcion }: { opcion: Opcion }) {
     <>
       <Plus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
       <span className="min-w-0 flex-1 truncate">
-        Agregar «{opcion.descripcion}» como {opcion.tipo === "REPUESTO" ? "repuesto" : "mano de obra"}
+        Agregar «{opcion.descripcion}» como mano de obra
       </span>
     </>
   );

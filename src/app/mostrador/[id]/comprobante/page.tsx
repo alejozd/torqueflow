@@ -6,9 +6,9 @@ import {
   AVISO_NO_FACTURA,
   ETIQUETA_METODO_PAGO,
   formatoFechaHoraBogota,
+  lineasIvaIncluido,
 } from "@/lib/mostrador/comprobante";
 import { ImprimirButton } from "./imprimir-button";
-import { etiquetaTramoIva } from "@/lib/iva/desglose";
 import { textoPorcentaje } from "@/lib/iva/tarifas";
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
@@ -94,18 +94,13 @@ export default async function ComprobanteVentaPage({
       <dl className="ml-auto flex w-full max-w-xs flex-col gap-1">
         <Fila etiqueta="Subtotal" valor={pesos(venta.subtotal)} />
         {venta.descuento > 0 ? <Fila etiqueta="Descuento" valor={`−${pesos(venta.descuento)}`} /> : null}
-        {venta.desgloseIva && venta.desgloseIva.length > 0 ? (
-          venta.desgloseIva.map((tramo) => (
-            <Fila
-              key={tramo.ivaPct}
-              etiqueta={`${etiquetaTramoIva(tramo)} sobre ${pesos(tramo.base)}`}
-              valor={pesos(tramo.iva)}
-            />
-          ))
-        ) : (
-          <Fila etiqueta="IVA" valor={pesos(venta.iva)} />
-        )}
         <Fila etiqueta="Total" valor={pesos(venta.total)} fuerte />
+        {/* Los precios traen el IVA: aquí solo se dice cuánto va dentro. */}
+        {lineasIvaIncluido(venta).map((linea) => (
+          <p key={linea} className="text-right text-xs text-black/60">
+            {linea}
+          </p>
+        ))}
       </dl>
 
       <dl aria-label="Pagos" className="ml-auto flex w-full max-w-xs flex-col gap-1">

@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Minus, Plus, RotateCcw } from "lucide-react";
+import { ChevronRight, Minus, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { ResultadosBusquedaConceptos } from "@/lib/conceptos/buscar";
 import {
@@ -15,9 +15,7 @@ import {
 import { estadoDisponibilidad } from "@/lib/cotizacion/disponibilidad";
 import { mensajeServicioAplicado } from "@/lib/servicio/mensaje-aplicado";
 import type { ResultadoAccion } from "@/lib/resultado-accion";
-import { textoPorcentaje } from "@/lib/iva/tarifas";
 import { QuitarConConfirmacion } from "@/components/quitar-con-confirmacion";
-import { SelectorIva } from "@/components/selector-iva";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { BuscadorConceptos, type SeleccionBuscador } from "./buscador-conceptos";
@@ -43,19 +41,22 @@ export interface CambiosConcepto {
   precioUnitario?: number;
   ivaPct?: number;
   descripcion?: string;
-  tipo?: "REPUESTO" | "MANO_OBRA";
 }
 
 /** Lo que cada documento (cotización, orden) le da a la tabla para guardar. */
 export interface AdaptadorConceptos {
   buscar(texto: string): Promise<ResultadosBusquedaConceptos>;
   agregarRepuesto(repuestoId: string): Promise<ResultadoConcepto>;
-  agregarLibre(input: { tipo: "REPUESTO" | "MANO_OBRA"; descripcion: string }): Promise<ResultadoConcepto>;
+  /** Lo que no está en el inventario solo entra como mano de obra. */
+  agregarLibre(input: { tipo: "MANO_OBRA"; descripcion: string }): Promise<ResultadoConcepto>;
   aplicarServicio(servicioId: string): Promise<ResultadoServicioConceptos>;
   actualizar(concepto: ConceptoVista, cambios: CambiosConcepto): Promise<ResultadoConcepto>;
   quitar(concepto: ConceptoVista): Promise<ResultadoAccion>;
   quitarKit(grupoKitId: string): Promise<ResultadoAccion>;
 }
+
+/** Quitar una línea se ve como borrar: bote de basura en rojo. */
+const CLASE_QUITAR = "text-destructive hover:bg-destructive/10 hover:text-destructive";
 
 const DURACION_DESTELLO_MS = 1500;
 
@@ -69,6 +70,9 @@ const CLASE_TIPO = {
  * buscador de arriba, cada celda se edita en el sitio y se guarda sola, y los
  * kits se ven como una fila que se despliega en sus partes. No conoce las
  * acciones de ningún documento: todo lo guarda a través de `adaptador`.
+ *
+ * Los precios llevan el IVA incluido y el IVA no se muestra: cada línea guarda
+ * su tarifa (del catálogo) y la factura la separa.
  */
 export function TablaConceptos({
   adaptador,
@@ -245,20 +249,9 @@ export function TablaConceptos({
             <p className="text-sm break-words">{concepto.descripcion}</p>
           )}
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            {puedeEditar && libre ? (
-              <button
-                type="button"
-                onClick={() => void guardar(concepto, { tipo: concepto.tipo === "REPUESTO" ? "MANO_OBRA" : "REPUESTO" })}
-                title="Cambiar entre repuesto y mano de obra"
-                className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap", CLASE_TIPO[concepto.tipo])}
-              >
-                {concepto.tipo === "REPUESTO" ? "Repuesto" : "Mano de obra"} ⇄
-              </button>
-            ) : (
-              <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap", CLASE_TIPO[concepto.tipo])}>
-                {concepto.tipo === "REPUESTO" ? "Repuesto" : "Mano de obra"}
-              </span>
-            )}
+            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap", CLASE_TIPO[concepto.tipo])}>
+              {concepto.tipo === "REPUESTO" ? "Repuesto" : "Mano de obra"}
+            </span>
             {concepto.codigo ? <span className="font-mono text-[11px] text-muted-foreground">{concepto.codigo}</span> : null}
             {libre ? <span className="text-[11px] text-muted-foreground">Fuera del catálogo</span> : null}
           </div>
@@ -309,22 +302,6 @@ export function TablaConceptos({
             <p className="text-right font-mono text-sm">{formatoUnidades(concepto.cantidad)}</p>
           )}
         </td>
-        <td className="py-2 pr-1 align-middle">
-          {puedeEditar ? (
-            <SelectorIva
-              compacto
-              size="sm"
-              etiqueta={`IVA de ${concepto.descripcion}`}
-              value={concepto.ivaPct}
-              onChange={(ivaPct) => {
-                if (ivaPct !== concepto.ivaPct) void guardar(concepto, { ivaPct });
-              }}
-              className="w-full px-1.5 font-mono text-xs"
-            />
-          ) : (
-            <p className="text-center font-mono text-sm text-muted-foreground">{textoPorcentaje(concepto.ivaPct)}</p>
-          )}
-        </td>
         <td className="py-2 pr-2 align-middle">
           {puedeEditar ? (
             <div className="flex items-center justify-end gap-0.5">
@@ -363,6 +340,8 @@ export function TablaConceptos({
           <td className="relative py-2 pr-1 text-right align-middle">
             <QuitarConConfirmacion
               flotante
+              icono={Trash2}
+              claseBoton={CLASE_QUITAR}
               etiqueta={`Quitar ${concepto.descripcion}`}
               pregunta="¿Quitar este concepto?"
               accion={() => adaptador.quitar(concepto)}
@@ -393,12 +372,11 @@ export function TablaConceptos({
 
       <div className="overflow-x-auto rounded-lg border border-border">
         {/* Anchos fijos para que el importe nunca se salga: el concepto toma lo que sobre. */}
-        <table className="w-full min-w-[620px] table-fixed border-collapse text-sm">
+        <table className="w-full min-w-[540px] table-fixed border-collapse text-sm">
           <colgroup>
             <col />
             <col className="w-[88px]" />
             <col className="w-[72px] pointer-coarse:w-[124px]" />
-            <col className="w-[84px]" />
             <col className="w-[120px]" />
             <col className="w-[108px]" />
             {puedeQuitar ? <col className="w-10" /> : null}
@@ -410,7 +388,6 @@ export function TablaConceptos({
                 Stock
               </th>
               <th className="py-2 pr-1 text-center font-semibold">Cant.</th>
-              <th className="py-2 pr-1 text-center font-semibold">IVA</th>
               <th className="py-2 pr-2 text-right font-semibold">Precio unit.</th>
               <th className="py-2 pr-2 text-right font-semibold">Importe</th>
               {puedeQuitar ? <th aria-label="Acciones" /> : null}
@@ -419,7 +396,7 @@ export function TablaConceptos({
           <tbody>
             {bloques.length === 0 ? (
               <tr>
-                <td colSpan={puedeQuitar ? 7 : 6} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                <td colSpan={puedeQuitar ? 6 : 5} className="px-3 py-8 text-center text-sm text-muted-foreground">
                   {puedeEditar ? "Aún no hay conceptos. Búscalos arriba por nombre o código." : textoVacio}
                 </td>
               </tr>
@@ -452,7 +429,7 @@ export function TablaConceptos({
                         </span>
                       </button>
                     </td>
-                    <td colSpan={4} className="py-2 pr-2 align-middle">
+                    <td colSpan={3} className="py-2 pr-2 align-middle">
                       {bloque.sinExistencia > 0 ? (
                         <span className="flex items-center gap-1.5 text-xs leading-tight text-[oklch(0.55_0.15_60)]">
                           <span className="size-1.5 shrink-0 rounded-full bg-[oklch(0.7_0.15_60)]" />
@@ -469,6 +446,8 @@ export function TablaConceptos({
                       <td className="relative py-2 pr-1 text-right align-middle">
                         <QuitarConConfirmacion
                           flotante
+                          icono={Trash2}
+                          claseBoton={CLASE_QUITAR}
                           etiqueta={`Quitar el kit ${bloque.nombre}`}
                           pregunta={`¿Quitar el kit completo (${bloque.conceptos.length} conceptos)?`}
                           accion={() => adaptador.quitarKit(bloque.grupoKitId)}

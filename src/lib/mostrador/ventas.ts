@@ -3,8 +3,8 @@ import { roundMoney } from "@/lib/money/round";
 
 /**
  * Reglas de una venta de mostrador (Fase 24), sin Prisma y con test propio.
- * Los totales **reutilizan** el mismo cálculo que la factura (IVA 19% sobre la
- * base, descuento como monto) para que mostrador y facturación no puedan
+ * Los totales **reutilizan** el mismo cálculo que la factura (precios con IVA
+ * incluido, descuento como monto) para que mostrador y facturación no puedan
  * separarse con el tiempo.
  */
 
@@ -25,24 +25,21 @@ export function cantidadDevolvible(vendida: number, yaDevuelta: number): number 
 }
 
 /**
- * Lo que vale lo devuelto, **repartiendo el descuento de la venta en proporción**
- * y sumando el IVA de la tarifa de cada línea. Sin repartir el descuento,
- * devolver una línea de una venta con descuento pagaría su precio sin
- * descuento, más de lo que el cliente pagó por ella; y una línea exenta no
- * devuelve IVA. Devolver todas las líneas da el total (salvo centavos de
- * redondeo, que el tope de `montoADevolverPermitido` corta).
+ * Lo que vale lo devuelto, **repartiendo el descuento de la venta en proporción**.
+ * Los precios ya traen el IVA, así que se devuelve el precio pagado. Sin repartir
+ * el descuento, devolver una línea de una venta con descuento pagaría su precio
+ * sin descuento, más de lo que el cliente pagó por ella. Devolver todas las líneas
+ * da el total (salvo centavos de redondeo, que el tope de
+ * `montoADevolverPermitido` corta).
  */
 export function totalDevolucion(
-  lineas: { cantidad: number; precioUnitario: number; ivaPct?: number }[],
+  lineas: { cantidad: number; precioUnitario: number }[],
   venta: { subtotal: number; descuento: number },
 ): number {
   if (venta.subtotal <= 0) return 0;
   const factorDescuento = 1 - Math.min(Math.max(venta.descuento, 0), venta.subtotal) / venta.subtotal;
-  const valor = lineas.reduce((suma, linea) => {
-    const base = linea.cantidad * linea.precioUnitario * factorDescuento;
-    return suma + base * (1 + (linea.ivaPct ?? 19) / 100);
-  }, 0);
-  return roundMoney(valor);
+  const valor = lineas.reduce((suma, linea) => suma + linea.cantidad * linea.precioUnitario, 0);
+  return roundMoney(valor * factorDescuento);
 }
 
 

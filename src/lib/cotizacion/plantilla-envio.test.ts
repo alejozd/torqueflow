@@ -20,7 +20,6 @@ const base: DatosMensajeCotizacion = {
   subtotal: 200000,
   descuento: 0,
   descuentoPct: 0,
-  iva: 50000,
   total: 250000,
   validaHasta: new Date("2026-09-15T00:00:00-05:00"),
   tallerNombre: "Taller Pérez",
@@ -104,13 +103,14 @@ describe("construirMensajeCotizacion", () => {
     expect(montoFijo.texto).not.toContain("%");
   });
 
-  it("renders subtotal and IVA lines in both bodies", () => {
+  it("dice que los precios llevan el IVA incluido y no separa el IVA", () => {
     const mensaje = construirMensajeCotizacion("ana@cliente.test", base);
 
     expect(mensaje.html).toContain(formatoMoneda.format(base.subtotal));
-    expect(mensaje.html).toContain(formatoMoneda.format(base.iva));
     expect(mensaje.texto).toContain(formatoMoneda.format(base.subtotal));
-    expect(mensaje.texto).toContain(formatoMoneda.format(base.iva));
+    expect(mensaje.html).toContain("Precios con IVA incluido");
+    expect(mensaje.texto).toContain("Precios con IVA incluido");
+    expect(mensaje.texto).not.toMatch(/^IVA/m);
   });
 
   it("renders an <img> logo when logoUrl is provided", () => {

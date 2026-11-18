@@ -29,8 +29,6 @@ import { DviFotoForm } from "./dvi-foto-form";
 import { esOrdenMutable } from "@/lib/orden/mutable-guard";
 import type { DviChecklist } from "@/lib/dvi/checklist-items";
 import { totalOrden } from "@/lib/dashboard/calculos";
-import { computeFacturaTotales } from "@/lib/factura/totales";
-import { leerDesgloseGuardado } from "@/lib/iva/desglose";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", {
@@ -95,25 +93,10 @@ export default async function OrdenDetailPage({
     items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
     manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor) })),
   });
-  // La cuenta con IVA: si ya hay factura, lo que quedó en ella; si no, el IVA de cada línea.
+  // Precios con IVA incluido: el total es la suma de las líneas; con factura, lo que quedó en ella.
   const cuenta = orden.factura
-    ? {
-        descuento: Number(orden.factura.descuento),
-        desgloseIva: leerDesgloseGuardado(orden.factura.desgloseIva),
-        total: Number(orden.factura.total),
-      }
-    : (() => {
-        const calculo = computeFacturaTotales({
-          items: orden.items.map((item) => ({
-            cantidad: item.cantidad,
-            precioUnitario: Number(item.precioUnitario),
-            ivaPct: Number(item.ivaPct),
-          })),
-          manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor), ivaPct: Number(linea.ivaPct) })),
-          descuento: 0,
-        });
-        return { descuento: 0, desgloseIva: calculo.desgloseIva, total: calculo.total };
-      })();
+    ? { descuento: Number(orden.factura.descuento), total: Number(orden.factura.total) }
+    : { descuento: 0, total };
 
   return (
     <main className="flex flex-col gap-4">
@@ -399,10 +382,15 @@ export default async function OrdenDetailPage({
                 repuestos={repuestosTotal}
                 manoDeObra={manoObraTotal}
                 descuento={cuenta.descuento}
-                desgloseIva={cuenta.desgloseIva}
                 total={cuenta.total}
                 anticipos={anticiposVigentes}
                 factura={orden.factura ? { id: orden.factura.id, numero: orden.factura.numero } : null}
+                lineas={conceptos.map((concepto) => ({
+                  conceptoId: concepto.id,
+                  descripcion: concepto.descripcion,
+                  importe: concepto.cantidad * concepto.precioUnitario,
+                  ivaPct: concepto.ivaPct,
+                }))}
               />
             </CardContent>
           </Card>

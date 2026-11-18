@@ -16,7 +16,6 @@ const RESUMEN = {
   subtotal: 210000,
   descuento: 0,
   descuentoPct: 0,
-  iva: 40000,
   total: 250000,
 };
 

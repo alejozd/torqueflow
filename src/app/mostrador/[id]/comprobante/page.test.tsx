@@ -76,7 +76,7 @@ describe("ComprobanteVentaPage", () => {
     expect(within(tabla).getByText(pesos(50000))).toBeInTheDocument();
     expect(fila("Subtotal")).toHaveTextContent(pesos(50000));
     expect(fila("Descuento")).toHaveTextContent(pesos(5000));
-    expect(fila("IVA")).toHaveTextContent(pesos(8550));
+    expect(screen.getByText(`Incluye IVA: ${pesos(8550)}`)).toBeInTheDocument();
     expect(fila("Total")).toHaveTextContent(pesos(53550));
     expect(screen.getByText("Documento no válido como factura electrónica")).toBeInTheDocument();
   });

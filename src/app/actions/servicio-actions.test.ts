@@ -553,10 +553,10 @@ describe("aplicarServicioACotizacionAction", () => {
         grupoKitId: expect.any(String), grupoKitNombre: "Cambio de aceite", servicioId: "s1",
       },
     });
-    // 45000 + 2 x 40000 = 125000; IVA 19% = 23750; total 148750.
+    // 45000 + 2 x 40000 = 125000 con IVA incluido: base 105042,02 e IVA 19957,98 por dentro.
     expect(tx.cotizacion.update).toHaveBeenCalledWith({
       where: { id: "c1" },
-      data: { subtotal: 125000, descuento: 0, iva: 23750, total: 148750 },
+      data: { subtotal: 125000, descuento: 0, iva: 19957.98, total: 125000 },
     });
     expect(r).toEqual({ error: null, success: true, agregados: { manoDeObra: true, repuestos: 1 } });
   });

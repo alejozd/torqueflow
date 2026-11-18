@@ -125,13 +125,13 @@ describe("agregarRepuestoACotizacionAction", () => {
 
 describe("agregarItemLibreCotizacionAction", () => {
   it("crea el ítem libre sin repuesto, con cantidad 1 y precio 0", async () => {
-    const result = await agregarItemLibreCotizacionAction("q1", { tipo: "REPUESTO", descripcion: "  Bujía importada  " });
+    const result = await agregarItemLibreCotizacionAction("q1", { tipo: "MANO_OBRA", descripcion: "  Bujía importada  " });
 
     expect(result).toEqual({ error: null, itemId: "i-nuevo" });
     expect(mockItemCreateTx).toHaveBeenCalledWith({
       data: {
         cotizacionId: "q1",
-        tipo: "REPUESTO",
+        tipo: "MANO_OBRA",
         repuestoId: null,
         descripcion: "Bujía importada",
         cantidad: 1,
@@ -179,13 +179,20 @@ describe("actualizarItemCotizacionAction", () => {
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
-  it("deja cambiar descripción y tipo de un ítem libre", async () => {
+  it("rechaza agregar un repuesto que no está en el inventario", async () => {
+    const result = await agregarItemLibreCotizacionAction("q1", { tipo: "REPUESTO", descripcion: "Bujía" } as never);
+
+    expect(result.error).toBe("Lo que no está en el inventario solo se agrega como mano de obra");
+    expect(mockItemCreateTx).not.toHaveBeenCalled();
+  });
+
+  it("deja cambiar la descripción de un ítem libre", async () => {
     mockItemFindFirst.mockResolvedValue({ id: "i3", repuestoId: null, grupoKitId: null });
 
-    const result = await actualizarItemCotizacionAction("q1", "i3", { tipo: "MANO_OBRA" });
+    const result = await actualizarItemCotizacionAction("q1", "i3", { descripcion: "Bujía importada" });
 
     expect(result.error).toBeNull();
-    expect(mockItemUpdateTx).toHaveBeenCalledWith({ where: { id: "i3" }, data: { tipo: "MANO_OBRA" } });
+    expect(mockItemUpdateTx).toHaveBeenCalledWith({ where: { id: "i3" }, data: { descripcion: "Bujía importada" } });
   });
 
   it("cambia el IVA de la línea a otra tarifa activa", async () => {

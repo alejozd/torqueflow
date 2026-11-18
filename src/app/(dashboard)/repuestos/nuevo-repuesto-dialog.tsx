@@ -17,7 +17,10 @@ export function NuevoRepuestoDialog({
   proveedores,
   onCreated,
   verCostos,
+  nombreInicial,
 }: {
+  /** Nombre prellenado: lo que se buscó y no estaba en el inventario. */
+  nombreInicial?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   bodegas: Bodega[];
@@ -30,9 +33,11 @@ export function NuevoRepuestoDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Nuevo repuesto</DialogTitle>
-          <DialogDescription>Se agrega al inventario y queda seleccionado en este ítem.</DialogDescription>
+          <DialogDescription>Se agrega al inventario y queda agregado en este documento.</DialogDescription>
         </DialogHeader>
         <NuevoRepuestoForm
+          key={nombreInicial ?? ""}
+          nombreInicial={nombreInicial}
           bodegas={bodegas}
           proveedores={proveedores}
           onCreated={onCreated}

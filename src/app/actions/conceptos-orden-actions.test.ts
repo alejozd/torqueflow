@@ -31,7 +31,6 @@ import {
   agregarLibreAOrdenAction,
   agregarRepuestoAOrdenAction,
   buscarParaOrdenAction,
-  cambiarTipoConceptoOrdenAction,
   quitarKitOrdenAction,
 } from "./conceptos-orden-actions";
 
@@ -99,24 +98,20 @@ describe("agregarLibreAOrdenAction", () => {
     });
   });
 
-  it("un repuesto libre queda sin repuesto, con cantidad 1 y precio 0", async () => {
-    db.itemOrden.create.mockResolvedValue({ id: "i5" });
-    const r = await agregarLibreAOrdenAction("o1", { tipo: "REPUESTO", descripcion: "Tornillo" });
-    expect(r.conceptoId).toBe("item:i5");
-    expect(db.itemOrden.create).toHaveBeenCalledWith({
-      data: { ordenId: "o1", repuestoId: null, descripcion: "Tornillo", cantidad: 1, precioUnitario: 0, ivaPct: 19 },
-      select: { id: true },
-    });
+  it("rechaza agregar un repuesto que no está en el inventario", async () => {
+    const r = await agregarLibreAOrdenAction("o1", { tipo: "REPUESTO", descripcion: "Tornillo" } as never);
+    expect(r.error).toBe("Lo que no está en el inventario solo se agrega como mano de obra");
+    expect(db.itemOrden.create).not.toHaveBeenCalled();
   });
 
   it("no escribe nada en una orden facturada", async () => {
     db.ordenTrabajo.findFirst.mockResolvedValue({ estado: "ENTREGADA", factura: { id: "f1" }, mecanicoId: null });
-    expect((await agregarLibreAOrdenAction("o1", { tipo: "REPUESTO", descripcion: "x" })).error).toBeTruthy();
-    expect(db.itemOrden.create).not.toHaveBeenCalled();
+    expect((await agregarLibreAOrdenAction("o1", { tipo: "MANO_OBRA", descripcion: "x" })).error).toBeTruthy();
+    expect(db.manoDeObra.create).not.toHaveBeenCalled();
   });
 
   it("exige descripción", async () => {
-    expect((await agregarLibreAOrdenAction("o1", { tipo: "REPUESTO", descripcion: "  " })).error).toBe(
+    expect((await agregarLibreAOrdenAction("o1", { tipo: "MANO_OBRA", descripcion: "  " })).error).toBe(
       "La descripción es obligatoria",
     );
   });
@@ -186,83 +181,6 @@ describe("actualizarConceptoOrdenAction", () => {
   });
 });
 
-describe("cambiarTipoConceptoOrdenAction", () => {
-  it("pasa una línea libre de repuesto a mano de obra en una transacción, con su importe y su fecha", async () => {
-    const creada = new Date("2026-11-08T10:00:00Z");
-    db.ordenTrabajo.findFirst.mockResolvedValue({ estado: "EN_PROCESO", factura: null, mecanicoId: "t1" });
-    db.usuario.findFirst.mockResolvedValue({ id: "t1" });
-    db.itemOrden.findFirst.mockResolvedValue({
-      id: "i1",
-      repuestoId: null,
-      grupoKitId: null,
-      grupoKitNombre: null,
-      descripcion: "Soldadura",
-      cantidad: 2,
-      precioUnitario: "15000",
-      ivaPct: "19",
-      createdAt: creada,
-    });
-    db.manoDeObra.create.mockResolvedValue({ id: "m5" });
-
-    const r = await cambiarTipoConceptoOrdenAction("o1", "item:i1");
-
-    expect(r).toEqual({ error: null, conceptoId: "mo:m5" });
-    expect(db.$transaction).toHaveBeenCalledTimes(1);
-    expect(db.itemOrden.delete).toHaveBeenCalledWith({ where: { id: "i1" } });
-    expect(db.manoDeObra.create).toHaveBeenCalledWith({
-      data: {
-        ordenId: "o1",
-        descripcion: "Soldadura",
-        valor: 30000,
-        ivaPct: "19",
-        mecanicoId: "t1",
-        grupoKitId: null,
-        grupoKitNombre: null,
-        createdAt: creada,
-      },
-      select: { id: true },
-    });
-  });
-
-  it("pasa la mano de obra libre a repuesto con cantidad 1 y su valor como precio", async () => {
-    const creada = new Date("2026-11-08T11:00:00Z");
-    db.manoDeObra.findFirst.mockResolvedValue({
-      id: "m1",
-      grupoKitId: null,
-      grupoKitNombre: null,
-      descripcion: "Pintura",
-      valor: "80000",
-      ivaPct: "5",
-      createdAt: creada,
-    });
-    db.itemOrden.create.mockResolvedValue({ id: "i8" });
-
-    const r = await cambiarTipoConceptoOrdenAction("o1", "mo:m1");
-
-    expect(r).toEqual({ error: null, conceptoId: "item:i8" });
-    expect(db.manoDeObra.delete).toHaveBeenCalledWith({ where: { id: "m1" } });
-    expect(db.itemOrden.create).toHaveBeenCalledWith({
-      data: {
-        ordenId: "o1",
-        repuestoId: null,
-        descripcion: "Pintura",
-        cantidad: 1,
-        precioUnitario: "80000",
-        ivaPct: "5",
-        grupoKitId: null,
-        grupoKitNombre: null,
-        createdAt: creada,
-      },
-      select: { id: true },
-    });
-  });
-
-  it("no cambia el tipo de una línea del catálogo", async () => {
-    expect((await cambiarTipoConceptoOrdenAction("o1", "item:i1")).error).toMatch(/libres/);
-    expect(db.itemOrden.delete).not.toHaveBeenCalled();
-  });
-});
-
 describe("quitarKitOrdenAction", () => {
   it("exige el permiso de quitar y borra en las dos tablas", async () => {
     db.itemOrden.deleteMany.mockResolvedValue({ count: 2 });
@@ -287,7 +205,7 @@ describe("D7: el técnico solo trabaja en sus órdenes", () => {
     });
     db.ordenTrabajo.findFirst.mockResolvedValue(null);
 
-    const r = await agregarLibreAOrdenAction("ajena", { tipo: "REPUESTO", descripcion: "Pastillas" });
+    const r = await agregarLibreAOrdenAction("ajena", { tipo: "MANO_OBRA", descripcion: "Pastillas" });
 
     expect(r.error).toBe("Orden no encontrada");
     expect(db.ordenTrabajo.findFirst).toHaveBeenCalledWith(
@@ -299,6 +217,6 @@ describe("D7: el técnico solo trabaja en sus órdenes", () => {
         },
       }),
     );
-    expect(db.itemOrden.create).not.toHaveBeenCalled();
+    expect(db.manoDeObra.create).not.toHaveBeenCalled();
   });
 });

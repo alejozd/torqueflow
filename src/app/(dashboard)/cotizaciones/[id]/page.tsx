@@ -13,13 +13,14 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/componen
 import { formatoFechaCorta } from "@/lib/fecha-bogota";
 import { CabeceraCotizacion, ESTADO_LABELS } from "./cabecera-cotizacion";
 import { TablaConceptos } from "./tabla-conceptos";
-import { desglosarIva } from "@/lib/iva/desglose";
 import { ResumenCotizacion } from "./resumen-cotizacion";
 import { DescuentoCotizacionForm } from "./descuento-cotizacion-form";
 import { EnviarCotizacionForm } from "./enviar-cotizacion-form";
 import { DecisionCotizacionButtons } from "./decision-cotizacion-buttons";
 import { RegistrarSeguimientoDialog } from "./registrar-seguimiento-dialog";
-import { requirePermiso } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
+import { listBodegas } from "@/app/actions/bodega-actions";
+import { listProveedores } from "@/app/actions/proveedor-actions";
 
 const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeZone: "America/Bogota" });
 
@@ -49,13 +50,23 @@ const formatoHoraSeguimiento = new Intl.DateTimeFormat("es-CO", {
 });
 
 export default async function CotizacionDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requirePermiso("cotizaciones.ver");
+  const session = await requirePermiso("cotizaciones.ver");
   const { id } = await params;
   const cotizacion = await getCotizacion(id);
 
   if (!cotizacion) {
     notFound();
   }
+
+  // Solo quien puede editar el inventario ve "Crear «…» en el inventario".
+  const crearRepuesto =
+    esCotizacionMutable(cotizacion.estado) && puede(session, "inventario.editar")
+      ? await Promise.all([listBodegas(), listProveedores()]).then(([bodegas, proveedores]) => ({
+          bodegas,
+          proveedores,
+          verCostos: puede(session, "inventario.costos"),
+        }))
+      : null;
 
   const ahora = new Date();
   const puedeEditar = esCotizacionMutable(cotizacion.estado);
@@ -68,11 +79,6 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
     .filter((concepto) => concepto.tipo === "MANO_OBRA")
     .reduce((suma, concepto) => suma + importeConcepto(concepto), 0);
   const descuentoPctVisible = porcentajeVisible(cotizacion.descuentoTipo, Number(cotizacion.descuentoPct));
-  // El IVA guardado es la suma; el desglose por tarifa sale de las líneas con el mismo cálculo.
-  const desgloseIva = desglosarIva(
-    conceptos.map((concepto) => ({ importe: importeConcepto(concepto), ivaPct: concepto.ivaPct })),
-    Number(cotizacion.descuento),
-  ).tramos;
 
   return (
     <main className="flex flex-col gap-4">
@@ -135,7 +141,12 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
               ) : null}
             </CardHeader>
             <CardContent>
-              <TablaConceptos cotizacionId={cotizacion.id} conceptos={conceptos} puedeEditar={puedeEditar} />
+              <TablaConceptos
+                cotizacionId={cotizacion.id}
+                conceptos={conceptos}
+                puedeEditar={puedeEditar}
+                crearRepuesto={crearRepuesto}
+              />
             </CardContent>
           </Card>
 
@@ -192,7 +203,6 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
             descuento={Number(cotizacion.descuento)}
             etiquetaDescuento={etiquetaDescuento(descuentoPctVisible)}
             iva={Number(cotizacion.iva)}
-            desgloseIva={desgloseIva}
             total={Number(cotizacion.total)}
             editorDescuento={
               puedeEditar ? (
@@ -281,8 +291,6 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
                   subtotal: Number(cotizacion.subtotal),
                   descuento: Number(cotizacion.descuento),
                   descuentoPct: descuentoPctVisible,
-                  iva: Number(cotizacion.iva),
-                  desgloseIva,
                   total: Number(cotizacion.total),
                 }}
                 esReenvio={cotizacion.estado !== "BORRADOR"}

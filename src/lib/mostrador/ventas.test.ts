@@ -8,13 +8,13 @@ import {
 } from "./ventas";
 
 describe("calcularTotalesVenta", () => {
-  it("usa las mismas reglas que la factura: IVA sobre la base y descuento como monto", () => {
+  it("usa las mismas reglas que la factura: IVA incluido y descuento como monto", () => {
     const r = calcularTotalesVenta([{ cantidad: 2, precioUnitario: 50000 }], 10000);
 
     expect(r.subtotal).toBe(100000);
     expect(r.descuento).toBe(10000);
-    expect(r.iva).toBe(17100); // (100000 - 10000) * 0.19
-    expect(r.total).toBe(107100);
+    expect(r.iva).toBe(14369.75); // 90.000 − 90.000 / 1,19
+    expect(r.total).toBe(90000);
   });
 
   it("sin descuento y sin líneas da cero", () => {
@@ -37,26 +37,19 @@ describe("cantidadDevolvible", () => {
 });
 
 describe("totalDevolucion y su tope", () => {
-  it("devuelve el valor de las líneas con su IVA", () => {
+  it("devuelve el precio pagado: el IVA ya va incluido", () => {
     // Venta sin descuento: factor 1.
-    expect(totalDevolucion([{ cantidad: 1, precioUnitario: 100000 }], { subtotal: 100000, descuento: 0 })).toBe(119000);
+    expect(totalDevolucion([{ cantidad: 1, precioUnitario: 119000 }], { subtotal: 119000, descuento: 0 })).toBe(119000);
   });
 
   it("reparte el descuento de la venta en proporción a lo devuelto", () => {
-    // Dos líneas de 100.000 con 50.000 de descuento: la venta cobró 178.500.
+    // Dos líneas de 100.000 con 50.000 de descuento: la venta cobró 150.000.
     const venta = { subtotal: 200000, descuento: 50000 };
 
-    // Devolver una línea no paga 119.000 (su precio sin descuento) sino su parte.
-    expect(totalDevolucion([{ cantidad: 1, precioUnitario: 100000 }], venta)).toBe(89250);
+    // Devolver una línea no paga 100.000 (su precio sin descuento) sino su parte.
+    expect(totalDevolucion([{ cantidad: 1, precioUnitario: 100000 }], venta)).toBe(75000);
     // Devolver todo devuelve exactamente lo cobrado.
-    expect(totalDevolucion([{ cantidad: 2, precioUnitario: 100000 }], venta)).toBe(178500);
-  });
-
-  it("cada línea devuelve el IVA de su tarifa", () => {
-    // 100.000 al 19 % y 100.000 exento, sin descuento.
-    const venta = { subtotal: 200000, descuento: 0 };
-    expect(totalDevolucion([{ cantidad: 1, precioUnitario: 100000, ivaPct: 0 }], venta)).toBe(100000);
-    expect(totalDevolucion([{ cantidad: 1, precioUnitario: 100000, ivaPct: 5 }], venta)).toBe(105000);
+    expect(totalDevolucion([{ cantidad: 2, precioUnitario: 100000 }], venta)).toBe(150000);
   });
 
   it("sin subtotal (venta de solo líneas libres a cero) no devuelve nada", () => {

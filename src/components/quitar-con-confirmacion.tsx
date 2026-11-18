@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { X } from "lucide-react";
+import { X, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { ResultadoAccion } from "@/lib/resultado-accion";
 import { ConfirmacionEnLinea } from "@/components/confirmacion-en-linea";
@@ -19,6 +19,8 @@ export function QuitarConConfirmacion({
   accion,
   onQuitado,
   flotante = false,
+  icono: Icono = X,
+  claseBoton,
 }: {
   etiqueta: string;
   pregunta: string;
@@ -30,6 +32,9 @@ export function QuitarConConfirmacion({
    * La celda que lo contiene debe ser `relative`.
    */
   flotante?: boolean;
+  /** Icono del botón (✕ por defecto). */
+  icono?: LucideIcon;
+  claseBoton?: string;
 }) {
   const [confirmando, setConfirmando] = useState(false);
   const [pendiente, startTransition] = useTransition();
@@ -76,8 +81,15 @@ export function QuitarConConfirmacion({
     <Tooltip>
       <TooltipTrigger
         render={
-          <Button type="button" variant="ghost" size="sm" aria-label={etiqueta} onClick={() => setConfirmando(true)}>
-            <X className="size-4" />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-label={etiqueta}
+            onClick={() => setConfirmando(true)}
+            className={claseBoton}
+          >
+            <Icono className="size-4" />
           </Button>
         }
       />
