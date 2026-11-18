@@ -15,9 +15,7 @@ import {
 import { estadoDisponibilidad } from "@/lib/cotizacion/disponibilidad";
 import { mensajeServicioAplicado } from "@/lib/servicio/mensaje-aplicado";
 import type { ResultadoAccion } from "@/lib/resultado-accion";
-import { textoPorcentaje } from "@/lib/iva/tarifas";
 import { QuitarConConfirmacion } from "@/components/quitar-con-confirmacion";
-import { SelectorIva } from "@/components/selector-iva";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { BuscadorConceptos, type SeleccionBuscador } from "./buscador-conceptos";
@@ -72,6 +70,9 @@ const CLASE_TIPO = {
  * buscador de arriba, cada celda se edita en el sitio y se guarda sola, y los
  * kits se ven como una fila que se despliega en sus partes. No conoce las
  * acciones de ningún documento: todo lo guarda a través de `adaptador`.
+ *
+ * Los precios llevan el IVA incluido y el IVA no se muestra: cada línea guarda
+ * su tarifa (del catálogo) y la factura la separa.
  */
 export function TablaConceptos({
   adaptador,
@@ -301,22 +302,6 @@ export function TablaConceptos({
             <p className="text-right font-mono text-sm">{formatoUnidades(concepto.cantidad)}</p>
           )}
         </td>
-        <td className="py-2 pr-1 align-middle">
-          {puedeEditar ? (
-            <SelectorIva
-              compacto
-              size="sm"
-              etiqueta={`IVA de ${concepto.descripcion}`}
-              value={concepto.ivaPct}
-              onChange={(ivaPct) => {
-                if (ivaPct !== concepto.ivaPct) void guardar(concepto, { ivaPct });
-              }}
-              className="w-full px-1.5 font-mono text-xs"
-            />
-          ) : (
-            <p className="text-center font-mono text-sm text-muted-foreground">{textoPorcentaje(concepto.ivaPct)}</p>
-          )}
-        </td>
         <td className="py-2 pr-2 align-middle">
           {puedeEditar ? (
             <div className="flex items-center justify-end gap-0.5">
@@ -387,12 +372,11 @@ export function TablaConceptos({
 
       <div className="overflow-x-auto rounded-lg border border-border">
         {/* Anchos fijos para que el importe nunca se salga: el concepto toma lo que sobre. */}
-        <table className="w-full min-w-[620px] table-fixed border-collapse text-sm">
+        <table className="w-full min-w-[540px] table-fixed border-collapse text-sm">
           <colgroup>
             <col />
             <col className="w-[88px]" />
             <col className="w-[72px] pointer-coarse:w-[124px]" />
-            <col className="w-[84px]" />
             <col className="w-[120px]" />
             <col className="w-[108px]" />
             {puedeQuitar ? <col className="w-10" /> : null}
@@ -404,7 +388,6 @@ export function TablaConceptos({
                 Stock
               </th>
               <th className="py-2 pr-1 text-center font-semibold">Cant.</th>
-              <th className="py-2 pr-1 text-center font-semibold">IVA</th>
               <th className="py-2 pr-2 text-right font-semibold">Precio unit.</th>
               <th className="py-2 pr-2 text-right font-semibold">Importe</th>
               {puedeQuitar ? <th aria-label="Acciones" /> : null}
@@ -413,7 +396,7 @@ export function TablaConceptos({
           <tbody>
             {bloques.length === 0 ? (
               <tr>
-                <td colSpan={puedeQuitar ? 7 : 6} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                <td colSpan={puedeQuitar ? 6 : 5} className="px-3 py-8 text-center text-sm text-muted-foreground">
                   {puedeEditar ? "Aún no hay conceptos. Búscalos arriba por nombre o código." : textoVacio}
                 </td>
               </tr>
@@ -446,7 +429,7 @@ export function TablaConceptos({
                         </span>
                       </button>
                     </td>
-                    <td colSpan={4} className="py-2 pr-2 align-middle">
+                    <td colSpan={3} className="py-2 pr-2 align-middle">
                       {bloque.sinExistencia > 0 ? (
                         <span className="flex items-center gap-1.5 text-xs leading-tight text-[oklch(0.55_0.15_60)]">
                           <span className="size-1.5 shrink-0 rounded-full bg-[oklch(0.7_0.15_60)]" />

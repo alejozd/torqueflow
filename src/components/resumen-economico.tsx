@@ -18,6 +18,10 @@ export interface FilaResumen {
  * Resumen económico compartido por la cotización y el mostrador: filas
  * opcionales, subtotal, editor de descuento, el descuento en rojo, IVA y el
  * total destacado. `editorDescuento` solo llega cuando el descuento se puede cambiar.
+ *
+ * Los precios llevan el IVA incluido. Con `modoIva="incluido"` (cotización) el
+ * IVA no se muestra: solo la nota "IVA incluido" junto al total. Con
+ * `"desglose"` (Mostrador, que cobra) se muestra el IVA de cada tarifa.
  */
 export function ResumenEconomico({
   titulo = "Resumen económico",
@@ -30,9 +34,11 @@ export function ResumenEconomico({
   desgloseIva,
   total,
   etiquetaTotal,
-  notaTotal = "Incluye IVA",
+  notaTotal,
   editorDescuento,
+  modoIva = "desglose",
 }: {
+  modoIva?: "incluido" | "desglose";
   titulo?: string;
   /** Línea bajo el título (el mostrador pone "4 productos · 8 unidades"). */
   encabezado?: ReactNode;
@@ -93,7 +99,7 @@ export function ResumenEconomico({
           </div>
         ) : null}
 
-        {desgloseIva ? (
+        {modoIva === "incluido" ? null : desgloseIva ? (
           desgloseIva.length === 0 ? (
             <Fila etiqueta="IVA" valor={formatoMoneda.format(iva)} />
           ) : (
@@ -119,7 +125,9 @@ export function ResumenEconomico({
         <div className="mt-3 flex flex-wrap items-end justify-between gap-x-3 gap-y-1 rounded-lg bg-primary/10 px-3 py-3 ring-1 ring-primary/20">
           <div>
             <p className="text-xs font-bold tracking-wide text-primary uppercase">{etiquetaTotal}</p>
-            <p className="text-xs text-muted-foreground">{notaTotal}</p>
+            <p className="text-xs text-muted-foreground">
+              {notaTotal ?? (modoIva === "incluido" ? "IVA incluido" : "Incluye IVA")}
+            </p>
           </div>
           <span data-testid="total-resumen" className="font-mono text-xl font-bold whitespace-nowrap text-primary">
             {formatoMoneda.format(total)}

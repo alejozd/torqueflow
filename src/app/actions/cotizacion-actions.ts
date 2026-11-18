@@ -17,7 +17,6 @@ import { prismaCotizacionesVencidasGateway } from "@/lib/cotizacion/marcar-venci
 import { crearOrdenDesdeCotizacion } from "@/lib/cotizacion/orden-desde-cotizacion";
 import { porcentajeVisible } from "@/lib/cotizacion/totales";
 import { construirMensajeCotizacion } from "@/lib/cotizacion/plantilla-envio";
-import { separarIvaIncluido } from "@/lib/iva/desglose";
 import { scopeCotizacion } from "@/lib/sede/scope";
 import {
   CONFIGURACION_SMTP_ID,
@@ -403,14 +402,6 @@ export async function enviarCotizacionAction(
         subtotal: Number(cotizacion.subtotal),
         descuento: Number(cotizacion.descuento),
         descuentoPct: porcentajeVisible(cotizacion.descuentoTipo, Number(cotizacion.descuentoPct)),
-        iva: Number(cotizacion.iva),
-        desgloseIva: separarIvaIncluido(
-          cotizacion.items.map((item) => ({
-            importe: Number(item.cantidad) * Number(item.precioUnitario),
-            ivaPct: Number(item.ivaPct),
-          })),
-          Number(cotizacion.descuento),
-        ).tramos,
         total: Number(cotizacion.total),
         validaHasta,
         tallerNombre: config.fromNombre,

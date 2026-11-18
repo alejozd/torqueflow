@@ -226,6 +226,13 @@ describe("TablaConceptos", () => {
     expect(screen.getByText("Repuesto")).toBeInTheDocument();
   });
 
+  it("la tabla no muestra la columna de IVA (los precios lo traen incluido)", () => {
+    render(<TablaConceptos cotizacionId="q1" conceptos={[concepto({})]} puedeEditar />);
+
+    expect(screen.queryByRole("columnheader", { name: "IVA" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /IVA de/ })).not.toBeInTheDocument();
+  });
+
   it("quitar una línea es un bote de basura rojo", () => {
     render(<TablaConceptos cotizacionId="q1" conceptos={[concepto({})]} puedeEditar />);
 
