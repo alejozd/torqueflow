@@ -5,7 +5,7 @@ import { getCotizacion } from "@/app/actions/cotizacion-actions";
 import { requirePermiso } from "@/lib/auth/guards";
 import type { EstadoCotizacion } from "@/generated/prisma-tenant";
 import { agruparConceptos, conceptosDesdeItems, importeConcepto, type ConceptoVista } from "@/lib/cotizacion/agrupar-conceptos";
-import { etiquetaDescuento, porcentajeVisible } from "@/lib/cotizacion/totales";
+import { etiquetaDescuento, ivaSumadoAparte, porcentajeVisible } from "@/lib/cotizacion/totales";
 import { ImprimirButton } from "./imprimir-button";
 
 // Same BORRADOR/ENVIADA/APROBADA/RECHAZADA/VENCIDA convention as
@@ -58,6 +58,8 @@ export default async function ImprimirCotizacionPage({ params }: { params: Promi
   const conceptos = conceptosDesdeItems(cotizacion.items);
   const bloques = agruparConceptos(conceptos);
   const descuento = Number(cotizacion.descuento);
+  // Cotizaciones de antes del IVA incluido: su total guardado lleva el IVA sumado aparte.
+  const ivaAparte = ivaSumadoAparte({ subtotal: Number(cotizacion.subtotal), descuento, total: Number(cotizacion.total) });
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-8 text-black">
@@ -153,11 +155,19 @@ export default async function ImprimirCotizacionPage({ params }: { params: Promi
             <span>−{formatoMoneda.format(descuento)}</span>
           </div>
         ) : null}
+        {ivaAparte > 0 ? (
+          <div className="flex justify-between">
+            <span className="text-black/70">IVA</span>
+            <span>+{formatoMoneda.format(ivaAparte)}</span>
+          </div>
+        ) : null}
         <div className="mt-1 flex justify-between border-t border-black/40 pt-1.5 font-semibold">
           <span>Total</span>
           <span>{formatoMoneda.format(Number(cotizacion.total))}</span>
         </div>
-        <p className="text-right text-xs text-black/60">Precios con IVA incluido</p>
+        <p className="text-right text-xs text-black/60">
+          {ivaAparte > 0 ? "Precios sin IVA; el IVA va sumado aparte" : "Precios con IVA incluido"}
+        </p>
       </section>
 
       {cotizacion.notas ? (

@@ -38,8 +38,14 @@ export function ResumenEconomico({
   notaTotal,
   editorDescuento,
   modoIva = "desglose",
+  ivaAparte = 0,
 }: {
   modoIva?: "incluido" | "desglose";
+  /**
+   * Solo cotizaciones de antes de los precios con IVA incluido: el IVA que se le
+   * sumó aparte a su total. Se muestra como una fila más para que el total cuadre.
+   */
+  ivaAparte?: number;
   titulo?: string;
   /** Línea bajo el título (el mostrador pone "4 productos · 8 unidades"). */
   encabezado?: ReactNode;
@@ -99,13 +105,19 @@ export function ResumenEconomico({
             <span className="font-mono">−{formatoMoneda.format(descuento)}</span>
           </div>
         ) : null}
+        {ivaAparte > 0 ? (
+          <div className="flex items-center justify-between py-1.5 text-sm">
+            <span className="text-muted-foreground">IVA sumado aparte</span>
+            <span className="font-mono">+{formatoMoneda.format(ivaAparte)}</span>
+          </div>
+        ) : null}
 
 
         <div className="mt-3 flex flex-wrap items-end justify-between gap-x-3 gap-y-1 rounded-lg bg-primary/10 px-3 py-3 ring-1 ring-primary/20">
           <div>
             <p className="text-xs font-bold tracking-wide text-primary uppercase">{etiquetaTotal}</p>
             <p className="text-xs text-muted-foreground">
-              {notaTotal ?? "IVA incluido"}
+              {notaTotal ?? (ivaAparte > 0 ? "Cotizada antes del IVA incluido" : "IVA incluido")}
             </p>
           </div>
           <span data-testid="total-resumen" className="font-mono text-xl font-bold whitespace-nowrap text-primary">

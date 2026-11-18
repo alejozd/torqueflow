@@ -8,6 +8,31 @@ const textoPesos = (n: number) =>
     .replace(/\s/g, " ");
 
 describe("ResumenEconomico", () => {
+  it("en una cotización de antes del IVA incluido muestra el IVA sumado aparte para que el total cuadre", () => {
+    render(
+      <ResumenEconomico
+        subtotal={511881}
+        descuento={0}
+        etiquetaDescuento="Descuento"
+        iva={0}
+        total={581503}
+        etiquetaTotal="Total cotizado"
+        modoIva="incluido"
+        ivaAparte={69622}
+      />,
+    );
+    expect(screen.getByText("IVA sumado aparte").nextSibling).toHaveTextContent("69.622");
+    expect(screen.getByText("Cotizada antes del IVA incluido")).toBeInTheDocument();
+  });
+
+  it("sin IVA aparte no muestra esa fila", () => {
+    render(
+      <ResumenEconomico subtotal={100} descuento={0} etiquetaDescuento="Descuento" iva={0} total={100} etiquetaTotal="Total" modoIva="incluido" />,
+    );
+    expect(screen.queryByText("IVA sumado aparte")).toBeNull();
+    expect(screen.getByText("IVA incluido")).toBeInTheDocument();
+  });
+
   it("pinta filas, subtotal, descuento en rojo, IVA y el total con su etiqueta", () => {
     render(
       <ResumenEconomico
