@@ -49,6 +49,22 @@ describe("ResumenEconomico", () => {
     expect(screen.getByTestId("total-resumen")).toHaveTextContent(textoPesos(119000));
   });
 
+  it("en el Mostrador dice qué IVA va incluido en el total, por tarifa", () => {
+    render(
+      <ResumenEconomico
+        subtotal={119000}
+        descuento={0}
+        etiquetaDescuento="Descuento"
+        iva={19000}
+        desgloseIva={[{ ivaPct: 19, base: 100000, iva: 19000 }]}
+        total={119000}
+        etiquetaTotal="Total a cobrar"
+      />,
+    );
+    expect(screen.getByText(/Incluye IVA 19 % sobre/)).toBeInTheDocument();
+    expect(screen.getByTestId("total-resumen")).toHaveTextContent(textoPesos(119000));
+  });
+
   it("sin descuento no muestra la fila roja", () => {
     render(
       <ResumenEconomico subtotal={0} descuento={0} etiquetaDescuento="Descuento" iva={0} total={0} etiquetaTotal="Total" />,

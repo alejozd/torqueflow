@@ -46,6 +46,20 @@ describe("agruparPagos / describirMetodos", () => {
   });
 });
 
+describe("IVA incluido en el comprobante", () => {
+  it("el IVA va después del total, como lo que el precio ya incluye", () => {
+    const texto = textoComprobanteWhatsapp({
+      ...BASE,
+      desgloseIva: [{ ivaPct: 19, base: 45000, iva: 8550 }],
+    });
+    const total = texto.indexOf("Total:");
+    const incluye = texto.indexOf(`Incluye IVA 19 % sobre ${pesos(45000)}: ${pesos(8550)}`);
+    expect(total).toBeGreaterThan(-1);
+    expect(incluye).toBeGreaterThan(total);
+    expect(texto).not.toMatch(/^IVA/m);
+  });
+});
+
 describe("textoComprobanteWhatsapp", () => {
   it("lleva el número, las líneas, los totales, los pagos, el saldo y el aviso de no factura", () => {
     const texto = textoComprobanteWhatsapp(BASE);

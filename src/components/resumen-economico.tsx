@@ -19,9 +19,10 @@ export interface FilaResumen {
  * opcionales, subtotal, editor de descuento, el descuento en rojo, IVA y el
  * total destacado. `editorDescuento` solo llega cuando el descuento se puede cambiar.
  *
- * Los precios llevan el IVA incluido. Con `modoIva="incluido"` (cotización) el
- * IVA no se muestra: solo la nota "IVA incluido" junto al total. Con
- * `"desglose"` (Mostrador, que cobra) se muestra el IVA de cada tarifa.
+ * Los precios llevan el IVA incluido: el total nunca le suma IVA. Con
+ * `modoIva="incluido"` (cotización) solo se dice "IVA incluido"; con
+ * `"desglose"` (Mostrador, que cobra) además se muestra, bajo el total, cuánto
+ * IVA de cada tarifa va dentro.
  */
 export function ResumenEconomico({
   titulo = "Resumen económico",
@@ -99,40 +100,41 @@ export function ResumenEconomico({
           </div>
         ) : null}
 
-        {modoIva === "incluido" ? null : desgloseIva ? (
-          desgloseIva.length === 0 ? (
-            <Fila etiqueta="IVA" valor={formatoMoneda.format(iva)} />
-          ) : (
-            desgloseIva.map((tramo) => (
-              <Fila
-                key={tramo.ivaPct}
-                etiqueta={
-                  <span>
-                    {etiquetaTramoIva(tramo)}
-                    <span className="block text-xs text-muted-foreground/80">
-                      sobre {formatoMoneda.format(tramo.base)}
-                    </span>
-                  </span>
-                }
-                valor={formatoMoneda.format(tramo.iva)}
-              />
-            ))
-          )
-        ) : (
-          <Fila etiqueta="IVA (19 %)" valor={formatoMoneda.format(iva)} />
-        )}
 
         <div className="mt-3 flex flex-wrap items-end justify-between gap-x-3 gap-y-1 rounded-lg bg-primary/10 px-3 py-3 ring-1 ring-primary/20">
           <div>
             <p className="text-xs font-bold tracking-wide text-primary uppercase">{etiquetaTotal}</p>
             <p className="text-xs text-muted-foreground">
-              {notaTotal ?? (modoIva === "incluido" ? "IVA incluido" : "Incluye IVA")}
+              {notaTotal ?? "IVA incluido"}
             </p>
           </div>
           <span data-testid="total-resumen" className="font-mono text-xl font-bold whitespace-nowrap text-primary">
             {formatoMoneda.format(total)}
           </span>
         </div>
+        {modoIva === "desglose" ? (
+          <div className="mt-2 flex flex-col gap-0.5 text-xs text-muted-foreground">
+            {desgloseIva && desgloseIva.length > 0 ? (
+              desgloseIva.map((tramo) => (
+                <p key={tramo.ivaPct} className="flex justify-between gap-2">
+                  <span>
+                    {tramo.ivaPct === 0
+                      ? "Exento"
+                      : `Incluye ${etiquetaTramoIva(tramo)} sobre ${formatoMoneda.format(tramo.base)}`}
+                  </span>
+                  <span className="font-mono">
+                    {formatoMoneda.format(tramo.ivaPct === 0 ? tramo.base : tramo.iva)}
+                  </span>
+                </p>
+              ))
+            ) : (
+              <p className="flex justify-between gap-2">
+                <span>Incluye IVA</span>
+                <span className="font-mono">{formatoMoneda.format(iva)}</span>
+              </p>
+            )}
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

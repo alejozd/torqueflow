@@ -86,6 +86,7 @@ describe("VenderMostrador", () => {
     await userEvent.type(screen.getByLabelText("Descuento"), "5");
     // 119.000 − 5 % = 113.050 (el IVA ya va incluido)
     expect(screen.getByTestId("total-resumen")).toHaveTextContent(textoPesos(113050));
+    expect(screen.getByText(/Incluye IVA 19 % sobre/)).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText("Recibido"), "120000");
     await userEvent.click(botonCobrar());

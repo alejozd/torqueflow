@@ -71,14 +71,22 @@ export const formatoFechaHoraBogota = new Intl.DateTimeFormat("es-CO", {
   timeStyle: "short",
 });
 
+/** Los precios traen el IVA: después del total se dice cuánto IVA de cada tarifa va dentro. */
+export function lineasIvaIncluido(datos: Pick<ComprobanteVenta, "iva" | "desgloseIva">): string[] {
+  if (!datos.desgloseIva || datos.desgloseIva.length === 0) return [`Incluye IVA: ${pesos(datos.iva)}`];
+  return datos.desgloseIva.map((tramo) =>
+    tramo.ivaPct === 0
+      ? `Exento: ${pesos(tramo.base)}`
+      : `Incluye ${etiquetaTramoIva(tramo)} sobre ${pesos(tramo.base)}: ${pesos(tramo.iva)}`,
+  );
+}
+
 function lineasTotales(datos: ComprobanteVenta): string[] {
   return [
     `Subtotal: ${pesos(datos.subtotal)}`,
     ...(datos.descuento > 0 ? [`Descuento: -${pesos(datos.descuento)}`] : []),
-    ...(datos.desgloseIva && datos.desgloseIva.length > 0
-      ? datos.desgloseIva.map((tramo) => `${etiquetaTramoIva(tramo)} sobre ${pesos(tramo.base)}: ${pesos(tramo.iva)}`)
-      : [`IVA: ${pesos(datos.iva)}`]),
     `Total: ${pesos(datos.total)}`,
+    ...lineasIvaIncluido(datos),
     ...agruparPagos(datos.pagos).map((pago) => `${ETIQUETA_METODO_PAGO[pago.metodoPago]}: ${pesos(pago.monto)}`),
     ...(datos.recibidoEfectivo !== null && datos.vueltas > 0
       ? [`Recibido en efectivo: ${pesos(datos.recibidoEfectivo)}`, `Vueltas: ${pesos(datos.vueltas)}`]
