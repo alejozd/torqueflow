@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { requirePermiso } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
-import { facturarOrdenInputSchema } from "@/lib/validation/factura";
+import { facturarOrdenInputSchema, tarifasFacturaSchema } from "@/lib/validation/factura";
+import { resolverIvaPct } from "@/lib/iva/resolver";
+import { leerIdConceptoOrden } from "@/lib/orden/conceptos-orden";
 import { assertOrdenFacturable } from "@/lib/factura/facturable-guard";
 import { ANTICIPO_CAMBIO, ANTICIPOS_EXCEDEN, emitirFacturaEnTransaccion, STOCK_INSUFICIENTE } from "@/lib/factura/emitir";
 import { computeFacturaTotales } from "@/lib/factura/totales";
@@ -123,6 +125,42 @@ export async function crearFacturaAction(
     return { error: err instanceof Error ? err.message : "Orden no facturable", success: false, facturaId: null };
   }
 
+  // La tarifa de cada línea se revisa al facturar: las que llegan se validan
+  // (tarifa activa, o la misma que ya tenía) y se guardan en la orden.
+  let tarifasCrudas: unknown = [];
+  try {
+    tarifasCrudas = JSON.parse(String(formData.get("tarifas") ?? "[]"));
+  } catch {
+    return { error: "Tarifas de IVA inválidas", success: false, facturaId: null };
+  }
+  const tarifas = tarifasFacturaSchema.safeParse(tarifasCrudas);
+  if (!tarifas.success) {
+    return { error: tarifas.error.issues[0]?.message ?? "Tarifas de IVA inválidas", success: false, facturaId: null };
+  }
+  const cambiosItems = new Map<string, number>();
+  const cambiosManoDeObra = new Map<string, number>();
+  for (const tarifa of tarifas.data) {
+    const linea = leerIdConceptoOrden(tarifa.conceptoId);
+    const actual =
+      linea?.tabla === "item"
+        ? orden.items.find((item) => item.id === linea.id)
+        : linea?.tabla === "mo"
+          ? orden.manoDeObra.find((mano) => mano.id === linea.id)
+          : undefined;
+    if (!linea || !actual) {
+      return { error: "Una de las líneas no es de esta orden", success: false, facturaId: null };
+    }
+    const iva = await resolverIvaPct(tenantDb, tarifa.ivaPct, Number(actual.ivaPct));
+    if (!iva.ok) return { error: iva.error, success: false, facturaId: null };
+    if (iva.ivaPct === Number(actual.ivaPct)) continue;
+    (linea.tabla === "item" ? cambiosItems : cambiosManoDeObra).set(linea.id, iva.ivaPct);
+  }
+  const ordenConTarifas = {
+    ...orden,
+    items: orden.items.map((item) => ({ ...item, ivaPct: cambiosItems.get(item.id) ?? item.ivaPct })),
+    manoDeObra: orden.manoDeObra.map((mano) => ({ ...mano, ivaPct: cambiosManoDeObra.get(mano.id) ?? mano.ivaPct })),
+  };
+
   const descuento = parsed.data.descuento ?? 0;
   const { subtotal } = computeFacturaTotales({
     items: orden.items.map((item) => ({ cantidad: item.cantidad, precioUnitario: Number(item.precioUnitario) })),
@@ -138,7 +176,11 @@ export async function crearFacturaAction(
 
   let facturaId: string;
   try {
-    const factura = await tenantDb.$transaction((tx) => emitirFacturaEnTransaccion(tx, orden, descuento, session.user.id));
+    const factura = await tenantDb.$transaction(async (tx) => {
+      for (const [id, ivaPct] of cambiosItems) await tx.itemOrden.update({ where: { id }, data: { ivaPct } });
+      for (const [id, ivaPct] of cambiosManoDeObra) await tx.manoDeObra.update({ where: { id }, data: { ivaPct } });
+      return emitirFacturaEnTransaccion(tx, ordenConTarifas, descuento, session.user.id);
+    });
     facturaId = factura.id;
   } catch (err) {
     if (err instanceof Error && err.message === ANTICIPOS_EXCEDEN) {

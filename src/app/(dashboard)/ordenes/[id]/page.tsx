@@ -385,6 +385,12 @@ export default async function OrdenDetailPage({
                 total={cuenta.total}
                 anticipos={anticiposVigentes}
                 factura={orden.factura ? { id: orden.factura.id, numero: orden.factura.numero } : null}
+                lineas={conceptos.map((concepto) => ({
+                  conceptoId: concepto.id,
+                  descripcion: concepto.descripcion,
+                  importe: concepto.cantidad * concepto.precioUnitario,
+                  ivaPct: concepto.ivaPct,
+                }))}
               />
             </CardContent>
           </Card>

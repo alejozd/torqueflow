@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import type { EstadoOrden } from "@/generated/prisma-tenant";
-import { GenerarFacturaForm } from "./generar-factura-form";
+import { GenerarFacturaForm, type LineaFactura } from "./generar-factura-form";
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", {
   style: "currency",
@@ -33,6 +33,7 @@ export function CuentaOrden({
   total,
   anticipos,
   factura,
+  lineas,
 }: {
   ordenId: string;
   estado: EstadoOrden;
@@ -43,6 +44,8 @@ export function CuentaOrden({
   total: number;
   anticipos: number;
   factura: { id: string; numero: number } | null;
+  /** Líneas para revisar su tarifa de IVA al facturar. */
+  lineas?: LineaFactura[];
 }) {
   const saldo = total - anticipos;
 
@@ -66,7 +69,7 @@ export function CuentaOrden({
             Ver factura #{factura.numero}
           </Link>
         ) : estado === "TERMINADA" || estado === "ENTREGADA" ? (
-          <GenerarFacturaForm ordenId={ordenId} />
+          <GenerarFacturaForm ordenId={ordenId} lineas={lineas} />
         ) : estado === "ANULADA" ? null : (
           <p className="text-xs text-muted-foreground">Factura: al terminar</p>
         )}

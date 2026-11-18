@@ -17,18 +17,28 @@ const mockFacturaUpdate = vi.fn();
 const mockAnticipoFindMany = vi.fn();
 const mockAnticipoUpdate = vi.fn();
 const mockPagoCreate = vi.fn();
+const mockItemOrdenUpdate = vi.fn();
+const mockManoDeObraUpdate = vi.fn();
 const mockTransaction = vi.fn((cb: (tx: unknown) => unknown) =>
   cb({
     factura: { create: mockFacturaCreate, update: mockFacturaUpdate },
     repuesto: { updateMany: mockRepuestoUpdateMany },
     anticipo: { findMany: mockAnticipoFindMany, updateMany: mockAnticipoUpdate },
     pago: { create: mockPagoCreate },
+    itemOrden: { update: mockItemOrdenUpdate },
+    manoDeObra: { update: mockManoDeObraUpdate },
   }),
 );
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     ordenTrabajo: { findFirst: mockOrdenFindFirst, findMany: mockOrdenFindMany },
     factura: { findMany: mockFacturaFindMany, findFirst: mockFacturaFindFirst },
+    tarifaIva: {
+      findMany: async () => [
+        { porcentaje: "0", predeterminada: false },
+        { porcentaje: "19", predeterminada: true },
+      ],
+    },
     $transaction: mockTransaction,
   }),
 }));
@@ -61,6 +71,65 @@ function baseOrden(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+describe("crearFacturaAction: tarifas elegidas al facturar", () => {
+  beforeEach(() => {
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockOrdenFindFirst.mockReset().mockResolvedValue(
+      baseOrden({
+        items: [{ id: "i1", repuestoId: "r1", cantidad: 1, precioUnitario: "119", ivaPct: "19" }],
+        manoDeObra: [{ id: "m1", valor: "100", ivaPct: "19" }],
+      }),
+    );
+    mockFacturaCreate.mockReset().mockResolvedValue({ id: "f1" });
+    mockRepuestoUpdateMany.mockReset().mockResolvedValue({ count: 1 });
+    mockAnticipoFindMany.mockReset().mockResolvedValue([]);
+    mockItemOrdenUpdate.mockReset();
+    mockManoDeObraUpdate.mockReset();
+  });
+
+  it("guarda la tarifa elegida en cada línea y la usa para separar el IVA", async () => {
+    const formData = new FormData();
+    formData.set("tarifas", JSON.stringify([{ conceptoId: "mo:m1", ivaPct: 0 }]));
+
+    const result = await crearFacturaAction("o1", initialState, formData);
+
+    expect(result).toEqual({ error: null, success: true, facturaId: "f1" });
+    expect(mockManoDeObraUpdate).toHaveBeenCalledWith({ where: { id: "m1" }, data: { ivaPct: 0 } });
+    expect(mockItemOrdenUpdate).not.toHaveBeenCalled();
+    expect(mockFacturaCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          total: 219,
+          desgloseIva: [
+            { ivaPct: 19, base: 100, iva: 19 },
+            { ivaPct: 0, base: 100, iva: 0 },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("rechaza una tarifa que no está activa y no emite", async () => {
+    const formData = new FormData();
+    formData.set("tarifas", JSON.stringify([{ conceptoId: "item:i1", ivaPct: 7 }]));
+
+    const result = await crearFacturaAction("o1", initialState, formData);
+
+    expect(result.error).toMatch(/no está activa/);
+    expect(mockFacturaCreate).not.toHaveBeenCalled();
+  });
+
+  it("rechaza una línea que no es de esta orden", async () => {
+    const formData = new FormData();
+    formData.set("tarifas", JSON.stringify([{ conceptoId: "item:otra", ivaPct: 0 }]));
+
+    const result = await crearFacturaAction("o1", initialState, formData);
+
+    expect(result.error).toBe("Una de las líneas no es de esta orden");
+    expect(mockFacturaCreate).not.toHaveBeenCalled();
+  });
+});
 
 describe("crearFacturaAction", () => {
   beforeEach(() => {

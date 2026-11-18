@@ -120,7 +120,7 @@ const DETALLE_COLUMNS: DataTableColumn<DetalleRow>[] = [
     cell: (row) => <span className="font-mono text-sm text-muted-foreground">{textoPorcentaje(row.ivaPct)}</span>,
   },
   {
-    header: "Precio unit.",
+    header: "Precio (IVA incl.)",
     className: "text-right",
     cell: (row) => <span className="font-mono text-sm text-muted-foreground">{formatoMoneda.format(row.precioUnitario)}</span>,
   },
@@ -296,23 +296,32 @@ export default async function FacturaDetailPage({ params }: { params: Promise<{ 
                 <span className="text-muted-foreground">Descuento</span>
                 <span className="font-mono">−{formatoMoneda.format(Number(factura.descuento))}</span>
               </div>
+              {/* Los precios traen el IVA incluido: aquí se separa, por tarifa, en base e IVA. */}
               {desgloseIva.length === 0 ? (
                 <div className="flex items-center justify-between py-1.5 text-sm">
-                  <span className="text-muted-foreground">IVA</span>
+                  <span className="text-muted-foreground">IVA incluido</span>
                   <span className="font-mono">{formatoMoneda.format(Number(factura.iva))}</span>
                 </div>
               ) : (
-                desgloseIva.map((tramo) => (
-                  <div key={tramo.ivaPct} className="flex items-center justify-between py-1.5 text-sm">
-                    <span className="text-muted-foreground">
-                      {etiquetaTramoIva(tramo)}
-                      <span className="block text-xs text-muted-foreground/80">
-                        sobre {formatoMoneda.format(tramo.base)}
-                      </span>
-                    </span>
-                    <span className="font-mono">{formatoMoneda.format(tramo.iva)}</span>
-                  </div>
-                ))
+                desgloseIva.map((tramo) =>
+                  tramo.ivaPct === 0 ? (
+                    <div key={tramo.ivaPct} className="flex items-center justify-between py-1 text-sm">
+                      <span className="text-muted-foreground">Exento</span>
+                      <span className="font-mono">{formatoMoneda.format(tramo.base)}</span>
+                    </div>
+                  ) : (
+                    <div key={tramo.ivaPct} className="flex flex-col py-1 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Base {textoPorcentaje(tramo.ivaPct)}</span>
+                        <span className="font-mono">{formatoMoneda.format(tramo.base)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">{etiquetaTramoIva(tramo)}</span>
+                        <span className="font-mono">{formatoMoneda.format(tramo.iva)}</span>
+                      </div>
+                    </div>
+                  ),
+                )
               )}
               <div className="mt-1 flex items-baseline justify-between border-t border-border pt-2.5">
                 <span className="text-sm font-semibold">Total</span>
