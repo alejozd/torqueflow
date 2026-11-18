@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-vi.mock("./generar-factura-form", () => ({ GenerarFacturaForm: () => <button type="button">Generar factura</button> }));
+const mockFormFactura = vi.fn();
+vi.mock("./generar-factura-form", () => ({
+  GenerarFacturaForm: (props: unknown) => {
+    mockFormFactura(props);
+    return <button type="button">Generar factura</button>;
+  },
+}));
 
 import { CuentaOrden } from "./cuenta-orden";
 
@@ -28,6 +34,22 @@ describe("CuentaOrden", () => {
     render(<CuentaOrden {...BASE} estado="EN_PROCESO" anticipos={0} />);
     expect(screen.getByText("Factura: al terminar")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Generar factura" })).not.toBeInTheDocument();
+  });
+
+  it("muestra el descuento heredado de la cotización y lo pasa a la factura", () => {
+    render(
+      <CuentaOrden
+        {...BASE}
+        total={359461}
+        descuento={39940}
+        etiquetaDescuento="Descuento de la cotización #45 (10 %)"
+        estado="TERMINADA"
+        anticipos={0}
+      />,
+    );
+    expect(screen.getByText("Descuento de la cotización #45 (10 %)").nextSibling).toHaveTextContent("39.940");
+    expect(screen.getByText("Saldo por cobrar").nextSibling).toHaveTextContent("359.461");
+    expect(mockFormFactura).toHaveBeenCalledWith(expect.objectContaining({ descuentoInicial: 39940 }));
   });
 
   it("terminada sin factura ofrece generarla; con factura, enlaza a ella", () => {

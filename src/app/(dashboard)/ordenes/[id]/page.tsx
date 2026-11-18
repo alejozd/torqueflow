@@ -14,6 +14,8 @@ import { AvanceFase } from "./avance-fase";
 import { BannerSintomas, CabeceraOrden } from "./cabecera-orden";
 import { CicloOrden } from "./ciclo-orden";
 import { CuentaOrden } from "./cuenta-orden";
+import { descuentoHeredado } from "@/lib/orden/descuento-cotizacion";
+import { roundMoney } from "@/lib/money/round";
 import { ConceptosOrden } from "./conceptos-orden";
 import { conceptosDesdeOrden } from "@/lib/orden/conceptos-orden";
 import { MecanicoMenu } from "./mecanico-menu";
@@ -94,9 +96,23 @@ export default async function OrdenDetailPage({
     manoDeObra: orden.manoDeObra.map((linea) => ({ valor: Number(linea.valor) })),
   });
   // Precios con IVA incluido: el total es la suma de las líneas; con factura, lo que quedó en ella.
+  // Sin factura, el descuento de la cotización ya se resta y prellena la factura (tanda 4).
+  const heredado = orden.factura
+    ? null
+    : descuentoHeredado(
+        orden.cotizacion
+          ? {
+              numero: orden.cotizacion.numero,
+              descuentoTipo: orden.cotizacion.descuentoTipo,
+              descuentoPct: Number(orden.cotizacion.descuentoPct),
+              descuentoMonto: Number(orden.cotizacion.descuentoMonto),
+            }
+          : null,
+        total,
+      );
   const cuenta = orden.factura
-    ? { descuento: Number(orden.factura.descuento), total: Number(orden.factura.total) }
-    : { descuento: 0, total };
+    ? { descuento: Number(orden.factura.descuento), total: Number(orden.factura.total), etiqueta: undefined }
+    : { descuento: heredado?.descuento ?? 0, total: roundMoney(total - (heredado?.descuento ?? 0)), etiqueta: heredado?.etiqueta };
 
   return (
     <main className="flex flex-col gap-4">
@@ -388,6 +404,7 @@ export default async function OrdenDetailPage({
                 repuestos={repuestosTotal}
                 manoDeObra={manoObraTotal}
                 descuento={cuenta.descuento}
+                etiquetaDescuento={cuenta.etiqueta}
                 total={cuenta.total}
                 anticipos={anticiposVigentes}
                 factura={orden.factura ? { id: orden.factura.id, numero: orden.factura.numero } : null}

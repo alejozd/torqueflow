@@ -231,6 +231,7 @@ describe("listOrdenes", () => {
     // ya-facturada orders without recomputing it from items/manoDeObra (which
     // would drift once descuento/iva are applied at facturación time).
     factura: { select: { id: true, numero: true, total: true, descuento: true } },
+    cotizacion: { select: { numero: true, descuentoTipo: true, descuentoPct: true, descuentoMonto: true } },
   };
 
   it("lists only órdenes of the sede activa", async () => {

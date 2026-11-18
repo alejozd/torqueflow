@@ -51,6 +51,8 @@ const ORDEN_DETAIL_INCLUDE = {
   // applied) instead of a recomputation from items/manoDeObra that would
   // drift from it.
   factura: { select: { id: true, numero: true, total: true, descuento: true } },
+  // El descuento de la cotización pasa a la Cuenta y prellena la factura (tanda 4).
+  cotizacion: { select: { numero: true, descuentoTipo: true, descuentoPct: true, descuentoMonto: true } },
 } satisfies Prisma.OrdenTrabajoInclude;
 
 export type OrdenWithDetalle = Prisma.OrdenTrabajoGetPayload<{ include: typeof ORDEN_DETAIL_INCLUDE }>;

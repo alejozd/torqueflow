@@ -40,7 +40,16 @@ type FacturaFormInput = z.input<typeof facturaFormSchema>;
  * (la del catálogo por defecto, cambiable aquí). Los precios ya traen el IVA;
  * la factura solo lo separa.
  */
-export function GenerarFacturaForm({ ordenId, lineas = [] }: { ordenId: string; lineas?: LineaFactura[] }) {
+export function GenerarFacturaForm({
+  ordenId,
+  lineas = [],
+  descuentoInicial = 0,
+}: {
+  ordenId: string;
+  lineas?: LineaFactura[];
+  /** El descuento de la cotización, si la orden viene de una (editable). */
+  descuentoInicial?: number;
+}) {
   const [tarifas, setTarifas] = useState<Record<string, number>>(() =>
     Object.fromEntries(lineas.map((linea) => [linea.conceptoId, linea.ivaPct])),
   );
@@ -55,7 +64,7 @@ export function GenerarFacturaForm({ ordenId, lineas = [] }: { ordenId: string; 
     formState: { errors },
   } = useForm<FacturaFormInput>({
     resolver: zodResolver(facturaFormSchema),
-    defaultValues: { descuento: 0 },
+    defaultValues: { descuento: descuentoInicial },
   });
 
   function onValid() {
