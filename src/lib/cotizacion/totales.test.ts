@@ -7,35 +7,36 @@ const items = [
 ];
 
 describe("computeCotizacionTotales", () => {
-  it("separa repuestos y mano de obra y aplica IVA sobre la base con descuento", () => {
+  it("separa repuestos y mano de obra; el total es lo cotizado menos el descuento (IVA incluido)", () => {
     const totales = computeCotizacionTotales({ items, descuentoPct: 10 });
     expect(totales).toEqual({
       subtotalRepuestos: 100_000,
       subtotalManoObra: 100_000,
       subtotal: 200_000,
       descuento: 20_000,
-      iva: 34_200,
-      desgloseIva: [{ ivaPct: 19, base: 180_000, iva: 34_200 }],
-      total: 214_200,
+      // 180.000 / 1,19 = 151.260,50 de base; el resto es el IVA que va dentro.
+      iva: 28_739.5,
+      desgloseIva: [{ ivaPct: 19, base: 151_260.5, iva: 28_739.5 }],
+      total: 180_000,
     });
   });
 
-  it("con varias tarifas reparte el descuento entre las bases y suma el IVA de cada una", () => {
+  it("con varias tarifas reparte el descuento y separa el IVA que va dentro de cada una", () => {
     const totales = computeCotizacionTotales({
       items: [
-        { tipo: "REPUESTO", cantidad: 1, precioUnitario: 100_000, ivaPct: 19 },
-        { tipo: "REPUESTO", cantidad: 1, precioUnitario: 50_000, ivaPct: 5 },
+        { tipo: "REPUESTO", cantidad: 1, precioUnitario: 119_000, ivaPct: 19 },
+        { tipo: "REPUESTO", cantidad: 1, precioUnitario: 105_000, ivaPct: 5 },
         { tipo: "MANO_OBRA", cantidad: 1, precioUnitario: 50_000, ivaPct: 0 },
       ],
       descuentoPct: 10,
     });
     expect(totales.desgloseIva).toEqual([
       { ivaPct: 19, base: 90_000, iva: 17_100 },
-      { ivaPct: 5, base: 45_000, iva: 2_250 },
+      { ivaPct: 5, base: 90_000, iva: 4_500 },
       { ivaPct: 0, base: 45_000, iva: 0 },
     ]);
-    expect(totales.iva).toBe(19_350);
-    expect(totales.total).toBe(180_000 + 19_350);
+    expect(totales.iva).toBe(21_600);
+    expect(totales.total).toBe(274_000 - 27_400);
   });
 
   it("sin tipo de descuento se comporta como porcentaje", () => {
@@ -47,8 +48,8 @@ describe("computeCotizacionTotales", () => {
   it("con monto fijo descuenta los pesos indicados e ignora el porcentaje", () => {
     const totales = computeCotizacionTotales({ items, descuentoPct: 50, descuentoTipo: "MONTO", descuentoMonto: 30_000 });
     expect(totales.descuento).toBe(30_000);
-    expect(totales.iva).toBe(32_300);
-    expect(totales.total).toBe(202_300);
+    expect(totales.iva).toBe(27_142.86);
+    expect(totales.total).toBe(170_000);
   });
 
   it("limita el monto fijo al subtotal y nunca lo deja negativo", () => {

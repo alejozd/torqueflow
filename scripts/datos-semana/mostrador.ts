@@ -64,7 +64,7 @@ async function devolverParte(
     where: { id: ventaId },
     select: {
       subtotal: true, descuento: true, total: true, saldoPendiente: true,
-      items: { select: { id: true, repuestoId: true, cantidad: true, precioUnitario: true, ivaPct: true, devueltoCantidad: true } },
+      items: { select: { id: true, repuestoId: true, cantidad: true, precioUnitario: true, devueltoCantidad: true } },
       devoluciones: { select: { total: true } },
     },
   });
@@ -75,7 +75,7 @@ async function devolverParte(
   const precioUnitario = Number(item.precioUnitario);
 
   const yaDevuelto = venta.devoluciones.reduce((suma, d) => suma + Number(d.total), 0);
-  const calculado = totalDevolucion([{ cantidad, precioUnitario, ivaPct: Number(item.ivaPct) }], {
+  const calculado = totalDevolucion([{ cantidad, precioUnitario }], {
     subtotal: Number(venta.subtotal),
     descuento: Number(venta.descuento),
   });

@@ -86,7 +86,7 @@ export function DevolucionForm({ venta, onExito }: { venta: VentaDevolvible; onE
     venta.total,
     venta.totalDevuelto,
     totalDevolucion(
-      devolvibles.map((item) => ({ cantidad: cantidades[item.id] ?? 0, precioUnitario: item.precioUnitario, ivaPct: item.ivaPct })),
+      devolvibles.map((item) => ({ cantidad: cantidades[item.id] ?? 0, precioUnitario: item.precioUnitario })),
       { subtotal: venta.subtotal, descuento: venta.descuento },
     ),
   );

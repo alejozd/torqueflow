@@ -1,5 +1,5 @@
 import { roundMoney } from "@/lib/money/round";
-import { desglosarIva, type TramoIva } from "@/lib/iva/desglose";
+import { separarIvaIncluido, type TramoIva } from "@/lib/iva/desglose";
 
 export type TipoDescuentoCotizacion = "PORCENTAJE" | "MONTO";
 
@@ -41,12 +41,13 @@ export function computeCotizacionTotales({
     descuentoTipo === "MONTO"
       ? roundMoney(Math.min(Math.max(descuentoMonto, 0), subtotal))
       : roundMoney(subtotal * (descuentoPct / 100));
-  const base = roundMoney(subtotal - descuento);
-  const { tramos, iva } = desglosarIva(
+  // Los precios ya traen el IVA: el total es lo cotizado menos el descuento, y
+  // el IVA que va dentro se separa por tarifa (solo para la factura).
+  const total = roundMoney(subtotal - descuento);
+  const { tramos, iva } = separarIvaIncluido(
     items.map((item) => ({ importe: item.cantidad * item.precioUnitario, ivaPct: item.ivaPct })),
     descuento,
   );
-  const total = roundMoney(base + iva);
   return { subtotalRepuestos, subtotalManoObra, subtotal, descuento, iva, desgloseIva: tramos, total };
 }
 

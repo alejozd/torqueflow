@@ -67,7 +67,7 @@ function fd(campos: Record<string, string>): FormData {
   return formData;
 }
 
-const LINEA = { repuestoId: "r1", descripcion: "Filtro de aceite", cantidad: 2, precioUnitario: 25000 };
+const LINEA = { repuestoId: "r1", descripcion: "Filtro de aceite", cantidad: 2, precioUnitario: 29750 };
 
 const PAGO_TOTAL = [{ metodoPago: "EFECTIVO", monto: 59500 }];
 
@@ -111,7 +111,7 @@ describe("crearVentaMostradorAction", () => {
     db.cajaSesion.findFirst.mockResolvedValue({ id: "c1", abiertaAt: new Date("2026-10-17T13:00:00Z") });
     db.cliente.findFirst.mockResolvedValue({ nombre: "Ana Gómez", telefono: null, email: null });
     // Precio y nombre del repuesto salen de aquí, no del formulario (fase de consolidación, D6).
-    db.repuesto.findMany.mockResolvedValue([{ id: "r1", nombre: "Filtro de aceite", precioVenta: "25000", ivaPct: "19.00" }]);
+    db.repuesto.findMany.mockResolvedValue([{ id: "r1", nombre: "Filtro de aceite", precioVenta: "29750", ivaPct: "19.00" }]);
     tx.repuesto.updateMany.mockResolvedValue({ count: 1 });
     tx.ventaMostrador.create.mockResolvedValue({ id: "v1", numero: 7 });
     tx.pagoVentaMostrador.create.mockResolvedValue({});
@@ -144,7 +144,7 @@ describe("crearVentaMostradorAction", () => {
     // Sin recibido: null y vueltas 0.
     expect(creada.recibidoEfectivo).toBeNull();
     expect(Number(creada.vueltas)).toBe(0);
-    expect(Number(creada.total)).toBe(59500); // 50.000 + 19% de IVA
+    expect(Number(creada.total)).toBe(59500); // 2 × 29.750, el IVA va incluido
     expect(tx.pagoVentaMostrador.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ ventaId: "v1", monto: 59500, metodoPago: "EFECTIVO", registradoPorId: "u1" }),
     });
@@ -158,7 +158,7 @@ describe("crearVentaMostradorAction", () => {
     expect(r.error).toBeNull();
     const creada = tx.ventaMostrador.create.mock.calls[0]![0].data;
     expect(creada.items.create).toEqual([
-      { repuestoId: "r1", descripcion: "Filtro de aceite", cantidad: 2, precioUnitario: 25000, ivaPct: 19 },
+      { repuestoId: "r1", descripcion: "Filtro de aceite", cantidad: 2, precioUnitario: 29750, ivaPct: 19 },
     ]);
     expect(Number(creada.total)).toBe(59500);
     expect(creada.desgloseIva).toEqual([{ ivaPct: 19, base: 50000, iva: 9500 }]);
@@ -169,12 +169,12 @@ describe("crearVentaMostradorAction", () => {
   });
 
   it("una línea libre conserva el precio y la descripción que se escribieron", async () => {
-    const libre = { descripcion: "Lavado de motor", cantidad: 1, precioUnitario: 40000 };
+    const libre = { descripcion: "Lavado de motor", cantidad: 1, precioUnitario: 47600 };
 
     await crearVentaMostradorAction(inicial, venta({ lineas: JSON.stringify([libre]), totalEsperado: "47600", pagos: JSON.stringify([{ metodoPago: "EFECTIVO", monto: 47600 }]) }));
 
     expect(tx.ventaMostrador.create.mock.calls[0]![0].data.items.create).toEqual([
-      { repuestoId: null, descripcion: "Lavado de motor", cantidad: 1, precioUnitario: 40000, ivaPct: 19 },
+      { repuestoId: null, descripcion: "Lavado de motor", cantidad: 1, precioUnitario: 47600, ivaPct: 19 },
     ]);
   });
 
@@ -449,21 +449,21 @@ describe("crearVentaMostradorAction", () => {
   });
 
   it("RECEPCION no puede pasar del tope de descuento; ADMIN sí", async () => {
-    // 10 % de 50.000 = 5.000; 6.000 es 12 %. Total = (50.000 - 6.000) * 1,19 = 52.360.
+    // 10 % de 59.500 = 5.950; 7.140 es 12 %. Total = 59.500 − 7.140 = 52.360 (IVA incluido).
     const pagos = JSON.stringify([{ metodoPago: "TARJETA", monto: 52360 }]);
 
-    const rechazada = await crearVentaMostradorAction(inicial, venta({ descuento: "6000", totalEsperado: "52360", pagos }));
+    const rechazada = await crearVentaMostradorAction(inicial, venta({ descuento: "7140", totalEsperado: "52360", pagos }));
     expect(rechazada.error).toBe("Tu descuento máximo es 10 %");
     expect(tx.ventaMostrador.create).not.toHaveBeenCalled();
 
     mockRequirePermiso.mockResolvedValue({ user: { ...SESION.user, role: "ADMIN", permisos: permisosEfectivos({ role: "ADMIN" }) } });
-    const admin = await crearVentaMostradorAction(inicial, venta({ descuento: "6000", totalEsperado: "52360", pagos }));
+    const admin = await crearVentaMostradorAction(inicial, venta({ descuento: "7140", totalEsperado: "52360", pagos }));
     expect(admin.error).toBeNull();
   });
 
   it("RECEPCION puede dar el descuento justo en el tope", async () => {
     const pagos = JSON.stringify([{ metodoPago: "TARJETA", monto: 53550 }]);
-    const r = await crearVentaMostradorAction(inicial, venta({ descuento: "5000", totalEsperado: "53550", pagos }));
+    const r = await crearVentaMostradorAction(inicial, venta({ descuento: "5950", totalEsperado: "53550", pagos }));
     expect(r.error).toBeNull();
   });
 

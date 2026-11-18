@@ -6,7 +6,7 @@ import { requirePermiso } from "@/lib/auth/guards";
 import type { EstadoCotizacion } from "@/generated/prisma-tenant";
 import { agruparConceptos, conceptosDesdeItems, importeConcepto, type ConceptoVista } from "@/lib/cotizacion/agrupar-conceptos";
 import { etiquetaDescuento, porcentajeVisible } from "@/lib/cotizacion/totales";
-import { desglosarIva, etiquetaTramoIva } from "@/lib/iva/desglose";
+import { separarIvaIncluido, etiquetaTramoIva } from "@/lib/iva/desglose";
 import { textoPorcentaje } from "@/lib/iva/tarifas";
 import { ImprimirButton } from "./imprimir-button";
 
@@ -61,7 +61,7 @@ export default async function ImprimirCotizacionPage({ params }: { params: Promi
   const conceptos = conceptosDesdeItems(cotizacion.items);
   const bloques = agruparConceptos(conceptos);
   const descuento = Number(cotizacion.descuento);
-  const { tramos } = desglosarIva(
+  const { tramos } = separarIvaIncluido(
     conceptos.map((concepto) => ({ importe: importeConcepto(concepto), ivaPct: concepto.ivaPct })),
     descuento,
   );

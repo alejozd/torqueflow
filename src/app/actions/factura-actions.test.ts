@@ -102,11 +102,11 @@ describe("crearFacturaAction", () => {
     });
     expect(mockAnticipoUpdate).toHaveBeenCalledWith({ where: { id: "a1", estado: "PENDIENTE" }, data: { estado: "APLICADO", pagoId: "p1" } });
     expect(mockAnticipoUpdate).toHaveBeenCalledWith({ where: { id: "a2", estado: "PENDIENTE" }, data: { estado: "APLICADO", pagoId: "p2" } });
-    expect(mockFacturaUpdate).toHaveBeenCalledWith({ where: { id: "f1" }, data: { saldoPendiente: 81.58 } });
+    expect(mockFacturaUpdate).toHaveBeenCalledWith({ where: { id: "f1" }, data: { saldoPendiente: 57.3 } });
   });
 
   it("marks the factura PAGADA when the anticipos cover the whole total", async () => {
-    mockAnticipoFindMany.mockResolvedValue([{ id: "a1", monto: "152.08", registradoPorId: "u7" }]);
+    mockAnticipoFindMany.mockResolvedValue([{ id: "a1", monto: "127.8", registradoPorId: "u7" }]);
 
     await crearFacturaAction("o1", initialState, new FormData());
 
@@ -193,10 +193,10 @@ describe("crearFacturaAction", () => {
         clienteId: "c1",
         subtotal: 127.8,
         descuento: 0,
-        iva: 24.28,
-        desgloseIva: [{ ivaPct: 19, base: 127.8, iva: 24.28 }],
-        total: 152.08,
-        saldoPendiente: 152.08,
+        iva: 20.41,
+        desgloseIva: [{ ivaPct: 19, base: 107.39, iva: 20.41 }],
+        total: 127.8,
+        saldoPendiente: 127.8,
         emitidaPorId: "u1",
         estado: "PENDIENTE",
       },
@@ -215,7 +215,7 @@ describe("crearFacturaAction", () => {
     await crearFacturaAction("o1", initialState, formData);
 
     expect(mockFacturaCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ descuento: 10, iva: 22.38, total: 140.18 }) }),
+      expect.objectContaining({ data: expect.objectContaining({ descuento: 10, iva: 18.81, total: 117.8 }) }),
     );
   });
 

@@ -1,10 +1,10 @@
 import { roundMoney } from "@/lib/money/round";
 import { IVA_PREDETERMINADO_RESPALDO, textoPorcentaje } from "./tarifas";
 
-/** Lo que paga de IVA cada tarifa usada en un documento. */
+/** El IVA que va dentro del precio, por cada tarifa usada en un documento. */
 export interface TramoIva {
   ivaPct: number;
-  /** Base gravable de la tarifa, ya con su parte del descuento. */
+  /** Base gravable de la tarifa (el precio sin IVA, ya con su parte del descuento). */
   base: number;
   iva: number;
 }
@@ -12,21 +12,20 @@ export interface TramoIva {
 export interface DesgloseIva {
   tramos: TramoIva[];
   iva: number;
+  /** Suma de las bases (lo que queda sin IVA). */
+  base: number;
 }
 
 /**
- * Agrupa las líneas por tarifa y reparte el descuento global entre las bases
- * en proporción a su peso; cada base paga su IVA. La última tarifa se queda
- * con el residuo del redondeo, así la suma de las bases es exactamente
- * `subtotal − descuento` (con una sola tarifa da lo mismo que el cálculo de antes).
+ * Los precios ya traen el IVA incluido. Agrupa las líneas por tarifa, reparte
+ * el descuento global entre tarifas en proporción a su peso (la última se queda
+ * con el residuo del redondeo, así base + IVA suma exactamente subtotal −
+ * descuento) y separa en cada tramo la base y el IVA que lleva dentro.
  *
  * Los tramos salen de la tarifa más alta a la más baja; los que quedan sin
- * base no aparecen.
+ * valor no aparecen.
  */
-export function desglosarIva(
-  lineas: { importe: number; ivaPct?: number }[],
-  descuento: number,
-): DesgloseIva {
+export function separarIvaIncluido(lineas: { importe: number; ivaPct?: number }[], descuento: number): DesgloseIva {
   const brutas = new Map<number, number>();
   for (const linea of lineas) {
     const pct = linea.ivaPct ?? IVA_PREDETERMINADO_RESPALDO;
@@ -39,20 +38,26 @@ export function desglosarIva(
 
   const subtotal = roundMoney(ordenadas.reduce((suma, t) => suma + t.bruta, 0));
   const descuentoReal = roundMoney(Math.min(Math.max(descuento, 0), subtotal));
-  const baseTotal = roundMoney(subtotal - descuentoReal);
+  const totalNeto = roundMoney(subtotal - descuentoReal);
 
   const tramos: TramoIva[] = [];
-  let repartida = 0;
+  let repartido = 0;
   ordenadas.forEach((t, i) => {
-    const base =
+    const total =
       i === ordenadas.length - 1
-        ? roundMoney(baseTotal - repartida)
+        ? roundMoney(totalNeto - repartido)
         : roundMoney(t.bruta - (subtotal > 0 ? (descuentoReal * t.bruta) / subtotal : 0));
-    repartida = roundMoney(repartida + base);
-    if (base > 0) tramos.push({ ivaPct: t.ivaPct, base, iva: roundMoney((base * t.ivaPct) / 100) });
+    repartido = roundMoney(repartido + total);
+    if (total <= 0) return;
+    const base = roundMoney(total / (1 + t.ivaPct / 100));
+    tramos.push({ ivaPct: t.ivaPct, base, iva: roundMoney(total - base) });
   });
 
-  return { tramos, iva: roundMoney(tramos.reduce((suma, t) => suma + t.iva, 0)) };
+  return {
+    tramos,
+    iva: roundMoney(tramos.reduce((suma, t) => suma + t.iva, 0)),
+    base: roundMoney(tramos.reduce((suma, t) => suma + t.base, 0)),
+  };
 }
 
 /** "IVA 19 %" o, al 0 %, "Exento". */
