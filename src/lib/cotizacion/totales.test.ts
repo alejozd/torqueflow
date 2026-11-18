@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeCotizacionTotales, etiquetaDescuento, porcentajeVisible } from "./totales";
+import { computeCotizacionTotales, etiquetaDescuento, ivaSumadoAparte, porcentajeVisible } from "./totales";
 
 const items = [
   { tipo: "REPUESTO" as const, cantidad: 2, precioUnitario: 50_000 },
@@ -63,6 +63,28 @@ describe("computeCotizacionTotales", () => {
 
   it("sin ítems todo queda en cero", () => {
     expect(computeCotizacionTotales({ items: [], descuentoPct: 0, descuentoTipo: "MONTO", descuentoMonto: 10_000 }).total).toBe(0);
+  });
+});
+
+describe("descuento en pesos enteros", () => {
+  it("un porcentaje que no da exacto se redondea al peso", () => {
+    const totales = computeCotizacionTotales({
+      items: [{ tipo: "REPUESTO", cantidad: 1, precioUnitario: 333_381 }],
+      descuentoPct: 10,
+    });
+    expect(totales.descuento).toBe(33_338);
+    expect(totales.total).toBe(300_043);
+  });
+});
+
+describe("ivaSumadoAparte", () => {
+  it("en una cotización de antes del IVA incluido es lo que el total pasa del subtotal menos el descuento", () => {
+    expect(ivaSumadoAparte({ subtotal: 511_881, descuento: 0, total: 581_503 })).toBe(69_622);
+  });
+
+  it("en las de ahora es 0, aunque haya centavos de diferencia", () => {
+    expect(ivaSumadoAparte({ subtotal: 333_381, descuento: 33_338, total: 300_043 })).toBe(0);
+    expect(ivaSumadoAparte({ subtotal: 333_381, descuento: 33_338.1, total: 300_042.9 })).toBe(0);
   });
 });
 

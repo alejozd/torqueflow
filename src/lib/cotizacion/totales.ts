@@ -37,10 +37,11 @@ export function computeCotizacionTotales({
   );
   const subtotal = roundMoney(subtotalRepuestos + subtotalManoObra);
   // Un monto fijo mayor que el subtotal dejaría la base negativa: se limita.
+  // En pesos enteros: un 10 % de $ 333.381 es $ 33.338, no $ 33.338,10.
   const descuento =
     descuentoTipo === "MONTO"
-      ? roundMoney(Math.min(Math.max(descuentoMonto, 0), subtotal))
-      : roundMoney(subtotal * (descuentoPct / 100));
+      ? Math.round(Math.min(Math.max(descuentoMonto, 0), subtotal))
+      : Math.round(subtotal * (descuentoPct / 100));
   // Los precios ya traen el IVA: el total es lo cotizado menos el descuento, y
   // el IVA que va dentro se separa por tarifa (solo para la factura).
   const total = roundMoney(subtotal - descuento);
@@ -49,6 +50,17 @@ export function computeCotizacionTotales({
     descuento,
   );
   return { subtotalRepuestos, subtotalManoObra, subtotal, descuento, iva, desgloseIva: tramos, total };
+}
+
+/**
+ * El IVA que una cotización de antes de los precios con IVA incluido (tanda 3)
+ * le sumó aparte a su total: esas cotizaciones cerradas conservan sus totales
+ * guardados, así que su total queda por encima del subtotal menos el descuento.
+ * En las de ahora es 0.
+ */
+export function ivaSumadoAparte({ subtotal, descuento, total }: { subtotal: number; descuento: number; total: number }): number {
+  const diferencia = roundMoney(total - (subtotal - descuento));
+  return diferencia >= 1 ? diferencia : 0;
 }
 
 /** "Descuento (10%)" o, si es un monto fijo, solo "Descuento". */

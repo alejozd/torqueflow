@@ -11,9 +11,9 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", {
 
 function Fila({ etiqueta, valor }: { etiqueta: ReactNode; valor: string }) {
   return (
-    <div className="flex items-center justify-between py-1.5 text-sm">
-      <span className="text-muted-foreground">{etiqueta}</span>
-      <span className="font-mono">{valor}</span>
+    <div className="flex items-start justify-between gap-3 py-1.5 text-sm">
+      <span className="min-w-0 text-muted-foreground">{etiqueta}</span>
+      <span className="shrink-0 font-mono whitespace-nowrap">{valor}</span>
     </div>
   );
 }

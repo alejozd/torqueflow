@@ -16,7 +16,7 @@ describe("descuentoHeredado", () => {
 
   it("un porcentaje se aplica al total de hoy de la orden", () => {
     expect(descuentoHeredado(cotizacion(), 333381)).toEqual({
-      descuento: 33338.1,
+      descuento: 33338,
       etiqueta: "Descuento de la cotización #45 (10 %)",
     });
   });

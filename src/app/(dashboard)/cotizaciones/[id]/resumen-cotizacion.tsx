@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ResumenEconomico } from "@/components/resumen-economico";
+import { ivaSumadoAparte } from "@/lib/cotizacion/totales";
 
 /**
  * Resumen económico de la cotización: repuestos y mano de obra con los mismos
@@ -39,6 +40,7 @@ export function ResumenCotizacion({
       iva={iva}
       total={total}
       modoIva="incluido"
+      ivaAparte={ivaSumadoAparte({ subtotal, descuento, total })}
       etiquetaTotal="Total cotizado"
       editorDescuento={editorDescuento}
     />
