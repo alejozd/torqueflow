@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Minus, Plus, RotateCcw } from "lucide-react";
+import { ChevronRight, Minus, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { ResultadosBusquedaConceptos } from "@/lib/conceptos/buscar";
 import {
@@ -43,19 +43,22 @@ export interface CambiosConcepto {
   precioUnitario?: number;
   ivaPct?: number;
   descripcion?: string;
-  tipo?: "REPUESTO" | "MANO_OBRA";
 }
 
 /** Lo que cada documento (cotización, orden) le da a la tabla para guardar. */
 export interface AdaptadorConceptos {
   buscar(texto: string): Promise<ResultadosBusquedaConceptos>;
   agregarRepuesto(repuestoId: string): Promise<ResultadoConcepto>;
-  agregarLibre(input: { tipo: "REPUESTO" | "MANO_OBRA"; descripcion: string }): Promise<ResultadoConcepto>;
+  /** Lo que no está en el inventario solo entra como mano de obra. */
+  agregarLibre(input: { tipo: "MANO_OBRA"; descripcion: string }): Promise<ResultadoConcepto>;
   aplicarServicio(servicioId: string): Promise<ResultadoServicioConceptos>;
   actualizar(concepto: ConceptoVista, cambios: CambiosConcepto): Promise<ResultadoConcepto>;
   quitar(concepto: ConceptoVista): Promise<ResultadoAccion>;
   quitarKit(grupoKitId: string): Promise<ResultadoAccion>;
 }
+
+/** Quitar una línea se ve como borrar: bote de basura en rojo. */
+const CLASE_QUITAR = "text-destructive hover:bg-destructive/10 hover:text-destructive";
 
 const DURACION_DESTELLO_MS = 1500;
 
@@ -245,20 +248,9 @@ export function TablaConceptos({
             <p className="text-sm break-words">{concepto.descripcion}</p>
           )}
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            {puedeEditar && libre ? (
-              <button
-                type="button"
-                onClick={() => void guardar(concepto, { tipo: concepto.tipo === "REPUESTO" ? "MANO_OBRA" : "REPUESTO" })}
-                title="Cambiar entre repuesto y mano de obra"
-                className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap", CLASE_TIPO[concepto.tipo])}
-              >
-                {concepto.tipo === "REPUESTO" ? "Repuesto" : "Mano de obra"} ⇄
-              </button>
-            ) : (
-              <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap", CLASE_TIPO[concepto.tipo])}>
-                {concepto.tipo === "REPUESTO" ? "Repuesto" : "Mano de obra"}
-              </span>
-            )}
+            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap", CLASE_TIPO[concepto.tipo])}>
+              {concepto.tipo === "REPUESTO" ? "Repuesto" : "Mano de obra"}
+            </span>
             {concepto.codigo ? <span className="font-mono text-[11px] text-muted-foreground">{concepto.codigo}</span> : null}
             {libre ? <span className="text-[11px] text-muted-foreground">Fuera del catálogo</span> : null}
           </div>
@@ -363,6 +355,8 @@ export function TablaConceptos({
           <td className="relative py-2 pr-1 text-right align-middle">
             <QuitarConConfirmacion
               flotante
+              icono={Trash2}
+              claseBoton={CLASE_QUITAR}
               etiqueta={`Quitar ${concepto.descripcion}`}
               pregunta="¿Quitar este concepto?"
               accion={() => adaptador.quitar(concepto)}
@@ -469,6 +463,8 @@ export function TablaConceptos({
                       <td className="relative py-2 pr-1 text-right align-middle">
                         <QuitarConConfirmacion
                           flotante
+                          icono={Trash2}
+                          claseBoton={CLASE_QUITAR}
                           etiqueta={`Quitar el kit ${bloque.nombre}`}
                           pregunta={`¿Quitar el kit completo (${bloque.conceptos.length} conceptos)?`}
                           accion={() => adaptador.quitarKit(bloque.grupoKitId)}

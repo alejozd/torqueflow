@@ -19,7 +19,9 @@ import { DescuentoCotizacionForm } from "./descuento-cotizacion-form";
 import { EnviarCotizacionForm } from "./enviar-cotizacion-form";
 import { DecisionCotizacionButtons } from "./decision-cotizacion-buttons";
 import { RegistrarSeguimientoDialog } from "./registrar-seguimiento-dialog";
-import { requirePermiso } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
+import { listBodegas } from "@/app/actions/bodega-actions";
+import { listProveedores } from "@/app/actions/proveedor-actions";
 
 const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeZone: "America/Bogota" });
 
@@ -49,13 +51,23 @@ const formatoHoraSeguimiento = new Intl.DateTimeFormat("es-CO", {
 });
 
 export default async function CotizacionDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requirePermiso("cotizaciones.ver");
+  const session = await requirePermiso("cotizaciones.ver");
   const { id } = await params;
   const cotizacion = await getCotizacion(id);
 
   if (!cotizacion) {
     notFound();
   }
+
+  // Solo quien puede editar el inventario ve "Crear «…» en el inventario".
+  const crearRepuesto =
+    esCotizacionMutable(cotizacion.estado) && puede(session, "inventario.editar")
+      ? await Promise.all([listBodegas(), listProveedores()]).then(([bodegas, proveedores]) => ({
+          bodegas,
+          proveedores,
+          verCostos: puede(session, "inventario.costos"),
+        }))
+      : null;
 
   const ahora = new Date();
   const puedeEditar = esCotizacionMutable(cotizacion.estado);
@@ -135,7 +147,12 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
               ) : null}
             </CardHeader>
             <CardContent>
-              <TablaConceptos cotizacionId={cotizacion.id} conceptos={conceptos} puedeEditar={puedeEditar} />
+              <TablaConceptos
+                cotizacionId={cotizacion.id}
+                conceptos={conceptos}
+                puedeEditar={puedeEditar}
+                crearRepuesto={crearRepuesto}
+              />
             </CardContent>
           </Card>
 

@@ -30,6 +30,11 @@ vi.mock("@/app/actions/buscar-cotizacion-actions", () => ({
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
+vi.mock("@/app/(dashboard)/repuestos/nuevo-repuesto-dialog", () => ({
+  NuevoRepuestoDialog: ({ open, nombreInicial }: { open: boolean; nombreInicial?: string }) =>
+    open ? <p>Nuevo repuesto: {nombreInicial}</p> : null,
+}));
+
 const mockToastError = vi.fn();
 const mockToastSuccess = vi.fn();
 vi.mock("sonner", () => ({
@@ -208,7 +213,7 @@ describe("TablaConceptos", () => {
     await waitFor(() => expect(mockEliminarKit).toHaveBeenCalledWith("q1", "g1"));
   });
 
-  it("solo los ítems libres permiten cambiar el tipo", async () => {
+  it("ya no deja cambiar una línea entre repuesto y mano de obra", () => {
     render(
       <TablaConceptos
         cotizacionId="q1"
@@ -217,9 +222,49 @@ describe("TablaConceptos", () => {
       />,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: /Repuesto ⇄/ }));
+    expect(screen.queryByTitle("Cambiar entre repuesto y mano de obra")).not.toBeInTheDocument();
+    expect(screen.getByText("Repuesto")).toBeInTheDocument();
+  });
 
-    expect(mockActualizar).toHaveBeenCalledWith("q1", "l1", { tipo: "MANO_OBRA" });
+  it("quitar una línea es un bote de basura rojo", () => {
+    render(<TablaConceptos cotizacionId="q1" conceptos={[concepto({})]} puedeEditar />);
+
+    const boton = screen.getByRole("button", { name: "Quitar Filtro de cabina" });
+    expect(boton.querySelector("svg.lucide-trash-2")).not.toBeNull();
+    expect(boton).toHaveClass("text-destructive");
+  });
+
+  it("con permiso de inventario ofrece crear el repuesto, con el nombre buscado", async () => {
+    render(
+      <TablaConceptos
+        cotizacionId="q1"
+        conceptos={[]}
+        puedeEditar
+        crearRepuesto={{ bodegas: [], proveedores: [], verCostos: false }}
+      />,
+    );
+
+    await userEvent.type(screen.getByRole("combobox", { name: "Agregar repuesto, servicio o kit" }), "Bujía rara");
+    await userEvent.click(await screen.findByRole("option", { name: "Crear «Bujía rara» en el inventario" }));
+
+    expect(screen.getByText("Nuevo repuesto: Bujía rara")).toBeInTheDocument();
+  });
+
+  it("sin permiso de inventario no ofrece crear el repuesto", async () => {
+    render(<TablaConceptos cotizacionId="q1" conceptos={[]} puedeEditar />);
+
+    await userEvent.type(screen.getByRole("combobox", { name: "Agregar repuesto, servicio o kit" }), "Bujía rara");
+    await screen.findByRole("option", { name: /como mano de obra/ });
+    expect(screen.queryByRole("option", { name: /en el inventario/ })).not.toBeInTheDocument();
+  });
+
+  it("lo que no está en el inventario solo se ofrece como mano de obra", async () => {
+    render(<TablaConceptos cotizacionId="q1" conceptos={[]} puedeEditar />);
+
+    await userEvent.type(screen.getByRole("combobox", { name: "Agregar repuesto, servicio o kit" }), "Bujía rara");
+
+    expect(await screen.findByRole("option", { name: "Agregar «Bujía rara» como mano de obra" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /como repuesto/ })).not.toBeInTheDocument();
   });
 
   it("sin permiso de edición queda de solo lectura y sin buscador", () => {

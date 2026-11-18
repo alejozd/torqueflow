@@ -126,8 +126,9 @@ export async function agregarRepuestoAOrdenAction(ordenId: string, repuestoId: s
 }
 
 /**
- * Agrega una línea fuera del catálogo con precio 0, lista para ponerle precio.
- * Lleva la tarifa de IVA predeterminada; la mano de obra, el mecánico de la orden.
+ * Agrega mano de obra fuera del catálogo con valor 0, lista para ponerle precio,
+ * con la tarifa de IVA predeterminada y el mecánico de la orden. Los repuestos
+ * solo entran desde el inventario.
  */
 export async function agregarLibreAOrdenAction(ordenId: string, input: LibreOrdenInput): Promise<ResultadoConcepto> {
   const parsed = libreOrdenInputSchema.safeParse(input);
@@ -143,23 +144,13 @@ export async function agregarLibreAOrdenAction(ordenId: string, input: LibreOrde
   const ivaPct = iva.ok ? iva.ivaPct : undefined;
 
   try {
-    let conceptoId: string;
-    if (parsed.data.tipo === "REPUESTO") {
-      const creado = await tenantDb.itemOrden.create({
-        data: { ordenId, repuestoId: null, descripcion: parsed.data.descripcion, cantidad: 1, precioUnitario: 0, ivaPct },
-        select: { id: true },
-      });
-      conceptoId = idConceptoOrden("item", creado.id);
-    } else {
-      const mecanicoId = await mecanicoDeLaSede(tenantDb, orden.mecanicoId, session.user.sedeActivaId);
-      const creada = await tenantDb.manoDeObra.create({
-        data: { ordenId, descripcion: parsed.data.descripcion, valor: 0, mecanicoId, ivaPct },
-        select: { id: true },
-      });
-      conceptoId = idConceptoOrden("mo", creada.id);
-    }
+    const mecanicoId = await mecanicoDeLaSede(tenantDb, orden.mecanicoId, session.user.sedeActivaId);
+    const creada = await tenantDb.manoDeObra.create({
+      data: { ordenId, descripcion: parsed.data.descripcion, valor: 0, mecanicoId, ivaPct },
+      select: { id: true },
+    });
     revalidar(ordenId);
-    return { error: null, conceptoId };
+    return { error: null, conceptoId: idConceptoOrden("mo", creada.id) };
   } catch (err) {
     return sinConcepto(friendlyPrismaErrorMessage(err, "Error al agregar el ítem"));
   }
@@ -242,100 +233,6 @@ export async function actualizarConceptoOrdenAction(
   }
   revalidar(ordenId);
   return { error: null, conceptoId };
-}
-
-/**
- * Pasa una línea libre de repuesto a mano de obra o al revés. Como viven en
- * tablas distintas, se borra en una y se crea en la otra en una sola
- * transacción, conservando descripción, importe, IVA, kit y fecha (para que no
- * cambie de lugar en la lista). A mano de obra lleva el mecánico de la orden.
- */
-export async function cambiarTipoConceptoOrdenAction(ordenId: string, conceptoId: string): Promise<ResultadoConcepto> {
-  const linea = leerIdConceptoOrden(conceptoId);
-  if (!linea) return sinConcepto(LINEA_NO_ESTA);
-
-  const session = await requirePermiso("ordenes.trabajar");
-  const tenantDb = getTenantDb(session.user.tenantSchema);
-
-  const orden = await ordenEditable(tenantDb, session, ordenId);
-  if ("error" in orden) return sinConcepto(orden.error);
-  const SOLO_LIBRES = "Solo las líneas libres pueden cambiar entre repuesto y mano de obra";
-
-  try {
-    if (linea.tabla === "item") {
-      const item = await tenantDb.itemOrden.findFirst({
-        where: { id: linea.id, ordenId },
-        select: {
-          id: true,
-          repuestoId: true,
-          grupoKitId: true,
-          grupoKitNombre: true,
-          descripcion: true,
-          cantidad: true,
-          precioUnitario: true,
-          ivaPct: true,
-          createdAt: true,
-        },
-      });
-      if (!item) return sinConcepto(LINEA_NO_ESTA);
-      if (item.repuestoId !== null || item.grupoKitId !== null) return sinConcepto(SOLO_LIBRES);
-      const mecanicoId = await mecanicoDeLaSede(tenantDb, orden.mecanicoId, session.user.sedeActivaId);
-      const creada = await tenantDb.$transaction(async (tx) => {
-        await tx.itemOrden.delete({ where: { id: item.id } });
-        return tx.manoDeObra.create({
-          data: {
-            ordenId,
-            descripcion: item.descripcion,
-            valor: item.cantidad * Number(item.precioUnitario),
-            ivaPct: item.ivaPct,
-            mecanicoId,
-            grupoKitId: item.grupoKitId,
-            grupoKitNombre: item.grupoKitNombre,
-            createdAt: item.createdAt,
-          },
-          select: { id: true },
-        });
-      });
-      revalidar(ordenId);
-      return { error: null, conceptoId: idConceptoOrden("mo", creada.id) };
-    }
-
-    const mano = await tenantDb.manoDeObra.findFirst({
-      where: { id: linea.id, ordenId },
-      select: {
-        id: true,
-        grupoKitId: true,
-        grupoKitNombre: true,
-        descripcion: true,
-        valor: true,
-        ivaPct: true,
-        createdAt: true,
-      },
-    });
-    if (!mano) return sinConcepto(LINEA_NO_ESTA);
-    if (mano.grupoKitId !== null) return sinConcepto(SOLO_LIBRES);
-    const creado = await tenantDb.$transaction(async (tx) => {
-      await tx.manoDeObra.delete({ where: { id: mano.id } });
-      return tx.itemOrden.create({
-        data: {
-          ordenId,
-          repuestoId: null,
-          descripcion: mano.descripcion,
-          cantidad: 1,
-          precioUnitario: mano.valor,
-          ivaPct: mano.ivaPct,
-          grupoKitId: mano.grupoKitId,
-          grupoKitNombre: mano.grupoKitNombre,
-          createdAt: mano.createdAt,
-        },
-        select: { id: true },
-      });
-    });
-    revalidar(ordenId);
-    return { error: null, conceptoId: idConceptoOrden("item", creado.id) };
-  } catch (err) {
-    return sinConcepto(friendlyPrismaErrorMessage(err, "Error al cambiar el tipo"));
-  }
 }
 
 /** Quita todas las líneas de un kit aplicado, repuestos y mano de obra. */

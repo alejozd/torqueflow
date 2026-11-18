@@ -4,10 +4,8 @@ import userEvent from "@testing-library/user-event";
 import type { ConceptoVista } from "@/lib/conceptos/conceptos";
 
 const mockActualizar = vi.fn();
-const mockCambiarTipo = vi.fn();
 vi.mock("@/app/actions/conceptos-orden-actions", () => ({
   actualizarConceptoOrdenAction: (...args: unknown[]) => mockActualizar(...args),
-  cambiarTipoConceptoOrdenAction: (...args: unknown[]) => mockCambiarTipo(...args),
   agregarLibreAOrdenAction: vi.fn(),
   agregarRepuestoAOrdenAction: vi.fn(),
   buscarParaOrdenAction: vi.fn(async () => ({ kits: [], repuestos: [] })),
@@ -88,14 +86,11 @@ describe("ConceptosOrden", () => {
     expect(mockActualizar).toHaveBeenCalledWith("o1", "mo:m1", { mecanicoId: "t2" });
   });
 
-  it("el tipo de una línea libre se cambia con la acción de cambiar tipo", async () => {
-    mockCambiarTipo.mockResolvedValue({ error: null, conceptoId: "mo:m7" });
+  it("una línea libre no tiene botón para cambiar de tipo", () => {
     render(
       <ConceptosOrden ordenId="o1" puedeEditar puedeQuitar tecnicos={[]} crearRepuesto={null} conceptos={[repuestoLibre()]} />,
     );
-    await userEvent.click(screen.getByTitle("Cambiar entre repuesto y mano de obra"));
-    expect(mockCambiarTipo).toHaveBeenCalledWith("o1", "item:i7");
-    expect(mockActualizar).not.toHaveBeenCalled();
+    expect(screen.queryByTitle("Cambiar entre repuesto y mano de obra")).not.toBeInTheDocument();
   });
 
   it("sin permiso de editar muestra el mecánico como texto y sin buscador", () => {

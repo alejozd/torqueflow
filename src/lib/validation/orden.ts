@@ -27,9 +27,9 @@ export const diasEstancadaSchema = z.coerce
   .min(DIAS_ESTANCADA_MIN, MENSAJE_DIAS_ESTANCADA)
   .max(DIAS_ESTANCADA_MAX, MENSAJE_DIAS_ESTANCADA);
 
-/** Una línea libre que se agrega desde el buscador de la orden. */
+/** Una línea libre que se agrega desde el buscador de la orden: solo mano de obra. */
 export const libreOrdenInputSchema = z.object({
-  tipo: z.enum(["REPUESTO", "MANO_OBRA"]),
+  tipo: z.literal("MANO_OBRA", { error: "Lo que no está en el inventario solo se agrega como mano de obra" }),
   descripcion: z.string().trim().min(1, "La descripción es obligatoria").max(200, "La descripción es muy larga"),
 });
 

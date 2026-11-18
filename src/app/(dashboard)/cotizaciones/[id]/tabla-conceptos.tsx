@@ -12,6 +12,7 @@ import { buscarParaCotizacionAction } from "@/app/actions/buscar-cotizacion-acti
 import { aplicarServicioACotizacionAction } from "@/app/actions/servicio-actions";
 import type { ConceptoVista } from "@/lib/cotizacion/agrupar-conceptos";
 import { TablaConceptos as TablaCompartida, type AdaptadorConceptos } from "@/components/conceptos/tabla-conceptos";
+import { useCrearRepuesto, type DatosCrearRepuesto } from "@/components/conceptos/crear-repuesto";
 
 const ESTADO_APLICAR_INICIAL = { error: null, success: false, agregados: null };
 
@@ -23,10 +24,13 @@ export function TablaConceptos({
   cotizacionId,
   conceptos,
   puedeEditar,
+  crearRepuesto = null,
 }: {
   cotizacionId: string;
   conceptos: ConceptoVista[];
   puedeEditar: boolean;
+  /** Con permiso de inventario: crear el repuesto que no existe y agregarlo. */
+  crearRepuesto?: DatosCrearRepuesto | null;
 }) {
   const adaptador = useMemo<AdaptadorConceptos>(
     () => ({
@@ -58,13 +62,19 @@ export function TablaConceptos({
     [cotizacionId],
   );
 
+  const creacion = useCrearRepuesto(crearRepuesto, (repuestoId) => adaptador.agregarRepuesto(repuestoId));
+
   return (
-    <TablaCompartida
-      adaptador={adaptador}
-      conceptos={conceptos}
-      puedeEditar={puedeEditar}
-      puedeQuitar={puedeEditar}
-      textoVacio="Esta cotización no tiene conceptos."
-    />
+    <>
+      <TablaCompartida
+        adaptador={adaptador}
+        conceptos={conceptos}
+        puedeEditar={puedeEditar}
+        puedeQuitar={puedeEditar}
+        crearRepuesto={creacion.abrir}
+        textoVacio="Esta cotización no tiene conceptos."
+      />
+      {creacion.dialogo}
+    </>
   );
 }
