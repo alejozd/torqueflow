@@ -1,7 +1,8 @@
-import { beforeAll, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
+let rutaActual = "/";
+vi.mock("next/navigation", () => ({ usePathname: () => rutaActual }));
 
 import { DashboardSidebar } from "./dashboard-sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -20,6 +21,10 @@ beforeAll(() => {
   })) as typeof window.matchMedia;
 });
 
+beforeEach(() => {
+  rutaActual = "/";
+});
+
 function renderMenu(role: Role) {
   return render(
     <SidebarProvider>
@@ -29,6 +34,7 @@ function renderMenu(role: Role) {
 }
 
 const visible = (name: string) => screen.queryByRole("link", { name }) !== null;
+const botonConfiguracion = () => screen.getByRole("button", { name: "Configuración" });
 
 describe("DashboardSidebar", () => {
   it("TECNICO no ve Mostrador, Caja ni Usuarios ni Facturas (D8)", () => {
@@ -39,7 +45,9 @@ describe("DashboardSidebar", () => {
     expect(visible("Facturas")).toBe(false);
     expect(visible("Servicios")).toBe(false);
     expect(visible("Importar")).toBe(false);
-    expect(screen.queryByText("Administración")).toBeNull();
+    expect(visible("Configuración del taller")).toBe(false);
+    expect(screen.queryByText("Ventas y plata")).toBeNull();
+    expect(screen.queryByText("Informes")).toBeNull();
   });
 
   it("RECEPCION ve Importar y el dinero, no Usuarios ni Servicios", () => {
@@ -51,18 +59,38 @@ describe("DashboardSidebar", () => {
     expect(visible("Usuarios")).toBe(false);
     expect(visible("Servicios")).toBe(false);
     expect(visible("Reportes")).toBe(false);
-    expect(screen.getByText("Administración")).toBeInTheDocument();
+    expect(screen.getByText("Ventas y plata")).toBeInTheDocument();
   });
 
-  it("ADMIN ve todo en el orden de siempre", () => {
+  it("ADMIN ve todo: lo diario arriba en el orden del trabajo y la configuración al final", () => {
     renderMenu("ADMIN");
-    for (const n of ["Mostrador", "Caja", "Cartera", "Cuentas por pagar", "Gastos", "Facturas", "Servicios", "Importar", "Reportes", "Liquidaciones", "Sedes", "Usuarios", "Auditoría", "SMTP"]) {
+    for (const n of ["Mostrador", "Caja", "Cartera", "Cuentas por pagar", "Gastos", "Facturas", "Servicios", "Importar", "Reportes", "Liquidaciones", "Sedes", "Usuarios", "Auditoría", "Configuración del taller"]) {
       expect(visible(n)).toBe(true);
     }
+    expect(visible("SMTP")).toBe(false);
+    expect(visible("Tarifas de IVA")).toBe(false);
     const nombres = screen.getAllByRole("link").map((a) => a.textContent);
-    expect(nombres.indexOf("Facturas")).toBeLessThan(nombres.indexOf("Mostrador"));
-    expect(nombres.indexOf("Gastos")).toBeLessThan(nombres.indexOf("Bodegas"));
-    expect(nombres.indexOf("Repuestos")).toBeLessThan(nombres.indexOf("Servicios"));
-    expect(nombres.indexOf("SMTP")).toBeLessThan(nombres.indexOf("Importar"));
+    expect(nombres.indexOf("Citas")).toBeLessThan(nombres.indexOf("Cotizaciones"));
+    expect(nombres.indexOf("Cotizaciones")).toBeLessThan(nombres.indexOf("Órdenes"));
+    expect(nombres.indexOf("Clientes")).toBeLessThan(nombres.indexOf("Mostrador"));
+    expect(nombres.indexOf("Gastos")).toBeLessThan(nombres.indexOf("Repuestos"));
+    expect(nombres.indexOf("Proveedores")).toBeLessThan(nombres.indexOf("Reportes"));
+    expect(nombres.indexOf("Liquidaciones")).toBeLessThan(nombres.indexOf("Configuración del taller"));
+    expect(nombres.indexOf("Configuración del taller")).toBeLessThan(nombres.indexOf("Bodegas"));
+  });
+
+  it("Configuración arranca cerrada y se abre al tocarla", () => {
+    renderMenu("ADMIN");
+    expect(botonConfiguracion()).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(botonConfiguracion());
+    expect(botonConfiguracion()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("en Tarifas de IVA, Configuración está abierta y marca Configuración del taller", () => {
+    rutaActual = "/configuracion-iva";
+    renderMenu("ADMIN");
+    expect(botonConfiguracion()).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "Configuración del taller" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Inicio" })).not.toHaveAttribute("aria-current");
   });
 });

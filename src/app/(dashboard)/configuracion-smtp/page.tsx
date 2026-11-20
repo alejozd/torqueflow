@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatoFechaRelativa } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
+import { EncabezadoConfiguracion } from "../pestanas-configuracion";
 
 // Same PENDIENTE/PAGADA-style green-vs-outline badge convention as
 // facturas/[id]/page.tsx and cotizaciones/[id]/page.tsx.
@@ -29,8 +30,8 @@ export default async function ConfiguracionSmtpPage() {
   return (
     <main className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Configuración SMTP</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <EncabezadoConfiguracion actual="/configuracion-smtp" />
+        <p className="mt-3 text-sm text-muted-foreground">
           TorqueFlow envía los recordatorios de mantenimiento y los avisos de vencimiento de SOAT y
           tecnomecánica usando el servidor de correo de tu propio taller. La contraseña se guarda cifrada y
           nunca se muestra de vuelta.
