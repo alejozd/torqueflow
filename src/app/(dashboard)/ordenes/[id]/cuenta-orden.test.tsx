@@ -43,13 +43,14 @@ describe("CuentaOrden", () => {
         total={359461}
         descuento={39940}
         etiquetaDescuento="Descuento de la cotización #45 (10 %)"
+        origenDescuento="la cotización #45"
         estado="TERMINADA"
         anticipos={0}
       />,
     );
     expect(screen.getByText("Descuento de la cotización #45 (10 %)").nextSibling).toHaveTextContent("39.940");
     expect(screen.getByText("Saldo por cobrar").nextSibling).toHaveTextContent("359.461");
-    expect(mockFormFactura).toHaveBeenCalledWith(expect.objectContaining({ descuentoInicial: 39940 }));
+    expect(mockFormFactura).toHaveBeenCalledWith(expect.objectContaining({ descuentoInicial: 39940, origenDescuento: "la cotización #45" }));
   });
 
   it("terminada sin factura ofrece generarla; con factura, enlaza a ella", () => {

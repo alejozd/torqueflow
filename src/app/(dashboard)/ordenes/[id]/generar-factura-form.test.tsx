@@ -17,12 +17,14 @@ describe("GenerarFacturaForm", () => {
 
   it("llega con el descuento de la cotización, y se puede cambiar", async () => {
     mockCrearFactura.mockResolvedValue({ error: null, success: true, facturaId: "f1" });
-    render(<GenerarFacturaForm ordenId="o1" descuentoInicial={33338.1} />);
+    render(<GenerarFacturaForm ordenId="o1" descuentoInicial={33338.1} origenDescuento="la cotización #45" />);
 
-    const campo = screen.getByLabelText("Descuento");
-    expect(campo).toHaveValue(33338.1);
+    const campo = screen.getByLabelText("Descuento en la factura ($)");
+    expect(campo).toHaveValue("33.338");
+    expect(screen.getByText("Viene de la cotización #45. Cámbialo si vas a facturar con otro descuento.")).toBeInTheDocument();
     await userEvent.clear(campo);
     await userEvent.type(campo, "30000");
+    expect(campo).toHaveValue("30.000");
     await userEvent.click(screen.getByRole("button", { name: "Generar factura" }));
     await userEvent.click(screen.getByRole("button", { name: "Sí, facturar" }));
 
