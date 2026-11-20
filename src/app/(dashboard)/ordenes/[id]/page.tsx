@@ -405,6 +405,7 @@ export default async function OrdenDetailPage({
                 manoDeObra={manoObraTotal}
                 descuento={cuenta.descuento}
                 etiquetaDescuento={cuenta.etiqueta}
+                origenDescuento={heredado && orden.cotizacion ? `la cotización #${orden.cotizacion.numero}` : undefined}
                 total={cuenta.total}
                 anticipos={anticiposVigentes}
                 factura={orden.factura ? { id: orden.factura.id, numero: orden.factura.numero } : null}

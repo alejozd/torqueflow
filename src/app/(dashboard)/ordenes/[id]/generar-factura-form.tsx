@@ -15,6 +15,13 @@ import { Label } from "@/components/ui/label";
 import { SelectorIva } from "@/components/selector-iva";
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+const formatoMiles = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 });
+
+/** "20088" o "20.088" → "20.088"; vacío si no hay dígitos. */
+function formatearPesos(texto: string): string {
+  const digitos = texto.replace(/\D/g, "");
+  return digitos === "" ? "" : formatoMiles.format(Number(digitos));
+}
 
 /** Una línea de la orden tal como se revisa antes de facturar. */
 export interface LineaFactura {
@@ -44,11 +51,14 @@ export function GenerarFacturaForm({
   ordenId,
   lineas = [],
   descuentoInicial = 0,
+  origenDescuento,
 }: {
   ordenId: string;
   lineas?: LineaFactura[];
   /** El descuento de la cotización, si la orden viene de una (editable). */
   descuentoInicial?: number;
+  /** De dónde viene el descuento inicial, p. ej. "la cotización #46". */
+  origenDescuento?: string;
 }) {
   const [tarifas, setTarifas] = useState<Record<string, number>>(() =>
     Object.fromEntries(lineas.map((linea) => [linea.conceptoId, linea.ivaPct])),
@@ -60,12 +70,17 @@ export function GenerarFacturaForm({
   const [confirmando, setConfirmando] = useState(false);
   const {
     register,
+    setValue,
     handleSubmit,
     formState: { errors },
   } = useForm<FacturaFormInput>({
     resolver: zodResolver(facturaFormSchema),
-    defaultValues: { descuento: descuentoInicial },
+    defaultValues: { descuento: descuentoInicial > 0 ? String(Math.round(descuentoInicial)) : "" },
   });
+  // El campo visible muestra los pesos con puntos de miles; el oculto lleva el número.
+  const [textoDescuento, setTextoDescuento] = useState(() =>
+    descuentoInicial > 0 ? formatoMiles.format(Math.round(descuentoInicial)) : "",
+  );
 
   function onValid() {
     if (!confirmando) {
@@ -90,6 +105,7 @@ export function GenerarFacturaForm({
 
   return (
     <form noValidate ref={formRef} onChange={() => setConfirmando(false)} onSubmit={(evento) => handleSubmit(onValid)(evento)} className="flex flex-col gap-6">
+      <p className="text-sm font-semibold">Generar factura</p>
       {lineas.length > 0 ? (
         <div className="flex flex-col gap-1.5">
           <p className="text-sm font-medium">IVA de cada línea</p>
@@ -120,16 +136,31 @@ export function GenerarFacturaForm({
         </div>
       ) : null}
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="descuento">Descuento</Label>
-        <Input
-          id="descuento"
-          type="number"
-          min="0"
-          step="0.01"
-          aria-invalid={errors.descuento ? true : undefined}
-          aria-describedby={errors.descuento ? "descuento-error" : undefined}
-          {...register("descuento")}
-        />
+        <Label htmlFor="descuento">Descuento en la factura ($)</Label>
+        <div className="relative">
+          <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+          <Input
+            id="descuento"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="0"
+            className="pl-6 font-mono"
+            value={textoDescuento}
+            onChange={(evento) => {
+              const texto = formatearPesos(evento.target.value);
+              setTextoDescuento(texto);
+              setValue("descuento", texto.replace(/\D/g, ""), { shouldValidate: Boolean(errors.descuento) });
+            }}
+            aria-invalid={errors.descuento ? true : undefined}
+            aria-describedby={errors.descuento ? "descuento-error" : origenDescuento ? "descuento-ayuda" : undefined}
+          />
+        </div>
+        <input type="hidden" {...register("descuento")} />
+        {origenDescuento && !errors.descuento ? (
+          <p id="descuento-ayuda" className="text-xs text-muted-foreground">
+            Viene de {origenDescuento}. Cámbialo si vas a facturar con otro descuento.
+          </p>
+        ) : null}
         {errors.descuento ? <p id="descuento-error" className="text-xs text-destructive">{errors.descuento.message}</p> : null}
       </div>
 

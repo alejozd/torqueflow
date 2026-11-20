@@ -31,6 +31,7 @@ export function CuentaOrden({
   manoDeObra,
   descuento = 0,
   etiquetaDescuento = "Descuento",
+  origenDescuento,
   total,
   anticipos,
   factura,
@@ -43,6 +44,8 @@ export function CuentaOrden({
   descuento?: number;
   /** Sin factura, de dónde viene el descuento (la cotización); también prellena la factura. */
   etiquetaDescuento?: string;
+  /** De dónde viene ese descuento ("la cotización #46"), para la ayuda del campo en la factura. */
+  origenDescuento?: string;
   /** Total con el IVA incluido, ya con el descuento. */
   total: number;
   anticipos: number;
@@ -66,13 +69,13 @@ export function CuentaOrden({
         <span className="text-sm font-semibold">{saldo < 0 ? "Saldo a favor del cliente" : "Saldo por cobrar"}</span>
         <span className="font-mono text-xl font-semibold">{formatoMoneda.format(Math.abs(saldo))}</span>
       </div>
-      <div className="mt-3">
+      <div className={factura || !(estado === "TERMINADA" || estado === "ENTREGADA") ? "mt-3" : "mt-4 border-t border-border pt-4"}>
         {factura ? (
           <Link href={`/facturas/${factura.id}`} className="text-sm underline underline-offset-4">
             Ver factura #{factura.numero}
           </Link>
         ) : estado === "TERMINADA" || estado === "ENTREGADA" ? (
-          <GenerarFacturaForm ordenId={ordenId} lineas={lineas} descuentoInicial={descuento} />
+          <GenerarFacturaForm ordenId={ordenId} lineas={lineas} descuentoInicial={descuento} origenDescuento={origenDescuento} />
         ) : estado === "ANULADA" ? null : (
           <p className="text-xs text-muted-foreground">Factura: al terminar</p>
         )}
