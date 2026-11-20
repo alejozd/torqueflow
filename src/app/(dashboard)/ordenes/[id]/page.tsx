@@ -13,6 +13,12 @@ import { AnticiposSection } from "./anticipos-section";
 import { AvanceFase } from "./avance-fase";
 import { BannerSintomas, CabeceraOrden } from "./cabecera-orden";
 import { CicloOrden } from "./ciclo-orden";
+import { CitaOrden } from "./cita-orden";
+import { listCitas } from "@/app/actions/cita-actions";
+import { momentoBogota, ocupacionDeCitas } from "@/lib/agenda-cita";
+import { agruparConceptos } from "@/lib/conceptos/conceptos";
+import { motivoCitaDesdeCotizacion } from "@/lib/cotizacion/motivo-cita";
+import { textoFechaCita } from "@/lib/agenda-cita-texto";
 import { CuentaOrden } from "./cuenta-orden";
 import { descuentoHeredado } from "@/lib/orden/descuento-cotizacion";
 import { roundMoney } from "@/lib/money/round";
@@ -44,10 +50,10 @@ export default async function OrdenDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; agendarCita?: string }>;
 }) {
   const { id } = await params;
-  const { tab } = await searchParams;
+  const { tab, agendarCita } = await searchParams;
   const session = await requirePermiso("ordenes.ver");
   const [orden, tecnicos, bodegas, proveedores, dviItems, anticipos, opcionesTaller] = await Promise.all([
     getOrden(id),
@@ -66,6 +72,26 @@ export default async function OrdenDetailPage({
   const editable = esOrdenMutable(orden);
   const puedeQuitar = editable && puede(session, "ordenes.quitar");
   const conceptos = conceptosDesdeOrden(orden.items, orden.manoDeObra);
+
+  // Cita de la cotización: se muestra si hay; recién aprobada, se pregunta si agendarla.
+  const citaActiva = orden.cotizacion?.citas[0] ?? null;
+  const preguntarCita =
+    agendarCita === "1" && !citaActiva && orden.cotizacion !== null && puede(session, "citas.gestionar");
+  const agendarDatos =
+    preguntarCita && orden.cotizacion
+      ? {
+          cotizacionId: orden.cotizacion.id,
+          vehiculo: {
+            id: orden.vehiculo.id,
+            placa: orden.vehiculo.placa,
+            marca: orden.vehiculo.marca,
+            modelo: orden.vehiculo.modelo,
+            clienteNombre: orden.cliente.nombre,
+          },
+          motivo: motivoCitaDesdeCotizacion(orden.cotizacion.numero, agruparConceptos(conceptos)),
+          ocupacion: ocupacionDeCitas(await listCitas(), { desde: momentoBogota(new Date()).fecha }),
+        }
+      : null;
 
   const repuestosTotal = orden.items.reduce((suma, item) => suma + item.cantidad * Number(item.precioUnitario), 0);
   const manoObraTotal = orden.manoDeObra.reduce((suma, linea) => suma + Number(linea.valor), 0);
@@ -164,6 +190,11 @@ export default async function OrdenDetailPage({
         }
       />
       <BannerSintomas sintomas={orden.sintomas} />
+      <CitaOrden
+        cita={citaActiva ? { id: citaActiva.id, texto: textoFechaCita(citaActiva.fechaHora, citaActiva.estado) } : null}
+        preguntar={preguntarCita}
+        agendar={agendarDatos}
+      />
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <PestanasOrden

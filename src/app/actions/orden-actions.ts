@@ -64,6 +64,22 @@ export type OrdenWithDetalle = Prisma.OrdenTrabajoGetPayload<{ include: typeof O
  */
 const ORDEN_FICHA_INCLUDE = {
   ...ORDEN_DETAIL_INCLUDE,
+  // La cita activa en que el cliente trae el vehículo (tanda 6), por la cotización.
+  cotizacion: {
+    select: {
+      id: true,
+      numero: true,
+      descuentoTipo: true,
+      descuentoPct: true,
+      descuentoMonto: true,
+      citas: {
+        where: { estado: { in: ["PROGRAMADA", "CONFIRMADA"] } },
+        select: { id: true, fechaHora: true, estado: true },
+        orderBy: { fechaHora: "asc" },
+        take: 1,
+      },
+    },
+  },
   // El acta impresa discrimina el IVA con lo que quedó en la factura.
   factura: { select: { id: true, numero: true, total: true, descuento: true, subtotal: true, desgloseIva: true } },
   danios: { orderBy: { createdAt: "asc" } },

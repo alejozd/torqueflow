@@ -7,6 +7,7 @@ import { agruparConceptos, conceptosDesdeItems, contarConceptos, importeConcepto
 import { motivoCitaDesdeCotizacion } from "@/lib/cotizacion/motivo-cita";
 import { listCitas } from "@/app/actions/cita-actions";
 import { momentoBogota, ocupacionDeCitas } from "@/lib/agenda-cita";
+import { textoFechaCita } from "@/lib/agenda-cita-texto";
 import { esCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
 import { etiquetaDescuento, porcentajeVisible } from "@/lib/cotizacion/totales";
 import { ivaDelDocumento } from "@/lib/iva/documento";
@@ -28,15 +29,6 @@ import { listBodegas } from "@/app/actions/bodega-actions";
 import { listProveedores } from "@/app/actions/proveedor-actions";
 
 const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeZone: "America/Bogota" });
-const formatoFechaCita = new Intl.DateTimeFormat("es-CO", {
-  weekday: "long",
-  day: "numeric",
-  month: "short",
-  hour: "numeric",
-  minute: "2-digit",
-  timeZone: "America/Bogota",
-});
-const ESTADO_CITA: Record<string, string> = { PROGRAMADA: "Programada", CONFIRMADA: "Confirmada" };
 
 const TIPO_SEGUIMIENTO_LABELS: Record<TipoSeguimiento, string> = {
   LLAMADA: "Llamada",
@@ -289,7 +281,7 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
               <CardContent className="flex flex-col gap-3">
                 {proximaCita ? (
                   <Link href={`/citas/${proximaCita.id}`} className="text-sm font-medium text-primary hover:underline">
-                    {formatoFechaCita.format(proximaCita.fechaHora)} · {ESTADO_CITA[proximaCita.estado]} →
+                    {textoFechaCita(proximaCita.fechaHora, proximaCita.estado)} →
                   </Link>
                 ) : (
                   <p className="text-sm text-muted-foreground">Aún no hay cita para que el cliente traiga el vehículo.</p>
