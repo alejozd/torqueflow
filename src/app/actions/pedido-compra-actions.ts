@@ -219,7 +219,7 @@ export async function enviarPedidoCompraEmailAction(id: string): Promise<AccionP
 
   const filaSmtp = await tenantDb.configuracionSmtp.findUnique({ where: { id: CONFIGURACION_SMTP_ID } });
   if (!filaSmtp || !filaSmtp.activo) {
-    return { error: "No se puede enviar por correo: el servidor SMTP no está configurado o está inactivo. Ve a Configuración → SMTP." };
+    return { error: "No se puede enviar por correo: el correo del taller no está configurado o está inactivo. Ve a Configuración → Configuración del taller → Correo y avisos." };
   }
   try {
     const config = descifrarConfiguracionSmtp(filaSmtp as ConfiguracionSmtpAlmacenada);

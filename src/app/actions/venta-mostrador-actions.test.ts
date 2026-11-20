@@ -797,7 +797,7 @@ describe("enviarComprobanteCorreoAction", () => {
     expect((await enviarComprobanteCorreoAction("ajena")).error).toBe("Venta no encontrada");
 
     db.configuracionSmtp.findUnique.mockResolvedValueOnce({ id: "smtp", activo: false });
-    expect((await enviarComprobanteCorreoAction("v1")).error).toMatch(/SMTP no está configurado/);
+    expect((await enviarComprobanteCorreoAction("v1")).error).toMatch(/correo del taller no está configurado/);
 
     expect(mockEnviarEmail).not.toHaveBeenCalled();
   });
@@ -808,7 +808,7 @@ describe("enviarComprobanteCorreoAction", () => {
     const r = await enviarComprobanteCorreoAction("v1");
 
     expect(r.success).toBe(false);
-    expect(r.error).toBe("No se pudo enviar el comprobante por correo. Revisa la configuración SMTP.");
+    expect(r.error).toBe("No se pudo enviar el comprobante por correo. Revisa el correo en Configuración → Configuración del taller.");
   });
 });
 

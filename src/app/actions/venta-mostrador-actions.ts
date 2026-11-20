@@ -351,7 +351,7 @@ export async function enviarComprobanteCorreoAction(ventaId: string): Promise<En
   const filaSmtp = await tenantDb.configuracionSmtp.findUnique({ where: { id: CONFIGURACION_SMTP_ID } });
   if (!filaSmtp || !filaSmtp.activo) {
     return {
-      error: "No se puede enviar por correo: el servidor SMTP no está configurado o está inactivo. Ve a Configuración → SMTP.",
+      error: "No se puede enviar por correo: el correo del taller no está configurado o está inactivo. Ve a Configuración → Configuración del taller → Correo y avisos.",
       success: false,
     };
   }
@@ -360,7 +360,7 @@ export async function enviarComprobanteCorreoAction(ventaId: string): Promise<En
     await enviarEmail(config, construirMensajeComprobante(comprobante.cliente.email, comprobante));
   } catch {
     // El error crudo de SMTP puede traer el host o el usuario: se muestra uno genérico.
-    return { error: "No se pudo enviar el comprobante por correo. Revisa la configuración SMTP.", success: false };
+    return { error: "No se pudo enviar el comprobante por correo. Revisa el correo en Configuración → Configuración del taller.", success: false };
   }
   return { error: null, success: true };
 }
