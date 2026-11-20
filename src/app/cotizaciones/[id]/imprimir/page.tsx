@@ -5,7 +5,8 @@ import { getCotizacion } from "@/app/actions/cotizacion-actions";
 import { requirePermiso } from "@/lib/auth/guards";
 import type { EstadoCotizacion } from "@/generated/prisma-tenant";
 import { agruparConceptos, conceptosDesdeItems, importeConcepto, type ConceptoVista } from "@/lib/cotizacion/agrupar-conceptos";
-import { etiquetaDescuento, ivaSumadoAparte, porcentajeVisible } from "@/lib/cotizacion/totales";
+import { etiquetaDescuento, porcentajeVisible } from "@/lib/cotizacion/totales";
+import { ivaDelDocumento } from "@/lib/iva/documento";
 import { ImprimirButton } from "./imprimir-button";
 
 // Same BORRADOR/ENVIADA/APROBADA/RECHAZADA/VENCIDA convention as
@@ -58,8 +59,18 @@ export default async function ImprimirCotizacionPage({ params }: { params: Promi
   const conceptos = conceptosDesdeItems(cotizacion.items);
   const bloques = agruparConceptos(conceptos);
   const descuento = Number(cotizacion.descuento);
-  // Cotizaciones de antes del IVA incluido: su total guardado lleva el IVA sumado aparte.
-  const ivaAparte = ivaSumadoAparte({ subtotal: Number(cotizacion.subtotal), descuento, total: Number(cotizacion.total) });
+  // El IVA discriminado bajo el total; las cotizaciones de antes del IVA incluido
+  // lo traen sumado aparte (`ivaAparte`).
+  const iva = ivaDelDocumento({
+    subtotal: Number(cotizacion.subtotal),
+    descuento,
+    total: Number(cotizacion.total),
+    lineas: cotizacion.items.map((item) => ({
+      importe: Number(item.cantidad) * Number(item.precioUnitario),
+      ivaPct: Number(item.ivaPct),
+    })),
+  });
+  const ivaAparte = iva.ivaAparte;
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-8 text-black">
@@ -168,6 +179,17 @@ export default async function ImprimirCotizacionPage({ params }: { params: Promi
         <p className="text-right text-xs text-black/60">
           {ivaAparte > 0 ? "Precios sin IVA; el IVA va sumado aparte" : "Precios con IVA incluido"}
         </p>
+        {iva.filas.length > 0 ? (
+          <div className="mt-1 flex flex-col gap-0.5 border-t border-black/10 pt-1.5 text-xs text-black/70">
+            <p className="font-semibold">El total incluye</p>
+            {iva.filas.map((fila) => (
+              <div key={fila.etiqueta} className="flex justify-between">
+                <span>{fila.etiqueta}</span>
+                <span>{formatoMoneda.format(fila.valor)}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       {cotizacion.notas ? (

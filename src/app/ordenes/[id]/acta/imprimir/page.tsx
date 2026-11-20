@@ -6,6 +6,10 @@ import { DiagramaDanios } from "@/app/(dashboard)/ordenes/[id]/diagrama-danios";
 import { formatoFechaCorta } from "@/lib/fecha-bogota";
 import { ETIQUETA_DANIO, etiquetaZona } from "@/lib/danos/figuras";
 import { coberturaDe } from "@/lib/garantias/cobertura";
+import { leerDesgloseGuardado } from "@/lib/iva/desglose";
+import { ivaDelDocumento } from "@/lib/iva/documento";
+import { descuentoHeredado } from "@/lib/orden/descuento-cotizacion";
+import { roundMoney } from "@/lib/money/round";
 import { ImprimirButton } from "./imprimir-button";
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", {
@@ -39,6 +43,40 @@ export default async function ImprimirActaPage({ params }: { params: Promise<{ i
 
   const acta = orden.acta;
   const firma = acta?.firmaUrl ?? acta?.firmaFotoUrl ?? null;
+
+  // Totales con el IVA discriminado: con factura, lo que quedó en ella; sin
+  // factura, las líneas menos el descuento heredado de la cotización (como la Cuenta).
+  const lineas = [
+    ...orden.manoDeObra.map((linea) => ({ importe: Number(linea.valor), ivaPct: Number(linea.ivaPct) })),
+    ...orden.items.map((item) => ({
+      importe: Number(item.cantidad) * Number(item.precioUnitario),
+      ivaPct: Number(item.ivaPct),
+    })),
+  ];
+  const sumaLineas = roundMoney(lineas.reduce((suma, linea) => suma + linea.importe, 0));
+  const heredado = orden.factura
+    ? null
+    : descuentoHeredado(
+        orden.cotizacion
+          ? {
+              numero: orden.cotizacion.numero,
+              descuentoTipo: orden.cotizacion.descuentoTipo,
+              descuentoPct: Number(orden.cotizacion.descuentoPct),
+              descuentoMonto: Number(orden.cotizacion.descuentoMonto),
+            }
+          : null,
+        sumaLineas,
+      );
+  const subtotal = orden.factura ? Number(orden.factura.subtotal) : sumaLineas;
+  const descuento = orden.factura ? Number(orden.factura.descuento) : (heredado?.descuento ?? 0);
+  const total = orden.factura ? Number(orden.factura.total) : roundMoney(sumaLineas - descuento);
+  const iva = ivaDelDocumento({
+    subtotal,
+    descuento,
+    total,
+    lineas,
+    tramosGuardados: orden.factura ? leerDesgloseGuardado(orden.factura.desgloseIva) : undefined,
+  });
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-8 text-black">
@@ -156,6 +194,47 @@ export default async function ImprimirActaPage({ params }: { params: Promise<{ i
           </tbody>
         </table>
       </section>
+
+      {lineas.length > 0 ? (
+        <section className="ml-auto flex w-full max-w-xs flex-col gap-1 text-sm">
+          <div className="flex justify-between">
+            <span className="text-black/70">Subtotal</span>
+            <span>{formatoMoneda.format(subtotal)}</span>
+          </div>
+          {descuento > 0 ? (
+            <div className="flex justify-between">
+              <span className="text-black/70">
+                {heredado ? `Descuento cotización #${orden.cotizacion?.numero}` : "Descuento"}
+              </span>
+              <span>−{formatoMoneda.format(descuento)}</span>
+            </div>
+          ) : null}
+          {iva.ivaAparte > 0 ? (
+            <div className="flex justify-between">
+              <span className="text-black/70">IVA</span>
+              <span>+{formatoMoneda.format(iva.ivaAparte)}</span>
+            </div>
+          ) : null}
+          <div className="mt-1 flex justify-between border-t border-black/40 pt-1.5 font-semibold">
+            <span>Total{orden.factura ? ` · factura #${orden.factura.numero}` : ""}</span>
+            <span>{formatoMoneda.format(total)}</span>
+          </div>
+          <p className="text-right text-xs text-black/60">
+            {iva.ivaAparte > 0 ? "Precios sin IVA; el IVA va sumado aparte" : "Precios con IVA incluido"}
+          </p>
+          {iva.filas.length > 0 ? (
+            <div className="mt-1 flex flex-col gap-0.5 border-t border-black/10 pt-1.5 text-xs text-black/70">
+              <p className="font-semibold">El total incluye</p>
+              {iva.filas.map((fila) => (
+                <div key={fila.etiqueta} className="flex justify-between">
+                  <span>{fila.etiqueta}</span>
+                  <span>{formatoMoneda.format(fila.valor)}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       {orden.garantias.length > 0 ? (
         <section className="text-sm">

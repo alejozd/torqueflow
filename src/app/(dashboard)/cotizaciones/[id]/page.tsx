@@ -6,6 +6,7 @@ import { getCotizacion } from "@/app/actions/cotizacion-actions";
 import { conceptosDesdeItems, contarConceptos, importeConcepto } from "@/lib/cotizacion/agrupar-conceptos";
 import { esCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
 import { etiquetaDescuento, porcentajeVisible } from "@/lib/cotizacion/totales";
+import { ivaDelDocumento } from "@/lib/iva/documento";
 import type { TipoSeguimiento } from "@/generated/prisma-tenant";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -292,6 +293,15 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
                   descuento: Number(cotizacion.descuento),
                   descuentoPct: descuentoPctVisible,
                   total: Number(cotizacion.total),
+                  iva: ivaDelDocumento({
+                    subtotal: Number(cotizacion.subtotal),
+                    descuento: Number(cotizacion.descuento),
+                    total: Number(cotizacion.total),
+                    lineas: cotizacion.items.map((item) => ({
+                      importe: Number(item.cantidad) * Number(item.precioUnitario),
+                      ivaPct: Number(item.ivaPct),
+                    })),
+                  }),
                 }}
                 esReenvio={cotizacion.estado !== "BORRADOR"}
               />

@@ -1,6 +1,7 @@
 import type { MensajeEmail } from "@/lib/email/enviar-email";
 import { formatoFechaCorta } from "@/lib/fecha-bogota";
 import { etiquetaDescuento } from "@/lib/cotizacion/totales";
+import type { IvaDocumento } from "@/lib/iva/documento";
 
 /**
  * Plain text plus deliberately basic HTML -- same convention as
@@ -33,6 +34,8 @@ export interface DatosMensajeCotizacion {
   /** null cuando el descuento es un monto fijo: la etiqueta no lleva porcentaje. */
   descuentoPct: number | null;
   total: number;
+  /** El IVA discriminado (base y IVA por tarifa), o el sumado aparte en las antiguas. */
+  iva: IvaDocumento;
   validaHasta: Date;
   tallerNombre: string;
   /** Optional forward-compatible slot for a taller logo -- there is no logo
@@ -58,6 +61,7 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", {
 export function construirMensajeCotizacion(para: string, datos: DatosMensajeCotizacion): MensajeEmail {
   const vehiculo = `${datos.marca} ${datos.modelo} (${datos.placa})`;
   const totalTexto = formatoMoneda.format(datos.total);
+  const notaIva = datos.iva.ivaAparte > 0 ? "Precios sin IVA; el IVA va sumado aparte." : "Precios con IVA incluido.";
   const validaHastaTexto = formatoFechaCorta.format(datos.validaHasta);
 
   const lineasItemsTexto = datos.items.map((item) => {
@@ -68,8 +72,12 @@ export function construirMensajeCotizacion(para: string, datos: DatosMensajeCoti
   const lineasTotalesTexto = [
     `Subtotal: ${formatoMoneda.format(datos.subtotal)}`,
     ...(datos.descuento > 0 ? [`${etiquetaDescuento(datos.descuentoPct)}: -${formatoMoneda.format(datos.descuento)}`] : []),
+    ...(datos.iva.ivaAparte > 0 ? [`IVA: +${formatoMoneda.format(datos.iva.ivaAparte)}`] : []),
     `Total: ${totalTexto}`,
-    "Precios con IVA incluido.",
+    ...(datos.iva.filas.length > 0
+      ? ["El total incluye:", ...datos.iva.filas.map((fila) => `  ${fila.etiqueta}: ${formatoMoneda.format(fila.valor)}`)]
+      : []),
+    notaIva,
   ];
 
   const texto = [
@@ -129,10 +137,23 @@ export function construirMensajeCotizacion(para: string, datos: DatosMensajeCoti
     (datos.descuento > 0
       ? filaTotal(etiquetaDescuento(datos.descuentoPct), `-${escaparHtml(formatoMoneda.format(datos.descuento))}`)
       : "") +
+    (datos.iva.ivaAparte > 0 ? filaTotal("IVA", `+${escaparHtml(formatoMoneda.format(datos.iva.ivaAparte))}`) : "") +
     filaTotal("Total", escaparHtml(totalTexto), true) +
+    (datos.iva.filas.length > 0
+      ? `<tr><td colspan="2" style="padding:6px 8px 2px;font-size:12px;color:#555;font-weight:bold;">El total incluye</td></tr>` +
+        datos.iva.filas
+          .map(
+            (fila) =>
+              `<tr>` +
+              `<td style="padding:1px 8px;font-size:12px;color:#555;">${escaparHtml(fila.etiqueta)}</td>` +
+              `<td style="padding:1px 8px;font-size:12px;color:#555;text-align:right;">${escaparHtml(formatoMoneda.format(fila.valor))}</td>` +
+              `</tr>`,
+          )
+          .join("")
+      : "") +
     `</tbody>` +
     `</table>` +
-    `<p style="margin:0;font-size:12px;color:#555;">Precios con IVA incluido.</p>`;
+    `<p style="margin:0;font-size:12px;color:#555;">${notaIva}</p>`;
 
   const html = [
     encabezadoHtml,

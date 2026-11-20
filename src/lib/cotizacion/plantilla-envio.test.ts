@@ -21,6 +21,7 @@ const base: DatosMensajeCotizacion = {
   descuento: 0,
   descuentoPct: 0,
   total: 250000,
+  iva: { ivaAparte: 0, filas: [] },
   validaHasta: new Date("2026-09-15T00:00:00-05:00"),
   tallerNombre: "Taller Pérez",
 };
@@ -123,5 +124,31 @@ describe("construirMensajeCotizacion", () => {
     const mensaje = construirMensajeCotizacion("ana@cliente.test", base);
 
     expect(mensaje.html).not.toContain("<img");
+  });
+
+  it("discrimina el IVA bajo el total: base gravable e IVA de cada tarifa", () => {
+    const mensaje = construirMensajeCotizacion("ana@cliente.test", {
+      ...base,
+      iva: {
+        ivaAparte: 0,
+        filas: [
+          { etiqueta: "Base gravable 19 %", valor: 151927 },
+          { etiqueta: "IVA 19 %", valor: 28866 },
+        ],
+      },
+    });
+
+    expect(mensaje.texto).toContain("El total incluye:");
+    expect(mensaje.texto).toContain(`IVA 19 %: ${formatoMoneda.format(28866)}`);
+    expect(mensaje.html).toContain("Base gravable 19 %");
+    expect(mensaje.html).toContain(formatoMoneda.format(151927));
+  });
+
+  it("en una cotización antigua muestra el IVA sumado aparte", () => {
+    const mensaje = construirMensajeCotizacion("ana@cliente.test", { ...base, iva: { ivaAparte: 38000, filas: [] } });
+
+    expect(mensaje.texto).toContain(`IVA: +${formatoMoneda.format(38000)}`);
+    expect(mensaje.texto).toContain("Precios sin IVA; el IVA va sumado aparte.");
+    expect(mensaje.texto).not.toContain("El total incluye");
   });
 });
