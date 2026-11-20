@@ -21,6 +21,7 @@ import {
 } from "@/lib/agenda-cita";
 import { CalendarioMes } from "@/components/ui/calendario-mes";
 import { Input } from "@/components/ui/input";
+import { esEnterConfirmado } from "@/lib/teclado";
 import { cn } from "@/lib/utils";
 
 const MEDIODIA = 12 * 60;
@@ -344,7 +345,7 @@ export function SelectorFechaHora({
             value={horaEscrita}
             onChange={(evento) => setHoraEscrita(evento.target.value)}
             onKeyDown={(evento) => {
-              if (evento.key === "Enter") {
+              if (esEnterConfirmado(evento)) {
                 evento.preventDefault();
                 aplicarHoraEscrita();
               }

@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { esEnterConfirmado } from "@/lib/teclado";
 import { cn } from "@/lib/utils";
 
 const INICIAL: ResultadoAccion = { error: null, success: false };
@@ -82,7 +83,7 @@ function FilaTarifa({ tarifa }: { tarifa: TarifaIvaVista }) {
           onChange={(event) => setNombre(event.target.value)}
           onBlur={guardarNombre}
           onKeyDown={(event) => {
-            if (event.key === "Enter") event.currentTarget.blur();
+            if (esEnterConfirmado(event)) event.currentTarget.blur();
             if (event.key === "Escape") setNombre(tarifa.nombre);
           }}
           className="h-8"
