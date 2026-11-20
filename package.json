@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3025",
-    "build": "next build",
+    "build": "prisma generate --schema=prisma/schema.prisma && prisma generate --schema=prisma/tenant/schema.prisma && next build",
     "start": "next start -p 3025 -H 127.0.0.1",
     "lint": "eslint",
     "test": "vitest run --project unit",
