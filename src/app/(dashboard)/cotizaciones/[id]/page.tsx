@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CircleCheckBig, ClipboardList, History, Printer, Send } from "lucide-react";
+import { CalendarClock, CircleCheckBig, ClipboardList, History, Printer, Send } from "lucide-react";
 import { TituloSeccion } from "@/components/titulo-seccion";
 import { getCotizacion } from "@/app/actions/cotizacion-actions";
-import { conceptosDesdeItems, contarConceptos, importeConcepto } from "@/lib/cotizacion/agrupar-conceptos";
+import { agruparConceptos, conceptosDesdeItems, contarConceptos, importeConcepto } from "@/lib/cotizacion/agrupar-conceptos";
+import { motivoCitaDesdeCotizacion } from "@/lib/cotizacion/motivo-cita";
+import { listCitas } from "@/app/actions/cita-actions";
+import { momentoBogota, ocupacionDeCitas } from "@/lib/agenda-cita";
 import { esCotizacionMutable } from "@/lib/cotizacion/mutable-guard";
 import { etiquetaDescuento, porcentajeVisible } from "@/lib/cotizacion/totales";
 import { ivaDelDocumento } from "@/lib/iva/documento";
@@ -19,11 +22,21 @@ import { DescuentoCotizacionForm } from "./descuento-cotizacion-form";
 import { EnviarCotizacionForm } from "./enviar-cotizacion-form";
 import { DecisionCotizacionButtons } from "./decision-cotizacion-buttons";
 import { RegistrarSeguimientoDialog } from "./registrar-seguimiento-dialog";
+import { AgendarCitaDialog } from "./agendar-cita-dialog";
 import { puede, requirePermiso } from "@/lib/auth/guards";
 import { listBodegas } from "@/app/actions/bodega-actions";
 import { listProveedores } from "@/app/actions/proveedor-actions";
 
 const formatoFecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeZone: "America/Bogota" });
+const formatoFechaCita = new Intl.DateTimeFormat("es-CO", {
+  weekday: "long",
+  day: "numeric",
+  month: "short",
+  hour: "numeric",
+  minute: "2-digit",
+  timeZone: "America/Bogota",
+});
+const ESTADO_CITA: Record<string, string> = { PROGRAMADA: "Programada", CONFIRMADA: "Confirmada" };
 
 const TIPO_SEGUIMIENTO_LABELS: Record<TipoSeguimiento, string> = {
   LLAMADA: "Llamada",
@@ -80,6 +93,15 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
     .filter((concepto) => concepto.tipo === "MANO_OBRA")
     .reduce((suma, concepto) => suma + importeConcepto(concepto), 0);
   const descuentoPctVisible = porcentajeVisible(cotizacion.descuentoTipo, Number(cotizacion.descuentoPct));
+
+  // La cita en que el cliente trae el vehículo: se agenda cuando acepta (enviada o aprobada).
+  const admiteCita = cotizacion.estado === "ENVIADA" || cotizacion.estado === "APROBADA";
+  const citasSede = admiteCita ? await listCitas() : [];
+  const proximaCita =
+    citasSede.find(
+      (cita) => cita.cotizacionId === cotizacion.id && (cita.estado === "PROGRAMADA" || cita.estado === "CONFIRMADA"),
+    ) ?? null;
+  const puedeAgendar = admiteCita && !proximaCita && puede(session, "citas.gestionar");
 
   return (
     <main className="flex flex-col gap-4">
@@ -253,6 +275,39 @@ export default async function CotizacionDetailPage({ params }: { params: Promise
                 ) : (
                   <p className="text-sm text-muted-foreground">Cotización aprobada.</p>
                 )}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {admiteCita ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  <TituloSeccion icono={CalendarClock}>Cita</TituloSeccion>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                {proximaCita ? (
+                  <Link href={`/citas/${proximaCita.id}`} className="text-sm font-medium text-primary hover:underline">
+                    {formatoFechaCita.format(proximaCita.fechaHora)} · {ESTADO_CITA[proximaCita.estado]} →
+                  </Link>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Aún no hay cita para que el cliente traiga el vehículo.</p>
+                )}
+                {puedeAgendar ? (
+                  <AgendarCitaDialog
+                    cotizacionId={cotizacion.id}
+                    vehiculo={{
+                      id: cotizacion.vehiculo.id,
+                      placa: cotizacion.vehiculo.placa,
+                      marca: cotizacion.vehiculo.marca,
+                      modelo: cotizacion.vehiculo.modelo,
+                      clienteNombre: cotizacion.cliente.nombre,
+                    }}
+                    motivo={motivoCitaDesdeCotizacion(cotizacion.numero, agruparConceptos(conceptos))}
+                    ocupacion={ocupacionDeCitas(citasSede, { desde: momentoBogota(ahora).fecha })}
+                  />
+                ) : null}
               </CardContent>
             </Card>
           ) : null}

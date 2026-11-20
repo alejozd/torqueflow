@@ -33,6 +33,20 @@ describe("NuevaCitaForm", () => {
     expect(screen.getByRole("option", { name: "XYZ789 — Renault Logan (Beto Ruiz)" })).toBeInTheDocument();
   });
 
+  it("desde una cotización llega con el motivo puesto y la liga a ella", () => {
+    const { container } = renderInDialog(
+      <NuevaCitaForm
+        vehiculos={[vehiculos[0]!]}
+        ocupacion={[]}
+        valoresIniciales={{ vehiculoId: "veh-1", motivo: "Cotización #46: Amortiguador" }}
+        cotizacionId="cot-46"
+      />,
+    );
+
+    expect(screen.getByLabelText("Motivo")).toHaveValue("Cotización #46: Amortiguador");
+    expect(container.ownerDocument.querySelector('input[name="cotizacionId"]')).toHaveValue("cot-46");
+  });
+
   it("renders the fecha, motivo and notas fields", () => {
     renderInDialog(<NuevaCitaForm vehiculos={vehiculos} ocupacion={[]} />);
 
