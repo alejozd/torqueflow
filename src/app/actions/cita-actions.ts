@@ -6,7 +6,7 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { resultadoDeAccion, type ResultadoAccion } from "@/lib/resultado-accion";
 import { friendlyPrismaErrorMessage } from "@/lib/db/prisma-error-message";
 import { citaInputSchema, estadoCitaSchema } from "@/lib/validation/cita";
-import { scopeCita } from "@/lib/sede/scope";
+import { scopeCita, scopeCotizacion } from "@/lib/sede/scope";
 import type { EstadoCita, Prisma } from "@/generated/prisma-tenant";
 
 export interface CitaFormState {
@@ -124,11 +124,24 @@ export async function createCitaAction(
     return { error: "El vehículo seleccionado no existe.", success: false };
   }
 
+  // Desde una cotización ("Agendar cita"): debe ser de esta sede y del mismo vehículo.
+  const cotizacionId = String(formData.get("cotizacionId") ?? "") || null;
+  if (cotizacionId) {
+    const cotizacion = await tenantDb.cotizacion.findFirst({
+      where: { id: cotizacionId, ...scopeCotizacion(session.user.sedeActivaId) },
+      select: { vehiculoId: true },
+    });
+    if (!cotizacion || cotizacion.vehiculoId !== vehiculo.id) {
+      return { error: "La cotización no corresponde a este vehículo.", success: false };
+    }
+  }
+
   try {
     await tenantDb.cita.create({
       data: {
         clienteId: vehiculo.clienteId,
         vehiculoId: vehiculo.id,
+        cotizacionId,
         sedeId: session.user.sedeActivaId,
         fechaHora: parsed.data.fechaHora,
         motivo: parsed.data.motivo,
@@ -141,6 +154,7 @@ export async function createCitaAction(
   }
 
   revalidarCitas();
+  if (cotizacionId) revalidatePath(`/cotizaciones/${cotizacionId}`);
   return { error: null, success: true };
 }
 
