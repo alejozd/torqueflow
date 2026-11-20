@@ -417,7 +417,7 @@ describe("enviarCotizacionAction", () => {
 
     expect(result).toEqual({
       error:
-        "No se puede enviar por correo: el servidor SMTP no está configurado o está inactivo. Ve a Configuración → SMTP.",
+        "No se puede enviar por correo: el correo del taller no está configurado o está inactivo. Ve a Configuración → Configuración del taller → Correo y avisos.",
       success: false,
     });
     expect(mockEnviarEmail).not.toHaveBeenCalled();
@@ -435,7 +435,7 @@ describe("enviarCotizacionAction", () => {
 
     expect(result).toEqual({
       error:
-        "No se puede enviar por correo: el servidor SMTP no está configurado o está inactivo. Ve a Configuración → SMTP.",
+        "No se puede enviar por correo: el correo del taller no está configurado o está inactivo. Ve a Configuración → Configuración del taller → Correo y avisos.",
       success: false,
     });
     expect(mockEnviarEmail).not.toHaveBeenCalled();

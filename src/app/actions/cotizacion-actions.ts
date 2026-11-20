@@ -380,7 +380,7 @@ export async function enviarCotizacionAction(
     if (!filaSmtp || !filaSmtp.activo) {
       return {
         error:
-          "No se puede enviar por correo: el servidor SMTP no está configurado o está inactivo. Ve a Configuración → SMTP.",
+          "No se puede enviar por correo: el correo del taller no está configurado o está inactivo. Ve a Configuración → Configuración del taller → Correo y avisos.",
         success: false,
       };
     }

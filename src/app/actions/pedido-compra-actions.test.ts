@@ -189,7 +189,7 @@ describe("enviarPedidoCompraEmailAction", () => {
   it("does not mark the pedido as sent when SMTP is missing or the send fails", async () => {
     pedidoCompra.findFirst.mockResolvedValue(pedido());
     configuracionSmtp.findUnique.mockResolvedValue(null);
-    expect((await enviarPedidoCompraEmailAction("pc1")).error).toMatch(/servidor SMTP no está configurado/);
+    expect((await enviarPedidoCompraEmailAction("pc1")).error).toMatch(/correo del taller no está configurado/);
 
     configuracionSmtp.findUnique.mockResolvedValue({ activo: true });
     mockEnviarEmail.mockRejectedValue(new Error("ECONNREFUSED 10.0.0.5"));
