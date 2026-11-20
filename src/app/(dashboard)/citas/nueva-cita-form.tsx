@@ -27,7 +27,13 @@ export function NuevaCitaForm({
   vehiculos,
   ocupacion,
   onCreated,
+  valoresIniciales,
+  cotizacionId,
 }: {
+  /** Desde una cotización: el vehículo y el motivo ya puestos. */
+  valoresIniciales?: { vehiculoId: string; motivo: string };
+  /** La cotización de la que sale la cita; queda ligada a ella. */
+  cotizacionId?: string;
   vehiculos: VehiculoOption[];
   /** Citas ya agendadas de la sede, para mostrar qué días y horas están ocupados. */
   ocupacion: OcupacionCita[];
@@ -52,7 +58,12 @@ export function NuevaCitaForm({
     formState: { errors },
   } = useForm<CitaFormInput, unknown, CitaFormOutput>({
     resolver: zodResolver(citaInputSchema),
-    defaultValues: { vehiculoId: "", fechaHora: "", motivo: "", notas: "" },
+    defaultValues: {
+      vehiculoId: valoresIniciales?.vehiculoId ?? "",
+      fechaHora: "",
+      motivo: valoresIniciales?.motivo ?? "",
+      notas: "",
+    },
   });
   const { field: vehiculoIdField } = useController({ name: "vehiculoId", control });
   const { field: fechaHoraField } = useController({ name: "fechaHora", control });
@@ -94,6 +105,7 @@ export function NuevaCitaForm({
 
   return (
     <form noValidate ref={formRef} onSubmit={(evento) => handleSubmit(onValid)(evento)} className="flex min-w-0 flex-col gap-4">
+      {cotizacionId ? <input type="hidden" name="cotizacionId" value={cotizacionId} /> : null}
       <FormGroup label="Quién">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="vehiculoId">Vehículo</Label>

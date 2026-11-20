@@ -200,6 +200,18 @@ export default async function CitaDetallePage({ params }: { params: Promise<{ id
                   Ver ficha
                 </Link>
               </div>
+              {cita.cotizacion ? (
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                  <Link href={`/cotizaciones/${cita.cotizacion.id}`} className="font-medium text-primary hover:underline">
+                    Viene de la cotización #{cita.cotizacion.numero} →
+                  </Link>
+                  {cita.cotizacion.orden ? (
+                    <Link href={`/ordenes/${cita.cotizacion.orden.id}`} className="font-medium text-primary hover:underline">
+                      Ir a la orden →
+                    </Link>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/50 p-3">
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase">Teléfono</p>

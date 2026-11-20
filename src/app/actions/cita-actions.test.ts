@@ -14,6 +14,7 @@ const mockCitaUpdateMany = vi.fn();
 const mockCitaDeleteMany = vi.fn();
 const mockVehiculoFindMany = vi.fn();
 const mockVehiculoFindUnique = vi.fn();
+const mockCotizacionFindFirst = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     cita: {
@@ -24,6 +25,7 @@ vi.mock("@/lib/db/tenant-client", () => ({
       deleteMany: mockCitaDeleteMany,
     },
     vehiculo: { findMany: mockVehiculoFindMany, findUnique: mockVehiculoFindUnique },
+    cotizacion: { findFirst: mockCotizacionFindFirst },
   }),
 }));
 
@@ -149,8 +151,38 @@ describe("createCitaAction", () => {
         motivo: "Cambio de aceite",
         notas: null,
         creadoPorId: "u-rec",
+        cotizacionId: null,
       },
     });
+  });
+
+  it("liga la cita a la cotización de esta sede y del mismo vehículo", async () => {
+    mockCotizacionFindFirst.mockResolvedValue({ vehiculoId: "veh-1" });
+    const formData = formularioValido();
+    formData.set("cotizacionId", "cot-1");
+
+    const resultado = await createCitaAction(initialState, formData);
+
+    expect(resultado).toEqual({ error: null, success: true });
+    expect(mockCotizacionFindFirst).toHaveBeenCalledWith({
+      where: { id: "cot-1", sedeId: "sede-1" },
+      select: { vehiculoId: true },
+    });
+    expect(mockCitaCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ cotizacionId: "cot-1" }) });
+  });
+
+  it("rechaza una cotización de otro vehículo o de otra sede", async () => {
+    mockCotizacionFindFirst.mockResolvedValue({ vehiculoId: "veh-otro" });
+    const formData = formularioValido();
+    formData.set("cotizacionId", "cot-1");
+
+    const resultado = await createCitaAction(initialState, formData);
+
+    expect(resultado).toEqual({ error: "La cotización no corresponde a este vehículo.", success: false });
+    expect(mockCitaCreate).not.toHaveBeenCalled();
+
+    mockCotizacionFindFirst.mockResolvedValue(null);
+    expect((await createCitaAction(initialState, formData)).success).toBe(false);
   });
 
   it("refuses a vehiculoId that does not exist", async () => {

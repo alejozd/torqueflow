@@ -41,7 +41,7 @@ export function DecisionCotizacionButtons({ cotizacionId }: { cotizacionId: stri
       // state-driven effect -- same reasoning generar-factura-form.tsx documents.
       if (result.success && result.ordenId) {
         toast.success("Cotización aprobada");
-        router.push(`/ordenes/${result.ordenId}?tab=recepcion`);
+        router.push(`/ordenes/${result.ordenId}?tab=recepcion&agendarCita=1`);
       } else {
         toast.error(result.error ?? "Error al aprobar la cotización");
         setAprobarState(result);
