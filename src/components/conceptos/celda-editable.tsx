@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type KeyboardEvent } from "react";
+import { esEnterConfirmado } from "@/lib/teclado";
 import { cn } from "@/lib/utils";
 
 /**
@@ -65,7 +66,7 @@ export function CeldaEditable({
   const visible = conFoco ? texto : (guardando ?? valor);
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Enter") {
+    if (esEnterConfirmado(event)) {
       event.preventDefault();
       enterPulsado.current = true;
       event.currentTarget.blur();
