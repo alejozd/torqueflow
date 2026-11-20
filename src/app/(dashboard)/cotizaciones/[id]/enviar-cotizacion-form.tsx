@@ -10,6 +10,7 @@ import { SelectField } from "@/components/ui/select-field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { etiquetaDescuento } from "@/lib/cotizacion/totales";
+import type { IvaDocumento } from "@/lib/iva/documento";
 
 const initialState: EnviarCotizacionFormState = { error: null, success: false };
 
@@ -53,6 +54,8 @@ export function EnviarCotizacionForm({
     /** null cuando el descuento es un monto fijo. */
     descuentoPct: number | null;
     total: number;
+    /** El IVA discriminado, igual que en el correo y la impresión. */
+    iva: IvaDocumento;
   };
   esReenvio?: boolean;
 }) {
@@ -96,8 +99,12 @@ export function EnviarCotizacionForm({
         ...(resumen.descuento > 0
           ? [`*${etiquetaDescuento(resumen.descuentoPct)}:* -${formatoMoneda.format(resumen.descuento)}`]
           : []),
+        ...(resumen.iva.ivaAparte > 0 ? [`*IVA:* +${formatoMoneda.format(resumen.iva.ivaAparte)}`] : []),
         `*Total:* ${formatoMoneda.format(resumen.total)}`,
-        "_Precios con IVA incluido._",
+        ...(resumen.iva.filas.length > 0
+          ? ["_El total incluye:_", ...resumen.iva.filas.map((fila) => `${fila.etiqueta}: ${formatoMoneda.format(fila.valor)}`)]
+          : []),
+        resumen.iva.ivaAparte > 0 ? "_Precios sin IVA; el IVA va sumado aparte._" : "_Precios con IVA incluido._",
         "",
         "Cualquier duda, contáctanos.",
       ].join("\n");

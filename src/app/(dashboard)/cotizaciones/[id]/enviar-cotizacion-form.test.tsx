@@ -17,6 +17,7 @@ const RESUMEN = {
   descuento: 0,
   descuentoPct: 0,
   total: 250000,
+  iva: { ivaAparte: 0, filas: [] },
 };
 
 async function selectCanal(user: ReturnType<typeof userEvent.setup>, label: string) {
