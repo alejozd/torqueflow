@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getFactura } from "@/app/actions/factura-actions";
+import { getFacturaFe } from "@/app/actions/factura-electronica-actions";
+import { FacturaElectronicaCard } from "./factura-electronica-card";
 import { RegistrarPagoForm } from "./registrar-pago-form";
 import type { EstadoFactura, MetodoPago } from "@/generated/prisma-tenant";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
@@ -9,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPI_TONE } from "@/components/ui/kpi-card";
 import { formatoFechaCorta } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
-import { requirePermiso } from "@/lib/auth/guards";
+import { puede, requirePermiso } from "@/lib/auth/guards";
 import { etiquetaTramoIva, leerDesgloseGuardado } from "@/lib/iva/desglose";
 import { textoPorcentaje } from "@/lib/iva/tarifas";
 
@@ -154,7 +156,7 @@ const PAGOS_COLUMNS: DataTableColumn<PagoRow>[] = [
 ];
 
 export default async function FacturaDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requirePermiso("facturas.ver");
+  const session = await requirePermiso("facturas.ver");
   const { id } = await params;
   const factura = await getFactura(id);
 
@@ -162,6 +164,7 @@ export default async function FacturaDetailPage({ params }: { params: Promise<{ 
     notFound();
   }
 
+  const facturaFe = await getFacturaFe(factura.id);
   const detalleRows = buildDetalleRows(factura);
   // El desglose que quedó al emitir: no se recalcula aunque la orden cambie después.
   const desgloseIva = leerDesgloseGuardado(factura.desgloseIva);
@@ -339,6 +342,15 @@ export default async function FacturaDetailPage({ params }: { params: Promise<{ 
               </div>
             </CardContent>
           </Card>
+          {facturaFe ? (
+            <FacturaElectronicaCard
+              facturaId={factura.id}
+              clienteId={factura.clienteId}
+              vista={facturaFe}
+              puedeFacturar={puede(session, "facturas.facturar")}
+              puedeConfigurar={puede(session, "facturaElectronica.configurar")}
+            />
+          ) : null}
         </div>
       </div>
     </main>
