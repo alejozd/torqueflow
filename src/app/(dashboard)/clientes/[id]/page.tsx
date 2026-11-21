@@ -7,6 +7,10 @@ import { getCliente } from "@/app/actions/cliente-actions";
 import { listTecnicos } from "@/app/actions/orden-actions";
 import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/vehiculo-marca-modelo-actions";
 import { puede, requirePermiso } from "@/lib/auth/guards";
+import { DatosFeCliente } from "./datos-fe-cliente";
+import { leerConfiguracionFe } from "@/lib/factura-electronica/configuracion";
+import { getTenantDb } from "@/lib/db/tenant-client";
+import { MUNICIPIOS } from "@/modulos/factura-electronica";
 import { EditarClienteDialog } from "./editar-cliente-dialog";
 import { NuevoVehiculoDialog } from "./nuevo-vehiculo-dialog";
 import { EditarVehiculoDialog } from "./editar-vehiculo-dialog";
@@ -115,6 +119,8 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
     notFound();
   }
 
+  const puedeEditar = puede(session, "clientes.editar");
+  const configFe = await leerConfiguracionFe(getTenantDb(session.user.tenantSchema));
   const puedeAgregarCatalogo = puede(session, "vehiculos.catalogo");
   // Same roles as deleteClienteAction/deleteVehiculoAction.
   const puedeEliminar = puede(session, "clientes.eliminar");
@@ -358,6 +364,26 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
               </div>
             </CardContent>
           </Card>
+
+          {configFe?.activa ? (
+            <DatosFeCliente
+              cliente={{
+                id: cliente.id,
+                nombre: cliente.nombre,
+                telefono: cliente.telefono,
+                email: cliente.email,
+                documento: cliente.documento,
+                tipoDocumento: cliente.tipoDocumento,
+                dv: cliente.dv,
+                tipoPersona: cliente.tipoPersona,
+                responsabilidadFiscal: cliente.responsabilidadFiscal,
+                municipioCodigo: cliente.municipioCodigo,
+                direccion: cliente.direccion,
+              }}
+              municipios={MUNICIPIOS}
+              puedeEditar={puedeEditar}
+            />
+          ) : null}
 
           <Card>
             <CardHeader>

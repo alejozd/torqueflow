@@ -23,6 +23,8 @@ vi.mock("@/app/actions/vehiculo-marca-modelo-actions", () => ({
   listMarcasVehiculo: async () => [],
   listTodosLosModelosVehiculo: async () => [],
 }));
+vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => ({}) }));
+vi.mock("@/lib/factura-electronica/configuracion", () => ({ leerConfiguracionFe: async () => null }));
 vi.mock("./editar-cliente-dialog", () => ({ EditarClienteDialog: () => null }));
 vi.mock("./nuevo-vehiculo-dialog", () => ({ NuevoVehiculoDialog: () => null }));
 vi.mock("./editar-vehiculo-dialog", () => ({ EditarVehiculoDialog: () => null }));
