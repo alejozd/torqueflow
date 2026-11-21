@@ -201,6 +201,56 @@ describe("servicio de factura electrónica", () => {
     expect(Number(f.iva)).toBe(1900);
   });
 
+  it("si el total interno no coincide con los conceptos (o el descuento supera el valor) no gasta número", async () => {
+    const antes = await db.configuracionFacturaElectronica.findUniqueOrThrow({ where: { id: "singleton" } });
+    const proveedor = crearProveedorSimulado();
+    const enviar = vi.spyOn(proveedor, "enviar");
+
+    const a = await crearFacturaDePrueba(db, "FES016");
+    await db.factura.update({ where: { id: a.facturaId }, data: { total: 100000, saldoPendiente: 100000 } });
+    const r1 = await emitirDocumentoFactura(ctx(proveedor), a.facturaId);
+    expect(r1).toMatchObject({ ok: false, motivo: "VALIDACION" });
+    if (!r1.ok) expect(r1.mensaje).toMatch(/no coincide con sus conceptos/);
+    const fa = await db.factura.findUniqueOrThrow({ where: { id: a.facturaId } });
+    expect(Number(fa.total)).toBe(100000);
+    expect(Number(fa.saldoPendiente)).toBe(100000);
+
+    const b = await crearFacturaDePrueba(db, "FES017");
+    await db.factura.update({ where: { id: b.facturaId }, data: { descuento: 200000 } });
+    expect(await emitirDocumentoFactura(ctx(proveedor), b.facturaId)).toMatchObject({ ok: false, motivo: "VALIDACION" });
+
+    expect(enviar).not.toHaveBeenCalled();
+    expect(await db.documentoElectronico.count({ where: { facturaId: { in: [a.facturaId, b.facturaId] } } })).toBe(0);
+    const despues = await db.configuracionFacturaElectronica.findUniqueOrThrow({ where: { id: "singleton" } });
+    expect(despues.siguienteConsecutivo).toBe(antes.siguienteConsecutivo);
+  });
+
+  it("al reintentar, si el remapeo no es válido el documento vuelve a su estado sin enviar", async () => {
+    const { facturaId } = await crearFacturaDePrueba(db, "FES018");
+    const memoria: MemoriaSimulado = new Map();
+    expect(await emitirDocumentoFactura(ctx(crearProveedorSimulado({ resultado: "RECHAZAR", memoria })), facturaId)).toMatchObject({
+      ok: true,
+      estado: "RECHAZADO",
+    });
+    const rechazado = await docDe(facturaId);
+    const proveedor = crearProveedorSimulado({ memoria });
+    const enviar = vi.spyOn(proveedor, "enviar");
+
+    await db.factura.update({ where: { id: facturaId }, data: { descuento: 200000 } });
+    expect(await reintentarDocumento(ctx(proveedor), rechazado.id)).toMatchObject({ ok: false, motivo: "VALIDACION" });
+    expect((await docDe(facturaId)).estado).toBe("RECHAZADO");
+
+    await db.factura.update({ where: { id: facturaId }, data: { descuento: 0, total: 100000, saldoPendiente: 100000 } });
+    const r = await reintentarDocumento(ctx(proveedor), rechazado.id);
+    expect(r).toMatchObject({ ok: false, motivo: "VALIDACION" });
+    if (!r.ok) expect(r.mensaje).toMatch(/no coincide con sus conceptos/);
+    const doc = await docDe(facturaId);
+    expect(doc.estado).toBe("RECHAZADO");
+    expect(doc.payload).toEqual(rechazado.payload);
+    expect(Number((await db.factura.findUniqueOrThrow({ where: { id: facturaId } })).total)).toBe(100000);
+    expect(enviar).not.toHaveBeenCalled();
+  });
+
   it("envíos concurrentes reciben números consecutivos sin huecos", async () => {
     const ids: string[] = [];
     for (const placa of ["FES010", "FES011", "FES012", "FES013"]) ids.push((await crearFacturaDePrueba(db, placa)).facturaId);

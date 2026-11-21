@@ -60,6 +60,16 @@ export interface ResultadoMapeo {
   errores: ErrorValidacion[];
   /** Total electrónico − total guardado en la Factura, en centavos. Si no es 0 se ajusta la factura. */
   diferencia: number;
+  /**
+   * Lo más que el redondeo de los precios con IVA incluido puede mover el total, en centavos.
+   * Una `diferencia` mayor no es redondeo: la factura no coincide con sus conceptos y no se envía.
+   */
+  tolerancia: number;
+}
+
+/** Por línea: medio centavo por cada unidad con su IVA (Σ ceil(q·(1+t)/2)) más uno de holgura. */
+export function toleranciaRedondeo(lineas: Pick<LineaConIva, "cantidad" | "tarifa">[]): number {
+  return lineas.reduce((suma, l) => suma + Math.ceil((l.cantidad * (1 + (l.tarifa ?? 0) / 100)) / 2) + 1, 0);
 }
 
 const tiene = (objeto: object, clave: string) => Object.prototype.hasOwnProperty.call(objeto, clave);
@@ -110,6 +120,7 @@ export function adquirenteDesdeCliente(c: ClienteParaMapear): { adquirente: Adqu
 /**
  * Factura de TorqueFlow → factura electrónica del núcleo. Repuestos con su cantidad y unidad
  * "94"; mano de obra con cantidad 1 y unidad "ZZ" (spec §11.5). Pago de contado en efectivo.
+ * Lanza Error si el descuento es negativo o mayor que el valor de los conceptos.
  */
 export function mapearFactura(f: FacturaParaMapear, n: DatosNumeracion): ResultadoMapeo {
   const lineas: LineaConIva[] = [
@@ -144,5 +155,11 @@ export function mapearFactura(f: FacturaParaMapear, n: DatosNumeracion): Resulta
     pago: { forma: "CONTADO", medio: MEDIOS_PAGO.EFECTIVO, vencimiento: n.fecha },
     enviarCorreo: adquirente.tipo === "IDENTIFICADO" && Boolean(adquirente.email),
   };
-  return { documento, conversion, errores, diferencia: conversion.totalElectronico - centavos(f.total) };
+  return {
+    documento,
+    conversion,
+    errores,
+    diferencia: conversion.totalElectronico - centavos(f.total),
+    tolerancia: toleranciaRedondeo(lineas),
+  };
 }

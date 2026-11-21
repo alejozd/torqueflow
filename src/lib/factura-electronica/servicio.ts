@@ -24,7 +24,7 @@ import {
   type ConfiguracionFe,
 } from "./configuracion";
 import { fechaHoraBogota } from "./hora-bogota";
-import { mapearFactura, type Numerico, type ResultadoMapeo } from "./mapear";
+import { mapearFactura, type DatosNumeracion, type FacturaParaMapear, type Numerico, type ResultadoMapeo } from "./mapear";
 
 export interface ContextoFe {
   db: TenantPrismaClient;
@@ -36,7 +36,15 @@ export interface ContextoFe {
   proveedor?: ProveedorFacturaElectronica;
 }
 
-export type MotivoFallaFe = "INACTIVA" | "VALIDACION" | "RANGO_AGOTADO" | "EN_CURSO" | "NO_ENCONTRADO" | "ESTADO" | "AMBIENTE";
+export type MotivoFallaFe =
+  | "INACTIVA"
+  | "VALIDACION"
+  | "RANGO_AGOTADO"
+  | "EN_CURSO"
+  | "NO_ENCONTRADO"
+  | "ESTADO"
+  | "AMBIENTE"
+  | "ERROR";
 
 /** ok: true = el documento existe y quedó en `estado` (aceptado o no); ok: false = no se hizo nada. */
 export type ResultadoFe =
@@ -68,7 +76,8 @@ const nombreAmbiente = (a: string | null) => (a === "PRUEBAS" ? "pruebas" : a ==
 /**
  * El documento legal manda (spec §11.3): el IVA y el desglose de la factura interna quedan
  * iguales a los del documento electrónico, y si el total difiere en centavos se ajustan
- * subtotal, total y saldo.
+ * subtotal, total y saldo. Solo se llama con una diferencia dentro de la tolerancia de redondeo
+ * (prepararMapeo); quien llama ya bloqueó la factura con FOR UPDATE.
  */
 async function alinearFactura(tx: Prisma.TransactionClient, facturaId: string, mapeo: ResultadoMapeo): Promise<void> {
   const f: { subtotal: Numerico; total: Numerico; saldoPendiente: Numerico } = await tx.factura.findUniqueOrThrow({
@@ -288,8 +297,38 @@ async function ejecutarEnvio(
   }
 }
 
-function validar(mapeo: ResultadoMapeo, config: ConfiguracionFe, hoy: string): ErrorValidacion[] {
-  return [...mapeo.errores, ...validarDocumento(mapeo.documento, { resolucion: resolucionDeConfig(config) ?? undefined, hoy })];
+type Preparado =
+  | { ok: true; mapeo: ResultadoMapeo }
+  | { ok: false; motivo: MotivoFallaFe; mensaje: string; errores: ErrorValidacion[] };
+
+const noValido = (campo: string, texto: string): Preparado => ({
+  ok: false,
+  motivo: "VALIDACION",
+  mensaje: texto,
+  errores: [{ campo, mensaje: texto }],
+});
+
+/**
+ * Mapea y valida sin gastar número. Un mapeo imposible (descuento mayor que los conceptos), una
+ * diferencia de total que no es redondeo (spec §11.3) o datos faltantes → VALIDACION.
+ */
+function prepararMapeo(factura: FacturaParaMapear, n: DatosNumeracion, config: ConfiguracionFe, hoy: string): Preparado {
+  let mapeo: ResultadoMapeo;
+  try {
+    mapeo = mapearFactura(factura, n);
+  } catch (e) {
+    return noValido("factura.descuento", e instanceof Error ? e.message : "No se pudo armar la factura electrónica.");
+  }
+  if (Math.abs(mapeo.diferencia) > mapeo.tolerancia) {
+    const electronico = mapeo.conversion.totalElectronico;
+    return noValido(
+      "factura.total",
+      `El total de la factura no coincide con sus conceptos: la factura dice ${pesos(electronico - mapeo.diferencia)} y los conceptos suman ${pesos(electronico)}. No se envió nada; revisa la factura.`,
+    );
+  }
+  const errores = [...mapeo.errores, ...validarDocumento(mapeo.documento, { resolucion: resolucionDeConfig(config) ?? undefined, hoy })];
+  if (errores.length > 0) return { ok: false, motivo: "VALIDACION", mensaje: "Faltan datos para la factura electrónica.", errores };
+  return { ok: true, mapeo };
 }
 
 /**
@@ -309,15 +348,14 @@ export async function emitirDocumentoFactura(ctx: ContextoFe, facturaId: string)
 
   const { fecha, hora } = fechaHoraBogota(ahora);
   const provisional = Math.max(config.siguienteConsecutivo, config.rangoDesde ?? 1);
-  const mapeo = mapearFactura(factura, {
-    prefijo: config.prefijo ?? "",
-    numero: provisional,
-    resolucionNumero: config.resolucionNumero ?? "",
+  const preparado = prepararMapeo(
+    factura,
+    { prefijo: config.prefijo ?? "", numero: provisional, resolucionNumero: config.resolucionNumero ?? "", fecha, hora },
+    config,
     fecha,
-    hora,
-  });
-  const errores = validar(mapeo, config, fecha);
-  if (errores.length > 0) return falla("VALIDACION", "Faltan datos para la factura electrónica.", errores);
+  );
+  if (!preparado.ok) return falla(preparado.motivo, preparado.mensaje, preparado.errores);
+  const { mapeo } = preparado;
 
   let creado: DocumentoEnCurso | null;
   try {
@@ -399,29 +437,52 @@ export async function reintentarDocumento(ctx: ContextoFe, documentoId: string):
 
   let documento = doc.payload as unknown as FacturaVenta;
   if (doc.estado === "RECHAZADO" || doc.estado === "PENDIENTE") {
-    const factura = await ctx.db.factura.findUnique({ where: { id: doc.facturaId }, include: INCLUDE_MAPEO });
-    const mapeo = factura
-      ? mapearFactura(factura, {
-          prefijo: documento.prefijo,
-          numero: documento.numero,
-          resolucionNumero: documento.resolucionNumero,
-          fecha: documento.fecha,
-          hora: documento.hora,
-        })
-      : null;
-    const errores = mapeo ? validar(mapeo, config, fechaHoraBogota(ahora).fecha) : [{ campo: "factura", mensaje: "La factura no existe." }];
-    if (!mapeo || errores.length > 0) {
+    const previo = documento;
+    let preparado: Preparado;
+    try {
+      const factura = await ctx.db.factura.findUnique({ where: { id: doc.facturaId }, include: INCLUDE_MAPEO });
+      preparado = factura
+        ? prepararMapeo(
+            factura,
+            {
+              prefijo: previo.prefijo,
+              numero: previo.numero,
+              resolucionNumero: previo.resolucionNumero,
+              fecha: previo.fecha,
+              hora: previo.hora,
+            },
+            config,
+            fechaHoraBogota(ahora).fecha,
+          )
+        : noValido("factura", "La factura no existe.");
+      if (preparado.ok) {
+        const { mapeo } = preparado;
+        await ctx.db.$transaction(async (tx) => {
+          // Como al emitir: bloquea la factura para no pisar un abono que llegue a la vez.
+          await tx.$queryRaw`SELECT id FROM facturas WHERE id = ${doc.facturaId} FOR UPDATE`;
+          await alinearFactura(tx, doc.facturaId, mapeo);
+          await tx.documentoElectronico.update({ where: { id: doc.id }, data: { payload: comoJson(mapeo.documento) } });
+        }, TX);
+      }
+    } catch (e) {
+      console.error("[factura-electronica] error inesperado al preparar el reenvío", doc.id, e);
+      preparado = {
+        ok: false,
+        motivo: "ERROR",
+        mensaje: "Ocurrió un error inesperado al preparar el reenvío. No se envió nada; reintenta.",
+        errores: [],
+      };
+    }
+    if (!preparado.ok) {
+      // No se envió: el documento vuelve a su estado (no queda en ENVIANDO).
+      const textos = preparado.errores.length > 0 ? preparado.errores.map((e) => e.mensaje) : [preparado.mensaje];
       await ctx.db.documentoElectronico.update({
         where: { id: doc.id },
-        data: { estado: doc.estado, mensajes: comoJson(errores.map((e) => traducirMensajeDian(e.mensaje))) },
+        data: { estado: doc.estado, mensajes: comoJson(textos.map((t) => traducirMensajeDian(t))) },
       });
-      return falla("VALIDACION", "Faltan datos para la factura electrónica.", errores);
+      return falla(preparado.motivo, preparado.mensaje, preparado.errores);
     }
-    documento = mapeo.documento;
-    await ctx.db.$transaction(async (tx) => {
-      await alinearFactura(tx, doc.facturaId, mapeo);
-      await tx.documentoElectronico.update({ where: { id: doc.id }, data: { payload: comoJson(documento) } });
-    }, TX);
+    documento = preparado.mapeo.documento;
   }
 
   const consultarPrimero = doc.estado === "POR_CONFIRMAR" || interrumpido;

@@ -89,6 +89,22 @@ describe("mapearFactura", () => {
     );
     expect(r.documento.lineas[0].precioUnitario).toBe(1000002);
     expect(r.diferencia).toBe(-1);
+    expect(Math.abs(r.diferencia)).toBeLessThanOrEqual(r.tolerancia);
+  });
+
+  it("la tolerancia cubre solo el redondeo de las líneas: una diferencia grande la supera", () => {
+    // Filtro: 2 × 1,19 → ceil(1,19) + 1 = 3; mano de obra: ceil(0,595) + 1 = 2.
+    expect(mapearFactura(factura(), numeracion).tolerancia).toBe(5);
+    const cincuenta = mapearFactura(
+      factura({ total: "50000", orden: { items: [{ id: "i1", descripcion: "Tornillo", cantidad: 50, precioUnitario: "1000", ivaPct: "19" }], manoDeObra: [] } }),
+      numeracion,
+    );
+    expect(cincuenta.tolerancia).toBe(31);
+
+    // Factura interna sin el IVA (p. ej. anterior a la convención de IVA incluido).
+    const r = mapearFactura(factura({ total: "200000" }), numeracion);
+    expect(r.diferencia).toBe(3800000);
+    expect(Math.abs(r.diferencia)).toBeGreaterThan(r.tolerancia);
   });
 
   it("con cliente identificado pide enviar el correo", () => {
