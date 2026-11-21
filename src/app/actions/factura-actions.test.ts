@@ -45,6 +45,11 @@ vi.mock("@/lib/db/tenant-client", () => ({
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
+const mockEmitirTrasFacturar = vi.fn();
+vi.mock("@/lib/factura-electronica/servicio", () => ({
+  emitirTrasFacturar: (...args: unknown[]) => mockEmitirTrasFacturar(...args),
+}));
+
 import {
   crearFacturaAction,
   listFacturas,
@@ -453,5 +458,48 @@ describe("getFactura", () => {
       where: { id: "f-otra-sede", orden: { sedeId: "sede-1" } },
       include: expect.anything(),
     });
+  });
+});
+
+describe("crearFacturaAction: factura electrónica", () => {
+  beforeEach(() => {
+    mockRequirePermiso.mockReset().mockResolvedValue(SESSION_ADMIN);
+    mockOrdenFindFirst.mockReset().mockResolvedValue(
+      baseOrden({
+        items: [{ id: "i1", repuestoId: "r1", cantidad: 1, precioUnitario: "119", ivaPct: "19" }],
+        manoDeObra: [{ id: "m1", valor: "100", ivaPct: "19" }],
+      }),
+    );
+    mockFacturaCreate.mockReset().mockResolvedValue({ id: "f1" });
+    mockRepuestoUpdateMany.mockReset().mockResolvedValue({ count: 1 });
+    mockAnticipoFindMany.mockReset().mockResolvedValue([]);
+    mockEmitirTrasFacturar.mockReset().mockResolvedValue(null);
+  });
+
+  it("después de crear la factura pide emitir el documento electrónico con los datos de la sesión", async () => {
+    const result = await crearFacturaAction("o1", initialState, new FormData());
+
+    expect(result).toEqual({ error: null, success: true, facturaId: "f1" });
+    expect(mockEmitirTrasFacturar).toHaveBeenCalledWith(
+      { db: expect.anything(), tenantSchema: "taller_perez", usuarioId: "u1" },
+      "f1",
+    );
+  });
+
+  it("si la factura no se crea, no intenta emitir", async () => {
+    mockRepuestoUpdateMany.mockResolvedValue({ count: 0 });
+
+    const result = await crearFacturaAction("o1", initialState, new FormData());
+
+    expect(result.success).toBe(false);
+    expect(mockEmitirTrasFacturar).not.toHaveBeenCalled();
+  });
+
+  it("lo que pase con la factura electrónica no cambia la respuesta de la acción", async () => {
+    mockEmitirTrasFacturar.mockResolvedValue({ ok: false, motivo: "VALIDACION", mensaje: "Faltan datos", errores: [] });
+
+    const result = await crearFacturaAction("o1", initialState, new FormData());
+
+    expect(result).toEqual({ error: null, success: true, facturaId: "f1" });
   });
 });

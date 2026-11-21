@@ -12,6 +12,7 @@ import { ANTICIPO_CAMBIO, ANTICIPOS_EXCEDEN, emitirFacturaEnTransaccion, STOCK_I
 import { computeFacturaTotales } from "@/lib/factura/totales";
 import { totalOrden } from "@/lib/dashboard/calculos";
 import { scopeFactura, scopeOrden } from "@/lib/sede/scope";
+import { emitirTrasFacturar } from "@/lib/factura-electronica/servicio";
 import type { EstadoFactura, Prisma } from "@/generated/prisma-tenant";
 
 export interface FacturaFormState {
@@ -202,6 +203,10 @@ export async function crearFacturaAction(
     }
     return { error: friendlyPrismaErrorMessage(err, "Error al generar la factura"), success: false, facturaId: null };
   }
+
+  // Factura electrónica (solo si el taller la tiene activa y con envío automático). Va fuera de
+  // la transacción de la factura: un fallo nunca la deshace; el documento queda para reintentar.
+  await emitirTrasFacturar({ db: tenantDb, tenantSchema: session.user.tenantSchema, usuarioId: session.user.id }, facturaId);
 
   revalidatePath(`/ordenes/${ordenId}`);
   revalidatePath("/facturas");
