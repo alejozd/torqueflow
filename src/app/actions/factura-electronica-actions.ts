@@ -5,9 +5,9 @@ import { puede, requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { scopeFactura } from "@/lib/sede/scope";
 import { leerConfiguracionFe } from "@/lib/factura-electronica/configuracion";
-import { emitirDocumentoFactura, reintentarDocumento, type ResultadoFe } from "@/lib/factura-electronica/servicio";
+import { emitirDocumentoFactura, emitirNotaCredito, reintentarDocumento, type ResultadoFe } from "@/lib/factura-electronica/servicio";
 import { ENVIO_INTERRUMPIDO_MS, ESTADOS_DOCUMENTO_PENDIENTES, cuentaParaDian } from "@/lib/factura-electronica/textos";
-import type { ErrorValidacion, MensajeDian } from "@/modulos/factura-electronica";
+import { CONCEPTOS_NOTA_CREDITO, type ConceptoNotaCredito, type ErrorValidacion, type MensajeDian } from "@/modulos/factura-electronica";
 import type { AmbienteFacturaElectronica, EnvioFacturaElectronica, EstadoDocumentoElectronico } from "@/generated/prisma-tenant";
 
 export interface DocumentoFeVista {
@@ -32,6 +32,7 @@ export interface FacturaFeVista {
   /** Creada desde la activación (las anteriores no se marcan como pendientes). */
   cuenta: boolean;
   documento: DocumentoFeVista | null;
+  notaCredito: DocumentoFeVista | null;
 }
 
 export interface EnvioFeState {
@@ -65,17 +66,26 @@ export async function getFacturaFe(facturaId: string): Promise<FacturaFeVista | 
     where: { id: facturaId, ...scopeFactura(session.user.sedeActivaId) },
     select: {
       createdAt: true,
-      documentosElectronicos: { where: { tipo: "FACTURA" }, select: SELECT_DOCUMENTO, take: 1 },
+      documentosElectronicos: {
+        where: { tipo: { in: ["FACTURA", "NOTA_CREDITO"] } },
+        select: { ...SELECT_DOCUMENTO, tipo: true },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
   if (!factura) return null;
-  const doc = factura.documentosElectronicos[0];
+  const aVista = (d: (typeof factura.documentosElectronicos)[number] | undefined): DocumentoFeVista | null => {
+    if (!d) return null;
+    const { tipo: _tipo, ...resto } = d;
+    return { ...resto, mensajes: Array.isArray(d.mensajes) ? (d.mensajes as unknown as MensajeDian[]) : [] };
+  };
   return {
     activa: true,
     envio: config.envio,
     ambiente: config.ambiente,
     cuenta: cuentaParaDian(factura.createdAt, config.activadaDesde),
-    documento: doc ? { ...doc, mensajes: Array.isArray(doc.mensajes) ? (doc.mensajes as unknown as MensajeDian[]) : [] } : null,
+    documento: aVista(factura.documentosElectronicos.find((d) => d.tipo === "FACTURA")),
+    notaCredito: aVista(factura.documentosElectronicos.find((d) => d.tipo === "NOTA_CREDITO")),
   };
 }
 
@@ -127,6 +137,33 @@ export async function reenviarDocumentoAction(
   const r = await reintentarDocumento({ db, tenantSchema: session.user.tenantSchema, usuarioId: session.user.id }, documentoId);
   revalidatePath(`/facturas/${facturaId}`);
   return aEstado(r);
+}
+
+const MENSAJE_NOTA_CREDITO: Partial<Record<EstadoDocumentoElectronico, string>> = {
+  ACEPTADO: "La DIAN aceptó la nota crédito. La factura quedó anulada.",
+  RECHAZADO: "La DIAN rechazó la nota crédito. Revisa los motivos y vuelve a intentarlo.",
+  POR_CONFIRMAR: "No se pudo confirmar si la DIAN recibió la nota crédito. Vuelve a intentarlo en unos minutos.",
+};
+
+export async function anularConNotaCreditoAction(facturaId: string, _prev: EnvioFeState, formData: FormData): Promise<EnvioFeState> {
+  const session = await requirePermiso("facturaElectronica.anular");
+  const db = getTenantDb(session.user.tenantSchema);
+  const factura = await db.factura.findFirst({ where: { id: facturaId, ...scopeFactura(session.user.sedeActivaId) }, select: { id: true } });
+  if (!factura) return { error: "La factura no existe.", success: false, mensaje: null, errores: [] };
+  const concepto = String(formData.get("concepto") ?? "");
+  if (!Object.prototype.hasOwnProperty.call(CONCEPTOS_NOTA_CREDITO, concepto)) {
+    return { error: "Elige el concepto de la nota crédito.", success: false, mensaje: null, errores: [] };
+  }
+  const motivo = String(formData.get("motivo") ?? "");
+  const r = await emitirNotaCredito(
+    { db, tenantSchema: session.user.tenantSchema, usuarioId: session.user.id },
+    facturaId,
+    { concepto: concepto as ConceptoNotaCredito, motivo },
+  );
+  revalidatePath(`/facturas/${facturaId}`);
+  if (!r.ok) return { error: r.mensaje, success: false, mensaje: null, errores: r.errores };
+  if (r.estado === "ACEPTADO") return { error: null, success: true, mensaje: MENSAJE_NOTA_CREDITO.ACEPTADO!, errores: [] };
+  return { error: MENSAJE_NOTA_CREDITO[r.estado] ?? "No se pudo enviar la nota crédito. Vuelve a intentarlo.", success: false, mensaje: null, errores: [] };
 }
 
 /** Para la lista de facturas: si hay que mostrar la columna DIAN y desde cuándo cuentan. */

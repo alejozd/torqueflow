@@ -37,6 +37,7 @@ export const PERMISOS = {
   "vencimientos.avisar": { grupo: "Clientes y vehículos", etiqueta: "Avisar vencimientos a clientes" },
   "facturas.ver": { grupo: "Dinero", etiqueta: "Ver facturas" },
   "facturas.facturar": { grupo: "Dinero", etiqueta: "Facturar y registrar pagos" },
+  "facturaElectronica.anular": { grupo: "Dinero", etiqueta: "Anular facturas con nota crédito" },
   "mostrador.vender": { grupo: "Dinero", etiqueta: "Vender y devolver en mostrador" },
   "mostrador.descuentoSinTope": { grupo: "Dinero", etiqueta: "Dar descuentos sin tope" },
   "mostrador.devolverConCajaCerrada": { grupo: "Dinero", etiqueta: "Devolver ventas de cajas ya cerradas" },
@@ -140,6 +141,7 @@ export const REQUISITOS: Partial<Record<Permiso, readonly Permiso[]>> = {
   "compras.gestionar": ["compras.ver"],
   "reportes.rentabilidad": ["reportes.productividad"],
   "facturaElectronica.configurar": ["facturas.facturar"],
+  "facturaElectronica.anular": ["facturas.facturar"],
 };
 
 /** Quita, hasta que no cambie nada, los permisos a los que les falta algún requisito. */

@@ -12,6 +12,7 @@ import { estadoDian, textoEstadoDian, type TonoDian } from "@/lib/factura-electr
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { NotaCreditoSeccion } from "./nota-credito-seccion";
 import { formatoFechaCorta } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,8 @@ export function FacturaElectronicaCard({
   vista,
   puedeFacturar,
   puedeConfigurar,
+  puedeAnular,
+  cobrado,
   ahora,
 }: {
   facturaId: string;
@@ -37,6 +40,9 @@ export function FacturaElectronicaCard({
   vista: FacturaFeVista;
   puedeFacturar: boolean;
   puedeConfigurar: boolean;
+  puedeAnular: boolean;
+  /** Lo cobrado de la factura: si hay pagos, la anulación avisa que deben devolverse. */
+  cobrado: number;
   /** Hora del servidor: decide si un envío quedó interrumpido sin depender del reloj del navegador. */
   ahora: Date;
 }) {
@@ -133,6 +139,19 @@ export function FacturaElectronicaCard({
               {doc ? "Reenviar a la DIAN" : "Enviar a la DIAN"}
             </Button>
           </form>
+        ) : null}
+
+        {estado === "ACEPTADO" || estado === "ANULADO" ? (
+          <div className="border-t border-border pt-3">
+            <NotaCreditoSeccion
+              facturaId={facturaId}
+              notaCredito={vista.notaCredito}
+              puedeAnular={puedeAnular}
+              puedeFacturar={puedeFacturar}
+              cobrado={cobrado}
+              ahora={ahora}
+            />
+          </div>
         ) : null}
       </CardContent>
     </Card>

@@ -4,6 +4,7 @@ import { render, screen } from "@testing-library/react";
 vi.mock("@/app/actions/factura-electronica-actions", () => ({
   enviarFacturaDianAction: vi.fn(),
   reenviarDocumentoAction: vi.fn(),
+  anularConNotaCreditoAction: vi.fn(),
 }));
 
 import { FacturaElectronicaCard } from "./factura-electronica-card";
@@ -29,10 +30,11 @@ const vista = (documento: DocumentoFeVista | null, extra: Partial<FacturaFeVista
   ambiente: "PRODUCCION",
   cuenta: true,
   documento,
+  notaCredito: null,
   ...extra,
 });
 const AHORA = new Date("2026-11-21T12:00:00.000Z");
-const props = { facturaId: "f1", clienteId: "c1", puedeFacturar: true, puedeConfigurar: false, ahora: AHORA };
+const props = { facturaId: "f1", clienteId: "c1", puedeFacturar: true, puedeConfigurar: false, puedeAnular: true, cobrado: 0, ahora: AHORA };
 
 describe("FacturaElectronicaCard", () => {
   it("sin documento ofrece enviar a la DIAN", () => {
@@ -102,5 +104,27 @@ describe("FacturaElectronicaCard", () => {
     render(<FacturaElectronicaCard {...props} vista={vista(null, { cuenta: false })} />);
     expect(screen.getByText("Se creó antes de activar la facturación electrónica.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Enviar a la DIAN" })).toBeInTheDocument();
+  });
+
+  it("aceptada: ofrece anular con nota crédito a quien tiene el permiso", () => {
+    render(<FacturaElectronicaCard {...props} vista={vista(doc)} />);
+    expect(screen.getByRole("button", { name: "Anular con nota crédito" })).toBeInTheDocument();
+  });
+
+  it("sin el permiso de anular no ofrece la nota crédito", () => {
+    render(<FacturaElectronicaCard {...props} puedeAnular={false} vista={vista(doc)} />);
+    expect(screen.queryByRole("button", { name: "Anular con nota crédito" })).toBeNull();
+  });
+
+  it("anulada: muestra la nota crédito", () => {
+    const nota: DocumentoFeVista = { ...doc, id: "n1", prefijo: "NC", numero: 3, cufe: "cude-9", pdfRuta: null };
+    render(<FacturaElectronicaCard {...props} vista={vista({ ...doc, estado: "ANULADO" }, { notaCredito: nota })} />);
+    expect(screen.getByText("NC-3")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Anular con nota crédito" })).toBeNull();
+  });
+
+  it("rechazada: no ofrece la nota crédito", () => {
+    render(<FacturaElectronicaCard {...props} vista={vista({ ...doc, estado: "RECHAZADO", cufe: null })} />);
+    expect(screen.queryByRole("button", { name: "Anular con nota crédito" })).toBeNull();
   });
 });

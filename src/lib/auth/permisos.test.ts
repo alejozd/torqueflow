@@ -227,4 +227,12 @@ describe("la entrega del vehículo (decisión del usuario, 2026-10-22)", () => {
     );
     expect(REQUISITOS["facturaElectronica.configurar"]).toEqual(["facturas.facturar"]);
   });
+
+  it("facturaElectronica.anular: solo ADMIN por rol; se agrega con facturar", () => {
+    expect(permisosEfectivos({ role: "ADMIN" })).toContain("facturaElectronica.anular");
+    expect(permisosEfectivos({ role: "RECEPCION" })).not.toContain("facturaElectronica.anular");
+    expect(permisosEfectivos({ role: "RECEPCION", agregados: ["facturaElectronica.anular"] })).toContain("facturaElectronica.anular");
+    expect(permisosEfectivos({ role: "TECNICO", agregados: ["facturaElectronica.anular"] })).not.toContain("facturaElectronica.anular");
+    expect(REQUISITOS["facturaElectronica.anular"]).toEqual(["facturas.facturar"]);
+  });
 });

@@ -21,9 +21,11 @@ vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => DB }));
 
 const mockEmitir = vi.fn();
 const mockReintentar = vi.fn();
+const mockNotaCredito = vi.fn();
 vi.mock("@/lib/factura-electronica/servicio", () => ({
   emitirDocumentoFactura: (...a: unknown[]) => mockEmitir(...a),
   reintentarDocumento: (...a: unknown[]) => mockReintentar(...a),
+  emitirNotaCredito: (...a: unknown[]) => mockNotaCredito(...a),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -32,6 +34,7 @@ import {
   contarFacturasSinEnviarDian,
   enviarFacturaDianAction,
   getFacturaFe,
+  anularConNotaCreditoAction,
   reenviarDocumentoAction,
   type EnvioFeState,
 } from "./factura-electronica-actions";
@@ -60,6 +63,7 @@ describe("getFacturaFe", () => {
       documentosElectronicos: [
         {
           id: "d1",
+          tipo: "FACTURA",
           estado: "ACEPTADO",
           prefijo: "SETP",
           numero: 7,
@@ -86,6 +90,7 @@ describe("getFacturaFe", () => {
       documentosElectronicos: [
         {
           id: "d1",
+          tipo: "FACTURA",
           estado: "RECHAZADO",
           prefijo: "SETP",
           numero: 7,
@@ -188,5 +193,50 @@ describe("contarFacturasSinEnviarDian", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("getFacturaFe con nota crédito", () => {
+  it("la vista trae la nota crédito aparte de la factura", async () => {
+    const base = { estado: "ACEPTADO", prefijo: "SETP", cufe: null, fechaValidacion: null, mensajes: [], xmlRuta: null, pdfRuta: null, ambiente: "SIMULADO", intentos: 1, ultimoIntentoAt: null };
+    mockFacturaFindFirst.mockResolvedValue({
+      createdAt: new Date("2026-11-10T00:00:00Z"),
+      documentosElectronicos: [
+        { ...base, id: "d1", tipo: "FACTURA", numero: 7 },
+        { ...base, id: "n1", tipo: "NOTA_CREDITO", prefijo: "NC", numero: 3 },
+      ],
+    });
+    const vista = await getFacturaFe("f1");
+    expect(vista?.documento).toMatchObject({ id: "d1", numero: 7 });
+    expect(vista?.notaCredito).toMatchObject({ id: "n1", prefijo: "NC", numero: 3 });
+  });
+
+  it("sin nota crédito, notaCredito es null", async () => {
+    mockFacturaFindFirst.mockResolvedValue({ createdAt: new Date("2026-11-10T00:00:00Z"), documentosElectronicos: [] });
+    expect((await getFacturaFe("f1"))?.notaCredito).toBeNull();
+  });
+});
+
+describe("anularConNotaCreditoAction", () => {
+  const fd = (campos: Record<string, string>) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(campos)) f.set(k, v);
+    return f;
+  };
+
+  it("pide el permiso de anular, valida el concepto y traduce la aceptación", async () => {
+    mockFacturaFindFirst.mockResolvedValue({ id: "f1" });
+    mockNotaCredito.mockResolvedValue({ ok: true, documentoId: "n1", estado: "ACEPTADO", mensajes: [] });
+    const r = await anularConNotaCreditoAction("f1", inicial, fd({ concepto: "2", motivo: "Error" }));
+    expect(mockRequirePermiso).toHaveBeenCalledWith("facturaElectronica.anular");
+    expect(mockNotaCredito.mock.calls[0][2]).toEqual({ concepto: "2", motivo: "Error" });
+    expect(r).toEqual({ error: null, success: true, mensaje: "La DIAN aceptó la nota crédito. La factura quedó anulada.", errores: [] });
+  });
+
+  it("concepto inválido no llama al servicio", async () => {
+    mockFacturaFindFirst.mockResolvedValue({ id: "f1" });
+    const r = await anularConNotaCreditoAction("f1", inicial, fd({ concepto: "9", motivo: "x" }));
+    expect(r.error).toBe("Elige el concepto de la nota crédito.");
+    expect(mockNotaCredito).not.toHaveBeenCalled();
   });
 });
