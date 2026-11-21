@@ -206,7 +206,7 @@ async function confirmarPrevio(
 
 /**
  * Regla 90 (spec §11.1): lo que se acaba de enviar NO se aceptó; la DIAN tiene un envío anterior de este número.
- * Si el reenvío cambió la fecha (spec §12.2), el documento vuelve al payload anterior (el que la DIAN pudo recibir)
+ * Si el reenvío cambió la fecha (spec §12.2), el documento conserva el payload anterior (el que la DIAN pudo recibir)
  * y el histórico se busca primero con esa fecha y luego con la de hoy (el proveedor busca ±1 día).
  */
 async function resolverYaProcesado(
@@ -218,9 +218,7 @@ async function resolverYaProcesado(
   enviado: DocumentoElectronico,
   total: number,
 ): Promise<ResultadoFe> {
-  if (enviado !== anterior) {
-    await ctx.db.documentoElectronico.update({ where: { id }, data: { payload: comoJson(anterior) } });
-  }
+  // El payload guardado sigue siendo el anterior: el enviado con la fecha de hoy solo se guarda si se acepta o rechaza.
   const fechas = enviado.fecha === anterior.fecha ? [anterior.fecha] : [anterior.fecha, enviado.fecha];
   let h: Previo = { tipo: "NO_ENCONTRADO" };
   for (const fecha of fechas) {
@@ -250,16 +248,22 @@ async function resolverEnvio(
   total: number,
   r: ResultadoEnvio,
 ): Promise<ResultadoFe> {
+  /** Spec §12.2: la fecha de hoy solo queda guardada cuando la DIAN dio una respuesta definitiva sobre ese envío. */
+  const guardarEnviado = async () => {
+    if (enviado !== anterior) await ctx.db.documentoElectronico.update({ where: { id }, data: { payload: comoJson(enviado) } });
+  };
   switch (r.estado) {
     case "ACEPTADO":
+      await guardarEnviado();
       return aceptar(ctx, proveedor, id, ref, r.cufe, r.fechaValidacion, r.advertencias);
     case "ERROR_TEMPORAL":
       return terminar(ctx, id, "POR_CONFIRMAR", mensaje(r.mensaje));
     case "ERROR_CONFIGURACION":
       return terminar(ctx, id, "PENDIENTE", mensaje(r.mensaje));
     case "RECHAZADO": {
-      if (!esDocumentoYaProcesado(r.motivos)) return terminar(ctx, id, "RECHAZADO", r.motivos);
-      return resolverYaProcesado(ctx, proveedor, id, ref, anterior, enviado, total);
+      if (esDocumentoYaProcesado(r.motivos)) return resolverYaProcesado(ctx, proveedor, id, ref, anterior, enviado, total);
+      await guardarEnviado();
+      return terminar(ctx, id, "RECHAZADO", r.motivos);
     }
   }
 }
@@ -320,12 +324,10 @@ async function enviarConProveedor(
     if (previo.tipo === "SIN_CONFIRMAR") return terminar(ctx, doc.id, "POR_CONFIRMAR", mensaje(previo.mensaje));
   }
 
-  // Spec §12.2: si el reenvío es otro día, va con la fecha de hoy (mismo número y totales). Ante una Regla 90
-  // se vuelve al payload anterior (resolverYaProcesado).
+  // Spec §12.2: si el reenvío es otro día, va con la fecha de hoy (mismo número y totales). Se guarda solo tras una
+  // respuesta definitiva (resolverEnvio): un error temporal, una excepción o una Regla 90 conservan la fecha anterior,
+  // que es con la que la DIAN pudo haberlo recibido.
   const aEnviar = conFechaDeReenvio(doc.documento, fechaHoraBogota(reloj(ctx)));
-  if (aEnviar !== doc.documento) {
-    await ctx.db.documentoElectronico.update({ where: { id: doc.id }, data: { payload: comoJson(aEnviar) } });
-  }
   const r = await proveedor.enviar(aEnviar);
   return resolverEnvio(ctx, proveedor, doc.id, ref, doc.documento, aEnviar, total, r);
 }

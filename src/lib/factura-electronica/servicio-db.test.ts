@@ -203,6 +203,69 @@ describe("servicio de factura electrónica", () => {
     expect(buscadas[1]).toBe("2026-11-20");
   });
 
+  describe("reenvío de otro día que no obtiene respuesta definitiva", () => {
+    const dia = (s: string) => Date.parse(`${s.slice(0, 10)}T00:00:00Z`);
+    const dia3 = new Date("2026-11-22T15:00:00Z");
+
+    /** Como Nextpyme: el histórico busca ±1 día alrededor de la fecha pedida (y puede ir atrasado). */
+    function comoNextpyme(
+      memoria: MemoriaSimulado,
+      enviar?: ProveedorFacturaElectronica["enviar"],
+      historicoAtrasado = false,
+    ): ProveedorFacturaElectronica {
+      const simulado = crearProveedorSimulado({ memoria });
+      return {
+        ...simulado,
+        ...(enviar ? { enviar } : {}),
+        buscarEmitido: async (ref, fecha) => {
+          const recibido = memoria.get(`${ref.tipo}:${ref.prefijo}${ref.numero}`);
+          if (historicoAtrasado || !recibido || Math.abs(dia(recibido.fechaValidacion) - dia(fecha)) > 86_400_000) return { estado: "NO_ENCONTRADO" };
+          return simulado.buscarEmitido(ref, fecha);
+        },
+      };
+    }
+
+    async function recibidaElDia1(placa: string) {
+      const { facturaId } = await crearFacturaDePrueba(db, placa);
+      const memoria: MemoriaSimulado = new Map();
+      await emitirDocumentoFactura(ctx(crearProveedorSimulado({ resultado: "CAIDA_RECIBIDO", memoria })), facturaId);
+      const doc = await docDe(facturaId);
+      expect(doc.estado).toBe("POR_CONFIRMAR");
+      return { facturaId, memoria, doc };
+    }
+
+    it("un error temporal conserva la fecha original y el siguiente reintento la encuentra en el histórico", async () => {
+      const { facturaId, memoria, doc } = await recibidaElDia1("FES004C");
+
+      // El histórico aún no lo muestra y el reenvío con la fecha de hoy queda sin respuesta.
+      const temporal = comoNextpyme(memoria, async () => ({ estado: "ERROR_TEMPORAL", mensaje: "El proveedor no responde." }), true);
+      const r1 = await reintentarDocumento(ctx(temporal, dia3), doc.id);
+      expect(r1).toMatchObject({ ok: true, estado: "POR_CONFIRMAR" });
+      expect((await docDe(facturaId)).payload as unknown as FacturaVenta).toMatchObject({ fecha: "2026-11-20", hora: "10:00:00" });
+
+      const proveedor = comoNextpyme(memoria);
+      const enviar = vi.spyOn(proveedor, "enviar");
+      const r2 = await reintentarDocumento(ctx(proveedor, dia3), doc.id);
+      expect(r2).toMatchObject({ ok: true, estado: "ACEPTADO" });
+      expect(enviar).not.toHaveBeenCalled();
+      const aceptado = await docDe(facturaId);
+      expect(aceptado.cufe).toBe(memoria.get(`FACTURA:SETP${doc.numero}`)?.cufe);
+      expect(aceptado.payload as unknown as FacturaVenta).toMatchObject({ fecha: "2026-11-20", hora: "10:00:00" });
+    });
+
+    it("una excepción al enviar también conserva la fecha original", async () => {
+      const { facturaId, doc } = await recibidaElDia1("FES004D");
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const falla = comoNextpyme(new Map(), async () => {
+        throw new Error("socket hang up");
+      });
+      const r = await reintentarDocumento(ctx(falla, dia3), doc.id);
+      errorSpy.mockRestore();
+      expect(r).toMatchObject({ ok: true, estado: "POR_CONFIRMAR" });
+      expect((await docDe(facturaId)).payload as unknown as FacturaVenta).toMatchObject({ fecha: "2026-11-20", hora: "10:00:00" });
+    });
+  });
+
   it("Regla 90: con el mismo total adopta el CUFE del histórico; con otro total avisa un choque", async () => {
     const regla90 = traducirMensajesDian("Regla: 90, Rechazo: Documento procesado anteriormente.");
     const conHistorico = (total: number): ProveedorFacturaElectronica => ({
