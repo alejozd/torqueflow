@@ -5,6 +5,7 @@ vi.mock("@/app/actions/factura-electronica-actions", () => ({
   enviarFacturaDianAction: vi.fn(),
   reenviarDocumentoAction: vi.fn(),
   anularConNotaCreditoAction: vi.fn(),
+  completarAnulacionAction: vi.fn(),
   reenviarAlClienteAction: vi.fn(),
 }));
 
@@ -133,6 +134,18 @@ describe("FacturaElectronicaCard", () => {
     render(<FacturaElectronicaCard {...props} vista={vista({ ...doc, estado: "ANULADO" }, { notaCredito: nota })} />);
     expect(screen.getByText("NC-3")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Anular con nota crédito" })).toBeNull();
+  });
+
+  it("nota aceptada pero la factura sigue aceptada (proceso interrumpido): ofrece completar la anulación", () => {
+    const nota: DocumentoFeVista = { ...doc, id: "n1", prefijo: "NC", numero: 3, cufe: "cude-9", pdfRuta: null, xmlRuta: null };
+    render(<FacturaElectronicaCard {...props} vista={vista(doc, { notaCredito: nota })} />);
+    expect(screen.getByRole("button", { name: "Completar anulación" })).toBeInTheDocument();
+  });
+
+  it("anulada: no ofrece completar la anulación", () => {
+    const nota: DocumentoFeVista = { ...doc, id: "n1", prefijo: "NC", numero: 3, cufe: "cude-9", pdfRuta: null, xmlRuta: null };
+    render(<FacturaElectronicaCard {...props} vista={vista({ ...doc, estado: "ANULADO" }, { notaCredito: nota })} />);
+    expect(screen.queryByRole("button", { name: "Completar anulación" })).toBeNull();
   });
 
   it("rechazada: no ofrece la nota crédito", () => {

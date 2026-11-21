@@ -204,12 +204,49 @@ async function confirmarPrevio(
   return buscarEnHistorico(proveedor, ref, fecha, total);
 }
 
+/**
+ * Regla 90 (spec §11.1): lo que se acaba de enviar NO se aceptó; la DIAN tiene un envío anterior de este número.
+ * Si el reenvío cambió la fecha (spec §12.2), el documento vuelve al payload anterior (el que la DIAN pudo recibir)
+ * y el histórico se busca primero con esa fecha y luego con la de hoy (el proveedor busca ±1 día).
+ */
+async function resolverYaProcesado(
+  ctx: ContextoFe,
+  proveedor: ProveedorFacturaElectronica,
+  id: string,
+  ref: ReferenciaDocumento,
+  anterior: DocumentoElectronico,
+  enviado: DocumentoElectronico,
+  total: number,
+): Promise<ResultadoFe> {
+  if (enviado !== anterior) {
+    await ctx.db.documentoElectronico.update({ where: { id }, data: { payload: comoJson(anterior) } });
+  }
+  const fechas = enviado.fecha === anterior.fecha ? [anterior.fecha] : [anterior.fecha, enviado.fecha];
+  let h: Previo = { tipo: "NO_ENCONTRADO" };
+  for (const fecha of fechas) {
+    h = await buscarEnHistorico(proveedor, ref, fecha, total);
+    if (h.tipo !== "NO_ENCONTRADO") break;
+  }
+  if (h.tipo === "ACEPTADO") return aceptar(ctx, proveedor, id, ref, h.cufe, null, []);
+  return terminar(
+    ctx,
+    id,
+    "POR_CONFIRMAR",
+    mensaje(
+      h.tipo === "SIN_CONFIRMAR"
+        ? h.mensaje
+        : "La DIAN dice que ya recibió este número, pero todavía no aparece en su histórico. Reintenta más tarde para recuperar el CUFE.",
+    ),
+  );
+}
+
 async function resolverEnvio(
   ctx: ContextoFe,
   proveedor: ProveedorFacturaElectronica,
   id: string,
   ref: ReferenciaDocumento,
-  fecha: string,
+  anterior: DocumentoElectronico,
+  enviado: DocumentoElectronico,
   total: number,
   r: ResultadoEnvio,
 ): Promise<ResultadoFe> {
@@ -222,18 +259,7 @@ async function resolverEnvio(
       return terminar(ctx, id, "PENDIENTE", mensaje(r.mensaje));
     case "RECHAZADO": {
       if (!esDocumentoYaProcesado(r.motivos)) return terminar(ctx, id, "RECHAZADO", r.motivos);
-      const h = await buscarEnHistorico(proveedor, ref, fecha, total);
-      if (h.tipo === "ACEPTADO") return aceptar(ctx, proveedor, id, ref, h.cufe, null, []);
-      return terminar(
-        ctx,
-        id,
-        "POR_CONFIRMAR",
-        mensaje(
-          h.tipo === "SIN_CONFIRMAR"
-            ? h.mensaje
-            : "La DIAN dice que ya recibió este número, pero todavía no aparece en su histórico. Reintenta más tarde para recuperar el CUFE.",
-        ),
-      );
+      return resolverYaProcesado(ctx, proveedor, id, ref, anterior, enviado, total);
     }
   }
 }
@@ -294,13 +320,14 @@ async function enviarConProveedor(
     if (previo.tipo === "SIN_CONFIRMAR") return terminar(ctx, doc.id, "POR_CONFIRMAR", mensaje(previo.mensaje));
   }
 
-  // Spec §12.2: si el reenvío es otro día, va con la fecha de hoy (mismo número y totales).
+  // Spec §12.2: si el reenvío es otro día, va con la fecha de hoy (mismo número y totales). Ante una Regla 90
+  // se vuelve al payload anterior (resolverYaProcesado).
   const aEnviar = conFechaDeReenvio(doc.documento, fechaHoraBogota(reloj(ctx)));
   if (aEnviar !== doc.documento) {
     await ctx.db.documentoElectronico.update({ where: { id: doc.id }, data: { payload: comoJson(aEnviar) } });
   }
   const r = await proveedor.enviar(aEnviar);
-  return resolverEnvio(ctx, proveedor, doc.id, ref, aEnviar.fecha, total, r);
+  return resolverEnvio(ctx, proveedor, doc.id, ref, doc.documento, aEnviar, total, r);
 }
 
 async function ejecutarEnvio(

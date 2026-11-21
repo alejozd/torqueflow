@@ -152,6 +152,20 @@ describe("getReporteRentabilidad", () => {
     );
   });
 
+  it("no cuenta como ingreso una factura anulada con nota crédito", async () => {
+    mockFacturaFindMany.mockReset().mockResolvedValue([]);
+
+    await getReporteRentabilidad(FILTROS_VALIDOS);
+
+    expect(mockFacturaFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          NOT: { documentosElectronicos: { some: { tipo: "FACTURA", estado: "ANULADO" } } },
+        }),
+      }),
+    );
+  });
+
   it("converts Prisma Decimals to numbers and aggregates them", async () => {
     mockFacturaFindMany.mockResolvedValue([
       {

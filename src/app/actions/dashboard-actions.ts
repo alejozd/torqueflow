@@ -172,7 +172,12 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     }),
     verFacturas
       ? tenantDb.factura.findMany({
-          where: { ...scopeFactura(sedeActivaId), createdAt: { gte: rangoUltimos14Dias.gte, lt: rangoUltimos14Dias.lt } },
+          where: {
+            ...scopeFactura(sedeActivaId),
+            createdAt: { gte: rangoUltimos14Dias.gte, lt: rangoUltimos14Dias.lt },
+            // Una factura anulada con nota crédito no es venta ni cobro.
+            NOT: { documentosElectronicos: { some: { tipo: "FACTURA", estado: "ANULADO" } } },
+          },
           select: { createdAt: true, total: true, saldoPendiente: true },
         })
       : Promise.resolve(null),

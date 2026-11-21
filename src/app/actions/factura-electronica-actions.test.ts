@@ -46,6 +46,7 @@ import {
   enviarFacturaDianAction,
   getFacturaFe,
   anularConNotaCreditoAction,
+  completarAnulacionAction,
   reenviarDocumentoAction,
   reenviarAlClienteAction,
   type EnvioFeState,
@@ -250,6 +251,45 @@ describe("anularConNotaCreditoAction", () => {
     const r = await anularConNotaCreditoAction("f1", inicial, fd({ concepto: "9", motivo: "x" }));
     expect(r.error).toBe("Elige el concepto de la nota crédito.");
     expect(mockNotaCredito).not.toHaveBeenCalled();
+  });
+
+  it("solo acepta los conceptos de una anulación total (2 y 5)", async () => {
+    mockFacturaFindFirst.mockResolvedValue({ id: "f1" });
+    for (const concepto of ["1", "3", "4"]) {
+      const r = await anularConNotaCreditoAction("f1", inicial, fd({ concepto, motivo: "x" }));
+      expect(r.error).toBe("Elige el concepto de la nota crédito.");
+    }
+    expect(mockNotaCredito).not.toHaveBeenCalled();
+    mockNotaCredito.mockResolvedValue({ ok: true, documentoId: "n1", estado: "ACEPTADO", mensajes: [] });
+    const r = await anularConNotaCreditoAction("f1", inicial, fd({ concepto: "5", motivo: "Otro motivo" }));
+    expect(r.success).toBe(true);
+  });
+});
+
+describe("completarAnulacionAction", () => {
+  it("pide el permiso de anular, acota por sede y completa la anulación con el servicio", async () => {
+    mockFacturaFindFirst.mockResolvedValue({ id: "f1" });
+    mockNotaCredito.mockResolvedValue({ ok: true, documentoId: "n1", estado: "ACEPTADO", mensajes: [] });
+    const r = await completarAnulacionAction("f1", inicial, new FormData());
+    expect(mockRequirePermiso).toHaveBeenCalledWith("facturaElectronica.anular");
+    expect(mockFacturaFindFirst.mock.calls[0][0].where).toMatchObject({ id: "f1" });
+    expect(mockNotaCredito.mock.calls[0][1]).toBe("f1");
+    expect(mockNotaCredito.mock.calls[0][2]).toEqual({ concepto: "2", motivo: "Completar anulación" });
+    expect(r).toEqual({ error: null, success: true, mensaje: "La DIAN aceptó la nota crédito. La factura quedó anulada.", errores: [] });
+  });
+
+  it("una factura de otra sede no llama al servicio", async () => {
+    mockFacturaFindFirst.mockResolvedValue(null);
+    const r = await completarAnulacionAction("f1", inicial, new FormData());
+    expect(r.error).toBe("La factura no existe.");
+    expect(mockNotaCredito).not.toHaveBeenCalled();
+  });
+
+  it("si el servicio falla, devuelve su mensaje", async () => {
+    mockFacturaFindFirst.mockResolvedValue({ id: "f1" });
+    mockNotaCredito.mockResolvedValue({ ok: false, motivo: "ESTADO", mensaje: "No se pudo.", errores: [] });
+    const r = await completarAnulacionAction("f1", inicial, new FormData());
+    expect(r).toEqual({ error: "No se pudo.", success: false, mensaje: null, errores: [] });
   });
 });
 

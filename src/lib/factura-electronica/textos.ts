@@ -1,5 +1,9 @@
 // src/lib/factura-electronica/textos.ts
 import type { AmbienteFacturaElectronica, EstadoDocumentoElectronico } from "@/generated/prisma-tenant";
+import type { ConceptoNotaCredito } from "@/modulos/factura-electronica";
+
+/** La nota crédito siempre es total y anula la factura: solo "Anulación de factura electrónica" (por defecto) u "Otros". */
+export const CONCEPTOS_ANULACION = ["2", "5"] as const satisfies readonly ConceptoNotaCredito[];
 
 export type EstadoDian = EstadoDocumentoElectronico | "SIN_ENVIAR";
 export type TonoDian = "exito" | "alerta" | "error" | "neutro";

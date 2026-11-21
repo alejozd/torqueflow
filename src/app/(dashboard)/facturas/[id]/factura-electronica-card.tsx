@@ -153,6 +153,7 @@ export function FacturaElectronicaCard({
           <div className="border-t border-border pt-3">
             <NotaCreditoSeccion
               facturaId={facturaId}
+              estadoFactura={doc?.estado ?? null}
               notaCredito={vista.notaCredito}
               puedeAnular={puedeAnular}
               correoCliente={correoCliente}

@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import {
   anularConNotaCreditoAction,
+  completarAnulacionAction,
   reenviarDocumentoAction,
   type DocumentoFeVista,
   type EnvioFeState,
@@ -15,7 +16,8 @@ import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
 import { Textarea } from "@/components/ui/textarea";
 import { formatoFechaCorta } from "@/lib/fecha-bogota";
-import { estadoDian, textoEstadoDian, type TonoDian } from "@/lib/factura-electronica/textos";
+import { CONCEPTOS_ANULACION, estadoDian, textoEstadoDian, type TonoDian } from "@/lib/factura-electronica/textos";
+import type { EstadoDocumentoElectronico } from "@/generated/prisma-tenant";
 import { CONCEPTOS_NOTA_CREDITO } from "@/modulos/factura-electronica";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +32,7 @@ const CLASE_TONO: Record<TonoDian, string> = {
 
 const formatoMoneda = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
-const CONCEPTOS = Object.entries(CONCEPTOS_NOTA_CREDITO).map(([value, label]) => ({ value, label }));
+const CONCEPTOS = CONCEPTOS_ANULACION.map((value) => ({ value, label: CONCEPTOS_NOTA_CREDITO[value] }));
 
 function Resultado({ state }: { state: EnvioFeState }) {
   return (
@@ -135,6 +137,22 @@ function NotaCreditoEmitida({
   );
 }
 
+/** La nota crédito quedó aceptada pero la factura electrónica no alcanzó a quedar anulada (proceso interrumpido). */
+function CompletarAnulacion({ facturaId }: { facturaId: string }) {
+  const [state, formAction, pendiente] = useActionState(completarAnulacionAction.bind(null, facturaId), inicial);
+  return (
+    <form action={formAction} className="flex flex-col gap-2">
+      <p className="text-muted-foreground">
+        La DIAN ya aceptó la nota crédito, pero la anulación de la factura no terminó. Complétala para dejar la factura anulada y sin saldo.
+      </p>
+      <Resultado state={state} />
+      <Button type="submit" size="sm" className="self-start" disabled={pendiente}>
+        Completar anulación
+      </Button>
+    </form>
+  );
+}
+
 function FormularioAnular({ facturaId, cobrado }: { facturaId: string; cobrado: number }) {
   const [abierto, setAbierto] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
@@ -194,6 +212,7 @@ function FormularioAnular({ facturaId, cobrado }: { facturaId: string; cobrado: 
 
 export function NotaCreditoSeccion({
   facturaId,
+  estadoFactura,
   notaCredito,
   correoCliente,
   puedeAnular,
@@ -202,6 +221,8 @@ export function NotaCreditoSeccion({
   ahora,
 }: {
   facturaId: string;
+  /** Estado del documento electrónico de la factura. */
+  estadoFactura: EstadoDocumentoElectronico | null;
   correoCliente: string | null;
   notaCredito: DocumentoFeVista | null;
   puedeAnular: boolean;
@@ -210,7 +231,13 @@ export function NotaCreditoSeccion({
   ahora: Date;
 }) {
   if (notaCredito) {
-    return <NotaCreditoEmitida facturaId={facturaId} nota={notaCredito} correoCliente={correoCliente} puedeFacturar={puedeFacturar} ahora={ahora} />;
+    const sinCompletar = notaCredito.estado === "ACEPTADO" && estadoFactura === "ACEPTADO";
+    return (
+      <div className="flex flex-col gap-3">
+        <NotaCreditoEmitida facturaId={facturaId} nota={notaCredito} correoCliente={correoCliente} puedeFacturar={puedeFacturar} ahora={ahora} />
+        {sinCompletar && puedeAnular ? <CompletarAnulacion facturaId={facturaId} /> : null}
+      </div>
+    );
   }
   if (!puedeAnular) return null;
   return <FormularioAnular facturaId={facturaId} cobrado={cobrado} />;

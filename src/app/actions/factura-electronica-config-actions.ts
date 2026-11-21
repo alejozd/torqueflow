@@ -220,8 +220,13 @@ export async function guardarConfiguracionFeAction(_prev: ConfigFeFormState, for
   const pasaAProduccion = d.ambiente === "PRODUCCION" && existente?.ambiente !== "PRODUCCION";
 
   try {
-    const primeraVezEnProduccion =
-      pasaAProduccion && (await db.documentoElectronico.count({ where: { ambiente: "PRODUCCION" } })) === 0;
+    // Paso a producción, o activación en producción (pudo pasar a producción estando inactiva): si aún no hay
+    // documentos de producción, lo de pruebas no cuenta como pendiente.
+    const empiezaEnProduccion =
+      d.activa &&
+      d.ambiente === "PRODUCCION" &&
+      (pasaAProduccion || !existente?.activa) &&
+      (await db.documentoElectronico.count({ where: { ambiente: "PRODUCCION" } })) === 0;
 
     const campos = {
       activa: d.activa,
@@ -267,7 +272,7 @@ export async function guardarConfiguracionFeAction(_prev: ConfigFeFormState, for
           }
         : {}),
       // Primera activación, o primera vez en producción: lo anterior no cuenta como pendiente (spec §11.11, §12).
-      ...(d.activa && (!existente?.activadaDesde || primeraVezEnProduccion) ? { activadaDesde: new Date() } : {}),
+      ...(d.activa && (!existente?.activadaDesde || empiezaEnProduccion) ? { activadaDesde: new Date() } : {}),
     };
 
     await db.configuracionFacturaElectronica.upsert({ where: { id: ID }, create: { id: ID, ...campos }, update: campos });

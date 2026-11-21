@@ -216,6 +216,26 @@ describe("guardarConfiguracionFeAction", () => {
     expect(update.siguienteConsecutivo).toBe(42);
   });
 
+  it("pasó a producción inactiva y se activa después: vuelve a fechar la activación si no hay documentos en producción", async () => {
+    const antes = new Date("2026-11-01T00:00:00.000Z");
+    mockFindUnique.mockResolvedValue(fila({ ambiente: "PRODUCCION", tokenCifrado: "v1:t", activa: false, activadaDesde: antes }));
+    mockCount.mockResolvedValue(0);
+    const r = await guardarConfiguracionFeAction(inicial, form({ ambiente: "PRODUCCION" }));
+    expect(r.success).toBe(true);
+    const { update } = mockUpsert.mock.calls[0][0];
+    expect(update.activadaDesde).toBeInstanceOf(Date);
+    expect(update.activadaDesde.getTime()).toBeGreaterThan(antes.getTime());
+    expect(mockCount).toHaveBeenCalledWith({ where: { ambiente: "PRODUCCION" } });
+  });
+
+  it("activar en producción con documentos de producción no vuelve a fechar la activación", async () => {
+    mockFindUnique.mockResolvedValue(fila({ ambiente: "PRODUCCION", tokenCifrado: "v1:t", activa: false, activadaDesde: new Date() }));
+    mockCount.mockResolvedValue(2);
+    await guardarConfiguracionFeAction(inicial, form({ ambiente: "PRODUCCION" }));
+    const { update } = mockUpsert.mock.calls[0][0];
+    expect(update).not.toHaveProperty("activadaDesde");
+  });
+
   it("guardar sin cambiar de ambiente no toca los consecutivos", async () => {
     mockFindUnique.mockResolvedValue(fila({ ambiente: "PRODUCCION", tokenCifrado: "v1:t", activa: true, activadaDesde: new Date() }));
     await guardarConfiguracionFeAction(inicial, form({ ambiente: "PRODUCCION" }));

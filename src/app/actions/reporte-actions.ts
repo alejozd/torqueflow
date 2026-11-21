@@ -79,6 +79,8 @@ export async function getReporteRentabilidad(filtros: ReporteFiltros): Promise<R
     where: {
       createdAt: { gte: rango.gte, lt: rango.lt },
       orden: { sedeId },
+      // Una factura anulada con nota crédito no es ingreso.
+      NOT: { documentosElectronicos: { some: { tipo: "FACTURA", estado: "ANULADO" } } },
     },
     select: {
       total: true,

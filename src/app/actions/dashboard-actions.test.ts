@@ -269,6 +269,18 @@ describe("getDashboardOverview", () => {
 });
 
 describe("D7: el técnico cuenta solo sus órdenes", () => {
+  it("la facturación de la semana no cuenta las facturas anuladas con nota crédito", async () => {
+    await getDashboardOverview();
+
+    expect(factura.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          NOT: { documentosElectronicos: { some: { tipo: "FACTURA", estado: "ANULADO" } } },
+        }),
+      }),
+    );
+  });
+
   it("acota cada consulta de órdenes a las que trabaja", async () => {
     resetMocks();
     stubDefaults();

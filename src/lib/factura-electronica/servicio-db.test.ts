@@ -172,6 +172,37 @@ describe("servicio de factura electrónica", () => {
     expect((await docDe(facturaId)).cufe).toBe(memoria.get(`FACTURA:SETP${doc.numero}`)?.cufe);
   });
 
+  it("recibida el día 1 y reintentada el día 3: la Regla 90 busca con la fecha original y conserva esa fecha", async () => {
+    const { facturaId } = await crearFacturaDePrueba(db, "FES004B");
+    const memoria: MemoriaSimulado = new Map();
+    await emitirDocumentoFactura(ctx(crearProveedorSimulado({ resultado: "CAIDA_RECIBIDO", memoria })), facturaId);
+    const doc = await docDe(facturaId);
+    expect(doc.estado).toBe("POR_CONFIRMAR");
+
+    // Como Nextpyme: el histórico busca ±1 día alrededor de la fecha pedida; la primera consulta aún no lo ve.
+    const simulado = crearProveedorSimulado({ memoria });
+    const buscadas: string[] = [];
+    const dia = (s: string) => Date.parse(`${s.slice(0, 10)}T00:00:00Z`);
+    const comoNextpyme: ProveedorFacturaElectronica = {
+      ...simulado,
+      buscarEmitido: async (ref, fecha) => {
+        buscadas.push(fecha);
+        const recibido = memoria.get(`${ref.tipo}:${ref.prefijo}${ref.numero}`);
+        if (buscadas.length === 1 || !recibido) return { estado: "NO_ENCONTRADO" };
+        if (Math.abs(dia(recibido.fechaValidacion) - dia(fecha)) > 86_400_000) return { estado: "NO_ENCONTRADO" };
+        return simulado.buscarEmitido(ref, fecha);
+      },
+    };
+    const dia3 = new Date("2026-11-22T15:00:00Z");
+    const r = await reintentarDocumento(ctx(comoNextpyme, dia3), doc.id);
+
+    expect(r).toMatchObject({ ok: true, estado: "ACEPTADO" });
+    const aceptado = await docDe(facturaId);
+    expect(aceptado.cufe).toBe(memoria.get(`FACTURA:SETP${doc.numero}`)?.cufe);
+    expect(aceptado.payload as unknown as FacturaVenta).toMatchObject({ fecha: "2026-11-20", hora: "10:00:00" });
+    expect(buscadas[1]).toBe("2026-11-20");
+  });
+
   it("Regla 90: con el mismo total adopta el CUFE del histórico; con otro total avisa un choque", async () => {
     const regla90 = traducirMensajesDian("Regla: 90, Rechazo: Documento procesado anteriormente.");
     const conHistorico = (total: number): ProveedorFacturaElectronica => ({

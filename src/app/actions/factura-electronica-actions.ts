@@ -10,8 +10,8 @@ import { leerDocumentoElectronico } from "@/lib/storage/local-file-storage";
 import { scopeFactura } from "@/lib/sede/scope";
 import { leerConfiguracionFe } from "@/lib/factura-electronica/configuracion";
 import { emitirDocumentoFactura, emitirNotaCredito, reintentarDocumento, type ResultadoFe } from "@/lib/factura-electronica/servicio";
-import { ENVIO_INTERRUMPIDO_MS, ESTADOS_DOCUMENTO_PENDIENTES, cuentaParaDian } from "@/lib/factura-electronica/textos";
-import { CONCEPTOS_NOTA_CREDITO, type ConceptoNotaCredito, type ErrorValidacion, type MensajeDian } from "@/modulos/factura-electronica";
+import { CONCEPTOS_ANULACION, ENVIO_INTERRUMPIDO_MS, ESTADOS_DOCUMENTO_PENDIENTES, cuentaParaDian } from "@/lib/factura-electronica/textos";
+import type { ConceptoNotaCredito, ErrorValidacion, MensajeDian } from "@/modulos/factura-electronica";
 import type { AmbienteFacturaElectronica, EnvioFacturaElectronica, EstadoDocumentoElectronico } from "@/generated/prisma-tenant";
 
 export interface DocumentoFeVista {
@@ -205,7 +205,7 @@ export async function anularConNotaCreditoAction(facturaId: string, _prev: Envio
   const factura = await db.factura.findFirst({ where: { id: facturaId, ...scopeFactura(session.user.sedeActivaId) }, select: { id: true } });
   if (!factura) return { error: "La factura no existe.", success: false, mensaje: null, errores: [] };
   const concepto = String(formData.get("concepto") ?? "");
-  if (!Object.prototype.hasOwnProperty.call(CONCEPTOS_NOTA_CREDITO, concepto)) {
+  if (!(CONCEPTOS_ANULACION as readonly string[]).includes(concepto)) {
     return { error: "Elige el concepto de la nota crédito.", success: false, mensaje: null, errores: [] };
   }
   const motivo = String(formData.get("motivo") ?? "");
@@ -215,9 +215,31 @@ export async function anularConNotaCreditoAction(facturaId: string, _prev: Envio
     { concepto: concepto as ConceptoNotaCredito, motivo },
   );
   revalidatePath(`/facturas/${facturaId}`);
+  return estadoNotaCredito(r);
+}
+
+function estadoNotaCredito(r: ResultadoFe): EnvioFeState {
   if (!r.ok) return { error: r.mensaje, success: false, mensaje: null, errores: r.errores };
   if (r.estado === "ACEPTADO") return { error: null, success: true, mensaje: MENSAJE_NOTA_CREDITO.ACEPTADO!, errores: [] };
   return { error: MENSAJE_NOTA_CREDITO[r.estado] ?? "No se pudo enviar la nota crédito. Vuelve a intentarlo.", success: false, mensaje: null, errores: [] };
+}
+
+/**
+ * La nota crédito ya quedó aceptada pero el proceso se cortó antes de anular la factura electrónica:
+ * el servicio toma el camino de recuperación (concepto y motivo no se usan) y deja la factura anulada.
+ */
+export async function completarAnulacionAction(facturaId: string, _prev: EnvioFeState, _formData: FormData): Promise<EnvioFeState> {
+  const session = await requirePermiso("facturaElectronica.anular");
+  const db = getTenantDb(session.user.tenantSchema);
+  const factura = await db.factura.findFirst({ where: { id: facturaId, ...scopeFactura(session.user.sedeActivaId) }, select: { id: true } });
+  if (!factura) return { error: "La factura no existe.", success: false, mensaje: null, errores: [] };
+  const r = await emitirNotaCredito(
+    { db, tenantSchema: session.user.tenantSchema, usuarioId: session.user.id },
+    facturaId,
+    { concepto: "2", motivo: "Completar anulación" },
+  );
+  revalidatePath(`/facturas/${facturaId}`);
+  return estadoNotaCredito(r);
 }
 
 /** Para la lista de facturas: si hay que mostrar la columna DIAN y desde cuándo cuentan. */
