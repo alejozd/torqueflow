@@ -218,3 +218,36 @@ Las tareas 1–7 no necesitan cuenta de Nextpyme.
   documentación durante la tarea 3; el núcleo solo maneja códigos DIAN.
 - Responsabilidad legal de numeración: la resolución la tramita cada taller; TorqueFlow solo
   respeta rango y vigencia.
+
+## 11. Decisiones para el Plan 2 (2026-11-20, tras terminar el núcleo y revisar el código actual)
+
+1. **CUFE faltante → se busca en el histórico de la DIAN** (decisión del usuario; no se pide
+   clave técnica). Si un envío queda `POR_CONFIRMAR` o el reenvío devuelve la Regla 90, el
+   servicio consulta `GET /dian/documents/get-uuids` (emitidos, rango ≤ 31 días alrededor de la
+   fecha del documento), busca por prefijo+número y **compara el total**: si coincide adopta ese
+   CUFE como aceptado; si el número existe con otro total, es un choque de numeración y se avisa
+   al admin (no se adopta). El núcleo agrega `buscarEmitido(ref, fecha)` al contrato del
+   proveedor (el simulado lo responde desde su memoria; ver el modo "caída pero recibido").
+   Ambigüedades a confirmar en el sandbox: `type_filter` (la ficha dice 1 = emitidos, el SDK
+   dice 2) y si los parámetros van en la query string (es un GET).
+2. **Ambiente real**: `probarConexion` lee `GET /config/company` → `data.type_environment_id`
+   (1 = producción, 2 = pruebas) y lo devuelve; TorqueFlow bloquea el envío si el ambiente
+   configurado no coincide con el de Nextpyme, y lo muestra en la pestaña de configuración.
+3. **Precios con IVA incluido** (así guarda TorqueFlow todo): el mapeo convierte cada línea
+   (precio final × cantidad, ya con su parte del descuento) a precio sin IVA buscando la base `b`
+   tal que `b + round(b × tarifa)` = precio final; si ningún `b` da exacto (puede pasar por un
+   centavo), se usa el más cercano y **la factura interna se ajusta al total electrónico** al
+   emitir (el documento legal manda). En pesos enteros el caso es raro.
+4. **Descuento global**: TorqueFlow tiene un solo `descuento` por factura. Se reparte entre las
+   líneas en proporción a su valor (la última se queda con el resto), se resta del precio final
+   de cada línea y las líneas viajan **sin** `allowance_charges` (precio ya descontado). Mostrar
+   el descuento como cargo/descuento global queda para después.
+5. **Cantidades**: repuestos `cantidad Int`; mano de obra sin cantidad → cantidad 1, unidad
+   `"ZZ"` (servicio); repuestos unidad `"94"`.
+6. **Archivos**: `src/lib/storage` solo acepta imágenes; se agrega una función para guardar
+   XML/PDF de documentos electrónicos (`<tenant>/facturas-electronicas/<id>/<archivo>`), y la ruta
+   de descarga debe servirlos con su tipo.
+7. **Fecha y hora** del documento se congelan en el `payload` al crearlo y nunca se regeneran en
+   un reintento.
+8. **Plan 2 se divide**: Plan 2a = ajustes al núcleo + migración + servicio (todo con pruebas,
+   sin pantallas); Plan 2b = pantallas, permisos, nota crédito en la app y super-admin.
