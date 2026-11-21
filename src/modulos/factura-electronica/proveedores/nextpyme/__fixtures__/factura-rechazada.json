@@ -1,0 +1,25 @@
+{
+  "success": true,
+  "message": "Documento con errores",
+  "ResponseDian": {
+    "Envelope": {
+      "Body": {
+        "SendBillSyncResponse": {
+          "SendBillSyncResult": {
+            "ErrorMessage": {
+              "string": [
+                "Regla: FAU02, Rechazo: El Valor Bruto antes de tributos no es igual a la suma de los valores de las líneas de la factura que contienen el valor comercial",
+                "Regla: FAU14, Rechazo: Valor a Pagar de Factura es distinto de la Suma de Valor Bruto más tributos - Valor del Descuento Total + Valor del Cargo Total",
+                "Regla: RUT01, Notificación: La validación del estado del RUT próximamente estará disponible."
+              ]
+            },
+            "IsValid": "false",
+            "StatusCode": "99",
+            "StatusDescription": "Validación contiene errores en campos mandatorios.",
+            "StatusMessage": "Documento con errores en campos mandatorios."
+          }
+        }
+      }
+    }
+  }
+}

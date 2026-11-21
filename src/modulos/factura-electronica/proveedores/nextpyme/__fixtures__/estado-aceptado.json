@@ -1,0 +1,18 @@
+{
+  "success": true,
+  "ResponseDian": {
+    "Envelope": {
+      "Body": {
+        "GetStatusZipResponse": {
+          "GetStatusZipResult": {
+            "ErrorMessage": {},
+            "IsValid": "true",
+            "StatusCode": "00",
+            "StatusDescription": "Procesado Correctamente.",
+            "StatusMessage": "La Factura electrónica FE212, ha sido autorizada."
+          }
+        }
+      }
+    }
+  }
+}

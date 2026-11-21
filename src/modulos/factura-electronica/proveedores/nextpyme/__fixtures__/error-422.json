@@ -1,0 +1,7 @@
+{
+  "message": "The given data was invalid.",
+  "errors": {
+    "prefix": ["Error, este prefijo no es valido para esta empresa."],
+    "number": ["El número debe estar entre X y Y."]
+  }
+}

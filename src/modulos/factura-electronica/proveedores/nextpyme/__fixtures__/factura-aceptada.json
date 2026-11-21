@@ -1,0 +1,27 @@
+{
+  "success": true,
+  "message": "AttachedDocument #SETP990095240 generada con éxito",
+  "send_email_success": false,
+  "ResponseDian": {
+    "Envelope": {
+      "Body": {
+        "SendBillSyncResponse": {
+          "SendBillSyncResult": {
+            "ErrorMessage": { "string": "Regla: RUT01, Notificación: La validación del estado del RUT próximamente estará disponible." },
+            "IsValid": "true",
+            "StatusCode": "00",
+            "StatusDescription": "Procesado Correctamente.",
+            "StatusMessage": "La Factura electrónica SETP990095240, ha sido autorizada.",
+            "XmlDocumentKey": "3571981e718c3566a9f62bf2a4fb6bef50dc0364beebcc86c81d52a7f7bce38d7a87a3ec7f2102f77545b8f65a2c5a21"
+          }
+        }
+      }
+    }
+  },
+  "urlinvoicexml": "FES-SETP990095240.xml",
+  "urlinvoicepdf": "FES-SETP990095240.pdf",
+  "cufe": "3571981e718c3566a9f62bf2a4fb6bef50dc0364beebcc86c81d52a7f7bce38d7a87a3ec7f2102f77545b8f65a2c5a21",
+  "dian_validation_date_time": { "date": "2026-07-23 16:25:28.000000", "timezone_type": 1, "timezone": "-05:00" },
+  "certificate_days_left": 8,
+  "resolution_days_left": 1276
+}

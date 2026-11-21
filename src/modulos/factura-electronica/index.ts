@@ -1,3 +1,4 @@
+import municipios from "./catalogos/municipios.json";
 export * from "./modelo";
 export { aTextoDecimal } from "./dinero";
 export { calcularDvNit } from "./dv-nit";
@@ -14,3 +15,7 @@ export {
   type FormatoArchivo,
 } from "./proveedor";
 export { crearProveedorSimulado, type ResultadoSimulado } from "./proveedores/simulado";
+export { crearProveedor, type Ambiente, type ConfigProveedor } from "./fabrica";
+export { crearProveedorNextpyme, type OpcionesNextpyme } from "./proveedores/nextpyme/proveedor";
+/** Municipios de Colombia (código DANE, nombre, departamento), para buscadores. */
+export const MUNICIPIOS: { codigo: string; nombre: string; departamento: string }[] = municipios;
