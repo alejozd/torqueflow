@@ -29,6 +29,10 @@ const eslintConfig = defineConfig([
               message: "El núcleo de factura electrónica no puede importar código de la app.",
             },
             {
+              group: ["../../../*", "../../../**"],
+              message: "El núcleo de factura electrónica no puede importar fuera de su carpeta.",
+            },
+            {
               group: ["next", "next/*", "react", "react-dom", "@prisma/*"],
               message: "El núcleo de factura electrónica solo usa TypeScript, fetch y Web Crypto.",
             },

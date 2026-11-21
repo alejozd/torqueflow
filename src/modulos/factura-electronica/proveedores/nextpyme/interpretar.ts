@@ -69,6 +69,12 @@ export function interpretarRespuestaEnvio(status: number, cuerpo: unknown): Resu
   const mensajes = mensajesDe(r);
   if (r.IsValid === "true") {
     const cufe = typeof cuerpo.cufe === "string" ? cuerpo.cufe : String(r.XmlDocumentKey ?? "");
+    if (!cufe) {
+      return {
+        estado: "ERROR_TEMPORAL",
+        mensaje: "El proveedor confirmó el documento pero no devolvió el CUFE. Consulta el estado antes de reenviar.",
+      };
+    }
     return { estado: "ACEPTADO", cufe, fechaValidacion: fechaValidacion(cuerpo), advertencias: mensajes };
   }
   const rechazos = mensajes.filter((m) => m.tipo === "RECHAZO");

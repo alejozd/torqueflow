@@ -22,7 +22,7 @@ function mapearCliente(a: Adquirente) {
     return { identification_number: Number(NUMERO_CONSUMIDOR_FINAL), name: "CONSUMIDOR FINAL", merchant_registration: SIN_MATRICULA };
   }
   return {
-    identification_number: a.numeroDocumento,
+    identification_number: a.numeroDocumento.replace(/[.\s-]/g, ""),
     ...(a.dv !== undefined ? { dv: a.dv } : {}),
     name: a.nombre,
     ...(a.telefono ? { phone: a.telefono } : {}),

@@ -65,3 +65,14 @@ describe("interpretarRespuestaEstado", () => {
     expect(interpretarRespuestaEstado(404, {}, "abc")).toEqual({ estado: "NO_ENCONTRADO" });
   });
 });
+
+describe("interpretarRespuestaEnvio — aceptado sin CUFE", () => {
+  it("aceptado sin cufe ni XmlDocumentKey: error temporal, no ACEPTADO vacío", () => {
+    const cuerpo = JSON.parse(JSON.stringify(aceptada).replace(/"XmlDocumentKey"/g, '"Otra"'));
+    delete cuerpo.cufe;
+    expect(interpretarRespuestaEnvio(200, cuerpo)).toEqual({
+      estado: "ERROR_TEMPORAL",
+      mensaje: "El proveedor confirmó el documento pero no devolvió el CUFE. Consulta el estado antes de reenviar.",
+    });
+  });
+});

@@ -15,6 +15,9 @@ const linea = (p: Partial<Linea>): Linea => ({
 });
 
 describe("calcularLinea", () => {
+  it("no pierde el borde .5 por flotante (15 x 4.1 = 61.5 -> 62)", () => {
+    expect(calcularLinea(linea({ precioUnitario: 15, cantidad: 4.1 })).bruto).toBe(62);
+  });
   it("multiplica precio por cantidad y aplica IVA", () => {
     expect(calcularLinea(linea({ precioUnitario: 100000, cantidad: 2 }))).toEqual({
       bruto: 200000,

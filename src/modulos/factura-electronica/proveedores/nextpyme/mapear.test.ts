@@ -163,3 +163,10 @@ describe("mapearDocumentoNextpyme — nota crédito", () => {
     expect(json).not.toHaveProperty("resolution_number");
   });
 });
+
+describe("mapearDocumentoNextpyme — NIT normalizado", () => {
+  it("quita puntos, espacios y guiones del número de documento", () => {
+    const json = mapearDocumentoNextpyme({ ...factura, adquirente: { ...cliente, numeroDocumento: "901.249.232" } });
+    expect((json.customer as { identification_number: unknown }).identification_number).toBe("901249232");
+  });
+});

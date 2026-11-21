@@ -2,7 +2,7 @@
 import type { ImpuestoTotal, Linea, Totales, TotalesLinea } from "./modelo";
 
 export function calcularLinea(l: Linea): TotalesLinea {
-  const bruto = Math.round(l.precioUnitario * l.cantidad);
+  const bruto = Math.round((l.precioUnitario * Math.round(l.cantidad * 100)) / 100);
   const neto = bruto - l.descuento;
   const iva = l.iva ? Math.round((neto * l.iva.tarifa) / 100) : 0;
   return { bruto, descuento: l.descuento, neto, iva };
