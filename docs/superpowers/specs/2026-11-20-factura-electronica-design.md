@@ -251,3 +251,20 @@ Las tareas 1–7 no necesitan cuenta de Nextpyme.
    un reintento.
 8. **Plan 2 se divide**: Plan 2a = ajustes al núcleo + migración + servicio (todo con pruebas,
    sin pantallas); Plan 2b = pantallas, permisos, nota crédito en la app y super-admin.
+9. **Plan 2b se divide otra vez** (decisión del usuario, 2026-11-21): Plan 2b = configuración,
+   ficha y lista de facturas, datos DIAN del cliente, aviso en Inicio y permiso "Configurar
+   facturación electrónica"; Plan 2c = nota crédito con su permiso, super-admin (token de la bolsa
+   y cobro) y "Reenviar al cliente".
+10. **Numeración por ambiente** (decisión del usuario, 2026-11-21): el único de
+   `DocumentoElectronico` pasa a `(tipo, ambiente, prefijo, numero)`, así lo probado en Simulado o
+   Pruebas no choca con Producción aunque use el mismo prefijo. La migración
+   `20261120130000_factura_electronica` se corrige en sitio (no está aplicada en ninguna base).
+   Al guardar una resolución nueva (número, prefijo o número inicial distintos) el consecutivo
+   vuelve a `rangoDesde`.
+11. **Fecha de activación**: `ConfiguracionFacturaElectronica.activadaDesde` se fija la primera vez
+   que se activa. Las facturas creadas antes no se marcan ni se cuentan como "sin enviar" (lista e
+   Inicio); se pueden enviar a mano desde su ficha si se quiere.
+12. **"Reenviar al cliente"** (correo con PDF y XML por el SMTP del taller) pasa al Plan 2c.
+13. **Menú**: además de la pestaña en Configuración del taller, hay un ítem "Facturación
+   electrónica" en el grupo Configuración con el permiso nuevo, para que quien no es ADMIN pero
+   tiene el permiso pueda llegar a la pantalla; la pestaña filtra las demás pestañas por permisos.
