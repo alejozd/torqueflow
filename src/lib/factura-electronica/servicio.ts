@@ -23,6 +23,7 @@ import {
   resolucionDeConfig,
   type ConfiguracionFe,
 } from "./configuracion";
+import { conFechaDeReenvio } from "./fecha-reenvio";
 import { fechaHoraBogota } from "./hora-bogota";
 import { mapearFactura, type DatosNumeracion, type FacturaParaMapear, type Numerico, type ResultadoMapeo } from "./mapear";
 
@@ -274,8 +275,13 @@ async function enviarConProveedor(
     if (previo.tipo === "SIN_CONFIRMAR") return terminar(ctx, doc.id, "POR_CONFIRMAR", mensaje(previo.mensaje));
   }
 
-  const r = await proveedor.enviar(doc.documento);
-  return resolverEnvio(ctx, proveedor, doc.id, ref, doc.documento.fecha, total, r);
+  // Spec §12.2: si el reenvío es otro día, va con la fecha de hoy (mismo número y totales).
+  const aEnviar = conFechaDeReenvio(doc.documento, fechaHoraBogota(reloj(ctx)));
+  if (aEnviar !== doc.documento) {
+    await ctx.db.documentoElectronico.update({ where: { id: doc.id }, data: { payload: comoJson(aEnviar) } });
+  }
+  const r = await proveedor.enviar(aEnviar);
+  return resolverEnvio(ctx, proveedor, doc.id, ref, aEnviar.fecha, total, r);
 }
 
 async function ejecutarEnvio(
@@ -406,7 +412,7 @@ export async function emitirDocumentoFactura(ctx: ContextoFe, facturaId: string)
 
 /**
  * Reenvía un documento con el mismo prefijo y número (spec §5.2). Desde RECHAZADO o PENDIENTE
- * se vuelve a mapear (por si corrigieron datos) conservando número, fecha y hora; desde
+ * se vuelve a mapear (por si corrigieron datos) conservando número (la fecha se actualiza al enviar si cambió el día); desde
  * POR_CONFIRMAR primero se confirma con la DIAN.
  */
 export async function reintentarDocumento(ctx: ContextoFe, documentoId: string): Promise<ResultadoFe> {

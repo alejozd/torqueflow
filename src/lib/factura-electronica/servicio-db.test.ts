@@ -113,7 +113,7 @@ describe("servicio de factura electrónica", () => {
     expect(despues.siguienteConsecutivo).toBe(antes.siguienteConsecutivo);
   });
 
-  it("un rechazo guarda los motivos y el reintento usa el mismo número y la misma fecha", async () => {
+  it("un rechazo guarda los motivos y el reintento del mismo día usa el mismo número, fecha y hora", async () => {
     const { facturaId } = await crearFacturaDePrueba(db, "FES003");
     const memoria: MemoriaSimulado = new Map();
     const r1 = await emitirDocumentoFactura(ctx(crearProveedorSimulado({ resultado: "RECHAZAR", memoria })), facturaId);
@@ -121,15 +121,39 @@ describe("servicio de factura electrónica", () => {
     const rechazado = await docDe(facturaId);
     expect(mensajesDe(rechazado.mensajes)[0].codigo).toBe("FAU14");
 
-    const manana = new Date("2026-11-21T15:00:00Z");
-    const r2 = await reintentarDocumento(ctx(crearProveedorSimulado({ memoria }), manana), rechazado.id);
+    const masTarde = new Date("2026-11-20T23:00:00Z"); // 18:00 del mismo día en Bogotá
+    const r2 = await reintentarDocumento(ctx(crearProveedorSimulado({ memoria }), masTarde), rechazado.id);
     expect(r2).toMatchObject({ ok: true, estado: "ACEPTADO" });
     const aceptado = await docDe(facturaId);
     expect(aceptado.numero).toBe(rechazado.numero);
-    expect((aceptado.payload as unknown as FacturaVenta).fecha).toBe("2026-11-20");
+    expect(aceptado.payload as unknown as FacturaVenta).toMatchObject({ fecha: "2026-11-20", hora: "10:00:00" });
     expect(aceptado.intentos).toBe(2);
   });
 
+  it("el reintento de otro día va con la fecha de hoy y el mismo número (spec §12.2)", async () => {
+    const { facturaId } = await crearFacturaDePrueba(db, "FES003B");
+    const memoria: MemoriaSimulado = new Map();
+    await emitirDocumentoFactura(ctx(crearProveedorSimulado({ resultado: "RECHAZAR", memoria })), facturaId);
+    const rechazado = await docDe(facturaId);
+
+    const manana = new Date("2026-11-21T15:00:00Z");
+    const simulado = crearProveedorSimulado({ memoria });
+    const recibidos: FacturaVenta[] = [];
+    const espia: ProveedorFacturaElectronica = {
+      ...simulado,
+      enviar: (d) => {
+        recibidos.push(d as FacturaVenta);
+        return simulado.enviar(d);
+      },
+    };
+    const r2 = await reintentarDocumento(ctx(espia, manana), rechazado.id);
+    expect(r2).toMatchObject({ ok: true, estado: "ACEPTADO" });
+    const aceptado = await docDe(facturaId);
+    expect(aceptado.numero).toBe(rechazado.numero);
+    expect(aceptado.payload as unknown as FacturaVenta).toMatchObject({ fecha: "2026-11-21", numero: rechazado.numero });
+    expect(recibidos).toHaveLength(1);
+    expect(recibidos[0]).toMatchObject({ fecha: "2026-11-21", numero: rechazado.numero });
+  });
   it("caída con recibo: queda POR_CONFIRMAR y el reintento recupera el CUFE del histórico sin reenviar", async () => {
     const { facturaId } = await crearFacturaDePrueba(db, "FES004");
     const memoria: MemoriaSimulado = new Map();
