@@ -268,3 +268,41 @@ Las tareas 1–7 no necesitan cuenta de Nextpyme.
 13. **Menú**: además de la pestaña en Configuración del taller, hay un ítem "Facturación
    electrónica" en el grupo Configuración con el permiso nuevo, para que quien no es ADMIN pero
    tiene el permiso pueda llegar a la pantalla; la pestaña filtra las demás pestañas por permisos.
+
+## 12. Respuestas de Nextpyme (2026-11-21) y decisiones que cambian
+
+Respuestas por WhatsApp del asesor de Nextpyme, antes de tener el sandbox:
+
+- **Modelo comercial:** el sandbox es gratis y obligatorio antes de producción. Cada empresa (NIT)
+  paga una activación de $95.000 al año (configuración DIAN, certificado digital, soporte). Los
+  documentos se compran aparte en paquetes que TorqueFlow reparte entre sus talleres con la
+  frecuencia que quiera. Nextpyme tiene informes de saldo asignado y consumido por empresa, recargas
+  por usuario, saldo del administrador y detalle por tipo de documento.
+- **Habilitar una empresa** pide cédula del representante legal, RUT y certificado de cámara de
+  comercio de menos de 30 días (si es persona jurídica).
+
+Decisiones:
+
+1. **El histórico de emitidos (`get-uuids`) es un servicio adicional de pago** (`type_filter` 1 =
+   emitidos, 2 = recibidos; `total_amount` = total de la factura). §11.1 queda así: el adaptador lo
+   conserva, pero el servicio no puede depender de él para operar. Nextpyme ofrece otro endpoint para
+   pedir la copia de la respuesta de un envío; cuando se confirme cuál es (y que va incluido en el
+   plan), pasa a ser el camino principal para recuperar el CUFE tras una caída o una Regla 90, y el
+   histórico queda como respaldo opcional (activable por configuración si el taller lo paga).
+   Mientras tanto, si no hay forma de confirmar, el documento queda `POR_CONFIRMAR` con aviso al
+   admin, como hoy.
+2. **Reenvío días después: se cambia la fecha.** Nextpyme indica que el reenvío lleva los mismos
+   datos pero, si pasaron días, con la fecha nueva. §11.7 cambia: la fecha y hora quedan congeladas
+   en el `payload` mientras el reenvío ocurra el mismo día (hora de Colombia); si el día cambió, al
+   reenviar se actualizan fecha y hora (y la fecha de vencimiento si aplica), conservando prefijo,
+   número, líneas y totales. Solo aplica a documentos nunca aceptados (`PENDIENTE`, `RECHAZADO`,
+   `POR_CONFIRMAR` confirmado como no recibido).
+3. **Ambiente por tipo de documento:** `GET /config/company` informa el ambiente por cada tipo de
+   documento, no uno solo. `interpretarAmbiente` debe leer el de factura de venta (y el de nota
+   crédito para el Plan 2c); se ajusta con una respuesta real del sandbox (tarea 8).
+4. **Cobro a los talleres:** el super-admin del Plan 2c se apoya en los informes de consumo de
+   Nextpyme; TorqueFlow solo muestra los documentos aceptados por taller en el periodo como
+   referencia, sin llevar un saldo propio.
+
+Pendiente de confirmar con Nextpyme: cuál es el endpoint de copia de respuesta y con qué dato se
+consulta; el costo de `get-uuids`; si el sandbox exige los documentos de habilitación.
