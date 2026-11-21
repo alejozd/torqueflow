@@ -10,6 +10,7 @@ import {
   type FacturaVenta,
   type MemoriaSimulado,
   type MensajeDian,
+  type NotaCredito,
   type ProveedorFacturaElectronica,
 } from "@/modulos/factura-electronica";
 import type { Prisma } from "@/generated/prisma-tenant";
@@ -17,7 +18,7 @@ import { publicDb } from "@/lib/db/public-client";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { provisionTenant } from "../../../scripts/provision-tenant";
 import { crearFacturaDePrueba } from "./__pruebas__/fixtures-db";
-import { emitirDocumentoFactura, emitirTrasFacturar, reintentarDocumento, type ContextoFe } from "./servicio";
+import { emitirDocumentoFactura, emitirNotaCredito, emitirTrasFacturar, reintentarDocumento, type ContextoFe } from "./servicio";
 
 const SLUG = "test-fe-servicio";
 const SCHEMA = "test_fe_servicio";
@@ -55,6 +56,7 @@ function ctx(proveedor: ProveedorFacturaElectronica, ahora: Date = AHORA): Conte
 }
 
 const docDe = (facturaId: string) => db.documentoElectronico.findFirstOrThrow({ where: { facturaId, tipo: "FACTURA" } });
+const notaDe = (facturaId: string) => db.documentoElectronico.findFirstOrThrow({ where: { facturaId, tipo: "NOTA_CREDITO" } });
 const mensajesDe = (valor: unknown) => valor as MensajeDian[];
 
 describe("servicio de factura electrónica", () => {
@@ -313,5 +315,98 @@ describe("servicio de factura electrónica", () => {
 
     await configurar();
     expect(await emitirTrasFacturar(ctx(crearProveedorSimulado()), facturaId)).toMatchObject({ ok: true, estado: "ACEPTADO" });
+  });
+
+  describe("nota crédito", () => {
+    const datos = { concepto: "2", motivo: "Error en la factura" } as const;
+
+    /** Factura con su factura electrónica ya aceptada. */
+    async function facturaAceptada(placa: string) {
+      const { facturaId } = await crearFacturaDePrueba(db, placa);
+      expect(await emitirDocumentoFactura(ctx(crearProveedorSimulado()), facturaId)).toMatchObject({ ok: true, estado: "ACEPTADO" });
+      return facturaId;
+    }
+
+    it("anula la factura electrónica aceptada y deja la factura sin saldo", async () => {
+      await configurar({ prefijoNotaCredito: "NCA", siguienteConsecutivoNotaCredito: 1 });
+      const facturaId = await facturaAceptada("FEN001");
+
+      const r = await emitirNotaCredito(ctx(crearProveedorSimulado()), facturaId, datos);
+
+      expect(r).toMatchObject({ ok: true, estado: "ACEPTADO" });
+      const facturaDoc = await docDe(facturaId);
+      const nota = await notaDe(facturaId);
+      expect(nota.documentoReferenciaId).toBe(facturaDoc.id);
+      expect(nota.prefijo).toBe("NCA");
+      expect(nota.cufe).toBeTruthy();
+      expect(nota.payload as unknown as NotaCredito).toMatchObject({
+        tipo: "NOTA_CREDITO",
+        concepto: "2",
+        motivo: "Error en la factura",
+        facturaReferencia: { numeroCompleto: `SETP${facturaDoc.numero}`, cufe: facturaDoc.cufe },
+      });
+      expect(facturaDoc.estado).toBe("ANULADO");
+      const f = await db.factura.findUniqueOrThrow({ where: { id: facturaId } });
+      expect(Number(f.saldoPendiente)).toBe(0);
+      expect(f.estado).toBe("PAGADA");
+    });
+
+    it("dos notas crédito en facturas distintas toman números consecutivos", async () => {
+      await configurar({ prefijoNotaCredito: "NCB", siguienteConsecutivoNotaCredito: 1 });
+      const a = await facturaAceptada("FEN002");
+      const b = await facturaAceptada("FEN003");
+
+      expect(await emitirNotaCredito(ctx(crearProveedorSimulado()), a, datos)).toMatchObject({ ok: true, estado: "ACEPTADO" });
+      expect(await emitirNotaCredito(ctx(crearProveedorSimulado()), b, datos)).toMatchObject({ ok: true, estado: "ACEPTADO" });
+
+      expect((await notaDe(a)).numero).toBe(1);
+      expect((await notaDe(b)).numero).toBe(2);
+      const config = await db.configuracionFacturaElectronica.findUniqueOrThrow({ where: { id: "singleton" } });
+      expect(config.siguienteConsecutivoNotaCredito).toBe(3);
+    });
+
+    it("sobre una factura electrónica rechazada no se puede emitir", async () => {
+      await configurar({ prefijoNotaCredito: "NCC", siguienteConsecutivoNotaCredito: 1 });
+      const { facturaId } = await crearFacturaDePrueba(db, "FEN004");
+      await emitirDocumentoFactura(ctx(crearProveedorSimulado({ resultado: "RECHAZAR" })), facturaId);
+
+      expect(await emitirNotaCredito(ctx(crearProveedorSimulado()), facturaId, datos)).toMatchObject({ ok: false, motivo: "ESTADO" });
+      expect(await db.documentoElectronico.count({ where: { facturaId, tipo: "NOTA_CREDITO" } })).toBe(0);
+      const config = await db.configuracionFacturaElectronica.findUniqueOrThrow({ where: { id: "singleton" } });
+      expect(config.siguienteConsecutivoNotaCredito).toBe(1);
+    });
+
+    it("sin prefijo de notas crédito no gasta número", async () => {
+      await configurar({ prefijoNotaCredito: null, siguienteConsecutivoNotaCredito: 1 });
+      const facturaId = await facturaAceptada("FEN005");
+
+      const r = await emitirNotaCredito(ctx(crearProveedorSimulado()), facturaId, datos);
+
+      expect(r).toMatchObject({ ok: false, motivo: "VALIDACION" });
+      if (!r.ok) expect(r.errores.map((e) => e.campo)).toContain("config.prefijoNotaCredito");
+      expect(await db.documentoElectronico.count({ where: { facturaId, tipo: "NOTA_CREDITO" } })).toBe(0);
+      expect((await docDe(facturaId)).estado).toBe("ACEPTADO");
+      const config = await db.configuracionFacturaElectronica.findUniqueOrThrow({ where: { id: "singleton" } });
+      expect(config.siguienteConsecutivoNotaCredito).toBe(1);
+    });
+
+    it("la segunda llamada sobre la misma factura es un reintento de la misma nota crédito", async () => {
+      await configurar({ prefijoNotaCredito: "NCD", siguienteConsecutivoNotaCredito: 1 });
+      const facturaId = await facturaAceptada("FEN006");
+      const memoria: MemoriaSimulado = new Map();
+
+      const r1 = await emitirNotaCredito(ctx(crearProveedorSimulado({ resultado: "RECHAZAR", memoria })), facturaId, datos);
+      expect(r1).toMatchObject({ ok: true, estado: "RECHAZADO" });
+      expect((await docDe(facturaId)).estado).toBe("ACEPTADO");
+
+      const r2 = await emitirNotaCredito(ctx(crearProveedorSimulado({ memoria })), facturaId, datos);
+      expect(r2).toMatchObject({ ok: true, estado: "ACEPTADO" });
+      if (r1.ok && r2.ok) expect(r2.documentoId).toBe(r1.documentoId);
+      expect(await db.documentoElectronico.count({ where: { facturaId, tipo: "NOTA_CREDITO" } })).toBe(1);
+      const nota = await notaDe(facturaId);
+      expect(nota.numero).toBe(1);
+      expect(nota.intentos).toBe(2);
+      expect((await docDe(facturaId)).estado).toBe("ANULADO");
+    });
   });
 });

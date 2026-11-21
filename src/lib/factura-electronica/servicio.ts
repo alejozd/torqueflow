@@ -4,9 +4,12 @@ import {
   esDocumentoYaProcesado,
   traducirMensajeDian,
   validarDocumento,
+  type ConceptoNotaCredito,
+  type DocumentoElectronico,
   type ErrorValidacion,
   type FacturaVenta,
   type MensajeDian,
+  type NotaCredito,
   type ProveedorFacturaElectronica,
   type ReferenciaDocumento,
   type ResultadoEnvio,
@@ -141,7 +144,23 @@ async function aceptar(
     await ctx.db.documentoElectronico.update({ where: { id }, data: { xmlRuta: archivos.xmlRuta, pdfRuta: archivos.pdfRuta } });
   }
   if (archivos.errores.length > 0) console.error("[factura-electronica] archivos sin guardar", id, archivos.errores);
+  if (ref.tipo === "NOTA_CREDITO") await anularFacturaReferenciada(ctx, id);
   return { ok: true, documentoId: id, estado: "ACEPTADO", mensajes: advertencias };
+}
+
+/** Nota crédito aceptada (spec §5.3): la factura electrónica queda ANULADO y la factura, sin saldo. */
+async function anularFacturaReferenciada(ctx: ContextoFe, notaCreditoId: string): Promise<void> {
+  const nota = await ctx.db.documentoElectronico.findUnique({
+    where: { id: notaCreditoId },
+    select: { facturaId: true, documentoReferenciaId: true },
+  });
+  if (!nota?.documentoReferenciaId) return;
+  const referenciaId = nota.documentoReferenciaId;
+  await ctx.db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM facturas WHERE id = ${nota.facturaId} FOR UPDATE`;
+    await tx.documentoElectronico.update({ where: { id: referenciaId }, data: { estado: "ANULADO" } });
+    await tx.factura.update({ where: { id: nota.facturaId }, data: { saldoPendiente: 0, estado: "PAGADA" } });
+  }, TX);
 }
 
 type Previo =
@@ -221,7 +240,7 @@ async function resolverEnvio(
 
 interface DocumentoEnCurso {
   id: string;
-  documento: FacturaVenta;
+  documento: DocumentoElectronico;
   cufe: string | null;
 }
 
@@ -233,7 +252,7 @@ async function enviarConProveedor(
   consultarPrimero: boolean,
 ): Promise<ResultadoFe> {
   const ref: ReferenciaDocumento = {
-    tipo: "FACTURA",
+    tipo: doc.documento.tipo,
     prefijo: doc.documento.prefijo,
     numero: doc.documento.numero,
     ...(doc.cufe ? { cufe: doc.cufe } : {}),
@@ -411,7 +430,7 @@ export async function emitirDocumentoFactura(ctx: ContextoFe, facturaId: string)
 }
 
 /**
- * Reenvía un documento con el mismo prefijo y número (spec §5.2). Desde RECHAZADO o PENDIENTE
+ * Reenvía un documento con el mismo prefijo y número (spec §5.2). Desde RECHAZADO o PENDIENTE una factura
  * se vuelve a mapear (por si corrigieron datos) conservando número (la fecha se actualiza al enviar si cambió el día); desde
  * POR_CONFIRMAR primero se confirma con la DIAN.
  */
@@ -441,8 +460,9 @@ export async function reintentarDocumento(ctx: ContextoFe, documentoId: string):
   });
   if (count === 0) return falla("EN_CURSO", "Este documento se está enviando. Espera un momento.");
 
-  let documento = doc.payload as unknown as FacturaVenta;
-  if (doc.estado === "RECHAZADO" || doc.estado === "PENDIENTE") {
+  let documento = doc.payload as unknown as DocumentoElectronico;
+  // Una nota crédito se reenvía con su propio payload; solo la factura se vuelve a mapear.
+  if (documento.tipo === "FACTURA" && doc.tipo === "FACTURA" && (doc.estado === "RECHAZADO" || doc.estado === "PENDIENTE")) {
     const previo = documento;
     let preparado: Preparado;
     try {
@@ -493,6 +513,96 @@ export async function reintentarDocumento(ctx: ContextoFe, documentoId: string):
 
   const consultarPrimero = doc.estado === "POR_CONFIRMAR" || interrumpido;
   return ejecutarEnvio(ctx, config, { id: doc.id, documento, cufe: doc.cufe }, consultarPrimero);
+}
+
+export interface DatosNotaCredito {
+  concepto: ConceptoNotaCredito;
+  motivo: string;
+}
+
+/**
+ * Nota crédito total sobre una factura electrónica aceptada (spec §5.3). Toma adquirente, líneas
+ * y pago de la factura aceptada; usa la numeración de notas crédito. Si ya hay una, es un reintento.
+ */
+export async function emitirNotaCredito(ctx: ContextoFe, facturaId: string, datos: DatosNotaCredito): Promise<ResultadoFe> {
+  const ahora = reloj(ctx);
+  const config = await leerConfiguracionFe(ctx.db);
+  if (!config?.activa) return falla("INACTIVA", "La facturación electrónica no está activa en este taller.");
+  const motivo = datos.motivo.trim();
+  if (!motivo) return falla("VALIDACION", "Escribe el motivo de la nota crédito.", [{ campo: "motivo", mensaje: "Escribe el motivo de la nota crédito." }]);
+  if (!config.prefijoNotaCredito) {
+    const texto = "Falta el prefijo de notas crédito en la configuración de facturación electrónica.";
+    return falla("VALIDACION", texto, [{ campo: "config.prefijoNotaCredito", mensaje: texto }]);
+  }
+
+  const factura = await ctx.db.documentoElectronico.findFirst({ where: { facturaId, tipo: "FACTURA" } });
+  if (!factura) return falla("NO_ENCONTRADO", "Esta factura no tiene factura electrónica.");
+  if (factura.estado !== "ACEPTADO" || !factura.cufe) {
+    return falla("ESTADO", "Solo se puede anular una factura electrónica aceptada por la DIAN.");
+  }
+  if (factura.ambiente !== config.ambiente) {
+    return falla("AMBIENTE", "Esta factura se emitió en otro ambiente; no se puede anular desde el actual.");
+  }
+
+  const existente = await ctx.db.documentoElectronico.findFirst({ where: { facturaId, tipo: "NOTA_CREDITO" }, select: { id: true } });
+  if (existente) return reintentarDocumento(ctx, existente.id);
+
+  const original = factura.payload as unknown as FacturaVenta;
+  const { fecha, hora } = fechaHoraBogota(ahora);
+  const base: NotaCredito = {
+    tipo: "NOTA_CREDITO",
+    prefijo: config.prefijoNotaCredito,
+    numero: Math.max(config.siguienteConsecutivoNotaCredito, 1),
+    fecha,
+    hora,
+    adquirente: original.adquirente,
+    lineas: original.lineas,
+    pago: original.pago.forma === "CONTADO" ? { ...original.pago, vencimiento: fecha } : original.pago,
+    enviarCorreo: original.enviarCorreo,
+    concepto: datos.concepto,
+    motivo,
+    facturaReferencia: { numeroCompleto: `${factura.prefijo}${factura.numero}`, cufe: factura.cufe, fecha: original.fecha },
+  };
+  const errores = validarDocumento(base, { hoy: fecha });
+  if (errores.length > 0) return falla("VALIDACION", "Faltan datos para la nota crédito.", errores);
+
+  const facturaDocId = factura.id;
+  const creado = await ctx.db.$transaction(async (tx) => {
+    // Serializa por factura: dos anulaciones a la vez de la misma factura no crean dos notas.
+    await tx.$queryRaw`SELECT id FROM facturas WHERE id = ${facturaId} FOR UPDATE`;
+    const otra = await tx.documentoElectronico.findFirst({ where: { facturaId, tipo: "NOTA_CREDITO" }, select: { id: true } });
+    if (otra) return null;
+    // Consecutivo atómico de notas crédito: la fila de configuración queda bloqueada hasta el commit.
+    const [fila] = await tx.$queryRaw<{ asignado: number }[]>`
+      UPDATE configuracion_factura_electronica
+      SET siguiente_consecutivo_nota_credito = GREATEST(siguiente_consecutivo_nota_credito, 1) + 1, updated_at = NOW()
+      WHERE id = 'singleton'
+      RETURNING siguiente_consecutivo_nota_credito - 1 AS asignado`;
+    const documento: NotaCredito = { ...base, numero: fila.asignado };
+    const doc = await tx.documentoElectronico.create({
+      data: {
+        tipo: "NOTA_CREDITO",
+        facturaId,
+        documentoReferenciaId: facturaDocId,
+        prefijo: documento.prefijo,
+        numero: documento.numero,
+        estado: "ENVIANDO",
+        payload: comoJson(documento),
+        ambiente: config.ambiente,
+        creadoPorId: ctx.usuarioId,
+        intentos: 1,
+        ultimoIntentoAt: ahora,
+      },
+      select: { id: true },
+    });
+    return { id: doc.id, documento, cufe: null } satisfies DocumentoEnCurso;
+  }, TX);
+
+  if (!creado) {
+    const ganadora = await ctx.db.documentoElectronico.findFirst({ where: { facturaId, tipo: "NOTA_CREDITO" }, select: { id: true } });
+    return ganadora ? reintentarDocumento(ctx, ganadora.id) : falla("NO_ENCONTRADO", "La factura no existe.");
+  }
+  return ejecutarEnvio(ctx, config, creado, false);
 }
 
 /**
