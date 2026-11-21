@@ -27,7 +27,7 @@ Final fix: DONE 191f342 (unit 1061, db 21/21); re-review dispatched
 Final fix: re-review 5/5 ADDRESSED (28e3f3c..191f342)
 Final: parked — reenvío con fecha nueva que termina en ERROR_TEMPORAL deja la fecha nueva; un segundo reintento ya no busca el día original — Ruling: se deja para después (arreglo: no persistir la fecha nueva hasta tener respuesta no temporal); costo si es incorrecto: una factura podría quedar POR_CONFIRMAR indefinida en ese caso raro
 Final: minor (deferred): "Completar anulación" sin ConfirmacionEnLinea (recuperación idempotente); default del select de concepto probado con mock
-Deploy: la migración 20261120130000 debe aplicarse (con permiso) a taller_dev_reference y producción ANTES del build; taller_dev ya la tiene
+Deploy: la migración 20261120130000 ya está aplicada en taller_dev y taller_dev_reference (2026-11-21); producción usa taller_dev
 
 Resuelto 2026-11-21 (66e72bb): el caso "reenvío con fecha nueva + ERROR_TEMPORAL" ya conserva la fecha original (también con excepción, Regla 90 y ERROR_CONFIGURACION).
 
