@@ -93,4 +93,28 @@ describe("DashboardSidebar", () => {
     expect(screen.getByRole("link", { name: "Configuración del taller" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Inicio" })).not.toHaveAttribute("aria-current");
   });
+
+  it("Facturación electrónica: el ADMIN la ve; RECEPCION solo con el permiso agregado", () => {
+    rutaActual = "/configuracion-factura-electronica";
+    const { unmount } = renderMenu("ADMIN");
+    expect(visible("Facturación electrónica")).toBe(true);
+    unmount();
+
+    renderMenu("RECEPCION");
+    expect(visible("Facturación electrónica")).toBe(false);
+  });
+
+  it("RECEPCION con el permiso agregado ve Facturación electrónica", () => {
+    rutaActual = "/configuracion-factura-electronica";
+    render(
+      <SidebarProvider>
+        <DashboardSidebar
+          permisos={permisosEfectivos({ role: "RECEPCION", agregados: ["facturaElectronica.configurar"] })}
+          tenantSlug="taller"
+          plan={null}
+        />
+      </SidebarProvider>,
+    );
+    expect(visible("Facturación electrónica")).toBe(true);
+  });
 });

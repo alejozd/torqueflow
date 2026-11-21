@@ -62,6 +62,7 @@ export const PERMISOS = {
   "usuarios.gestionar": { grupo: "Administración", etiqueta: "Gestionar usuarios" },
   "sedes.gestionar": { grupo: "Administración", etiqueta: "Gestionar sedes" },
   "sedes.verTodas": { grupo: "Administración", etiqueta: "Trabajar con todas las sedes" },
+  "facturaElectronica.configurar": { grupo: "Administración", etiqueta: "Configurar facturación electrónica" },
   "configuracion.taller": { grupo: "Administración", etiqueta: "Configuración del taller y correo" },
 } as const satisfies Record<string, { grupo: GrupoPermiso; etiqueta: string }>;
 
@@ -138,6 +139,7 @@ export const REQUISITOS: Partial<Record<Permiso, readonly Permiso[]>> = {
   "compras.ver": ["inventario.costos"],
   "compras.gestionar": ["compras.ver"],
   "reportes.rentabilidad": ["reportes.productividad"],
+  "facturaElectronica.configurar": ["facturas.facturar"],
 };
 
 /** Quita, hasta que no cambie nada, los permisos a los que les falta algún requisito. */

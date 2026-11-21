@@ -10,6 +10,7 @@ import {
   CalendarDays,
   Coins,
   CreditCard,
+  FileCheck,
   FileSpreadsheet,
   FileText,
   HandCoins,
@@ -136,6 +137,12 @@ const CONFIGURACION: NavGroup = {
       permiso: "configuracion.taller",
       // Correo y avisos (/configuracion-smtp) y Tarifas de IVA son pestañas de la misma página.
       tambienActivoEn: ["/configuracion-iva"],
+    },
+    {
+      href: "/configuracion-factura-electronica",
+      label: "Facturación electrónica",
+      icon: FileCheck,
+      permiso: "facturaElectronica.configurar",
     },
     SERVICIOS,
     { href: "/bodegas", label: "Bodegas", icon: Warehouse },

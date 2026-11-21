@@ -212,4 +212,19 @@ describe("la entrega del vehículo (decisión del usuario, 2026-10-22)", () => {
   it("al técnico se le puede dar la entrega por excepción", () => {
     expect(permisosEfectivos({ role: "TECNICO", agregados: ["ordenes.entregar"] })).toContain("ordenes.entregar");
   });
+
+  it("facturaElectronica.configurar: el ADMIN lo tiene; nadie más por rol; se agrega solo con facturar", () => {
+    expect(permisosEfectivos({ role: "ADMIN" })).toContain("facturaElectronica.configurar");
+    for (const role of ["RECEPCION", "JEFE_TALLER", "TECNICO"] as const) {
+      expect(permisosEfectivos({ role })).not.toContain("facturaElectronica.configurar");
+    }
+    expect(permisosEfectivos({ role: "RECEPCION", agregados: ["facturaElectronica.configurar"] })).toContain(
+      "facturaElectronica.configurar",
+    );
+    // TECNICO no factura: el requisito lo descarta.
+    expect(permisosEfectivos({ role: "TECNICO", agregados: ["facturaElectronica.configurar"] })).not.toContain(
+      "facturaElectronica.configurar",
+    );
+    expect(REQUISITOS["facturaElectronica.configurar"]).toEqual(["facturas.facturar"]);
+  });
 });
