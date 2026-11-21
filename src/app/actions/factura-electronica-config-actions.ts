@@ -148,14 +148,16 @@ function faltantesParaActivar(d: ConfiguracionFeInput, tokenCifrado: string | nu
   return faltan;
 }
 
-async function consecutivoInicial(db: ReturnType<typeof getTenantDb>, d: ConfiguracionFeInput): Promise<number> {
-  const inicio = d.rangoDesde ?? 1;
-  if (d.prefijo === null) return inicio;
+async function consecutivoInicial(
+  db: ReturnType<typeof getTenantDb>,
+  d: { tipo: "FACTURA" | "NOTA_CREDITO"; ambiente: AmbienteFacturaElectronica; prefijo: string | null; desde: number },
+): Promise<number> {
+  if (d.prefijo === null) return d.desde;
   const { _max } = await db.documentoElectronico.aggregate({
     _max: { numero: true },
-    where: { tipo: "FACTURA", ambiente: d.ambiente, prefijo: d.prefijo },
+    where: { tipo: d.tipo, ambiente: d.ambiente, prefijo: d.prefijo },
   });
-  return Math.max(inicio, (_max.numero ?? 0) + 1);
+  return Math.max(d.desde, (_max.numero ?? 0) + 1);
 }
 
 export async function guardarConfiguracionFeAction(_prev: ConfigFeFormState, formData: FormData): Promise<ConfigFeFormState> {
@@ -215,35 +217,59 @@ export async function guardarConfiguracionFeAction(_prev: ConfigFeFormState, for
     existente.prefijo !== d.prefijo ||
     existente.rangoDesde !== d.rangoDesde;
 
-  const campos = {
-    activa: d.activa,
-    envio: d.envio,
-    ambiente: d.ambiente,
-    cuenta: d.cuenta,
-    tokenCifrado,
-    nit: d.nit,
-    dv: d.dv,
-    razonSocial: d.razonSocial,
-    regimen: d.regimen,
-    responsabilidadFiscal: d.responsabilidadFiscal,
-    municipioCodigo: d.municipioCodigo,
-    direccion: d.direccion,
-    resolucionNumero: d.resolucionNumero,
-    prefijo: d.prefijo,
-    rangoDesde: d.rangoDesde,
-    rangoHasta: d.rangoHasta,
-    vigenciaDesde: aDia(d.vigenciaDesde),
-    vigenciaHasta: aDia(d.vigenciaHasta),
-    prefijoNotaCredito: d.prefijoNotaCredito,
-    resultadoSimulado: d.resultadoSimulado,
-    // Resolución nueva → se arranca en el inicio de su rango (spec §11.10), pero nunca en un número
-    // ya usado con ese prefijo en este ambiente (chocaría con el único tipo+ambiente+prefijo+numero).
-    ...(resolucionNueva ? { siguienteConsecutivo: await consecutivoInicial(db, d) } : {}),
-    // Primera activación: las facturas anteriores no cuentan como "sin enviar" (spec §11.11).
-    ...(d.activa && !existente?.activadaDesde ? { activadaDesde: new Date() } : {}),
-  };
+  const pasaAProduccion = d.ambiente === "PRODUCCION" && existente?.ambiente !== "PRODUCCION";
 
   try {
+    const primeraVezEnProduccion =
+      pasaAProduccion && (await db.documentoElectronico.count({ where: { ambiente: "PRODUCCION" } })) === 0;
+
+    const campos = {
+      activa: d.activa,
+      envio: d.envio,
+      ambiente: d.ambiente,
+      cuenta: d.cuenta,
+      tokenCifrado,
+      nit: d.nit,
+      dv: d.dv,
+      razonSocial: d.razonSocial,
+      regimen: d.regimen,
+      responsabilidadFiscal: d.responsabilidadFiscal,
+      municipioCodigo: d.municipioCodigo,
+      direccion: d.direccion,
+      resolucionNumero: d.resolucionNumero,
+      prefijo: d.prefijo,
+      rangoDesde: d.rangoDesde,
+      rangoHasta: d.rangoHasta,
+      vigenciaDesde: aDia(d.vigenciaDesde),
+      vigenciaHasta: aDia(d.vigenciaHasta),
+      prefijoNotaCredito: d.prefijoNotaCredito,
+      resultadoSimulado: d.resultadoSimulado,
+      // Resolución nueva o paso a producción → se arranca en el inicio del rango (spec §11.10), pero nunca en un
+      // número ya usado con ese prefijo en este ambiente (chocaría con el único tipo+ambiente+prefijo+numero).
+      ...(resolucionNueva || pasaAProduccion
+        ? {
+            siguienteConsecutivo: await consecutivoInicial(db, {
+              tipo: "FACTURA",
+              ambiente: d.ambiente,
+              prefijo: d.prefijo,
+              desde: d.rangoDesde ?? 1,
+            }),
+          }
+        : {}),
+      ...(pasaAProduccion
+        ? {
+            siguienteConsecutivoNotaCredito: await consecutivoInicial(db, {
+              tipo: "NOTA_CREDITO",
+              ambiente: d.ambiente,
+              prefijo: d.prefijoNotaCredito,
+              desde: 1,
+            }),
+          }
+        : {}),
+      // Primera activación, o primera vez en producción: lo anterior no cuenta como pendiente (spec §11.11, §12).
+      ...(d.activa && (!existente?.activadaDesde || primeraVezEnProduccion) ? { activadaDesde: new Date() } : {}),
+    };
+
     await db.configuracionFacturaElectronica.upsert({ where: { id: ID }, create: { id: ID, ...campos }, update: campos });
   } catch (err) {
     return {

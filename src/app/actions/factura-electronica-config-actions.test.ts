@@ -10,10 +10,11 @@ const mockFindUnique = vi.fn();
 const mockUpsert = vi.fn();
 const mockUpdate = vi.fn();
 const mockAggregate = vi.fn();
+const mockCount = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     configuracionFacturaElectronica: { findUnique: mockFindUnique, upsert: mockUpsert, update: mockUpdate },
-    documentoElectronico: { aggregate: mockAggregate },
+    documentoElectronico: { aggregate: mockAggregate, count: mockCount },
   }),
 }));
 
@@ -108,6 +109,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockRequirePermiso.mockResolvedValue(SESION);
   mockAggregate.mockResolvedValue({ _max: { numero: null } });
+  mockCount.mockResolvedValue(0);
   process.env.SMTP_ENCRYPTION_KEY = "0".repeat(63) + "1";
 });
 
@@ -188,6 +190,38 @@ describe("guardarConfiguracionFeAction", () => {
     expect(mockUpsert).not.toHaveBeenCalled();
     const con = await guardarConfiguracionFeAction(inicial, form({ ambiente: "PRODUCCION", confirmarProduccion: "si" }));
     expect(con.success).toBe(true);
+  });
+
+  it("al pasar a producción por primera vez reinicia la activación y ambos consecutivos", async () => {
+    const antes = new Date("2026-11-01T00:00:00.000Z");
+    mockFindUnique.mockResolvedValue(fila({ ambiente: "PRUEBAS", tokenCifrado: "v1:t", activa: true, activadaDesde: antes, siguienteConsecutivo: 80 }));
+    mockCount.mockResolvedValue(0);
+    mockAggregate.mockResolvedValue({ _max: { numero: null } });
+    const r = await guardarConfiguracionFeAction(inicial, form({ ambiente: "PRODUCCION", confirmarProduccion: "si" }));
+    expect(r.success).toBe(true);
+    const { update } = mockUpsert.mock.calls[0][0];
+    expect(update.siguienteConsecutivo).toBe(1);
+    expect(update.siguienteConsecutivoNotaCredito).toBe(1);
+    expect(update.activadaDesde).toBeInstanceOf(Date);
+    expect(update.activadaDesde.getTime()).toBeGreaterThan(antes.getTime());
+  });
+
+  it("si ya hubo documentos en producción no vuelve a fechar la activación", async () => {
+    mockFindUnique.mockResolvedValue(fila({ ambiente: "PRUEBAS", tokenCifrado: "v1:t", activa: true, activadaDesde: new Date() }));
+    mockCount.mockResolvedValue(3);
+    mockAggregate.mockResolvedValue({ _max: { numero: 41 } });
+    await guardarConfiguracionFeAction(inicial, form({ ambiente: "PRODUCCION", confirmarProduccion: "si" }));
+    const { update } = mockUpsert.mock.calls[0][0];
+    expect(update).not.toHaveProperty("activadaDesde");
+    expect(update.siguienteConsecutivo).toBe(42);
+  });
+
+  it("guardar sin cambiar de ambiente no toca los consecutivos", async () => {
+    mockFindUnique.mockResolvedValue(fila({ ambiente: "PRODUCCION", tokenCifrado: "v1:t", activa: true, activadaDesde: new Date() }));
+    await guardarConfiguracionFeAction(inicial, form({ ambiente: "PRODUCCION" }));
+    const { update } = mockUpsert.mock.calls[0][0];
+    expect(update).not.toHaveProperty("siguienteConsecutivo");
+    expect(update).not.toHaveProperty("siguienteConsecutivoNotaCredito");
   });
 
   it("activa fuera de Simulado exige emisor, resolución y token propio", async () => {
