@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { AlertCircle, ArrowDown, ArrowUp, Car, CheckCircle, DollarSign, FileText } from "lucide-react";
 import { listFacturas, listOrdenesFacturables, type FacturaWithDetalle } from "@/app/actions/factura-actions";
+import { getResumenFeTaller } from "@/app/actions/factura-electronica-actions";
+import { cuentaParaDian, estadoDian, necesitaAtencionDian } from "@/lib/factura-electronica/textos";
+import { InsigniaDian } from "./estado-dian";
 import { NuevaFacturaDialog } from "./nueva-factura-dialog";
 import type { EstadoFactura } from "@/generated/prisma-tenant";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
@@ -54,9 +57,16 @@ const formatoMoneda = new Intl.NumberFormat("es-CO", {
   maximumFractionDigits: 0,
 });
 
-function construirHrefFacturas(base: { estado?: EstadoFactura; q?: string; sort?: SortKey; order?: SortOrder }): string {
+function construirHrefFacturas(base: {
+  estado?: EstadoFactura;
+  q?: string;
+  sort?: SortKey;
+  order?: SortOrder;
+  dian?: boolean;
+}): string {
   const params = new URLSearchParams();
   if (base.estado) params.set("estado", base.estado);
+  if (base.dian) params.set("dian", "pendientes");
   if (base.q) params.set("q", base.q);
   if (base.sort) params.set("sort", base.sort);
   if (base.sort && base.order === "asc") params.set("order", "asc");
@@ -78,6 +88,7 @@ function SortableHeader({
   orderActual,
   estadoFiltro,
   q,
+  dian,
 }: {
   label: string;
   sortKey: SortKey;
@@ -85,12 +96,13 @@ function SortableHeader({
   orderActual: SortOrder;
   estadoFiltro: EstadoFactura | undefined;
   q: string | undefined;
+  dian: boolean;
 }) {
   const isActive = sortActual === sortKey;
   const nextOrder: SortOrder = isActive && orderActual === "desc" ? "asc" : "desc";
   return (
     <Link
-      href={construirHrefFacturas({ estado: estadoFiltro, q, sort: sortKey, order: nextOrder })}
+      href={construirHrefFacturas({ estado: estadoFiltro, q, sort: sortKey, order: nextOrder, dian })}
       className="inline-flex items-center gap-1 hover:text-foreground"
     >
       {label}
@@ -124,8 +136,10 @@ function buildColumns(
   estadoFiltro: EstadoFactura | undefined,
   q: string | undefined,
   ahora: Date,
+  dian: boolean,
+  fe: { activa: boolean; activadaDesde: Date | null },
 ): DataTableColumn<FacturaRow>[] {
-  const sortableHeaderProps = { sortActual, orderActual, estadoFiltro, q };
+  const sortableHeaderProps = { sortActual, orderActual, estadoFiltro, q, dian };
   return [
     {
       header: "Factura",
@@ -185,6 +199,19 @@ function buildColumns(
         </Badge>
       ),
     },
+    ...(fe.activa
+      ? [
+          {
+            header: "DIAN",
+            cell: (factura: FacturaRow) =>
+              cuentaParaDian(factura.createdAt, fe.activadaDesde) || factura.documentosElectronicos.length > 0 ? (
+                <InsigniaDian estado={estadoDian(factura.documentosElectronicos[0])} />
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              ),
+          } satisfies DataTableColumn<FacturaRow>,
+        ]
+      : []),
     {
       header: <SortableHeader label="Total" sortKey="total" {...sortableHeaderProps} />,
       className: "text-right",
@@ -209,10 +236,11 @@ function buildColumns(
 export default async function FacturasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ estado?: string; q?: string; sort?: string; order?: string }>;
+  searchParams: Promise<{ estado?: string; q?: string; sort?: string; order?: string; dian?: string }>;
 }) {
   await requirePermiso("facturas.ver");
-  const { estado, q, sort, order } = await searchParams;
+  const { estado, q, sort, order, dian } = await searchParams;
+  const filtroDian = dian === "pendientes";
   const estadoFiltro = ESTADOS_VALIDOS.includes(estado as EstadoFactura) ? (estado as EstadoFactura) : undefined;
   const busqueda = q?.trim().toLowerCase() ?? "";
   const sortActual = SORT_KEYS.includes(sort as SortKey) ? (sort as SortKey) : undefined;
@@ -220,9 +248,20 @@ export default async function FacturasPage({
 
   // Fetched once, unfiltered: the KPI cards summarize every factura of the
   // sede regardless of which estado the list below is currently filtered to.
-  const [facturas, ordenesFacturables] = await Promise.all([listFacturas(), listOrdenesFacturables()]);
+  const [facturas, ordenesFacturables, fe] = await Promise.all([
+    listFacturas(),
+    listOrdenesFacturables(),
+    getResumenFeTaller(),
+  ]);
   const filtradas = facturas
     .filter((factura) => !estadoFiltro || factura.estado === estadoFiltro)
+    .filter(
+      (factura) =>
+        !filtroDian ||
+        (fe.activa &&
+          cuentaParaDian(factura.createdAt, fe.activadaDesde) &&
+          necesitaAtencionDian(estadoDian(factura.documentosElectronicos[0]))),
+    )
     .filter(
       (factura) =>
         !busqueda ||
@@ -313,7 +352,7 @@ export default async function FacturasPage({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <nav aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
               <Link
-                href={construirHrefFacturas({ q, sort: sortActual, order: orderActual })}
+                href={construirHrefFacturas({ q, sort: sortActual, order: orderActual, dian: filtroDian })}
                 className={cn(
                   "rounded-full border px-3 py-1 text-sm transition-colors",
                   estadoFiltro === undefined
@@ -326,7 +365,7 @@ export default async function FacturasPage({
               {ESTADOS_VALIDOS.map((value) => (
                 <Link
                   key={value}
-                  href={construirHrefFacturas({ estado: value, q, sort: sortActual, order: orderActual })}
+                  href={construirHrefFacturas({ estado: value, q, sort: sortActual, order: orderActual, dian: filtroDian })}
                   className={cn(
                     "rounded-full border px-3 py-1 text-sm transition-colors",
                     estadoFiltro === value
@@ -337,10 +376,25 @@ export default async function FacturasPage({
                   {ESTADO_LABELS[value]}
                 </Link>
               ))}
+              {fe.activa ? (
+                <Link
+                  href={construirHrefFacturas({ estado: estadoFiltro, q, sort: sortActual, order: orderActual, dian: !filtroDian })}
+                  aria-current={filtroDian ? "page" : undefined}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-sm transition-colors",
+                    filtroDian
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground",
+                  )}
+                >
+                  Sin enviar o rechazadas
+                </Link>
+              ) : null}
             </nav>
 
             <form role="search" className="flex items-center gap-2">
               {estadoFiltro ? <input type="hidden" name="estado" value={estadoFiltro} /> : null}
+              {filtroDian ? <input type="hidden" name="dian" value="pendientes" /> : null}
               {sortActual ? <input type="hidden" name="sort" value={sortActual} /> : null}
               {sortActual && orderActual === "asc" ? <input type="hidden" name="order" value="asc" /> : null}
               <Input
@@ -357,7 +411,7 @@ export default async function FacturasPage({
           </div>
 
           <DataTable
-            columns={buildColumns(sortActual, orderActual, estadoFiltro, q, ahora)}
+            columns={buildColumns(sortActual, orderActual, estadoFiltro, q, ahora, filtroDian, fe)}
             rows={sortActual ? [...filtradas].sort((a, b) => compararFacturas(a, b, sortActual, orderActual)) : filtradas}
             getRowKey={(factura) => factura.id}
             rowHref={(factura) => `/facturas/${factura.id}`}

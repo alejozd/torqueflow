@@ -34,6 +34,7 @@ const FACTURA_DETAIL_INCLUDE = {
   orden: { include: { vehiculo: true, items: true, manoDeObra: true } },
   pagos: { orderBy: { createdAt: "desc" } },
   emitidaPor: { select: { id: true, nombre: true } },
+  documentosElectronicos: { where: { tipo: "FACTURA" }, select: { estado: true }, take: 1 },
 } satisfies Prisma.FacturaInclude;
 
 export type FacturaWithDetalle = Prisma.FacturaGetPayload<{ include: typeof FACTURA_DETAIL_INCLUDE }>;
