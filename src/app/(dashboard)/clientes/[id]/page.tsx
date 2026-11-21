@@ -134,6 +134,12 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
     email: cliente.email,
     documento: cliente.documento,
     fechaNacimiento: cliente.fechaNacimiento,
+    tipoDocumento: cliente.tipoDocumento,
+    dv: cliente.dv,
+    tipoPersona: cliente.tipoPersona,
+    responsabilidadFiscal: cliente.responsabilidadFiscal,
+    municipioCodigo: cliente.municipioCodigo,
+    direccion: cliente.direccion,
     createdAt: cliente.createdAt,
     updatedAt: cliente.updatedAt,
   };

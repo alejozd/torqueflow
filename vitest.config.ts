@@ -10,6 +10,7 @@ const DB_INTEGRATION_TESTS = [
   "src/lib/db/public-client.test.ts",
   "src/lib/db/tenant-client.test.ts",
   "src/lib/tenant/tenant-user-email.test.ts",
+  "src/lib/factura-electronica/migracion-db.test.ts",
   "scripts/**/*.test.ts",
 ];
 

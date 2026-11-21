@@ -163,6 +163,7 @@ model Usuario {
   devolucionesMostradorCreadas  DevolucionMostrador[]   @relation("DevolucionMostradorCreadaPor")
   cuentasPorPagarCreadas        CuentaPorPagar[]        @relation("CuentaPorPagarCreadaPor")
   pagosProveedorRegistrados     PagoProveedor[]         @relation("PagoProveedorRegistradoPor")
+  documentosElectronicosCreados DocumentoElectronico[]  @relation("DocumentoElectronicoCreadoPor")
   createdAt                     DateTime                @default(now()) @map("created_at")
   updatedAt                     DateTime                @updatedAt @map("updated_at")
 
@@ -177,6 +178,16 @@ model Cliente {
   documento           String?
   /// Solo el día (para saber la edad y cuándo cumple años). Opcional.
   fechaNacimiento     DateTime?                  @map("fecha_nacimiento") @db.Date
+  /// Datos para factura electrónica (opcionales). Tipo de documento con código DIAN ("13", "31"…).
+  tipoDocumento         String?             @map("tipo_documento")
+  /// Dígito de verificación (solo NIT).
+  dv                    String?
+  tipoPersona           TipoPersonaCliente? @map("tipo_persona")
+  /// Código DIAN, p. ej. "R-99-PN".
+  responsabilidadFiscal String?             @map("responsabilidad_fiscal")
+  /// Código DANE de 5 dígitos.
+  municipioCodigo       String?             @map("municipio_codigo")
+  direccion             String?
   vehiculos           Vehiculo[]
   ordenes             OrdenTrabajo[]
   facturas            Factura[]
@@ -599,6 +610,7 @@ model Factura {
   emitidaPorId   String        @map("emitida_por_id")
   emitidaPor     Usuario       @relation(fields: [emitidaPorId], references: [id], onDelete: Restrict)
   pagos          Pago[]
+  documentosElectronicos DocumentoElectronico[]
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
 
@@ -1467,4 +1479,131 @@ model TarifaIva {
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@map("tarifas_iva")
+}
+
+// ── Facturación electrónica DIAN (fase-fe, Plan 2a) ─────────────────────────
+// Spec: docs/superpowers/specs/2026-11-20-factura-electronica-design.md §4.
+
+enum EnvioFacturaElectronica {
+  AUTOMATICO
+  MANUAL
+}
+
+enum AmbienteFacturaElectronica {
+  SIMULADO
+  PRUEBAS
+  PRODUCCION
+}
+
+enum CuentaFacturaElectronica {
+  BOLSA
+  PROPIA
+}
+
+/// Solo se usa con ambiente SIMULADO. CAIDA_RECIBIDO: la DIAN lo recibe pero la respuesta se pierde.
+enum ResultadoSimuladoFacturaElectronica {
+  ACEPTAR
+  RECHAZAR
+  CAIDA
+  CAIDA_RECIBIDO
+}
+
+enum TipoPersonaCliente {
+  NATURAL
+  JURIDICA
+}
+
+enum TipoDocumentoElectronico {
+  FACTURA
+  NOTA_CREDITO
+}
+
+enum EstadoDocumentoElectronico {
+  PENDIENTE
+  ENVIANDO
+  POR_CONFIRMAR
+  ACEPTADO
+  RECHAZADO
+  ANULADO
+}
+
+/// Configuración de facturación electrónica del taller (singleton, como ConfiguracionSmtp).
+model ConfiguracionFacturaElectronica {
+  id                              String                              @id @default("singleton")
+  activa                          Boolean                             @default(false)
+  envio                           EnvioFacturaElectronica             @default(AUTOMATICO)
+  ambiente                        AmbienteFacturaElectronica          @default(SIMULADO)
+  cuenta                          CuentaFacturaElectronica            @default(BOLSA)
+  /// Token de Nextpyme cifrado con src/lib/crypto/secret-box.ts.
+  tokenCifrado                    String?                             @map("token_cifrado")
+  /// Emisor (el taller). NIT sin DV.
+  nit                             String?
+  dv                              String?
+  razonSocial                     String?                             @map("razon_social")
+  /// Código DIAN: 48 responsable de IVA, 49 no responsable.
+  regimen                         String?
+  /// Código DIAN, p. ej. "O-13" o "R-99-PN".
+  responsabilidadFiscal           String?                             @map("responsabilidad_fiscal")
+  /// Código DANE de 5 dígitos.
+  municipioCodigo                 String?                             @map("municipio_codigo")
+  direccion                       String?
+  /// Resolución de numeración de facturas.
+  resolucionNumero                String?                             @map("resolucion_numero")
+  prefijo                         String?
+  rangoDesde                      Int?                                @map("rango_desde")
+  rangoHasta                      Int?                                @map("rango_hasta")
+  /// Solo el día (medianoche UTC): leer con toISOString().slice(0, 10).
+  vigenciaDesde                   DateTime?                           @map("vigencia_desde") @db.Date
+  vigenciaHasta                   DateTime?                           @map("vigencia_hasta") @db.Date
+  /// Próximo número a usar; si es menor que rangoDesde se arranca en rangoDesde.
+  siguienteConsecutivo            Int                                 @default(1) @map("siguiente_consecutivo")
+  prefijoNotaCredito              String?                             @map("prefijo_nota_credito")
+  siguienteConsecutivoNotaCredito Int                                 @default(1) @map("siguiente_consecutivo_nota_credito")
+  resultadoSimulado               ResultadoSimuladoFacturaElectronica @default(ACEPTAR) @map("resultado_simulado")
+  /// Último "Probar conexión": resultado y ambiente que informó el proveedor.
+  ultimaPruebaAt                  DateTime?                           @map("ultima_prueba_at")
+  ultimaPruebaExitosa             Boolean?                            @map("ultima_prueba_exitosa")
+  ultimaPruebaMensaje             String?                             @map("ultima_prueba_mensaje")
+  ambienteProveedor               AmbienteFacturaElectronica?         @map("ambiente_proveedor")
+  createdAt                       DateTime                            @default(now()) @map("created_at")
+  updatedAt                       DateTime                            @updatedAt @map("updated_at")
+
+  @@map("configuracion_factura_electronica")
+}
+
+/// Factura electrónica o nota crédito enviada (o por enviar) a la DIAN.
+model DocumentoElectronico {
+  id                    String                     @id @default(cuid())
+  tipo                  TipoDocumentoElectronico
+  facturaId             String                     @map("factura_id")
+  factura               Factura                    @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  /// Nota crédito → factura electrónica que corrige.
+  documentoReferenciaId String?                    @map("documento_referencia_id")
+  documentoReferencia   DocumentoElectronico?      @relation("NotaCreditoDeFactura", fields: [documentoReferenciaId], references: [id], onDelete: Restrict)
+  notasCredito          DocumentoElectronico[]     @relation("NotaCreditoDeFactura")
+  prefijo               String
+  numero                Int
+  estado                EstadoDocumentoElectronico @default(PENDIENTE)
+  cufe                  String?
+  fechaValidacion       DateTime?                  @map("fecha_validacion")
+  /// MensajeDian[] ya traducidos (núcleo).
+  mensajes              Json                       @default("[]")
+  intentos              Int                        @default(0)
+  ultimoIntentoAt       DateTime?                  @map("ultimo_intento_at")
+  /// URL de /api/uploads/... (Nextpyme guarda los archivos solo un año).
+  xmlRuta               String?                    @map("xml_ruta")
+  pdfRuta               String?                    @map("pdf_ruta")
+  /// Foto del DocumentoElectronico del núcleo tal como se envió (fecha y hora congeladas).
+  payload               Json
+  ambiente              AmbienteFacturaElectronica
+  creadoPorId           String                     @map("creado_por_id")
+  creadoPor             Usuario                    @relation("DocumentoElectronicoCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  createdAt             DateTime                   @default(now()) @map("created_at")
+  updatedAt             DateTime                   @updatedAt @map("updated_at")
+
+  @@unique([tipo, prefijo, numero])
+  @@index([facturaId])
+  @@index([estado])
+  @@index([documentoReferenciaId])
+  @@map("documentos_electronicos")
 }
