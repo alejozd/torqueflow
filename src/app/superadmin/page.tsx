@@ -179,6 +179,9 @@ export default async function SuperAdminPage({
           <Link href="/superadmin/auditoria" className={buttonVariants({ variant: "outline" })}>
             Auditoría de plataforma
           </Link>
+          <Link href="/superadmin/facturacion-electronica" className={buttonVariants({ variant: "outline" })}>
+            Facturación electrónica
+          </Link>
           <CrearTenantForm planes={planes} />
         </div>
       </div>
