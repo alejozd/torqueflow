@@ -33,6 +33,7 @@ describe("migración de factura electrónica", () => {
       siguienteConsecutivoNotaCredito: 1,
       tokenCifrado: null,
       ambienteProveedor: null,
+      activadaDesde: null,
     });
     const v = await db.configuracionFacturaElectronica.update({
       where: { id: "singleton" },
@@ -68,7 +69,7 @@ describe("migración de factura electrónica", () => {
     });
   });
 
-  it("no deja repetir tipo + prefijo + número; otro tipo con el mismo número sí", async () => {
+  it("no deja repetir tipo + ambiente + prefijo + número; otro tipo u otro ambiente con el mismo número sí", async () => {
     const db = getTenantDb(SCHEMA);
     const { facturaId, usuarioId } = await crearFacturaDePrueba(db, "FEM001");
     const datos = {
@@ -83,6 +84,11 @@ describe("migración de factura electrónica", () => {
     const doc = await db.documentoElectronico.create({ data: datos });
     expect(doc).toMatchObject({ estado: "PENDIENTE", intentos: 0, mensajes: [], cufe: null, xmlRuta: null });
     await expect(db.documentoElectronico.create({ data: datos })).rejects.toMatchObject({ code: "P2002" });
+    // Probar en SIMULADO con el mismo prefijo no estorba el paso a producción (spec §11.10).
+    await expect(db.documentoElectronico.create({ data: { ...datos, ambiente: "PRODUCCION" } })).resolves.toMatchObject({
+      ambiente: "PRODUCCION",
+      numero: 990000001,
+    });
     await expect(
       db.documentoElectronico.create({ data: { ...datos, tipo: "NOTA_CREDITO", documentoReferenciaId: doc.id } }),
     ).resolves.toMatchObject({ documentoReferenciaId: doc.id });

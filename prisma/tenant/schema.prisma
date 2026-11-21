@@ -1565,6 +1565,8 @@ model ConfiguracionFacturaElectronica {
   ultimaPruebaExitosa             Boolean?                            @map("ultima_prueba_exitosa")
   ultimaPruebaMensaje             String?                             @map("ultima_prueba_mensaje")
   ambienteProveedor               AmbienteFacturaElectronica?         @map("ambiente_proveedor")
+  /// Primera vez que se activó: las facturas anteriores no cuentan como "sin enviar a la DIAN".
+  activadaDesde                   DateTime?                           @map("activada_desde")
   createdAt                       DateTime                            @default(now()) @map("created_at")
   updatedAt                       DateTime                            @updatedAt @map("updated_at")
 
@@ -1601,7 +1603,7 @@ model DocumentoElectronico {
   createdAt             DateTime                   @default(now()) @map("created_at")
   updatedAt             DateTime                   @updatedAt @map("updated_at")
 
-  @@unique([tipo, prefijo, numero])
+  @@unique([tipo, ambiente, prefijo, numero])
   @@index([facturaId])
   @@index([estado])
   @@index([documentoReferenciaId])

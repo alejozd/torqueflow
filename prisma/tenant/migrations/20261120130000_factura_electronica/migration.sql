@@ -61,6 +61,7 @@ CREATE TABLE "configuracion_factura_electronica" (
     "ultima_prueba_exitosa" BOOLEAN,
     "ultima_prueba_mensaje" TEXT,
     "ambiente_proveedor" "AmbienteFacturaElectronica",
+    "activada_desde" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
@@ -103,7 +104,7 @@ CREATE INDEX "documentos_electronicos_estado_idx" ON "documentos_electronicos"("
 CREATE INDEX "documentos_electronicos_documento_referencia_id_idx" ON "documentos_electronicos"("documento_referencia_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "documentos_electronicos_tipo_prefijo_numero_key" ON "documentos_electronicos"("tipo", "prefijo", "numero");
+CREATE UNIQUE INDEX "documentos_electronicos_tipo_ambiente_prefijo_numero_key" ON "documentos_electronicos"("tipo", "ambiente", "prefijo", "numero");
 
 -- AddForeignKey
 ALTER TABLE "documentos_electronicos" ADD CONSTRAINT "documentos_electronicos_factura_id_fkey" FOREIGN KEY ("factura_id") REFERENCES "facturas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

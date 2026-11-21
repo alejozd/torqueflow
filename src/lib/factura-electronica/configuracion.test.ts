@@ -42,6 +42,7 @@ function config(p: Partial<ConfiguracionFe> = {}): ConfiguracionFe {
     ultimaPruebaExitosa: null,
     ultimaPruebaMensaje: null,
     ambienteProveedor: null,
+    activadaDesde: null,
     createdAt: new Date("2026-11-20T00:00:00Z"),
     updatedAt: new Date("2026-11-20T00:00:00Z"),
     ...p,
