@@ -1,0 +1,771 @@
+<!DOCTYPE html><html class="h-full bg-slate-50" lang="es"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Editar Usuario - TorqueFlow SaaS Taller</title>
+<!-- Tailwind CSS v3 with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Inter -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<script data-purpose="tailwind-config">
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            torque: {
+              50: '#fff7ed',
+              100: '#ffedd5',
+              200: '#fed7aa',
+              300: '#fdba74',
+              400: '#fb923c',
+              500: '#f97316',
+              600: '#ea580c',
+              700: '#c2410c',
+              800: '#9a3412',
+              900: '#7c2d12',
+            },
+            sidebar: {
+              DEFAULT: '#111827',
+              surface: '#1f2937',
+              border: '#374151',
+              hover: '#283548'
+            }
+          }
+        }
+      }
+    }
+  </script>
+<!-- Styles for custom scrollbars and subtle toggle switches -->
+<style data-purpose="custom-layout">
+    /* Custom scrollbar for modern feel */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* Switch toggle transition */
+    .toggle-checkbox:checked {
+      right: 0;
+      border-color: #ea580c;
+    }
+    .toggle-checkbox:checked + .toggle-label {
+      background-color: #ea580c;
+    }
+  </style>
+</head>
+<body class="h-full text-slate-800 antialiased font-sans flex overflow-hidden">
+<!-- BEGIN: LeftSidebar -->
+<aside class="w-64 bg-sidebar text-slate-300 flex-shrink-0 flex flex-col h-full border-r border-slate-800 select-none z-20" data-purpose="main-sidebar">
+<!-- Brand / Logo Header -->
+<div class="h-16 flex items-center justify-between px-5 border-b border-sidebar-border bg-sidebar">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-torque-700 to-torque-500 flex items-center justify-center text-white shadow-lg shadow-torque-600/30">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" viewBox="0 0 24 24">
+<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+</svg>
+</div>
+<div>
+<span class="font-bold text-white tracking-tight text-base leading-none">Torque<span class="text-torque-500">Flow</span></span>
+<span class="block text-[11px] text-slate-400 mt-0.5 font-medium">taller-dev • SaaS</span>
+</div>
+</div>
+<button aria-label="Colapsar menú lateral" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition" type="button">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M11 19l-7-7 7-7m8 14l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+</div>
+<!-- Navigation Menu Items -->
+<nav class="flex-1 overflow-y-auto px-3 py-4 space-y-6 text-xs font-medium">
+<!-- Operational Section -->
+<div>
+<div class="px-3 text-[10px] font-bold tracking-wider text-slate-400 uppercase">Operación</div>
+<div class="mt-2 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-sidebar-hover hover:text-white transition group" href="#">
+<svg class="w-4 h-4 text-slate-400 group-hover:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="">Órdenes de Trabajo</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-sidebar-hover hover:text-white transition group" href="#">
+<svg class="w-4 h-4 text-slate-400 group-hover:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="">Citas &amp; Agenda</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-sidebar-hover hover:text-white transition group" href="#">
+<svg class="w-4 h-4 text-slate-400 group-hover:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="">Gastos y Cobros</span>
+</a>
+</div>
+</div>
+<!-- Inventory Section -->
+<div>
+<div class="px-3 text-[10px] font-bold tracking-wider text-slate-400 uppercase">Inventario</div>
+<div class="mt-2 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-sidebar-hover hover:text-white transition group" href="#">
+<svg class="w-4 h-4 text-slate-400 group-hover:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="">Bodegas</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-sidebar-hover hover:text-white transition group" href="#">
+<svg class="w-4 h-4 text-slate-400 group-hover:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="">Proveedores</span>
+</a>
+<a class="flex items-center justify-between px-3 py-2 rounded-lg text-slate-300 hover:bg-sidebar-hover hover:text-white transition group" href="#">
+<div class="flex items-center gap-3">
+<svg class="w-4 h-4 text-slate-400 group-hover:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="">Repuestos</span>
+</div>
+<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-torque-600/30 text-torque-400 border border-torque-500/30">28</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-sidebar-hover hover:text-white transition group" href="#">
+<svg class="w-4 h-4 text-slate-400 group-hover:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="">Pedidos &amp; Compras</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-sidebar-hover hover:text-white transition group" href="#">
+<svg class="w-4 h-4 text-slate-400 group-hover:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="">Entradas de Stock</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-sidebar-hover hover:text-white transition group" href="#">
+<svg class="w-4 h-4 text-slate-400 group-hover:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="">Catálogo de Servicios</span>
+</a>
+</div>
+</div>
+<!-- Administration Section -->
+<div>
+<div class="px-3 text-[10px] font-bold tracking-wider text-slate-400 uppercase">Administración</div>
+<div class="mt-2 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-sidebar-hover hover:text-white transition group" href="#">
+<svg class="w-4 h-4 text-slate-400 group-hover:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="">Reportes &amp; BI</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-sidebar-hover hover:text-white transition group" href="#">
+<svg class="w-4 h-4 text-slate-400 group-hover:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="">Liquidaciones</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-sidebar-hover hover:text-white transition group" href="#">
+<svg class="w-4 h-4 text-slate-400 group-hover:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="">Sedes del Taller</span>
+</a>
+<!-- Active Menu Item: Usuarios -->
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-torque-600/15 text-torque-400 font-semibold border-l-4 border-torque-500 shadow-sm transition" href="#">
+<svg class="w-4 h-4 text-torque-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="">Usuarios &amp; Roles</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-sidebar-hover hover:text-white transition group" href="#">
+<svg class="w-4 h-4 text-slate-400 group-hover:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="">Auditoría de Acciones</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-sidebar-hover hover:text-white transition group" href="#">
+<svg class="w-4 h-4 text-slate-400 group-hover:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="">Configuración SMTP</span>
+</a>
+</div>
+</div>
+</nav>
+<!-- Plan Badge & Footer Info -->
+<div class="p-3 border-t border-sidebar-border bg-sidebar/80">
+<div class="flex items-center justify-between px-2 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800 text-[11px]">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+<span class="text-slate-300 font-medium">Plan Avanzado</span>
+</div>
+<span class="text-slate-400 font-mono">1 sede activa</span>
+</div>
+</div>
+</aside>
+<!-- END: LeftSidebar -->
+<!-- BEGIN: MainContentArea -->
+<div class="flex-1 flex flex-col h-full min-w-0 bg-slate-50 overflow-hidden">
+<!-- BEGIN: TopBar -->
+<header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between flex-shrink-0 z-10 shadow-sm" data-purpose="top-navigation">
+<!-- Breadcrumb Navigation -->
+<nav aria-label="Breadcrumb" class="flex items-center gap-2 text-sm text-slate-500">
+<a class="hover:text-torque-600 transition font-medium" href="#">Gestión</a>
+<svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<a class="hover:text-torque-600 transition font-medium" href="#">Usuarios</a>
+<svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="font-semibold text-slate-900 flex items-center gap-2">
+          Andrés Silva
+          <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">Activo</span>
+</span>
+</nav>
+<!-- Global Actions and Admin Bar -->
+<div class="flex items-center gap-4">
+<!-- Branch Selector -->
+<div class="flex items-center text-xs bg-slate-100 hover:bg-slate-200/80 transition rounded-lg border border-slate-200 px-3 py-1.5 gap-2 cursor-pointer">
+<svg class="w-3.5 h-3.5 text-torque-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="font-medium text-slate-700">Sede: <strong class="font-semibold text-slate-900">Sede principal</strong></span>
+<svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<div class="h-5 w-px bg-slate-200"></div>
+<!-- SuperAdmin Profile and Logout -->
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs ring-2 ring-slate-100">
+              AD
+            </div>
+<div class="hidden md:block text-left text-xs leading-tight">
+<span class="font-semibold text-slate-800 block">admin@dev.test</span>
+<span class="text-[10px] text-slate-400">Super Administrador</span>
+</div>
+</div>
+<button class="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition ml-1" title="Cerrar sesión" type="button">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+</div>
+</div>
+</header>
+<!-- END: TopBar -->
+<!-- BEGIN: MainScrollContainer -->
+<main class="flex-1 overflow-y-auto p-6 md:p-8 space-y-8" data-purpose="user-management-body">
+<!-- Unified Header with Page Title & Primary Actions -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
+<div>
+<h1 class="text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
+            Editar Usuario &amp; Permisos
+          </h1>
+<p class="text-sm text-slate-500 mt-1">Configura credenciales, sedes asignadas y controla la matriz granular de acceso al sistema.</p>
+</div>
+<!-- Global Unified Actions -->
+<div class="flex items-center gap-3">
+<button class="px-4 py-2.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition shadow-sm flex items-center gap-2" id="btn-reset-role" type="button">
+<svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+            Restablecer a Rol Base
+          </button>
+<button class="px-5 py-2.5 text-xs font-bold text-white bg-torque-600 hover:bg-torque-700 rounded-xl transition shadow-md shadow-torque-600/20 flex items-center gap-2" id="btn-save-all" type="button">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+            Guardar Todos los Cambios
+          </button>
+</div>
+</div>
+<!-- BEGIN: UserDetailsSection -->
+<section class="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-6 sm:p-7" data-purpose="user-details-card">
+<!-- Top Profile Banner -->
+<div class="flex flex-col md:flex-row md:items-center justify-between pb-6 mb-6 border-b border-slate-100 gap-4">
+<div class="flex items-center gap-4">
+<div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-torque-500 to-torque-700 text-white font-bold text-xl flex items-center justify-center shadow-lg shadow-torque-500/25">
+              AS
+            </div>
+<div>
+<div class="flex items-center gap-3">
+<h2 class="text-xl font-bold text-slate-900 leading-tight">Andrés Silva</h2>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Activo
+                </span>
+</div>
+<p class="text-sm text-slate-500 mt-0.5">andres.silva@dev.test • Miembro desde marzo 2023</p>
+</div>
+</div>
+<!-- Quick User Status Toggle -->
+<div class="flex items-center gap-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+<label class="text-xs font-medium text-slate-600 cursor-pointer" for="status-toggle">Estado de cuenta:</label>
+<div class="relative inline-block w-10 select-none align-middle">
+<input checked="" class="sr-only toggle-checkbox peer" id="status-toggle" type="checkbox">
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600 cursor-pointer"></div>
+</div>
+</div>
+</div>
+<!-- Form Grid for User Data -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Column 1: Persona Info -->
+<div class="space-y-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-torque-500"></span>
+<span class="text-xs font-bold tracking-wider uppercase text-slate-500">Datos Personales</span>
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-700 mb-1.5" for="user-fullname">Nombre Completo</label>
+<input class="w-full text-sm rounded-xl border-slate-300 focus:border-torque-500 focus:ring-torque-500 text-slate-800 placeholder-slate-400 font-medium" id="user-fullname" type="text" value="Andrés Silva">
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-700 mb-1.5" for="user-email">Correo Electrónico (Login)</label>
+<input class="w-full text-sm rounded-xl border-slate-300 focus:border-torque-500 focus:ring-torque-500 text-slate-800 placeholder-slate-400 font-medium" id="user-email" type="email" value="andres.silva@dev.test">
+</div>
+</div>
+<!-- Column 2: Access & Role -->
+<div class="space-y-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-torque-500"></span>
+<span class="text-xs font-bold tracking-wider uppercase text-slate-500">Seguridad &amp; Rol</span>
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-700 mb-1.5" for="user-password">Nueva Contraseña</label>
+<input class="w-full text-sm rounded-xl border-slate-300 focus:border-torque-500 focus:ring-torque-500 font-medium" id="user-password" placeholder="••••••••••••" type="password">
+<span class="text-[11px] text-slate-400 mt-1 block">Déjala en blanco para conservar la actual.</span>
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-700 mb-1.5" for="user-role-select">Rol Principal del Sistema</label>
+<select class="w-full text-sm rounded-xl border-slate-300 focus:border-torque-500 focus:ring-torque-500 text-slate-800 font-medium" id="user-role-select">
+<option selected="" value="TECNICO">TÉCNICO MECÁNICO</option>
+<option value="ASESOR">ASESOR DE SERVICIO</option>
+<option value="JEFE_TALLER">JEFE DE TALLER</option>
+<option value="ADMIN_SEDE">ADMINISTRADOR DE SEDE</option>
+<option value="PERSONALIZADO">ROL PERSONALIZADO</option>
+</select>
+</div>
+</div>
+<!-- Column 3: Workshop Locations -->
+<div class="space-y-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-torque-500"></span>
+<span class="text-xs font-bold tracking-wider uppercase text-slate-500">Sedes &amp; Permisos de Ubicación</span>
+</div>
+<div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
+<label class="block text-xs font-semibold text-slate-700">Sedes con Acceso</label>
+<div class="space-y-2">
+<label class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+<input checked="" class="rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+<span class="">Sede Principal (Matriz)</span>
+</label>
+<label class="flex items-center gap-2 text-xs font-medium text-slate-400 cursor-not-allowed">
+<input class="rounded border-slate-300 text-slate-300" disabled="" type="checkbox">
+<span class="">Sede Norte Express <span class="text-[10px] text-slate-400">(Inactiva)</span></span>
+</label>
+</div>
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-700 mb-1.5" for="default-branch">Sede Predeterminada</label>
+<select class="w-full text-sm rounded-xl border-slate-300 focus:border-torque-500 focus:ring-torque-500 text-slate-800 font-medium" id="default-branch">
+<option selected="" value="principal">Sede Principal (Matriz)</option>
+<option value="none">Sin sede por defecto</option>
+</select>
+</div>
+</div>
+</div>
+</section>
+<!-- END: UserDetailsSection -->
+<!-- BEGIN: PermissionsSection -->
+<section class="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-6 sm:p-7 space-y-6" data-purpose="rbac-permissions-matrix">
+<!-- Header & Role Inheritance Banner -->
+<div>
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-torque-50 text-torque-600 border border-torque-100 flex items-center justify-center">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<div>
+<h3 class="text-lg font-bold text-slate-900">Matriz Granular de Permisos (RBAC)</h3>
+<p class="text-xs text-slate-500">Asigna privilegios específicos para controlar la visibilidad y ejecución de tareas.</p>
+</div>
+</div>
+<!-- Role inheritance status pill -->
+<div class="flex items-center gap-2 bg-torque-50/70 border border-torque-200/60 rounded-xl px-3.5 py-2 text-xs">
+<svg class="w-4 h-4 text-torque-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="text-slate-700">Heredado del rol: <strong class="text-torque-900 font-semibold">TÉCNICO</strong> (12 activos, <span class="font-bold text-amber-700">2 personalizados</span>)</span>
+</div>
+</div>
+</div>
+<!-- Filter Toolbar -->
+<div class="bg-slate-50 rounded-xl p-3.5 border border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
+<!-- Search box -->
+<div class="relative flex-1 min-w-[240px]">
+<svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<input class="w-full text-xs rounded-lg border-slate-300 focus:border-torque-500 focus:ring-torque-500 pl-9 py-2" id="permission-search" placeholder="Filtrar permisos en tiempo real (ej. orden, cotización, caja)..." type="text">
+</div>
+<!-- Quick Action Buttons -->
+<div class="flex items-center gap-2 text-xs">
+<button class="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-torque-600 hover:border-torque-300 transition font-medium" type="button">Solo Lectura</button>
+<button class="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-torque-600 hover:border-torque-300 transition font-medium" type="button">Marcar Todos</button>
+<button class="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-red-600 hover:border-red-300 transition font-medium" type="button">Desmarcar</button>
+</div>
+</div>
+<!-- Permissions Grid (Modular Cards) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="permissions-container"><!-- Módulo 1: Clientes y Vehículos -->
+<div class="border border-slate-200 rounded-xl p-4 bg-white hover:border-slate-300 transition shadow-xs flex flex-col justify-between space-y-3">
+  <div>
+    <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+      <div class="flex items-center gap-2">
+        <div class="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+        </div>
+        <h4 class="text-sm font-bold text-slate-900">Clientes &amp; Vehículos</h4>
+      </div>
+      <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">1 / 5 Activos</span>
+    </div>
+    <div class="space-y-2.5 text-xs">
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input checked="" class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-800 font-medium leading-tight">Ver directorio de clientes y vehículos</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Crear y editar fichas técnicas</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Agregar marcas y modelos de autos</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Avisar vencimientos de SOAT / Revisiones</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer pt-1 border-t border-slate-100">
+        <input class="mt-0.5 rounded border-slate-300 text-red-600 focus:ring-red-500" type="checkbox">
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-700 font-medium leading-tight">Eliminar clientes y vehículos</span>
+          <span class="text-[10px] font-semibold bg-red-100 text-red-700 px-1.5 py-0.2 rounded">Crítico</span>
+        </div>
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- Módulo 2: Citas & Agenda -->
+<div class="border border-slate-200 rounded-xl p-4 bg-white hover:border-slate-300 transition shadow-xs flex flex-col justify-between space-y-3">
+  <div>
+    <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+      <div class="flex items-center gap-2">
+        <div class="p-1.5 rounded-lg bg-amber-50 text-amber-600">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+        </div>
+        <h4 class="text-sm font-bold text-slate-900">Citas &amp; Agenda</h4>
+      </div>
+      <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">1 / 3 Activos</span>
+    </div>
+    <div class="space-y-2.5 text-xs">
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input checked="" class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-800 font-medium leading-tight">Ver citas programadas</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Crear y mover citas de taller</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer pt-1 border-t border-slate-100">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Eliminar o cancelar citas agendadas</span>
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- Módulo 3: Cotizaciones -->
+<div class="border border-slate-200 rounded-xl p-4 bg-white hover:border-slate-300 transition shadow-xs flex flex-col justify-between space-y-3">
+  <div>
+    <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+      <div class="flex items-center gap-2">
+        <div class="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+        </div>
+        <h4 class="text-sm font-bold text-slate-900">Cotizaciones</h4>
+      </div>
+      <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">2 / 3 Activos</span>
+    </div>
+    <div class="space-y-2.5 text-xs">
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input checked="" class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-800 font-medium leading-tight">Ver listado de cotizaciones</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input checked="" class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-800 font-medium leading-tight">Agregar ítems y dar seguimiento técnico</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Crear, enviar, aprobar y rechazar formalmente</span>
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- Módulo 4: Órdenes de Trabajo (Core Técnico) -->
+<div class="border border-torque-300/80 rounded-xl p-4 bg-torque-50/20 hover:border-torque-400 transition shadow-xs flex flex-col justify-between space-y-3">
+  <div>
+    <div class="flex items-center justify-between pb-3 mb-3 border-b border-torque-100">
+      <div class="flex items-center gap-2">
+        <div class="p-1.5 rounded-lg bg-torque-100 text-torque-700">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+        </div>
+        <h4 class="text-sm font-bold text-slate-900">Órdenes de Trabajo</h4>
+      </div>
+      <span class="text-[11px] font-bold text-torque-700 bg-torque-100 px-2 py-0.5 rounded-full">4 / 10 Activos</span>
+    </div>
+    <div class="space-y-2.5 text-xs">
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input checked="" class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-900 font-semibold leading-tight">Ver órdenes asignadas</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Ver todas las órdenes de la sede</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Crear nueva orden de trabajo</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input checked="" class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-800 font-medium leading-tight">Agregar trabajo y diagnósticos a la orden</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Quitar ítems, fotos, daños y actas</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input checked="" class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-800 font-medium leading-tight">Cambiar estado del flujo de la orden</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input checked="" class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-800 font-medium leading-tight">Entregar y autorizar salida de vehículo</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Asignar prioridad y mecánicos</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Reasignar o cambiar mecánicos asignados</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer pt-1 border-t border-torque-100">
+        <input class="mt-0.5 rounded border-slate-300 text-red-600 focus:ring-red-500" type="checkbox">
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-700 font-medium leading-tight">Anular órdenes de trabajo</span>
+          <span class="text-[10px] font-semibold bg-red-100 text-red-700 px-1.5 py-0.2 rounded">Crítico</span>
+        </div>
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- Módulo 5: Dinero & Caja -->
+<div class="border border-slate-200 rounded-xl p-4 bg-white hover:border-slate-300 transition shadow-xs flex flex-col justify-between space-y-3">
+  <div>
+    <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+      <div class="flex items-center gap-2">
+        <div class="p-1.5 rounded-lg bg-teal-50 text-teal-600">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+        </div>
+        <h4 class="text-sm font-bold text-slate-900">Dinero &amp; Caja</h4>
+      </div>
+      <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">0 / 11 Activos</span>
+    </div>
+    <div class="space-y-2.5 text-xs">
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Ver facturas y recibos de pago</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Facturar y registrar pagos de clientes</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Vender y devolver productos en mostrador</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Registrar y devolver anticipos o pagos a cuenta</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Apertura y cierre de caja diaria</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Ver cartera y cuentas por cobrar</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Ver cuentas por pagar del taller</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Registrar gastos operativos</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Editar o anular gastos registrados</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer pt-1 border-t border-slate-100">
+        <input class="mt-0.5 rounded border-slate-300 text-red-600 focus:ring-red-500" type="checkbox">
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-700 font-medium leading-tight">Dar descuentos sin tope ni límite</span>
+          <span class="text-[10px] font-semibold bg-red-100 text-red-700 px-1.5 py-0.2 rounded">Crítico</span>
+        </div>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-red-600 focus:ring-red-500" type="checkbox">
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-700 font-medium leading-tight">Devolver ventas de cajas ya cerradas</span>
+          <span class="text-[10px] font-semibold bg-red-100 text-red-700 px-1.5 py-0.2 rounded">Crítico</span>
+        </div>
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- Módulo 6: Inventario & Repuestos -->
+<div class="border border-slate-200 rounded-xl p-4 bg-white hover:border-slate-300 transition shadow-xs flex flex-col justify-between space-y-3">
+  <div>
+    <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+      <div class="flex items-center gap-2">
+        <div class="p-1.5 rounded-lg bg-purple-50 text-purple-600">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+        </div>
+        <h4 class="text-sm font-bold text-slate-900">Inventario &amp; Repuestos</h4>
+      </div>
+      <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">1 / 6 Activos</span>
+    </div>
+    <div class="space-y-2.5 text-xs">
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input checked="" class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-800 font-medium leading-tight">Ver repuestos, bodegas y proveedores</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Crear y editar repuestos, bodegas y proveedores</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Ver pedidos y entradas de stock</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Crear compras, pedidos y entradas de stock</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Crear y editar catálogo de servicios de taller</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer pt-1 border-t border-slate-100">
+        <input class="mt-0.5 rounded border-slate-300 text-red-600 focus:ring-red-500" type="checkbox">
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-700 font-medium leading-tight">Ver costos, márgenes y valor de inventario</span>
+          <span class="text-[10px] font-semibold bg-red-100 text-red-700 px-1.5 py-0.2 rounded">Crítico</span>
+        </div>
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- Módulo 7: Administración & Reportes -->
+<div class="border border-slate-200 rounded-xl p-4 bg-white hover:border-slate-300 transition shadow-xs flex flex-col justify-between space-y-3 lg:col-span-3 md:col-span-2">
+  <div>
+    <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+      <div class="flex items-center gap-2">
+        <div class="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+        </div>
+        <div>
+          <h4 class="text-sm font-bold text-slate-900">Administración General &amp; Reportes</h4>
+          <p class="text-[11px] text-slate-400">Supervisión estratégica, liquidación de comisiones y auditoría del sistema</p>
+        </div>
+      </div>
+      <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">0 / 6 Activos</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Reporte de productividad por mecánico</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Liquidaciones de comisiones de mecánicos</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-torque-600 focus:ring-torque-500" type="checkbox">
+        <span class="text-slate-600 leading-tight">Importación y exportación de datos a Excel / CSV</span>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input class="mt-0.5 rounded border-slate-300 text-red-600 focus:ring-red-500" type="checkbox">
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-700 font-medium leading-tight">Reporte financiero y rentabilidad neta</span>
+          <span class="text-[10px] font-semibold bg-red-100 text-red-700 px-1.5 py-0.2 rounded">Crítico</span>
+        </div>
+      </label>
+      <label class="flex items-start gap-2.5 cursor-pointer md:col-span-2">
+        <input class="mt-0.5 rounded border-slate-300 text-red-600 focus:ring-red-500" type="checkbox">
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-700 font-medium leading-tight">Ver bitácora de auditoría de seguridad y acciones</span>
+          <span class="text-[10px] font-semibold bg-red-100 text-red-700 px-1.5 py-0.2 rounded">Crítico</span>
+        </div>
+      </label>
+    </div>
+  </div>
+</div></div>
+</section>
+<!-- END: PermissionsSection -->
+<!-- BEGIN: DangerZoneSection -->
+<section class="bg-red-50/50 rounded-2xl border border-red-200/70 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4" data-purpose="danger-zone">
+<div>
+<h4 class="text-sm font-bold text-red-900 flex items-center gap-2">
+<svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+            Zona de Peligro
+          </h4>
+<p class="text-xs text-red-700 mt-1">Una vez eliminado el usuario, se revocarán todos sus accesos de inmediato y las órdenes quedarán sin técnico asignado.</p>
+</div>
+<button class="px-4 py-2.5 text-xs font-semibold text-red-700 bg-white border border-red-300 rounded-xl hover:bg-red-600 hover:text-white transition shadow-sm flex items-center justify-center gap-2 whitespace-nowrap" type="button">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+          Eliminar Usuario Definitivamente
+        </button>
+</section>
+<!-- END: DangerZoneSection -->
+</main>
+<!-- END: MainScrollContainer -->
+<!-- BEGIN: StickyFooterNotification -->
+<footer class="bg-white border-t border-slate-200 px-6 py-3.5 flex items-center justify-between text-xs text-slate-500" data-purpose="save-notification-bar">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-torque-500"></span>
+<span class="">Tienes cambios sin guardar en la configuración de permisos.</span>
+</div>
+<div class="flex items-center gap-3">
+<button class="font-medium text-slate-500 hover:text-slate-800 transition" type="button">Descartar</button>
+<button class="px-4 py-2 bg-torque-600 hover:bg-torque-700 text-white font-bold rounded-lg shadow-sm transition" type="button">Guardar cambios</button>
+</div>
+</footer>
+<!-- END: StickyFooterNotification -->
+</div>
+<!-- END: MainContentArea -->
+<!-- BEGIN: InteractiveScripts -->
+<script data-purpose="interactive-filtering">
+    // Live Search for permission items
+    document.addEventListener('DOMContentLoaded', () => {
+      const searchInput = document.getElementById('permission-search');
+      const cards = document.querySelectorAll('#permissions-container > div');
+
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          const query = e.target.value.toLowerCase().trim();
+
+          cards.forEach(card => {
+            const labels = card.querySelectorAll('label');
+            let hasMatchInCard = false;
+
+            labels.forEach(label => {
+              const text = label.textContent.toLowerCase();
+              if (text.includes(query)) {
+                label.style.display = 'flex';
+                hasMatchInCard = true;
+              } else {
+                label.style.display = query === '' ? 'flex' : 'none';
+              }
+            });
+
+            // Toggle whole card visibility if search query exists
+            if (query !== '' && !hasMatchInCard) {
+              card.style.display = 'none';
+            } else {
+              card.style.display = 'flex';
+            }
+          });
+        });
+      }
+    });
+  </script>
+<!-- END: InteractiveScripts -->
+
+
+</body></html>
