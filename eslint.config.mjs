@@ -15,6 +15,28 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  // Núcleo de factura electrónica: reutilizable fuera de TorqueFlow, no puede
+  // depender de la app (ver docs/superpowers/specs/2026-11-20-factura-electronica-design.md).
+  {
+    files: ["src/modulos/factura-electronica/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/*", "**/lib/**", "**/app/**", "**/components/**", "**/generated/**"],
+              message: "El núcleo de factura electrónica no puede importar código de la app.",
+            },
+            {
+              group: ["next", "next/*", "react", "react-dom", "@prisma/*"],
+              message: "El núcleo de factura electrónica solo usa TypeScript, fetch y Web Crypto.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
