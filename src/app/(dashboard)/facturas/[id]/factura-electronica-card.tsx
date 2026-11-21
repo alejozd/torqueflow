@@ -121,7 +121,7 @@ export function FacturaElectronicaCard({
         ) : null}
 
         {state.error ? <p className="text-destructive">{state.error}</p> : null}
-        {state.success && state.mensaje ? <p>{state.mensaje}</p> : null}
+        {state.success && state.mensaje && estado !== "ANULADO" ? <p>{state.mensaje}</p> : null}
         {state.errores.length > 0 ? (
           <ul className="flex flex-col gap-1">
             {state.errores.map((e) => (

@@ -4,8 +4,10 @@ import {
   ENVIO_INTERRUMPIDO_MS,
   TEXTO_ESTADO_DIAN,
   cuentaParaDian,
+  estaAnulada,
   estadoDian,
   necesitaAtencionDian,
+  resumenCobros,
   textoEstadoDian,
 } from "./textos";
 
@@ -62,5 +64,34 @@ describe("textos del estado DIAN", () => {
     expect(TEXTO_ESTADO_DIAN.ACEPTADO.etiqueta).toBe("Aceptada por la DIAN");
     expect(TEXTO_ESTADO_DIAN.RECHAZADO.tono).toBe("error");
     expect(TEXTO_ESTADO_DIAN.SIN_ENVIAR.etiqueta).toBe("Sin enviar a la DIAN");
+  });
+});
+
+describe("estaAnulada", () => {
+  it("es true solo si el documento FACTURA está ANULADO", () => {
+    expect(estaAnulada({ documentosElectronicos: [{ tipo: "FACTURA", estado: "ANULADO" }] })).toBe(true);
+    expect(estaAnulada({ documentosElectronicos: [{ estado: "ANULADO" }] })).toBe(true);
+    expect(estaAnulada({ documentosElectronicos: [{ tipo: "FACTURA", estado: "ACEPTADO" }] })).toBe(false);
+    expect(estaAnulada({ documentosElectronicos: [{ tipo: "NOTA_CREDITO", estado: "ANULADO" }] })).toBe(false);
+    expect(estaAnulada({ documentosElectronicos: [] })).toBe(false);
+    expect(estaAnulada({})).toBe(false);
+  });
+});
+
+describe("resumenCobros", () => {
+  const f = (total: number, saldo: number, estado: "PENDIENTE" | "PAGADA", anulada = false) => ({
+    total,
+    saldoPendiente: saldo,
+    estado,
+    documentosElectronicos: anulada ? [{ tipo: "FACTURA", estado: "ANULADO" }] : [],
+  });
+
+  it("las anuladas no cuentan como cobradas ni pagadas", () => {
+    const r = resumenCobros([f(100, 0, "PAGADA"), f(300, 0, "PAGADA", true), f(50, 20, "PENDIENTE")]);
+    expect(r).toEqual({ cobrado: 130, pagadas: 1, ticketPromedio: 130, porCobrarMonto: 20, pendientes: 1 });
+  });
+
+  it("sin pagadas el ticket es 0", () => {
+    expect(resumenCobros([f(300, 0, "PAGADA", true)]).ticketPromedio).toBe(0);
   });
 });

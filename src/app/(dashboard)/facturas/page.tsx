@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AlertCircle, ArrowDown, ArrowUp, Car, CheckCircle, DollarSign, FileText } from "lucide-react";
 import { listFacturas, listOrdenesFacturables, type FacturaWithDetalle } from "@/app/actions/factura-actions";
 import { getResumenFeTaller } from "@/app/actions/factura-electronica-actions";
-import { cuentaParaDian, estadoDian, necesitaAtencionDian } from "@/lib/factura-electronica/textos";
+import { cuentaParaDian, estaAnulada, estadoDian, necesitaAtencionDian, resumenCobros } from "@/lib/factura-electronica/textos";
 import { InsigniaDian } from "./estado-dian";
 import { NuevaFacturaDialog } from "./nueva-factura-dialog";
 import type { EstadoFactura } from "@/generated/prisma-tenant";
@@ -186,18 +186,24 @@ function buildColumns(
     },
     {
       header: <SortableHeader label="Estado" sortKey="estado" {...sortableHeaderProps} />,
-      cell: (factura) => (
-        <Badge
-          variant={ESTADO_BADGE_VARIANT[factura.estado]}
-          className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[factura.estado])}
-        >
-          <span
-            className="size-1.5 shrink-0 rounded-full"
-            style={{ background: ESTADO_DOT_COLOR[factura.estado] }}
-          />
-          {ESTADO_LABELS[factura.estado]}
-        </Badge>
-      ),
+      cell: (factura) =>
+        estaAnulada(factura) ? (
+          <Badge variant="outline" className="gap-1.5 text-muted-foreground">
+            <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground" />
+            Anulada
+          </Badge>
+        ) : (
+          <Badge
+            variant={ESTADO_BADGE_VARIANT[factura.estado]}
+            className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[factura.estado])}
+          >
+            <span
+              className="size-1.5 shrink-0 rounded-full"
+              style={{ background: ESTADO_DOT_COLOR[factura.estado] }}
+            />
+            {ESTADO_LABELS[factura.estado]}
+          </Badge>
+        ),
     },
     ...(fe.activa
       ? [
@@ -258,7 +264,10 @@ export default async function FacturasPage({
   ]);
   const ahora = new Date();
   const filtradas = facturas
-    .filter((factura) => !estadoFiltro || factura.estado === estadoFiltro)
+    .filter(
+      (factura) =>
+        !estadoFiltro || (factura.estado === estadoFiltro && !(estadoFiltro === "PAGADA" && estaAnulada(factura))),
+    )
     .filter(
       (factura) =>
         !filtroDian ||
@@ -278,16 +287,8 @@ export default async function FacturasPage({
   const finMes = inicioMesBogota(ahora, 1);
   const emitidasMes = facturas.filter((factura) => factura.createdAt >= inicioMes && factura.createdAt < finMes);
 
-  const pendientes = facturas.filter((factura) => factura.estado === "PENDIENTE");
-  const porCobrarMonto = pendientes.reduce((suma, factura) => suma + Number(factura.saldoPendiente), 0);
-
-  // "Cobrado" = total ya pagado de cada factura (total - saldoPendiente), sin
-  // importar su estado actual: cubre un abono parcial sobre una factura que
-  // sigue PENDIENTE, no solo las que ya quedaron en PAGADA.
-  const cobrado = facturas.reduce((suma, factura) => suma + (Number(factura.total) - Number(factura.saldoPendiente)), 0);
-
-  const pagadas = facturas.filter((factura) => factura.estado === "PAGADA");
-  const ticketPromedio = pagadas.length > 0 ? cobrado / pagadas.length : 0;
+  // Las anuladas con nota crédito no cuentan como cobradas ni pagadas.
+  const { cobrado, pagadas, ticketPromedio, porCobrarMonto, pendientes } = resumenCobros(facturas);
 
   return (
     <main className="flex flex-col gap-6">
@@ -315,10 +316,10 @@ export default async function FacturasPage({
           title="Por cobrar"
           value={formatoMoneda.format(porCobrarMonto)}
           valueColor="warning"
-          subtitle={`${pendientes.length} ${pendientes.length === 1 ? "factura" : "facturas"} con saldo pendiente`}
+          subtitle={`${pendientes} ${pendientes === 1 ? "factura" : "facturas"} con saldo pendiente`}
           subtitleColor="warning"
           subtitleIcon="dot"
-          highlight={pendientes.length > 0}
+          highlight={pendientes > 0}
           icon={<AlertCircle className={cn("size-5", KPI_TONE.warning.icon)} />}
           iconBgColor={KPI_TONE.warning.iconBg}
           className={KPI_TONE.warning.cardBg}
@@ -328,7 +329,7 @@ export default async function FacturasPage({
           title="Cobrado"
           value={formatoMoneda.format(cobrado)}
           valueColor="success"
-          subtitle={`${pagadas.length} ${pagadas.length === 1 ? "factura pagada" : "facturas pagadas"}`}
+          subtitle={`${pagadas} ${pagadas === 1 ? "factura pagada" : "facturas pagadas"}`}
           subtitleColor="success"
           subtitleIcon="up"
           icon={<CheckCircle className={cn("size-5", KPI_TONE.success.icon)} />}
@@ -338,9 +339,9 @@ export default async function FacturasPage({
 
         <KpiCard
           title="Ticket promedio"
-          value={pagadas.length > 0 ? formatoMoneda.format(ticketPromedio) : "—"}
+          value={pagadas > 0 ? formatoMoneda.format(ticketPromedio) : "—"}
           valueColor="success"
-          subtitle={pagadas.length > 0 ? `sobre ${pagadas.length} ${pagadas.length === 1 ? "factura pagada" : "facturas pagadas"}` : "Sin facturas pagadas aún"}
+          subtitle={pagadas > 0 ? `sobre ${pagadas} ${pagadas === 1 ? "factura pagada" : "facturas pagadas"}` : "Sin facturas pagadas aún"}
           icon={<DollarSign className={cn("size-5", KPI_TONE.success.icon)} />}
           iconBgColor={KPI_TONE.success.iconBg}
           className={KPI_TONE.success.cardBg}

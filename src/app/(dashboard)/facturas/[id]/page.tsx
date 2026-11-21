@@ -9,6 +9,7 @@ import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPI_TONE } from "@/components/ui/kpi-card";
+import { estaAnulada } from "@/lib/factura-electronica/textos";
 import { formatoFechaCorta } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
 import { puede, requirePermiso } from "@/lib/auth/guards";
@@ -168,6 +169,7 @@ export default async function FacturaDetailPage({ params }: { params: Promise<{ 
   const detalleRows = buildDetalleRows(factura);
   // El desglose que quedó al emitir: no se recalcula aunque la orden cambie después.
   const desgloseIva = leerDesgloseGuardado(factura.desgloseIva);
+  const anulada = estaAnulada(factura);
   const cobrado = Number(factura.total) - Number(factura.saldoPendiente);
   const saldoTone = Number(factura.saldoPendiente) > 0 ? KPI_TONE.warning : KPI_TONE.success;
 
@@ -183,16 +185,23 @@ export default async function FacturaDetailPage({ params }: { params: Promise<{ 
       <div>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold tracking-tight">Factura #{factura.numero}</h1>
-          <Badge
-            variant={ESTADO_BADGE_VARIANT[factura.estado]}
-            className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[factura.estado])}
-          >
-            <span
-              className="size-1.5 shrink-0 rounded-full"
-              style={{ background: ESTADO_DOT_COLOR[factura.estado] }}
-            />
-            {ESTADO_LABELS[factura.estado]}
-          </Badge>
+          {anulada ? (
+            <Badge variant="outline" className="gap-1.5 text-muted-foreground">
+              <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground" />
+              Anulada
+            </Badge>
+          ) : (
+            <Badge
+              variant={ESTADO_BADGE_VARIANT[factura.estado]}
+              className={cn("gap-1.5", ESTADO_BADGE_CLASSNAME[factura.estado])}
+            >
+              <span
+                className="size-1.5 shrink-0 rounded-full"
+                style={{ background: ESTADO_DOT_COLOR[factura.estado] }}
+              />
+              {ESTADO_LABELS[factura.estado]}
+            </Badge>
+          )}
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
           {factura.cliente.nombre} · {factura.orden.vehiculo.placa} · {formatoFechaCorta.format(factura.createdAt)}
@@ -274,7 +283,7 @@ export default async function FacturaDetailPage({ params }: { params: Promise<{ 
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <RegistrarPagoForm facturaId={factura.id} estado={factura.estado} />
+              {anulada ? null : <RegistrarPagoForm facturaId={factura.id} estado={factura.estado} />}
               <DataTable
                 columns={PAGOS_COLUMNS}
                 rows={factura.pagos}
@@ -330,6 +339,12 @@ export default async function FacturaDetailPage({ params }: { params: Promise<{ 
                 <span className="text-sm font-semibold">Total</span>
                 <span className="font-mono text-lg font-semibold">{formatoMoneda.format(Number(factura.total))}</span>
               </div>
+              {anulada ? (
+                <div className="mt-2 rounded-lg bg-muted px-3 py-2.5 text-sm font-medium text-muted-foreground">
+                  Anulada con nota crédito
+                </div>
+              ) : (
+                <>
               <div className="flex items-center justify-between py-1.5 text-sm">
                 <span className="text-muted-foreground">Cobrado</span>
                 <span className={cn("font-mono", KPI_TONE.success.icon)}>{formatoMoneda.format(cobrado)}</span>
@@ -340,6 +355,8 @@ export default async function FacturaDetailPage({ params }: { params: Promise<{ 
                   {formatoMoneda.format(Number(factura.saldoPendiente))}
                 </span>
               </div>
+                </>
+              )}
             </CardContent>
           </Card>
           {facturaFe ? (

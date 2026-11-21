@@ -79,3 +79,26 @@ export function cuentaParaDian(facturaCreadaAt: Date, activadaDesde: Date | null
 
 /** Estados de documento que el filtro y el conteo consideran pendientes (la falta de documento se trata aparte). */
 export const ESTADOS_DOCUMENTO_PENDIENTES: EstadoDocumentoElectronico[] = ["PENDIENTE", "POR_CONFIRMAR", "RECHAZADO"];
+
+/** La factura quedó anulada por una nota crédito: su documento FACTURA está ANULADO (la factura de TorqueFlow no cambia de estado). */
+export function estaAnulada(f: { documentosElectronicos?: { tipo?: string; estado: string }[] }): boolean {
+  return (f.documentosElectronicos ?? []).some((d) => (d.tipo === undefined || d.tipo === "FACTURA") && d.estado === "ANULADO");
+}
+
+/** Cifras de la lista de facturas: una anulada no cuenta como cobrada ni como pagada. */
+export function resumenCobros(
+  facturas: {
+    total: unknown;
+    saldoPendiente: unknown;
+    estado: "PENDIENTE" | "PAGADA";
+    documentosElectronicos?: { tipo?: string; estado: string }[];
+  }[],
+) {
+  const vigentes = facturas.filter((f) => !estaAnulada(f));
+  const pendientes = vigentes.filter((f) => f.estado === "PENDIENTE");
+  const porCobrarMonto = pendientes.reduce((s, f) => s + Number(f.saldoPendiente), 0);
+  // Total ya pagado de cada factura (cubre abonos sobre una PENDIENTE).
+  const cobrado = vigentes.reduce((s, f) => s + (Number(f.total) - Number(f.saldoPendiente)), 0);
+  const pagadas = vigentes.filter((f) => f.estado === "PAGADA").length;
+  return { cobrado, pagadas, ticketPromedio: pagadas > 0 ? cobrado / pagadas : 0, porCobrarMonto, pendientes: pendientes.length };
+}
