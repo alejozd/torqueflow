@@ -53,18 +53,29 @@ Exporta todo desde `index.ts`.
 ### 3.2 Contrato del proveedor
 
 ```ts
+interface ReferenciaDocumento { tipo: "FACTURA" | "NOTA_CREDITO"; prefijo: string; numero: number; cufe?: string }
+
 interface ProveedorFacturaElectronica {
   enviar(doc: DocumentoElectronico): Promise<ResultadoEnvio>;
-  consultarEstado(ref: { prefijo: string; numero: number; cufe?: string }): Promise<ResultadoEnvio | { estado: "NO_ENCONTRADO" }>;
-  descargar(cufe: string, formato: "PDF" | "XML"): Promise<Uint8Array>;
+  consultarEstado(ref: ReferenciaDocumento): Promise<ResultadoEnvio | { estado: "NO_ENCONTRADO" }>;
+  descargar(ref: ReferenciaDocumento, formato: "PDF" | "XML"): Promise<Uint8Array>;
   probarConexion(): Promise<{ ok: true } | { ok: false; mensaje: string }>;
 }
 
 type ResultadoEnvio =
-  | { estado: "ACEPTADO"; cufe: string; fechaValidacion: string; advertencias: MensajeDian[]; xml?: Uint8Array; pdf?: Uint8Array }
-  | { estado: "RECHAZADO"; motivos: MensajeDian[] }
-  | { estado: "ERROR_TEMPORAL"; mensaje: string };   // caída, tiempo agotado, 5xx
+  | { estado: "ACEPTADO"; cufe: string; fechaValidacion: string; advertencias: MensajeDian[] }
+  | { estado: "RECHAZADO"; motivos: MensajeDian[] }                 // DIAN o validación del proveedor (422)
+  | { estado: "ERROR_TEMPORAL"; mensaje: string }                   // caída, tiempo agotado, 5xx
+  | { estado: "ERROR_CONFIGURACION"; mensaje: string };             // token inválido (401/403)
 ```
+
+Ajustes tras leer la documentación real de Nextpyme: los archivos se descargan por
+prefijo+número (`/download/{nit}/FES-{prefijo}{numero}.pdf`), no por CUFE, así que el XML/PDF
+no viajan en `ACEPTADO` sino que se piden con `descargar`. Nextpyme solo consulta estado por
+CUFE: sin CUFE, `consultarEstado` responde `NO_ENCONTRADO` y el reenvío con el mismo número
+devuelve la Regla 90 ("documento procesado anteriormente"), que el servicio interpreta como
+"ya estaba en la DIAN". `ERROR_CONFIGURACION` no deja el documento en `POR_CONFIRMAR` (seguro
+no llegó a la DIAN) sino en `PENDIENTE` con aviso de revisar el token.
 
 Fábrica: `crearProveedor({ ambiente, token })` → `SIMULADO` devuelve el simulado; `PRUEBAS`
 y `PRODUCCION` devuelven el de Nextpyme con su URL/ambiente.
