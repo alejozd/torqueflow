@@ -28,3 +28,7 @@ Final fix: re-review 5/5 ADDRESSED (28e3f3c..191f342)
 Final: parked — reenvío con fecha nueva que termina en ERROR_TEMPORAL deja la fecha nueva; un segundo reintento ya no busca el día original — Ruling: se deja para después (arreglo: no persistir la fecha nueva hasta tener respuesta no temporal); costo si es incorrecto: una factura podría quedar POR_CONFIRMAR indefinida en ese caso raro
 Final: minor (deferred): "Completar anulación" sin ConfirmacionEnLinea (recuperación idempotente); default del select de concepto probado con mock
 Deploy: la migración 20261120130000 debe aplicarse (con permiso) a taller_dev_reference y producción ANTES del build; taller_dev ya la tiene
+
+Resuelto 2026-11-21 (66e72bb): el caso "reenvío con fecha nueva + ERROR_TEMPORAL" ya conserva la fecha original (también con excepción, Regla 90 y ERROR_CONFIGURACION).
+
+Pendiente externo: sandbox de Nextpyme (adaptador real, ambiente por tipo de documento, endpoint de copia de respuesta, pruebas de habilitación). Se retoma cuando Nextpyme envíe la información. Merge a main: después del sandbox.
