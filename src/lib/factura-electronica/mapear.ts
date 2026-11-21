@@ -163,3 +163,13 @@ export function mapearFactura(f: FacturaParaMapear, n: DatosNumeracion): Resulta
     tolerancia: toleranciaRedondeo(lineas),
   };
 }
+
+/** Resumen para la ficha del cliente (se calcula en el servidor: este módulo no va al navegador). */
+export function estadoDatosFeCliente(c: ClienteParaMapear): { completo: boolean; texto: string } {
+  const { adquirente, errores } = adquirenteDesdeCliente(c);
+  if (adquirente.tipo === "CONSUMIDOR_FINAL") return { completo: false, texto: "Incompletos: se facturará como consumidor final." };
+  if (errores.length > 0 || !adquirente.municipioDane || !adquirente.direccion || !adquirente.numeroDocumento) {
+    return { completo: false, texto: "Incompletos: no se podrá enviar la factura hasta completarlos." };
+  }
+  return { completo: true, texto: "Completos" };
+}

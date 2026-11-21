@@ -8,7 +8,7 @@ import {
   type EnvioFeState,
   type FacturaFeVista,
 } from "@/app/actions/factura-electronica-actions";
-import { TEXTO_ESTADO_DIAN, estadoDian, type TonoDian } from "@/lib/factura-electronica/textos";
+import { estadoDian, textoEstadoDian, type TonoDian } from "@/lib/factura-electronica/textos";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,24 +24,25 @@ const CLASE_TONO: Record<TonoDian, string> = {
   neutro: "",
 };
 
-const NOMBRE_AMBIENTE = { SIMULADO: "Simulado", PRUEBAS: "Pruebas" } as const;
-
 export function FacturaElectronicaCard({
   facturaId,
   clienteId,
   vista,
   puedeFacturar,
   puedeConfigurar,
+  ahora,
 }: {
   facturaId: string;
   clienteId: string;
   vista: FacturaFeVista;
   puedeFacturar: boolean;
   puedeConfigurar: boolean;
+  /** Hora del servidor: decide si un envío quedó interrumpido sin depender del reloj del navegador. */
+  ahora: Date;
 }) {
   const doc = vista.documento;
-  const estado = estadoDian(doc);
-  const texto = TEXTO_ESTADO_DIAN[estado];
+  const estado = estadoDian(doc, ahora);
+  const texto = textoEstadoDian(estado, doc?.ambiente);
   const accion = doc ? reenviarDocumentoAction.bind(null, facturaId, doc.id) : enviarFacturaDianAction.bind(null, facturaId);
   const [state, formAction, pendiente] = useActionState(accion, inicial);
   const puedeEnviar = puedeFacturar && estado !== "ACEPTADO" && estado !== "ANULADO";
@@ -77,10 +78,6 @@ export function FacturaElectronicaCard({
               </div>
             ) : null}
           </div>
-        ) : null}
-
-        {doc && doc.estado === "ACEPTADO" && doc.ambiente !== "PRODUCCION" ? (
-          <p className="text-[oklch(0.55_0.15_60)]">Enviada en {NOMBRE_AMBIENTE[doc.ambiente]}: no tiene validez ante la DIAN.</p>
         ) : null}
 
         {doc && doc.estado === "ACEPTADO" && (doc.pdfRuta || doc.xmlRuta) ? (

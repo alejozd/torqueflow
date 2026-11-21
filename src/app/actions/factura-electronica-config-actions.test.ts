@@ -9,9 +9,11 @@ vi.mock("@/lib/auth/guards", () => ({
 const mockFindUnique = vi.fn();
 const mockUpsert = vi.fn();
 const mockUpdate = vi.fn();
+const mockAggregate = vi.fn();
 vi.mock("@/lib/db/tenant-client", () => ({
   getTenantDb: () => ({
     configuracionFacturaElectronica: { findUnique: mockFindUnique, upsert: mockUpsert, update: mockUpdate },
+    documentoElectronico: { aggregate: mockAggregate },
   }),
 }));
 
@@ -105,6 +107,7 @@ function fila(extra: Record<string, unknown> = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   mockRequirePermiso.mockResolvedValue(SESION);
+  mockAggregate.mockResolvedValue({ _max: { numero: null } });
   process.env.SMTP_ENCRYPTION_KEY = "0".repeat(63) + "1";
 });
 
@@ -150,6 +153,28 @@ describe("guardarConfiguracionFeAction", () => {
     mockFindUnique.mockResolvedValue(fila());
     await guardarConfiguracionFeAction(inicial, form({ resolucionNumero: "18760000999", rangoDesde: "100", rangoHasta: "900" }));
     expect(mockUpsert.mock.calls[0][0].update.siguienteConsecutivo).toBe(100);
+  });
+
+  it("una resolución nueva con el mismo prefijo sigue después del último número usado en ese ambiente", async () => {
+    mockFindUnique.mockResolvedValue(fila());
+    mockAggregate.mockResolvedValue({ _max: { numero: 57 } });
+    await guardarConfiguracionFeAction(inicial, form({ resolucionNumero: "18760000999" }));
+    expect(mockAggregate).toHaveBeenCalledWith({
+      _max: { numero: true },
+      where: { tipo: "FACTURA", ambiente: "SIMULADO", prefijo: "SETP" },
+    });
+    expect(mockUpsert.mock.calls[0][0].update.siguienteConsecutivo).toBe(58);
+  });
+
+  it("una resolución con prefijo nuevo y sin documentos arranca en el inicio del rango", async () => {
+    mockFindUnique.mockResolvedValue(fila());
+    mockAggregate.mockResolvedValue({ _max: { numero: null } });
+    await guardarConfiguracionFeAction(inicial, form({ prefijo: "FE", rangoDesde: "300" }));
+    expect(mockAggregate).toHaveBeenCalledWith({
+      _max: { numero: true },
+      where: { tipo: "FACTURA", ambiente: "SIMULADO", prefijo: "FE" },
+    });
+    expect(mockUpsert.mock.calls[0][0].update.siguienteConsecutivo).toBe(300);
   });
 
   it("pasar a producción pide confirmación", async () => {

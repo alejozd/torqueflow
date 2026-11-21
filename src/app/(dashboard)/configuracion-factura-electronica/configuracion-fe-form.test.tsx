@@ -36,11 +36,12 @@ const vista: ConfiguracionFeVista = {
   ultimaPruebaMensaje: null,
   ambienteProveedor: null,
 };
+const AHORA = new Date("2026-11-21T12:00:00.000Z");
 const MUNICIPIOS = [{ codigo: "05001", nombre: "Medellín", departamento: "Antioquia" }];
 
 describe("ConfiguracionFeForm", () => {
   it("llena los datos guardados y nunca muestra el token", () => {
-    render(<ConfiguracionFeForm configuracion={vista} municipios={MUNICIPIOS} />);
+    render(<ConfiguracionFeForm configuracion={vista} municipios={MUNICIPIOS} ahora={AHORA} />);
     expect(screen.getByLabelText<HTMLInputElement>("NIT (sin DV)").value).toBe("900123456");
     expect(screen.getByLabelText<HTMLInputElement>("Prefijo").value).toBe("SETP");
     expect(screen.getByLabelText<HTMLInputElement>("Token del proveedor").value).toBe("");
@@ -49,23 +50,34 @@ describe("ConfiguracionFeForm", () => {
   });
 
   it("al elegir producción pide confirmación antes de guardar", () => {
-    render(<ConfiguracionFeForm configuracion={vista} municipios={MUNICIPIOS} />);
+    render(<ConfiguracionFeForm configuracion={vista} municipios={MUNICIPIOS} ahora={AHORA} />);
     fireEvent.click(screen.getByLabelText("Producción (con validez ante la DIAN)"));
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     expect(screen.getByRole("group", { name: "¿Pasar a producción? Desde ahí las facturas tienen validez ante la DIAN." })).toBeInTheDocument();
   });
 
   it("con la bolsa de TorqueFlow no deja escribir token", () => {
-    render(<ConfiguracionFeForm configuracion={{ ...vista, cuenta: "BOLSA" }} municipios={MUNICIPIOS} />);
+    render(<ConfiguracionFeForm configuracion={{ ...vista, cuenta: "BOLSA" }} municipios={MUNICIPIOS} ahora={AHORA} />);
     expect(screen.queryByLabelText("Token del proveedor")).toBeNull();
     expect(screen.getByText("Con la bolsa de TorqueFlow, el token lo registra TorqueFlow.")).toBeInTheDocument();
   });
 
   it("el resultado simulado solo aparece en Simulado", () => {
-    const { unmount } = render(<ConfiguracionFeForm configuracion={vista} municipios={MUNICIPIOS} />);
+    const { unmount } = render(<ConfiguracionFeForm configuracion={vista} municipios={MUNICIPIOS} ahora={AHORA} />);
     expect(screen.queryByText("Resultado simulado")).toBeNull();
     unmount();
-    render(<ConfiguracionFeForm configuracion={{ ...vista, ambiente: "SIMULADO" }} municipios={MUNICIPIOS} />);
+    render(<ConfiguracionFeForm configuracion={{ ...vista, ambiente: "SIMULADO" }} municipios={MUNICIPIOS} ahora={AHORA} />);
     expect(screen.getByText("Resultado simulado")).toBeInTheDocument();
+  });
+
+  it("la última prueba se cuenta desde la hora que manda el servidor", () => {
+    render(
+      <ConfiguracionFeForm
+        configuracion={{ ...vista, ultimaPruebaAt: new Date("2026-11-21T11:55:00.000Z"), ultimaPruebaExitosa: true }}
+        municipios={MUNICIPIOS}
+        ahora={AHORA}
+      />,
+    );
+    expect(screen.getByText(/Última prueba Hace 5 minutos/)).toBeInTheDocument();
   });
 });

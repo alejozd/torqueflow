@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
-import { TEXTO_ESTADO_DIAN, type EstadoDian, type TonoDian } from "@/lib/factura-electronica/textos";
+import { textoEstadoDian, type EstadoDian, type TonoDian } from "@/lib/factura-electronica/textos";
+import type { AmbienteFacturaElectronica } from "@/generated/prisma-tenant";
 import { cn } from "@/lib/utils";
 
 const CLASE_TONO: Record<TonoDian, string> = {
@@ -9,8 +10,8 @@ const CLASE_TONO: Record<TonoDian, string> = {
   neutro: "",
 };
 
-export function InsigniaDian({ estado }: { estado: EstadoDian }) {
-  const t = TEXTO_ESTADO_DIAN[estado];
+export function InsigniaDian({ estado, ambiente }: { estado: EstadoDian; ambiente?: AmbienteFacturaElectronica | null }) {
+  const t = textoEstadoDian(estado, ambiente);
   return (
     <Badge variant="outline" className={cn("text-[10px]", CLASE_TONO[t.tono])}>
       {t.etiqueta}

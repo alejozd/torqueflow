@@ -2,7 +2,6 @@
 
 import { useActionState } from "react";
 import { guardarDatosFeClienteAction, type DatosFeClienteState } from "@/app/actions/cliente-fe-actions";
-import { adquirenteDesdeCliente, type ClienteParaMapear } from "@/lib/factura-electronica/mapear";
 import { CampoMunicipio, type MunicipioOpcion } from "@/components/campo-municipio";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,28 +28,29 @@ const RESPONSABILIDADES = [
   { value: "O-47", label: "Régimen simple de tributación" },
 ];
 
-export type ClienteFe = ClienteParaMapear & { id: string };
-
-function estadoDatos(c: ClienteFe): { completo: boolean; texto: string } {
-  const { adquirente, errores } = adquirenteDesdeCliente(c);
-  if (adquirente.tipo === "CONSUMIDOR_FINAL") return { completo: false, texto: "Incompletos: se facturará como consumidor final." };
-  if (errores.length > 0 || !adquirente.municipioDane || !adquirente.direccion || !adquirente.numeroDocumento) {
-    return { completo: false, texto: "Incompletos: no se podrá enviar la factura hasta completarlos." };
-  }
-  return { completo: true, texto: "Completos" };
+/** Solo los campos que se editan aquí; el estado (completos o no) lo calcula el servidor. */
+export interface ClienteFe {
+  id: string;
+  tipoDocumento: string | null;
+  dv: string | null;
+  tipoPersona: string | null;
+  responsabilidadFiscal: string | null;
+  municipioCodigo: string | null;
+  direccion: string | null;
 }
 
 export function DatosFeCliente({
   cliente,
+  estado,
   municipios,
   puedeEditar,
 }: {
   cliente: ClienteFe;
+  estado: { completo: boolean; texto: string };
   municipios: MunicipioOpcion[];
   puedeEditar: boolean;
 }) {
   const [state, formAction, pendiente] = useActionState(guardarDatosFeClienteAction.bind(null, cliente.id), inicial);
-  const estado = estadoDatos(cliente);
 
   return (
     <details id="factura-electronica" className="scroll-mt-16 rounded-xl border border-border bg-card p-4">
@@ -60,7 +60,9 @@ export function DatosFeCliente({
           {estado.texto}
         </Badge>
       </summary>
-      <form action={formAction} className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <form action={formAction}>
+        {/* Sin permiso de editar los campos quedan bloqueados (no hay botón de guardar). */}
+        <fieldset disabled={!puedeEditar} className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="cfe-tipo">Tipo de documento</Label>
           <SelectField id="cfe-tipo" name="tipoDocumento" defaultValue={cliente.tipoDocumento ?? ""} items={TIPOS_DOCUMENTO} />
@@ -100,6 +102,7 @@ export function DatosFeCliente({
             Guardar datos
           </Button>
         ) : null}
+        </fieldset>
       </form>
     </details>
   );

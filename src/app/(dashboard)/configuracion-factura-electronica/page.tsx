@@ -11,7 +11,8 @@ export default async function ConfiguracionFacturaElectronicaPage() {
   // Quien no tenga el permiso es redirigido a /sin-permiso antes de renderizar.
   const session = await requirePermiso("facturaElectronica.configurar");
   const configuracion = await getConfiguracionFe();
-  const avisos = avisosResolucion(configuracion, fechaHoraBogota(new Date()).fecha);
+  const ahora = new Date();
+  const avisos = avisosResolucion(configuracion, fechaHoraBogota(ahora).fecha);
 
   return (
     <main className="flex flex-col gap-4">
@@ -27,7 +28,7 @@ export default async function ConfiguracionFacturaElectronicaPage() {
           <AlertDescription>{aviso}</AlertDescription>
         </Alert>
       ))}
-      <ConfiguracionFeForm configuracion={configuracion} municipios={MUNICIPIOS} />
+      <ConfiguracionFeForm configuracion={configuracion} municipios={MUNICIPIOS} ahora={ahora} />
     </main>
   );
 }

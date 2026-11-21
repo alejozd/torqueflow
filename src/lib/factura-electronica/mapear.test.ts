@@ -1,7 +1,7 @@
 // src/lib/factura-electronica/mapear.test.ts
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { adquirenteDesdeCliente, mapearFactura, type ClienteParaMapear, type FacturaParaMapear } from "./mapear";
+import { adquirenteDesdeCliente, estadoDatosFeCliente, mapearFactura, type ClienteParaMapear, type FacturaParaMapear } from "./mapear";
 
 const sinDatos: ClienteParaMapear = {
   nombre: "Andrea Valencia Ríos",
@@ -145,5 +145,36 @@ describe("adquirenteDesdeCliente", () => {
     const incompleta = adquirenteDesdeCliente({ ...sinDatos, tipoPersona: "JURIDICA" });
     expect(incompleta.adquirente.tipo).toBe("IDENTIFICADO");
     expect(incompleta.errores.map((e) => e.campo)).toEqual(["cliente.tipoDocumento", "cliente.responsabilidadFiscal"]);
+  });
+});
+
+describe("estadoDatosFeCliente", () => {
+  it("persona natural sin datos: irá como consumidor final", () => {
+    expect(estadoDatosFeCliente(sinDatos)).toEqual({ completo: false, texto: "Incompletos: se facturará como consumidor final." });
+  });
+
+  it("empresa completa", () => {
+    expect(estadoDatosFeCliente(empresa)).toEqual({ completo: true, texto: "Completos" });
+  });
+
+  it("persona natural con todos los datos", () => {
+    expect(
+      estadoDatosFeCliente({
+        ...sinDatos,
+        documento: "1020304050",
+        tipoDocumento: "13",
+        tipoPersona: "NATURAL",
+        responsabilidadFiscal: "R-99-PN",
+        municipioCodigo: "11001",
+        direccion: "Cra 7",
+      }),
+    ).toEqual({ completo: true, texto: "Completos" });
+  });
+
+  it("empresa incompleta: no se podrá enviar", () => {
+    expect(estadoDatosFeCliente({ ...sinDatos, documento: "1020304050", tipoPersona: "JURIDICA" })).toEqual({
+      completo: false,
+      texto: "Incompletos: no se podrá enviar la factura hasta completarlos.",
+    });
   });
 });

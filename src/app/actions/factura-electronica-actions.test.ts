@@ -79,6 +79,30 @@ describe("getFacturaFe", () => {
     expect(mockFacturaFindFirst.mock.calls[0][0].where).toEqual({ id: "f1", orden: { sedeId: "s1" } });
     expect(vista).toMatchObject({ activa: true, envio: "MANUAL", cuenta: true, documento: { id: "d1", estado: "ACEPTADO", numero: 7 } });
   });
+
+  it("si los mensajes guardados no son una lista, la vista trae una lista vacía", async () => {
+    mockFacturaFindFirst.mockResolvedValue({
+      createdAt: new Date("2026-11-10T00:00:00Z"),
+      documentosElectronicos: [
+        {
+          id: "d1",
+          estado: "RECHAZADO",
+          prefijo: "SETP",
+          numero: 7,
+          cufe: null,
+          fechaValidacion: null,
+          mensajes: { raro: true },
+          xmlRuta: null,
+          pdfRuta: null,
+          ambiente: "SIMULADO",
+          intentos: 1,
+          ultimoIntentoAt: null,
+        },
+      ],
+    });
+    const vista = await getFacturaFe("f1");
+    expect(vista?.documento?.mensajes).toEqual([]);
+  });
 });
 
 describe("enviarFacturaDianAction", () => {
@@ -138,15 +162,31 @@ describe("contarFacturasSinEnviarDian", () => {
   });
 
   it("cuenta en la sede activa desde la activación las que no tienen documento o lo tienen pendiente", async () => {
-    mockFacturaCount.mockResolvedValue(3);
-    expect(await contarFacturasSinEnviarDian()).toBe(3);
-    expect(mockFacturaCount.mock.calls[0][0].where).toEqual({
-      orden: { sedeId: "s1" },
-      createdAt: { gte: ACTIVADA },
-      OR: [
-        { documentosElectronicos: { none: { tipo: "FACTURA" } } },
-        { documentosElectronicos: { some: { tipo: "FACTURA", estado: { in: ["PENDIENTE", "POR_CONFIRMAR", "RECHAZADO"] } } } },
-      ],
-    });
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-21T12:00:00.000Z"));
+    try {
+      mockFacturaCount.mockResolvedValue(3);
+      expect(await contarFacturasSinEnviarDian()).toBe(3);
+      expect(mockFacturaCount.mock.calls[0][0].where).toEqual({
+        orden: { sedeId: "s1" },
+        createdAt: { gte: ACTIVADA },
+        OR: [
+          { documentosElectronicos: { none: { tipo: "FACTURA" } } },
+          { documentosElectronicos: { some: { tipo: "FACTURA", estado: { in: ["PENDIENTE", "POR_CONFIRMAR", "RECHAZADO"] } } } },
+          // Un envío interrumpido (ENVIANDO hace más de 2 minutos o sin fecha) también está pendiente.
+          {
+            documentosElectronicos: {
+              some: {
+                tipo: "FACTURA",
+                estado: "ENVIANDO",
+                OR: [{ ultimoIntentoAt: null }, { ultimoIntentoAt: { lt: new Date("2026-11-21T11:58:00.000Z") } }],
+              },
+            },
+          },
+        ],
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

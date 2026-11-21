@@ -205,7 +205,10 @@ function buildColumns(
             header: "DIAN",
             cell: (factura: FacturaRow) =>
               cuentaParaDian(factura.createdAt, fe.activadaDesde) || factura.documentosElectronicos.length > 0 ? (
-                <InsigniaDian estado={estadoDian(factura.documentosElectronicos[0])} />
+                <InsigniaDian
+                  estado={estadoDian(factura.documentosElectronicos[0], ahora)}
+                  ambiente={factura.documentosElectronicos[0]?.ambiente}
+                />
               ) : (
                 <span className="text-muted-foreground">—</span>
               ),
@@ -253,6 +256,7 @@ export default async function FacturasPage({
     listOrdenesFacturables(),
     getResumenFeTaller(),
   ]);
+  const ahora = new Date();
   const filtradas = facturas
     .filter((factura) => !estadoFiltro || factura.estado === estadoFiltro)
     .filter(
@@ -260,7 +264,7 @@ export default async function FacturasPage({
         !filtroDian ||
         (fe.activa &&
           cuentaParaDian(factura.createdAt, fe.activadaDesde) &&
-          necesitaAtencionDian(estadoDian(factura.documentosElectronicos[0]))),
+          necesitaAtencionDian(estadoDian(factura.documentosElectronicos[0], ahora))),
     )
     .filter(
       (factura) =>
@@ -270,7 +274,6 @@ export default async function FacturasPage({
         factura.orden.vehiculo.placa.toLowerCase().includes(busqueda),
     );
 
-  const ahora = new Date();
   const inicioMes = inicioMesBogota(ahora);
   const finMes = inicioMesBogota(ahora, 1);
   const emitidasMes = facturas.filter((factura) => factura.createdAt >= inicioMes && factura.createdAt < finMes);
@@ -415,7 +418,7 @@ export default async function FacturasPage({
             rows={sortActual ? [...filtradas].sort((a, b) => compararFacturas(a, b, sortActual, orderActual)) : filtradas}
             getRowKey={(factura) => factura.id}
             rowHref={(factura) => `/facturas/${factura.id}`}
-            emptyMessage="No hay facturas en este estado."
+            emptyMessage={filtroDian ? "No hay facturas pendientes con la DIAN." : "No hay facturas en este estado."}
             headerClassName="bg-muted"
           />
         </CardContent>

@@ -6,7 +6,7 @@ import { getTenantDb } from "@/lib/db/tenant-client";
 import { scopeFactura } from "@/lib/sede/scope";
 import { leerConfiguracionFe } from "@/lib/factura-electronica/configuracion";
 import { emitirDocumentoFactura, reintentarDocumento, type ResultadoFe } from "@/lib/factura-electronica/servicio";
-import { ESTADOS_DOCUMENTO_PENDIENTES, cuentaParaDian } from "@/lib/factura-electronica/textos";
+import { ENVIO_INTERRUMPIDO_MS, ESTADOS_DOCUMENTO_PENDIENTES, cuentaParaDian } from "@/lib/factura-electronica/textos";
 import type { ErrorValidacion, MensajeDian } from "@/modulos/factura-electronica";
 import type { AmbienteFacturaElectronica, EnvioFacturaElectronica, EstadoDocumentoElectronico } from "@/generated/prisma-tenant";
 
@@ -75,7 +75,7 @@ export async function getFacturaFe(facturaId: string): Promise<FacturaFeVista | 
     envio: config.envio,
     ambiente: config.ambiente,
     cuenta: cuentaParaDian(factura.createdAt, config.activadaDesde),
-    documento: doc ? { ...doc, mensajes: (doc.mensajes ?? []) as unknown as MensajeDian[] } : null,
+    documento: doc ? { ...doc, mensajes: Array.isArray(doc.mensajes) ? (doc.mensajes as unknown as MensajeDian[]) : [] } : null,
   };
 }
 
@@ -150,6 +150,16 @@ export async function contarFacturasSinEnviarDian(): Promise<number> {
       OR: [
         { documentosElectronicos: { none: { tipo: "FACTURA" } } },
         { documentosElectronicos: { some: { tipo: "FACTURA", estado: { in: ESTADOS_DOCUMENTO_PENDIENTES } } } },
+        // Envío interrumpido: el servicio lo trata como por confirmar.
+        {
+          documentosElectronicos: {
+            some: {
+              tipo: "FACTURA",
+              estado: "ENVIANDO",
+              OR: [{ ultimoIntentoAt: null }, { ultimoIntentoAt: { lt: new Date(Date.now() - ENVIO_INTERRUMPIDO_MS) } }],
+            },
+          },
+        },
       ],
     },
   });

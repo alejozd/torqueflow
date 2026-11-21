@@ -31,7 +31,8 @@ const vista = (documento: DocumentoFeVista | null, extra: Partial<FacturaFeVista
   documento,
   ...extra,
 });
-const props = { facturaId: "f1", clienteId: "c1", puedeFacturar: true, puedeConfigurar: false };
+const AHORA = new Date("2026-11-21T12:00:00.000Z");
+const props = { facturaId: "f1", clienteId: "c1", puedeFacturar: true, puedeConfigurar: false, ahora: AHORA };
 
 describe("FacturaElectronicaCard", () => {
   it("sin documento ofrece enviar a la DIAN", () => {
@@ -55,9 +56,30 @@ describe("FacturaElectronicaCard", () => {
     expect(screen.queryByRole("button", { name: "Reenviar a la DIAN" })).toBeNull();
   });
 
-  it("aceptada en simulado o pruebas avisa que no tiene validez", () => {
+  it("aceptada en simulado o pruebas no se presenta como válida", () => {
     render(<FacturaElectronicaCard {...props} vista={vista({ ...doc, ambiente: "SIMULADO" })} />);
-    expect(screen.getByText("Enviada en Simulado: no tiene validez ante la DIAN.")).toBeInTheDocument();
+    expect(screen.getByText("Aceptada en Simulado")).toBeInTheDocument();
+    expect(screen.getByText("Se aceptó en el ambiente de Simulado: no tiene validez ante la DIAN.")).toBeInTheDocument();
+    expect(screen.queryByText("Aceptada por la DIAN")).toBeNull();
+    expect(screen.queryByText(/Ya es una factura electrónica válida/)).toBeNull();
+  });
+
+  it("un envío interrumpido se muestra por confirmar y deja reenviar", () => {
+    const interrumpido: DocumentoFeVista = {
+      ...doc,
+      estado: "ENVIANDO",
+      cufe: null,
+      ultimoIntentoAt: new Date(AHORA.getTime() - 5 * 60_000),
+    };
+    render(<FacturaElectronicaCard {...props} vista={vista(interrumpido)} />);
+    expect(screen.getByText("Por confirmar")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reenviar a la DIAN" })).toBeInTheDocument();
+  });
+
+  it("un envío reciente sigue como enviando", () => {
+    const enviando: DocumentoFeVista = { ...doc, estado: "ENVIANDO", cufe: null, ultimoIntentoAt: new Date(AHORA.getTime() - 30_000) };
+    render(<FacturaElectronicaCard {...props} vista={vista(enviando)} />);
+    expect(screen.getByText("Enviando")).toBeInTheDocument();
   });
 
   it("rechazada: muestra qué pasó, cómo corregir y deja reenviar", () => {

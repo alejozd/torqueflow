@@ -9,6 +9,7 @@ import { listMarcasVehiculo, listTodosLosModelosVehiculo } from "@/app/actions/v
 import { puede, requirePermiso } from "@/lib/auth/guards";
 import { DatosFeCliente } from "./datos-fe-cliente";
 import { leerConfiguracionFe } from "@/lib/factura-electronica/configuracion";
+import { estadoDatosFeCliente } from "@/lib/factura-electronica/mapear";
 import { getTenantDb } from "@/lib/db/tenant-client";
 import { MUNICIPIOS } from "@/modulos/factura-electronica";
 import { EditarClienteDialog } from "./editar-cliente-dialog";
@@ -369,10 +370,6 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
             <DatosFeCliente
               cliente={{
                 id: cliente.id,
-                nombre: cliente.nombre,
-                telefono: cliente.telefono,
-                email: cliente.email,
-                documento: cliente.documento,
                 tipoDocumento: cliente.tipoDocumento,
                 dv: cliente.dv,
                 tipoPersona: cliente.tipoPersona,
@@ -380,6 +377,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
                 municipioCodigo: cliente.municipioCodigo,
                 direccion: cliente.direccion,
               }}
+              estado={estadoDatosFeCliente(cliente)}
               municipios={MUNICIPIOS}
               puedeEditar={puedeEditar}
             />

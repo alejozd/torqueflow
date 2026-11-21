@@ -1,5 +1,5 @@
 // src/lib/factura-electronica/textos.ts
-import type { EstadoDocumentoElectronico } from "@/generated/prisma-tenant";
+import type { AmbienteFacturaElectronica, EstadoDocumentoElectronico } from "@/generated/prisma-tenant";
 
 export type EstadoDian = EstadoDocumentoElectronico | "SIN_ENVIAR";
 export type TonoDian = "exito" | "alerta" | "error" | "neutro";
@@ -22,8 +22,43 @@ export const TEXTO_ESTADO_DIAN: Record<EstadoDian, { etiqueta: string; descripci
   ANULADO: { etiqueta: "Anulada", descripcion: "Se anuló con una nota crédito.", tono: "neutro" },
 };
 
-export function estadoDian(doc: { estado: EstadoDocumentoElectronico } | null | undefined): EstadoDian {
-  return doc ? doc.estado : "SIN_ENVIAR";
+/**
+ * Tras este tiempo en ENVIANDO el envío se considera interrumpido (por confirmar).
+ * Copia del valor de `servicio.ts` (las pantallas del navegador no pueden importar el servicio);
+ * una prueba verifica que coincidan.
+ */
+export const ENVIO_INTERRUMPIDO_MS = 2 * 60_000;
+
+export type TextoEstadoDian = { etiqueta: string; descripcion: string; tono: TonoDian };
+
+const NOMBRE_AMBIENTE_PRUEBA = { SIMULADO: "Simulado", PRUEBAS: "Pruebas" } as const;
+
+/** Texto del estado; una aceptada en Simulado o Pruebas no se presenta como factura válida. */
+export function textoEstadoDian(estado: EstadoDian, ambiente?: AmbienteFacturaElectronica | null): TextoEstadoDian {
+  if (estado === "ACEPTADO" && (ambiente === "SIMULADO" || ambiente === "PRUEBAS")) {
+    const nombre = NOMBRE_AMBIENTE_PRUEBA[ambiente];
+    return {
+      etiqueta: `Aceptada en ${nombre}`,
+      descripcion: `Se aceptó en el ambiente de ${nombre}: no tiene validez ante la DIAN.`,
+      tono: "neutro",
+    };
+  }
+  return TEXTO_ESTADO_DIAN[estado];
+}
+
+/** Estado que se muestra: un ENVIANDO viejo (o sin fecha) es un envío interrumpido, igual que en el servicio. */
+export function estadoDian(
+  doc: { estado: EstadoDocumentoElectronico; ultimoIntentoAt: Date | null } | null | undefined,
+  ahora: Date,
+): EstadoDian {
+  if (!doc) return "SIN_ENVIAR";
+  if (
+    doc.estado === "ENVIANDO" &&
+    (!doc.ultimoIntentoAt || ahora.getTime() - doc.ultimoIntentoAt.getTime() > ENVIO_INTERRUMPIDO_MS)
+  ) {
+    return "POR_CONFIRMAR";
+  }
+  return doc.estado;
 }
 
 const NECESITAN_ATENCION: ReadonlySet<EstadoDian> = new Set(["SIN_ENVIAR", "PENDIENTE", "POR_CONFIRMAR", "RECHAZADO"]);

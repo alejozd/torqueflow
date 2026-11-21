@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useState } from "react";
 import {
   guardarConfiguracionFeAction,
   probarConexionFeAction,
@@ -49,22 +49,23 @@ const RESULTADOS_SIMULADOS = [
 export function ConfiguracionFeForm({
   configuracion: c,
   municipios,
+  ahora,
 }: {
   configuracion: ConfiguracionFeVista;
   municipios: MunicipioOpcion[];
+  /** Hora del servidor para "Última prueba hace…" (sin depender del reloj del navegador). */
+  ahora: Date;
 }) {
   const [state, guardar, guardando] = useActionState(guardarConfiguracionFeAction, inicial);
   const [prueba, probar, probando] = useActionState(probarConexionFeAction, inicial);
   const [ambiente, setAmbiente] = useState(c.ambiente);
   const [cuenta, setCuenta] = useState(c.cuenta);
   const [confirmando, setConfirmando] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
   const pideConfirmacion = ambiente === "PRODUCCION" && c.ambiente !== "PRODUCCION";
 
   return (
     <div className="flex flex-col gap-4">
       <form
-        ref={formRef}
         action={guardar}
         onSubmit={(e) => {
           if (pideConfirmacion && !confirmando) {
@@ -277,7 +278,7 @@ export function ConfiguracionFeForm({
           {prueba.success && prueba.mensaje ? <p className="text-sm">{prueba.mensaje}</p> : null}
           {c.ultimaPruebaAt ? (
             <p className="text-xs text-muted-foreground">
-              Última prueba {formatoFechaRelativa(c.ultimaPruebaAt, new Date())}:{" "}
+              Última prueba {formatoFechaRelativa(c.ultimaPruebaAt, ahora)}:{" "}
               {c.ultimaPruebaExitosa ? "correcta" : "con problemas"}
               {c.ultimaPruebaMensaje ? ` — ${c.ultimaPruebaMensaje}` : ""}
             </p>

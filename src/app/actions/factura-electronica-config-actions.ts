@@ -148,6 +148,16 @@ function faltantesParaActivar(d: ConfiguracionFeInput, tokenCifrado: string | nu
   return faltan;
 }
 
+async function consecutivoInicial(db: ReturnType<typeof getTenantDb>, d: ConfiguracionFeInput): Promise<number> {
+  const inicio = d.rangoDesde ?? 1;
+  if (d.prefijo === null) return inicio;
+  const { _max } = await db.documentoElectronico.aggregate({
+    _max: { numero: true },
+    where: { tipo: "FACTURA", ambiente: d.ambiente, prefijo: d.prefijo },
+  });
+  return Math.max(inicio, (_max.numero ?? 0) + 1);
+}
+
 export async function guardarConfiguracionFeAction(_prev: ConfigFeFormState, formData: FormData): Promise<ConfigFeFormState> {
   const session = await requirePermiso("facturaElectronica.configurar");
   const campo = (nombre: string) => String(formData.get(nombre) ?? "");
@@ -226,8 +236,9 @@ export async function guardarConfiguracionFeAction(_prev: ConfigFeFormState, for
     vigenciaHasta: aDia(d.vigenciaHasta),
     prefijoNotaCredito: d.prefijoNotaCredito,
     resultadoSimulado: d.resultadoSimulado,
-    // Resolución nueva → se arranca en el inicio de su rango (spec §11.10).
-    ...(resolucionNueva ? { siguienteConsecutivo: d.rangoDesde ?? 1 } : {}),
+    // Resolución nueva → se arranca en el inicio de su rango (spec §11.10), pero nunca en un número
+    // ya usado con ese prefijo en este ambiente (chocaría con el único tipo+ambiente+prefijo+numero).
+    ...(resolucionNueva ? { siguienteConsecutivo: await consecutivoInicial(db, d) } : {}),
     // Primera activación: las facturas anteriores no cuentan como "sin enviar" (spec §11.11).
     ...(d.activa && !existente?.activadaDesde ? { activadaDesde: new Date() } : {}),
   };

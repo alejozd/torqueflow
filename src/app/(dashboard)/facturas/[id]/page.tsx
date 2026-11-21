@@ -349,6 +349,7 @@ export default async function FacturaDetailPage({ params }: { params: Promise<{ 
               vista={facturaFe}
               puedeFacturar={puede(session, "facturas.facturar")}
               puedeConfigurar={puede(session, "facturaElectronica.configurar")}
+              ahora={new Date()}
             />
           ) : null}
         </div>

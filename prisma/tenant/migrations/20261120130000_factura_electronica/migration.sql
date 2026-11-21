@@ -68,7 +68,7 @@ CREATE TABLE "configuracion_factura_electronica" (
     CONSTRAINT "configuracion_factura_electronica_pkey" PRIMARY KEY ("id")
 );
 
--- Documentos enviados a la DIAN. Un número de la resolución no se repite por tipo y prefijo.
+-- Documentos enviados a la DIAN. Un número de la resolución no se repite por tipo, ambiente y prefijo.
 -- CreateTable
 CREATE TABLE "documentos_electronicos" (
     "id" TEXT NOT NULL,
