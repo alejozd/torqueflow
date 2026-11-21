@@ -24,6 +24,7 @@ vi.mock("@/app/actions/alertas-inventario-actions", () => ({
 vi.mock("@/app/actions/alertas-taller-actions", () => ({
   getAlertasTaller: async () => ({ diasUmbral: 3, alertas: [] }),
 }));
+vi.mock("@/app/actions/factura-electronica-actions", () => ({ contarFacturasSinEnviarDian: async () => 0 }));
 vi.mock("@/app/actions/vencimiento-actions", () => ({ listVencimientos: async () => [] }));
 vi.mock("./alertas-inventario-card", () => ({ AlertasInventarioCard: () => null }));
 vi.mock("./alertas-taller-card", () => ({ AlertasTallerCard: () => null }));

@@ -4,10 +4,12 @@ import { puede, requireSession } from "@/lib/auth/guards";
 import { getDashboardOverview } from "@/app/actions/dashboard-actions";
 import { getAlertasInventario } from "@/app/actions/alertas-inventario-actions";
 import { getAlertasTaller } from "@/app/actions/alertas-taller-actions";
+import { contarFacturasSinEnviarDian } from "@/app/actions/factura-electronica-actions";
 import { listVencimientos } from "@/app/actions/vencimiento-actions";
 import { resumenKpiVencimientos } from "@/lib/vencimientos/resumen-kpi";
 import { AlertasInventarioCard } from "./alertas-inventario-card";
 import { AlertasTallerCard } from "./alertas-taller-card";
+import { AvisoFacturasDian } from "./aviso-facturas-dian";
 import { NavSeccionesDashboard } from "./secciones-dashboard";
 import { FacturacionSemanaCard } from "./facturacion-semana-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -134,10 +136,11 @@ export default async function InicioPage() {
   // proveedores y sugerencias de compra, así que solo se pinta (y se pasa al
   // cliente) con `inventario.costos` (D8).
   const verAlertasInventario = puede(session, "inventario.costos");
-  const [overview, alertasInventario, alertasTaller] = await Promise.all([
+  const [overview, alertasInventario, alertasTaller, facturasSinEnviarDian] = await Promise.all([
     getDashboardOverview(),
     getAlertasInventario(),
     getAlertasTaller(),
+    contarFacturasSinEnviarDian(),
   ]);
   // El KPI de vencimientos es solo para ADMIN y RECEPCION (spec §4).
   const mostrarVencimientos = puede(session, "vencimientos.avisar");
@@ -424,6 +427,7 @@ export default async function InicioPage() {
 
       {overview.facturacion ? <FacturacionSemanaCard resumen={overview.facturacion} /> : null}
 
+      <AvisoFacturasDian cantidad={facturasSinEnviarDian} />
       <AlertasTallerCard diasUmbral={alertasTaller.diasUmbral} alertas={alertasTaller.alertas} />
       {verAlertasInventario ? <AlertasInventarioCard data={alertasInventario} /> : null}
     </main>
