@@ -408,5 +408,30 @@ describe("servicio de factura electrónica", () => {
       expect(nota.intentos).toBe(2);
       expect((await docDe(facturaId)).estado).toBe("ANULADO");
     });
+
+    it("si la nota quedó aceptada sin anular la factura (proceso interrumpido), la siguiente llamada completa la anulación", async () => {
+      await configurar({ prefijoNotaCredito: "NCE", siguienteConsecutivoNotaCredito: 1 });
+      const facturaId = await facturaAceptada("FEN007");
+      expect(await emitirNotaCredito(ctx(crearProveedorSimulado()), facturaId, datos)).toMatchObject({ ok: true, estado: "ACEPTADO" });
+      const nota = await notaDe(facturaId);
+      // Simula la caída entre "nota ACEPTADO" y la anulación: la factura vuelve a ACEPTADO y con saldo.
+      await db.documentoElectronico.update({ where: { id: nota.documentoReferenciaId! }, data: { estado: "ACEPTADO" } });
+      await db.factura.update({ where: { id: facturaId }, data: { saldoPendiente: 11900, estado: "PENDIENTE" } });
+      const proveedor = crearProveedorSimulado();
+      const enviar = vi.spyOn(proveedor, "enviar");
+
+      const r = await emitirNotaCredito(ctx(proveedor), facturaId, datos);
+
+      expect(r).toMatchObject({ ok: true, estado: "ACEPTADO", documentoId: nota.id });
+      expect(enviar).not.toHaveBeenCalled();
+      expect((await docDe(facturaId)).estado).toBe("ANULADO");
+      const f = await db.factura.findUniqueOrThrow({ where: { id: facturaId } });
+      expect(Number(f.saldoPendiente)).toBe(0);
+      expect(f.estado).toBe("PAGADA");
+      expect(await db.documentoElectronico.count({ where: { facturaId, tipo: "NOTA_CREDITO" } })).toBe(1);
+
+      // Ya anulada: la siguiente llamada sigue diciendo que no se puede.
+      expect(await emitirNotaCredito(ctx(proveedor), facturaId, datos)).toMatchObject({ ok: false, motivo: "ESTADO" });
+    });
   });
 });

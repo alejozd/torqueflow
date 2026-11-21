@@ -544,7 +544,15 @@ export async function emitirNotaCredito(ctx: ContextoFe, facturaId: string, dato
     return falla("AMBIENTE", "Esta factura se emitió en otro ambiente; no se puede anular desde el actual.");
   }
 
-  const existente = await ctx.db.documentoElectronico.findFirst({ where: { facturaId, tipo: "NOTA_CREDITO" }, select: { id: true } });
+  const existente = await ctx.db.documentoElectronico.findFirst({
+    where: { facturaId, tipo: "NOTA_CREDITO" },
+    select: { id: true, estado: true },
+  });
+  if (existente?.estado === "ACEPTADO") {
+    // La nota ya fue aceptada pero no alcanzó a anular la factura (proceso interrumpido): se completa.
+    await anularFacturaReferenciada(ctx, existente.id);
+    return { ok: true, documentoId: existente.id, estado: "ACEPTADO", mensajes: [] };
+  }
   if (existente) return reintentarDocumento(ctx, existente.id);
 
   const original = factura.payload as unknown as FacturaVenta;
