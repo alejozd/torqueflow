@@ -32,3 +32,5 @@ Deploy: la migración 20261120130000 debe aplicarse (con permiso) a taller_dev_r
 Resuelto 2026-11-21 (66e72bb): el caso "reenvío con fecha nueva + ERROR_TEMPORAL" ya conserva la fecha original (también con excepción, Regla 90 y ERROR_CONFIGURACION).
 
 Pendiente externo: sandbox de Nextpyme (adaptador real, ambiente por tipo de documento, endpoint de copia de respuesta, pruebas de habilitación). Se retoma cuando Nextpyme envíe la información. Merge a main: después del sandbox.
+
+Campos del cliente adelantados a main (1f130d1, desplegado 2026-11-21) con la migración 20261120130000 completa; ya aplicada en taller_dev y taller_dev_reference (public.tenants solo tiene taller_dev). Al unir esta rama a main, en los conflictos de src/app/(dashboard)/clientes/[id]/page.tsx, su page.test.tsx y src/modulos/factura-electronica/index.ts tomar la versión de esta rama. No hace falta volver a migrar.
