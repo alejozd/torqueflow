@@ -111,4 +111,18 @@ describe("GET /api/uploads/[...path]", () => {
     expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
   });
+
+  it("sirve el PDF de un documento electrónico como adjunto con su tipo", async () => {
+    mockRequireSession.mockResolvedValue({ user: { tenantSchema: TENANT } });
+    const dir = path.join(uploadsDir, TENANT, "facturas-electronicas", "doc1");
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(dir, "FES-SETP1.pdf"), Buffer.from("%PDF-1.4"));
+
+    const response = await GET(undefined as never, makeParams([TENANT, "facturas-electronicas", "doc1", "FES-SETP1.pdf"]));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("application/pdf");
+    expect(response.headers.get("Content-Disposition")).toBe('attachment; filename="FES-SETP1.pdf"');
+    expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+  });
 });

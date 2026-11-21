@@ -9,7 +9,12 @@ const CONTENT_TYPES: Record<string, string> = {
   ".jpeg": "image/jpeg",
   ".png": "image/png",
   ".webp": "image/webp",
+  ".pdf": "application/pdf",
+  ".xml": "application/xml",
 };
+
+/** Documentos electrónicos: se descargan, nunca se muestran en la pestaña (un XML podría ejecutar código). */
+const COMO_ADJUNTO = new Set([".pdf", ".xml"]);
 
 export async function GET(
   _request: NextRequest,
@@ -43,13 +48,16 @@ export async function GET(
 
   try {
     const file = await readFile(requestedPath);
-    return new NextResponse(new Uint8Array(file), {
-      headers: {
-        "Content-Type": contentType,
-        "X-Content-Type-Options": "nosniff",
-        "Cache-Control": "private, no-store",
-      },
-    });
+    const headers: Record<string, string> = {
+      "Content-Type": contentType,
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control": "private, no-store",
+    };
+    if (COMO_ADJUNTO.has(extension)) {
+      const nombre = path.basename(requestedPath).replace(/[^A-Za-z0-9._-]/g, "_");
+      headers["Content-Disposition"] = `attachment; filename="${nombre}"`;
+    }
+    return new NextResponse(new Uint8Array(file), { headers });
   } catch {
     return NextResponse.json({ error: "Archivo no encontrado" }, { status: 404 });
   }

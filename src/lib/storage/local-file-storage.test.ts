@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { borrarArchivoDeOrden, saveDviFoto, saveOrdenArchivo } from "./local-file-storage";
+import { borrarArchivoDeOrden, saveDocumentoElectronico, saveDviFoto, saveOrdenArchivo } from "./local-file-storage";
 
 let uploadsDir: string;
 const originalUploadsDir = process.env.UPLOADS_DIR;
@@ -161,6 +161,39 @@ describe("borrarArchivoDeOrden", () => {
 
     await expect(borrarArchivoDeOrden("taller_perez", "/api/uploads/taller_perez/dvi/foto.png")).resolves.toBe(false);
     await expect(existe(fotoDvi)).resolves.toBe(true);
+  });
+});
+
+describe("saveDocumentoElectronico", () => {
+  const pdf = new TextEncoder().encode("%PDF-1.4\n%%EOF\n");
+
+  it("guarda el PDF en <tenant>/facturas-electronicas/<id>/ y lo reemplaza si se guarda de nuevo", async () => {
+    const saved = await saveDocumentoElectronico("taller_perez", "doc1", "FES-SETP1.pdf", pdf);
+    expect(saved).toEqual({
+      relativePath: "taller_perez/facturas-electronicas/doc1/FES-SETP1.pdf",
+      url: "/api/uploads/taller_perez/facturas-electronicas/doc1/FES-SETP1.pdf",
+    });
+    const otro = new TextEncoder().encode("%PDF-1.7\n%%EOF\n");
+    await saveDocumentoElectronico("taller_perez", "doc1", "FES-SETP1.pdf", otro);
+    expect(Array.from(await readFile(path.join(uploadsDir, saved.relativePath)))).toEqual(Array.from(otro));
+  });
+
+  it("rechaza nombres o ids con ruta y extensiones no permitidas", async () => {
+    await expect(saveDocumentoElectronico("taller_perez", "doc1", "../x.pdf", pdf)).rejects.toThrow(/no permitido/);
+    await expect(saveDocumentoElectronico("taller_perez", "doc1", "factura.exe", pdf)).rejects.toThrow(/no permitido/);
+    await expect(saveDocumentoElectronico("taller_perez", "../dvi", "FES-SETP1.pdf", pdf)).rejects.toThrow(/no permitido/);
+  });
+
+  it("rechaza bytes que no son PDF en un .pdf", async () => {
+    await expect(
+      saveDocumentoElectronico("taller_perez", "doc1", "FES-SETP1.pdf", new TextEncoder().encode("<html>")),
+    ).rejects.toThrow(/no es un PDF válido/);
+  });
+
+  it("acepta un XML aunque traiga BOM", async () => {
+    const xml = new TextEncoder().encode('﻿<?xml version="1.0"?><Invoice/>');
+    const saved = await saveDocumentoElectronico("taller_perez", "doc1", "FES-SETP1.xml", xml);
+    expect(saved.url).toBe("/api/uploads/taller_perez/facturas-electronicas/doc1/FES-SETP1.xml");
   });
 });
 

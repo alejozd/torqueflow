@@ -93,6 +93,46 @@ async function guardarArchivo(segments: string[], file: File): Promise<SavedUplo
   return { relativePath, url: `${PREFIJO_URL}${relativePath}` };
 }
 
+/** Tope para el XML y el PDF de un documento electrónico. */
+export const MAX_DOCUMENTO_ELECTRONICO_BYTES = 10 * 1024 * 1024;
+const NOMBRE_DOCUMENTO_ELECTRONICO = /^[A-Za-z0-9_-]{1,80}\.(pdf|xml)$/;
+const ID_SEGURO = /^[A-Za-z0-9_-]+$/;
+
+function pareceDocumento(bytes: Uint8Array, extension: string): boolean {
+  const inicio = new TextDecoder().decode(bytes.subarray(0, 64)).replace(/^﻿/, "").trimStart();
+  return extension === "pdf" ? inicio.startsWith("%PDF-") : inicio.startsWith("<");
+}
+
+/**
+ * XML y PDF de un documento electrónico (spec §11.6):
+ * `<tenant>/facturas-electronicas/<documentoId>/<nombre>`. El nombre lo arma el servidor
+ * (p. ej. "FES-SETP990000001.pdf"); guardarlo otra vez reemplaza el archivo.
+ */
+export async function saveDocumentoElectronico(
+  tenantSchema: string,
+  documentoId: string,
+  nombre: string,
+  bytes: Uint8Array,
+): Promise<SavedUpload> {
+  const coincide = NOMBRE_DOCUMENTO_ELECTRONICO.exec(nombre);
+  if (!coincide || !ID_SEGURO.test(documentoId) || !ID_SEGURO.test(tenantSchema)) {
+    throw new Error(`Nombre de archivo no permitido: ${nombre}`);
+  }
+  if (bytes.byteLength > MAX_DOCUMENTO_ELECTRONICO_BYTES) {
+    throw new Error("El archivo supera el tamaño máximo permitido (10 MB)");
+  }
+  const extension = coincide[1];
+  if (!pareceDocumento(bytes, extension)) {
+    throw new Error(`El archivo no es un ${extension.toUpperCase()} válido`);
+  }
+  const segments = [tenantSchema, "facturas-electronicas", documentoId];
+  const absoluteDir = path.join(getUploadsRoot(), ...segments);
+  await mkdir(absoluteDir, { recursive: true });
+  await writeFile(path.join(absoluteDir, nombre), bytes);
+  const relativePath = [...segments, nombre].join("/");
+  return { relativePath, url: `${PREFIJO_URL}${relativePath}` };
+}
+
 export async function saveDviFoto(tenantSchema: string, dviId: string, file: File): Promise<SavedUpload> {
   return guardarArchivo([tenantSchema, "dvi", dviId], file);
 }
