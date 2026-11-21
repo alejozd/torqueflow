@@ -135,8 +135,8 @@ const CONFIGURACION: NavGroup = {
       label: "Configuración del taller",
       icon: Settings,
       permiso: "configuracion.taller",
-      // Correo y avisos (/configuracion-smtp) y Tarifas de IVA son pestañas de la misma página.
-      tambienActivoEn: ["/configuracion-iva"],
+      // Correo y avisos, Tarifas de IVA y Facturación electrónica son pestañas de la misma página.
+      tambienActivoEn: ["/configuracion-iva", "/configuracion-factura-electronica"],
     },
     {
       href: "/configuracion-factura-electronica",
