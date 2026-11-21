@@ -2,6 +2,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 import { crearProveedor } from "./fabrica";
+import type { MemoriaSimulado } from "./proveedores/simulado";
 
 describe("crearProveedor", () => {
   it("SIMULADO no necesita token y respeta el resultado forzado", async () => {
@@ -19,5 +20,16 @@ describe("crearProveedor", () => {
     const p = crearProveedor({ ambiente: "PRUEBAS", nextpyme: { token: "t", nitEmisor: "1", fetch: f as unknown as typeof fetch } });
     await p.probarConexion();
     expect((f.mock.calls[0] as unknown as [string])[0]).toMatch(/nextpyme\.plus\/api\/ubl2\.1\/config\/company$/);
+  });
+  it("SIMULADO usa la memoria que se le pase", async () => {
+    const memoria: MemoriaSimulado = new Map([
+      ["FACTURA:SETP1", { cufe: "x", fechaValidacion: "2026-11-20T10:00:00-05:00", total: 100 }],
+    ]);
+    const p = crearProveedor({ ambiente: "SIMULADO", memoriaSimulado: memoria });
+    expect(await p.buscarEmitido({ tipo: "FACTURA", prefijo: "SETP", numero: 1 }, "2026-11-20")).toEqual({
+      estado: "ENCONTRADO",
+      cufe: "x",
+      total: 100,
+    });
   });
 });

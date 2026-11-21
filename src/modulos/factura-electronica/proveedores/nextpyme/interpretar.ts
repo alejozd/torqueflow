@@ -1,7 +1,13 @@
 // src/modulos/factura-electronica/proveedores/nextpyme/interpretar.ts
 import { traducirMensajeDian, traducirMensajesDian } from "../../mensajes-dian";
 import type { MensajeDian } from "../../modelo";
-import type { ResultadoConsulta, ResultadoEnvio } from "../../proveedor";
+import type {
+  AmbienteProveedor,
+  ReferenciaDocumento,
+  ResultadoBusqueda,
+  ResultadoConsulta,
+  ResultadoEnvio,
+} from "../../proveedor";
 
 type Objeto = Record<string, unknown>;
 const esObjeto = (v: unknown): v is Objeto => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -35,9 +41,9 @@ function mensajesDe(resultado: Objeto): MensajeDian[] {
 }
 
 /** {date: "2026-07-23 16:25:28.000000", timezone: "-05:00"} → "2026-07-23T16:25:28-05:00" */
-function fechaValidacion(cuerpo: Objeto): string {
+function fechaValidacion(cuerpo: Objeto): string | null {
   const f = cuerpo.dian_validation_date_time;
-  if (!esObjeto(f) || typeof f.date !== "string") return "";
+  if (!esObjeto(f) || typeof f.date !== "string") return null;
   const [dia, hora = "00:00:00"] = f.date.split(" ");
   const zona = typeof f.timezone === "string" ? f.timezone : "-05:00";
   return `${dia}T${hora.slice(0, 8)}${zona}`;
@@ -93,7 +99,50 @@ export function interpretarRespuestaEstado(status: number, cuerpo: unknown, cufe
   const r = resultadoDian(cuerpo);
   if (!r) return { estado: "NO_ENCONTRADO" };
   const mensajes = mensajesDe(r);
-  if (r.IsValid === "true") return { estado: "ACEPTADO", cufe, fechaValidacion: "", advertencias: mensajes };
+  if (r.IsValid === "true") return { estado: "ACEPTADO", cufe, fechaValidacion: null, advertencias: mensajes };
   const rechazos = mensajes.filter((m) => m.tipo === "RECHAZO");
   return rechazos.length ? { estado: "RECHAZADO", motivos: rechazos } : { estado: "NO_ENCONTRADO" };
+}
+
+/** GET /config/company → data.type_environment_id: 1 = producción, 2 = pruebas. */
+export function interpretarAmbiente(cuerpo: unknown): AmbienteProveedor | null {
+  if (!esObjeto(cuerpo) || !esObjeto(cuerpo.data)) return null;
+  const id = Number(cuerpo.data.type_environment_id);
+  if (id === 1) return "PRODUCCION";
+  if (id === 2) return "PRUEBAS";
+  return null;
+}
+
+/** Código DIAN del tipo de documento en el histórico. */
+const TIPO_DOCUMENTO_DIAN = { FACTURA: "01", NOTA_CREDITO: "91" } as const;
+
+/** GET /dian/documents/get-uuids → el documento con ese prefijo y número, con su CUFE y total. */
+export function interpretarEmitidos(status: number, cuerpo: unknown, ref: ReferenciaDocumento): ResultadoBusqueda {
+  if (status === 401 || status === 403) return { estado: "ERROR_CONFIGURACION", mensaje: MENSAJE_TOKEN };
+  const documentos =
+    esObjeto(cuerpo) && cuerpo.success !== false && Array.isArray(cuerpo.documents) ? (cuerpo.documents as unknown[]) : null;
+  if (status < 200 || status >= 300 || !documentos) {
+    return {
+      estado: "ERROR_TEMPORAL",
+      mensaje: `No se pudo consultar el histórico de la DIAN (código ${status || "sin respuesta"}).`,
+    };
+  }
+  const buscado = `${ref.prefijo}${ref.numero}`;
+  const encontrado = documentos.filter(esObjeto).find((d) => {
+    const tipo = esObjeto(d.document_type) ? d.document_type.id : undefined;
+    if (tipo !== undefined && String(tipo) !== TIPO_DOCUMENTO_DIAN[ref.tipo]) return false;
+    const serie =
+      typeof d.serie_and_number === "string" ? d.serie_and_number : `${String(d.prefix ?? "")}${String(d.number ?? "")}`;
+    return serie === buscado;
+  });
+  if (!encontrado) {
+    return esObjeto(cuerpo) && cuerpo.truncated === true
+      ? { estado: "ERROR_TEMPORAL", mensaje: "El histórico de la DIAN llegó incompleto; intenta de nuevo más tarde." }
+      : { estado: "NO_ENCONTRADO" };
+  }
+  const total = Number(encontrado.total_amount);
+  if (typeof encontrado.cufe !== "string" || !encontrado.cufe || !Number.isFinite(total)) {
+    return { estado: "ERROR_TEMPORAL", mensaje: "El histórico de la DIAN no trae el CUFE o el total del documento." };
+  }
+  return { estado: "ENCONTRADO", cufe: encontrado.cufe, total: Math.round(total * 100) };
 }

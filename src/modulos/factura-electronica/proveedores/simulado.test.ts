@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { crearProveedorSimulado } from "./simulado";
+import { crearProveedorSimulado, type MemoriaSimulado } from "./simulado";
 import type { FacturaVenta } from "../modelo";
 
 const factura: FacturaVenta = {
@@ -65,6 +65,33 @@ describe("proveedor simulado", () => {
   });
 
   it("la prueba de conexión responde bien", async () => {
-    expect(await crearProveedorSimulado().probarConexion()).toEqual({ ok: true });
+    expect(await crearProveedorSimulado().probarConexion()).toEqual({ ok: true, ambiente: null });
+  });
+
+  it("CAIDA_RECIBIDO: responde error temporal pero la DIAN sí lo tiene (consulta e histórico)", async () => {
+    const p = crearProveedorSimulado({ resultado: "CAIDA_RECIBIDO" });
+    expect((await p.enviar(factura)).estado).toBe("ERROR_TEMPORAL");
+    expect((await p.consultarEstado(ref)).estado).toBe("ACEPTADO");
+    expect(await p.buscarEmitido(ref, "2026-11-20")).toEqual({
+      estado: "ENCONTRADO",
+      cufe: expect.stringMatching(/^[0-9a-f]{96}$/),
+      total: 5950000,
+    });
+  });
+
+  it("buscarEmitido: NO_ENCONTRADO hasta que se envía; la memoria se puede compartir", async () => {
+    const memoria: MemoriaSimulado = new Map();
+    const a = crearProveedorSimulado({ memoria });
+    const b = crearProveedorSimulado({ memoria });
+    expect(await b.buscarEmitido(ref, "2026-11-20")).toEqual({ estado: "NO_ENCONTRADO" });
+    await a.enviar(factura);
+    expect((await b.buscarEmitido(ref, "2026-11-20")).estado).toBe("ENCONTRADO");
+    // Regla 90: la otra instancia ve que ya estaba.
+    expect((await b.enviar(factura)).estado).toBe("RECHAZADO");
+  });
+
+  it("CAIDA: el histórico tampoco responde", async () => {
+    const r = await crearProveedorSimulado({ resultado: "CAIDA" }).buscarEmitido(ref, "2026-11-20");
+    expect(r.estado).toBe("ERROR_TEMPORAL");
   });
 });

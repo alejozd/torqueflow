@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { crearProveedorNextpyme } from "./proveedor";
 import aceptada from "./__fixtures__/factura-aceptada.json";
+import emitidos from "./__fixtures__/emitidos.json";
 import type { FacturaVenta } from "../../modelo";
 
 const factura: FacturaVenta = {
@@ -104,9 +105,9 @@ describe("crearProveedorNextpyme", () => {
     );
   });
 
-  it("probarConexion: GET /config/company; 401 explica el token", async () => {
-    const ok = vi.fn(async () => respuesta(200, { success: true }));
-    expect(await crear(ok as unknown as typeof fetch).probarConexion()).toEqual({ ok: true });
+  it("probarConexion: GET /config/company con el ambiente real; 401 explica el token", async () => {
+    const ok = vi.fn(async () => respuesta(200, { success: true, data: { identification_number: "901000123", type_environment_id: 2 } }));
+    expect(await crear(ok as unknown as typeof fetch).probarConexion()).toEqual({ ok: true, ambiente: "PRUEBAS" });
     expect((ok.mock.calls[0] as unknown as [string])[0]).toBe("https://api.nextpyme.plus/api/ubl2.1/config/company");
 
     const malo = vi.fn(async () => respuesta(401, {}));
@@ -114,5 +115,15 @@ describe("crearProveedorNextpyme", () => {
       ok: false,
       mensaje: "La conexión con el proveedor no es válida. Revisa el token en Configuración del taller.",
     });
+  });
+  it("buscarEmitido: GET get-uuids con un día antes y uno después de la fecha", async () => {
+    const f = vi.fn(async () => respuesta(200, emitidos));
+    const r = await crear(f as unknown as typeof fetch).buscarEmitido({ tipo: "FACTURA", prefijo: "FE", numero: 585 }, "2026-10-01");
+    expect(r).toEqual({ estado: "ENCONTRADO", cufe: emitidos.documents[0].cufe, total: 60000000 });
+    const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(
+      "https://api.nextpyme.plus/api/ubl2.1/dian/documents/get-uuids?type_filter=1&start_date=2026-09-30&end_date=2026-10-02",
+    );
+    expect(init.method).toBe("GET");
   });
 });

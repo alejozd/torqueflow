@@ -3,6 +3,7 @@ export * from "./modelo";
 export { aTextoDecimal } from "./dinero";
 export { calcularDvNit } from "./dv-nit";
 export { calcularLinea, calcularTotales } from "./calculo";
+export { lineasDesdePreciosConIva, type LineaConIva, type ConversionIvaIncluido } from "./iva-incluido";
 export { validarDocumento, type ContextoValidacion } from "./validacion";
 export { traducirMensajeDian, traducirMensajesDian, esDocumentoYaProcesado } from "./mensajes-dian";
 export {
@@ -12,9 +13,17 @@ export {
   type ResultadoEnvio,
   type ResultadoConsulta,
   type ResultadoConexion,
+  type ResultadoBusqueda,
+  type AmbienteProveedor,
   type FormatoArchivo,
 } from "./proveedor";
-export { crearProveedorSimulado, type ResultadoSimulado } from "./proveedores/simulado";
+export {
+  crearProveedorSimulado,
+  type ResultadoSimulado,
+  type MemoriaSimulado,
+  type AceptadoSimulado,
+  type OpcionesSimulado,
+} from "./proveedores/simulado";
 export { crearProveedor, type Ambiente, type ConfigProveedor } from "./fabrica";
 export { crearProveedorNextpyme, type OpcionesNextpyme } from "./proveedores/nextpyme/proveedor";
 /** Municipios de Colombia (código DANE, nombre, departamento), para buscadores. */

@@ -2,7 +2,7 @@
 import { traducirMensajeDian } from "../../mensajes-dian";
 import type { DocumentoElectronico } from "../../modelo";
 import { ErrorProveedor, type FormatoArchivo, type ProveedorFacturaElectronica, type ReferenciaDocumento } from "../../proveedor";
-import { interpretarRespuestaEnvio, interpretarRespuestaEstado } from "./interpretar";
+import { interpretarAmbiente, interpretarEmitidos, interpretarRespuestaEnvio, interpretarRespuestaEstado } from "./interpretar";
 import { mapearDocumentoNextpyme } from "./mapear";
 
 export interface OpcionesNextpyme {
@@ -18,6 +18,13 @@ export interface OpcionesNextpyme {
 
 const BASE = "https://api.nextpyme.plus/api/ubl2.1";
 const PREFIJO_ARCHIVO = { FACTURA: "FES-", NOTA_CREDITO: "NCS-" } as const;
+/** Por confirmar en el sandbox: la ficha del endpoint dice 1 = emitidos; el SDK dice 2. */
+const TIPO_FILTRO_EMITIDOS = 1;
+
+/** "2026-10-01" + (-1) → "2026-09-30" (fechas de calendario, sin zona). */
+function sumarDias(fecha: string, dias: number): string {
+  return new Date(Date.parse(`${fecha}T00:00:00Z`) + dias * 86_400_000).toISOString().slice(0, 10);
+}
 
 /**
  * Adaptador de Nextpyme Plus. El ambiente (pruebas o producción) se configura del lado de
@@ -73,6 +80,16 @@ export function crearProveedorNextpyme(op: OpcionesNextpyme): ProveedorFacturaEl
       return interpretarRespuestaEstado(status, json, ref.cufe);
     },
 
+    async buscarEmitido(ref: ReferenciaDocumento, fecha: string) {
+      const consulta = new URLSearchParams({
+        type_filter: String(TIPO_FILTRO_EMITIDOS),
+        start_date: sumarDias(fecha, -1),
+        end_date: sumarDias(fecha, 1),
+      });
+      const { status, json } = await llamarJson("GET", `/dian/documents/get-uuids?${consulta.toString()}`);
+      return interpretarEmitidos(status, json, ref);
+    },
+
     async descargar(ref: ReferenciaDocumento, formato: FormatoArchivo) {
       const archivo = `${PREFIJO_ARCHIVO[ref.tipo]}${ref.prefijo}${ref.numero}.${formato === "PDF" ? "pdf" : "xml"}`;
       let res: Response;
@@ -90,8 +107,8 @@ export function crearProveedorNextpyme(op: OpcionesNextpyme): ProveedorFacturaEl
     },
 
     async probarConexion() {
-      const { status } = await llamarJson("GET", "/config/company");
-      if (status >= 200 && status < 300) return { ok: true };
+      const { status, json } = await llamarJson("GET", "/config/company");
+      if (status >= 200 && status < 300) return { ok: true, ambiente: interpretarAmbiente(json) };
       if (status === 401 || status === 403) {
         return { ok: false, mensaje: "La conexión con el proveedor no es válida. Revisa el token en Configuración del taller." };
       }

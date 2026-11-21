@@ -1,7 +1,8 @@
 // src/modulos/factura-electronica/proveedores/nextpyme/interpretar.test.ts
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { interpretarRespuestaEnvio, interpretarRespuestaEstado } from "./interpretar";
+import { interpretarAmbiente, interpretarEmitidos, interpretarRespuestaEnvio, interpretarRespuestaEstado } from "./interpretar";
+import emitidos from "./__fixtures__/emitidos.json";
 import aceptada from "./__fixtures__/factura-aceptada.json";
 import rechazada from "./__fixtures__/factura-rechazada.json";
 import error422 from "./__fixtures__/error-422.json";
@@ -56,7 +57,7 @@ describe("interpretarRespuestaEstado", () => {
     expect(interpretarRespuestaEstado(200, estadoAceptado, "abc")).toEqual({
       estado: "ACEPTADO",
       cufe: "abc",
-      fechaValidacion: "",
+      fechaValidacion: null,
       advertencias: [],
     });
   });
@@ -74,5 +75,48 @@ describe("interpretarRespuestaEnvio — aceptado sin CUFE", () => {
       estado: "ERROR_TEMPORAL",
       mensaje: "El proveedor confirmó el documento pero no devolvió el CUFE. Consulta el estado antes de reenviar.",
     });
+  });
+});
+
+describe("interpretarRespuestaEnvio — aceptado sin fecha", () => {
+  it("sin dian_validation_date_time la fecha queda en null", () => {
+    const { dian_validation_date_time: _fecha, ...cuerpo } = aceptada;
+    expect(interpretarRespuestaEnvio(200, cuerpo)).toMatchObject({ estado: "ACEPTADO", fechaValidacion: null });
+  });
+});
+
+describe("interpretarAmbiente", () => {
+  it("1 = producción, 2 = pruebas; sin dato, null", () => {
+    expect(interpretarAmbiente({ success: true, data: { type_environment_id: 1 } })).toBe("PRODUCCION");
+    expect(interpretarAmbiente({ success: true, data: { type_environment_id: 2 } })).toBe("PRUEBAS");
+    expect(interpretarAmbiente({ success: true, data: {} })).toBeNull();
+    expect(interpretarAmbiente(null)).toBeNull();
+  });
+});
+
+describe("interpretarEmitidos", () => {
+  const ref = { tipo: "FACTURA" as const, prefijo: "FE", numero: 585 };
+
+  it("encuentra por prefijo y número y pasa el total a centavos", () => {
+    expect(interpretarEmitidos(200, emitidos, ref)).toEqual({
+      estado: "ENCONTRADO",
+      cufe: emitidos.documents[0].cufe,
+      total: 60000000,
+    });
+  });
+
+  it("otro número u otro tipo de documento: NO_ENCONTRADO", () => {
+    expect(interpretarEmitidos(200, emitidos, { ...ref, numero: 586 })).toEqual({ estado: "NO_ENCONTRADO" });
+    expect(interpretarEmitidos(200, emitidos, { ...ref, tipo: "NOTA_CREDITO" })).toEqual({ estado: "NO_ENCONTRADO" });
+  });
+
+  it("401 es de configuración; 500 o cuerpo sin lista, temporal", () => {
+    expect(interpretarEmitidos(401, {}, ref).estado).toBe("ERROR_CONFIGURACION");
+    expect(interpretarEmitidos(500, {}, ref).estado).toBe("ERROR_TEMPORAL");
+    expect(interpretarEmitidos(200, { success: true }, ref).estado).toBe("ERROR_TEMPORAL");
+  });
+
+  it("lista truncada sin el documento: ERROR_TEMPORAL (no se puede afirmar que no está)", () => {
+    expect(interpretarEmitidos(200, { ...emitidos, truncated: true }, { ...ref, numero: 999 }).estado).toBe("ERROR_TEMPORAL");
   });
 });
