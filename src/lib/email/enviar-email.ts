@@ -16,6 +16,8 @@ export interface MensajeEmail {
   asunto: string;
   texto: string;
   html: string;
+  /** Archivos adjuntos (XML y PDF de la factura electrónica). */
+  adjuntos?: { nombre: string; contenido: Buffer; tipo: string }[];
 }
 
 export async function enviarEmail(config: SmtpConfigDescifrada, mensaje: MensajeEmail): Promise<void> {
@@ -34,5 +36,6 @@ export async function enviarEmail(config: SmtpConfigDescifrada, mensaje: Mensaje
     subject: mensaje.asunto,
     text: mensaje.texto,
     html: mensaje.html,
+    attachments: mensaje.adjuntos?.map((a) => ({ filename: a.nombre, content: a.contenido, contentType: a.tipo })),
   });
 }

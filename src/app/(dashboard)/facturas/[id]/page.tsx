@@ -346,6 +346,7 @@ export default async function FacturaDetailPage({ params }: { params: Promise<{ 
             <FacturaElectronicaCard
               facturaId={factura.id}
               clienteId={factura.clienteId}
+              correoCliente={factura.cliente.email}
               vista={facturaFe}
               puedeFacturar={puede(session, "facturas.facturar")}
               puedeConfigurar={puede(session, "facturaElectronica.configurar")}

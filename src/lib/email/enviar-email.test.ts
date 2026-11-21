@@ -57,7 +57,19 @@ describe("enviarEmail", () => {
       subject: "Recordatorio",
       text: "Texto plano",
       html: "<p>Texto plano</p>",
+      attachments: undefined,
     });
+  });
+
+  it("lleva los adjuntos como attachments de nodemailer", async () => {
+    await enviarEmail(config, {
+      ...mensaje,
+      adjuntos: [{ nombre: "FES-SETP7.xml", contenido: Buffer.from("<x/>"), tipo: "application/xml" }],
+    });
+
+    expect(mockSendMail.mock.calls[0][0].attachments).toEqual([
+      { filename: "FES-SETP7.xml", content: Buffer.from("<x/>"), contentType: "application/xml" },
+    ]);
   });
 
   it("propagates a transport failure so the caller can count it as failed", async () => {

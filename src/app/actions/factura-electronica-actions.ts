@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { puede, requirePermiso, requireSession } from "@/lib/auth/guards";
 import { getTenantDb } from "@/lib/db/tenant-client";
+import { CONFIGURACION_SMTP_ID, descifrarConfiguracionSmtp, type ConfiguracionSmtpAlmacenada } from "@/lib/email/smtp-config";
+import { enviarEmail } from "@/lib/email/enviar-email";
+import { escaparHtml } from "@/lib/recordatorios/plantilla";
+import { leerDocumentoElectronico } from "@/lib/storage/local-file-storage";
 import { scopeFactura } from "@/lib/sede/scope";
 import { leerConfiguracionFe } from "@/lib/factura-electronica/configuracion";
 import { emitirDocumentoFactura, emitirNotaCredito, reintentarDocumento, type ResultadoFe } from "@/lib/factura-electronica/servicio";
@@ -137,6 +141,56 @@ export async function reenviarDocumentoAction(
   const r = await reintentarDocumento({ db, tenantSchema: session.user.tenantSchema, usuarioId: session.user.id }, documentoId);
   revalidatePath(`/facturas/${facturaId}`);
   return aEstado(r);
+}
+
+/** Copia del XML y el PDF al correo del cliente, por el SMTP del taller (el envío principal ya lo hace el proveedor). */
+export async function reenviarAlClienteAction(
+  facturaId: string,
+  documentoId: string,
+  _prev: EnvioFeState,
+  _formData: FormData,
+): Promise<EnvioFeState> {
+  const falla = (error: string): EnvioFeState => ({ error, success: false, mensaje: null, errores: [] });
+  const session = await requirePermiso("facturas.facturar");
+  const db = getTenantDb(session.user.tenantSchema);
+  const factura = await db.factura.findFirst({
+    where: { id: facturaId, ...scopeFactura(session.user.sedeActivaId) },
+    select: { id: true, cliente: { select: { email: true, nombre: true } } },
+  });
+  if (!factura) return falla("La factura no existe.");
+  const doc = await db.documentoElectronico.findFirst({
+    where: { id: documentoId, facturaId, estado: { in: ["ACEPTADO", "ANULADO"] } },
+    select: { tipo: true, prefijo: true, numero: true, xmlRuta: true, pdfRuta: true },
+  });
+  if (!doc) return falla("El documento no existe.");
+  const correo = factura.cliente.email?.trim();
+  if (!correo) return falla("El cliente no tiene correo registrado.");
+  const smtp = await db.configuracionSmtp.findUnique({ where: { id: CONFIGURACION_SMTP_ID } });
+  if (!smtp?.activo) return falla("Configura el correo del taller en Configuración del taller → Correo y avisos.");
+
+  const archivos = await Promise.all([
+    doc.xmlRuta ? leerDocumentoElectronico(session.user.tenantSchema, doc.xmlRuta) : null,
+    doc.pdfRuta ? leerDocumentoElectronico(session.user.tenantSchema, doc.pdfRuta) : null,
+  ]);
+  const adjuntos = [
+    archivos[0] && { ...archivos[0], tipo: "application/xml" },
+    archivos[1] && { ...archivos[1], tipo: "application/pdf" },
+  ].filter((a): a is { nombre: string; contenido: Buffer; tipo: string } => Boolean(a));
+  if (adjuntos.length === 0) return falla("No encontramos los archivos de este documento para enviarlos.");
+
+  const nombreDoc = `${doc.tipo === "NOTA_CREDITO" ? "Nota crédito" : "Factura electrónica"} ${doc.prefijo}${doc.numero}`;
+  try {
+    await enviarEmail(descifrarConfiguracionSmtp(smtp as ConfiguracionSmtpAlmacenada), {
+      para: correo,
+      asunto: `${nombreDoc} — ${smtp.fromNombre}`,
+      texto: `Hola ${factura.cliente.nombre}:\n\nAdjuntamos copia de su ${nombreDoc.toLowerCase()} (XML y PDF).\n\n${smtp.fromNombre}`,
+      html: `<p>Hola ${escaparHtml(factura.cliente.nombre)}:</p><p>Adjuntamos copia de su ${escaparHtml(nombreDoc.toLowerCase())} (XML y PDF).</p><p>${escaparHtml(smtp.fromNombre)}</p>`,
+      adjuntos,
+    });
+  } catch {
+    return falla("No se pudo enviar el correo. Revisa la configuración del correo del taller.");
+  }
+  return { error: null, success: true, mensaje: `Se envió una copia a ${correo}.`, errores: [] };
 }
 
 const MENSAJE_NOTA_CREDITO: Partial<Record<EstadoDocumentoElectronico, string>> = {

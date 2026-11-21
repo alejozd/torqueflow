@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export const ALLOWED_UPLOAD_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
@@ -131,6 +131,24 @@ export async function saveDocumentoElectronico(
   await writeFile(path.join(absoluteDir, nombre), bytes);
   const relativePath = [...segments, nombre].join("/");
   return { relativePath, url: `${PREFIJO_URL}${relativePath}` };
+}
+
+/** Lee un XML/PDF de factura electrónica por su URL de /api/uploads, solo dentro del taller. */
+export async function leerDocumentoElectronico(
+  tenantSchema: string,
+  url: string,
+): Promise<{ nombre: string; contenido: Buffer } | null> {
+  const prefijo = `${PREFIJO_URL}${tenantSchema}/facturas-electronicas/`;
+  if (!url.startsWith(prefijo) || url.includes("..")) return null;
+  const partes = url.slice(PREFIJO_URL.length).split("/");
+  const raizTaller = path.join(getUploadsRoot(), tenantSchema, "facturas-electronicas");
+  const ruta = path.join(getUploadsRoot(), ...partes);
+  if (!ruta.startsWith(raizTaller + path.sep)) return null;
+  try {
+    return { nombre: partes[partes.length - 1], contenido: await readFile(ruta) };
+  } catch {
+    return null;
+  }
 }
 
 export async function saveDviFoto(tenantSchema: string, dviId: string, file: File): Promise<SavedUpload> {

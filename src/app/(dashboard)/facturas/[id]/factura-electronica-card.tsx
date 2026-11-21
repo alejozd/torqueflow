@@ -12,6 +12,7 @@ import { estadoDian, textoEstadoDian, type TonoDian } from "@/lib/factura-electr
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ReenviarAlCliente } from "./reenviar-al-cliente";
 import { NotaCreditoSeccion } from "./nota-credito-seccion";
 import { formatoFechaCorta } from "@/lib/fecha-bogota";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ const CLASE_TONO: Record<TonoDian, string> = {
 export function FacturaElectronicaCard({
   facturaId,
   clienteId,
+  correoCliente,
   vista,
   puedeFacturar,
   puedeConfigurar,
@@ -37,6 +39,8 @@ export function FacturaElectronicaCard({
 }: {
   facturaId: string;
   clienteId: string;
+  /** Correo del cliente: sin él no se puede reenviar la copia. */
+  correoCliente: string | null;
   vista: FacturaFeVista;
   puedeFacturar: boolean;
   puedeConfigurar: boolean;
@@ -101,6 +105,10 @@ export function FacturaElectronicaCard({
           </div>
         ) : null}
 
+        {doc && doc.estado === "ACEPTADO" && (doc.pdfRuta || doc.xmlRuta) && puedeFacturar ? (
+          <ReenviarAlCliente facturaId={facturaId} documentoId={doc.id} correoCliente={correoCliente} />
+        ) : null}
+
         {doc && doc.estado !== "ACEPTADO" && doc.mensajes.length > 0 ? (
           <ul className="flex flex-col gap-2">
             {doc.mensajes.map((m, i) => (
@@ -147,6 +155,7 @@ export function FacturaElectronicaCard({
               facturaId={facturaId}
               notaCredito={vista.notaCredito}
               puedeAnular={puedeAnular}
+              correoCliente={correoCliente}
               puedeFacturar={puedeFacturar}
               cobrado={cobrado}
               ahora={ahora}

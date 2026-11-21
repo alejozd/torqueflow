@@ -12,10 +12,12 @@ const mockConfig = vi.fn();
 const mockFacturaFindFirst = vi.fn();
 const mockFacturaCount = vi.fn();
 const mockDocFindFirst = vi.fn();
+const mockSmtpFind = vi.fn();
 const DB = {
   configuracionFacturaElectronica: { findUnique: mockConfig },
   factura: { findFirst: mockFacturaFindFirst, count: mockFacturaCount },
   documentoElectronico: { findFirst: mockDocFindFirst },
+  configuracionSmtp: { findUnique: mockSmtpFind },
 };
 vi.mock("@/lib/db/tenant-client", () => ({ getTenantDb: () => DB }));
 
@@ -28,6 +30,15 @@ vi.mock("@/lib/factura-electronica/servicio", () => ({
   emitirNotaCredito: (...a: unknown[]) => mockNotaCredito(...a),
 }));
 
+const mockLeer = vi.fn();
+vi.mock("@/lib/storage/local-file-storage", () => ({ leerDocumentoElectronico: (...a: unknown[]) => mockLeer(...a) }));
+const mockEnviarEmail = vi.fn();
+vi.mock("@/lib/email/enviar-email", () => ({ enviarEmail: (...a: unknown[]) => mockEnviarEmail(...a) }));
+vi.mock("@/lib/email/smtp-config", () => ({
+  CONFIGURACION_SMTP_ID: "singleton",
+  descifrarConfiguracionSmtp: () => ({ host: "smtp.test", puerto: 587, usuario: "u", password: "p", fromEmail: "t@t.test", fromNombre: "Taller" }),
+}));
+
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import {
@@ -36,6 +47,7 @@ import {
   getFacturaFe,
   anularConNotaCreditoAction,
   reenviarDocumentoAction,
+  reenviarAlClienteAction,
   type EnvioFeState,
 } from "./factura-electronica-actions";
 
@@ -238,5 +250,55 @@ describe("anularConNotaCreditoAction", () => {
     const r = await anularConNotaCreditoAction("f1", inicial, fd({ concepto: "9", motivo: "x" }));
     expect(r.error).toBe("Elige el concepto de la nota crédito.");
     expect(mockNotaCredito).not.toHaveBeenCalled();
+  });
+});
+
+describe("reenviarAlClienteAction", () => {
+  const DOC = { tipo: "FACTURA", prefijo: "SETP", numero: 7, xmlRuta: "/api/uploads/taller_x/facturas-electronicas/d1/a.xml", pdfRuta: "/api/uploads/taller_x/facturas-electronicas/d1/a.pdf" };
+  beforeEach(() => {
+    mockFacturaFindFirst.mockResolvedValue({ id: "f1", cliente: { email: "cliente@correo.test", nombre: "Ana <Pérez>" } });
+    mockDocFindFirst.mockResolvedValue(DOC);
+    mockSmtpFind.mockResolvedValue({ activo: true, fromNombre: "Taller" });
+    mockLeer.mockImplementation(async (_t: string, url: string) => ({ nombre: url.split("/").pop(), contenido: Buffer.from("x") }));
+    mockEnviarEmail.mockResolvedValue(undefined);
+  });
+
+  it("envía al correo del cliente con XML y PDF adjuntos", async () => {
+    const r = await reenviarAlClienteAction("f1", "d1", inicial, new FormData());
+    expect(mockRequirePermiso).toHaveBeenCalledWith("facturas.facturar");
+    expect(mockDocFindFirst.mock.calls[0][0].where).toEqual({ id: "d1", facturaId: "f1", estado: { in: ["ACEPTADO", "ANULADO"] } });
+    const msg = mockEnviarEmail.mock.calls[0][1];
+    expect(msg.para).toBe("cliente@correo.test");
+    expect(msg.adjuntos.map((a: { tipo: string }) => a.tipo)).toEqual(["application/xml", "application/pdf"]);
+    expect(msg.html).toContain("Ana &lt;Pérez&gt;");
+    expect(r).toEqual({ error: null, success: true, mensaje: "Se envió una copia a cliente@correo.test.", errores: [] });
+  });
+
+  it("cliente sin correo: avisa y no envía", async () => {
+    mockFacturaFindFirst.mockResolvedValue({ id: "f1", cliente: { email: " ", nombre: "Ana" } });
+    const r = await reenviarAlClienteAction("f1", "d1", inicial, new FormData());
+    expect(r.error).toBe("El cliente no tiene correo registrado.");
+    expect(mockEnviarEmail).not.toHaveBeenCalled();
+  });
+
+  it("sin SMTP activo pide configurar el correo del taller", async () => {
+    mockSmtpFind.mockResolvedValue({ activo: false });
+    const r = await reenviarAlClienteAction("f1", "d1", inicial, new FormData());
+    expect(r.error).toBe("Configura el correo del taller en Configuración del taller → Correo y avisos.");
+    expect(mockEnviarEmail).not.toHaveBeenCalled();
+  });
+
+  it("documento no aceptado o de otra factura: no existe", async () => {
+    mockDocFindFirst.mockResolvedValue(null);
+    const r = await reenviarAlClienteAction("f1", "d1", inicial, new FormData());
+    expect(r.error).toBe("El documento no existe.");
+    expect(mockEnviarEmail).not.toHaveBeenCalled();
+  });
+
+  it("error del SMTP: mensaje sencillo sin el texto crudo", async () => {
+    mockEnviarEmail.mockRejectedValue(new Error("535 auth secreto"));
+    const r = await reenviarAlClienteAction("f1", "d1", inicial, new FormData());
+    expect(r.error).toBe("No se pudo enviar el correo. Revisa la configuración del correo del taller.");
+    expect(JSON.stringify(r)).not.toContain("secreto");
   });
 });

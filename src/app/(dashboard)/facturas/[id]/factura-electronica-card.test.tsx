@@ -5,6 +5,7 @@ vi.mock("@/app/actions/factura-electronica-actions", () => ({
   enviarFacturaDianAction: vi.fn(),
   reenviarDocumentoAction: vi.fn(),
   anularConNotaCreditoAction: vi.fn(),
+  reenviarAlClienteAction: vi.fn(),
 }));
 
 import { FacturaElectronicaCard } from "./factura-electronica-card";
@@ -34,7 +35,7 @@ const vista = (documento: DocumentoFeVista | null, extra: Partial<FacturaFeVista
   ...extra,
 });
 const AHORA = new Date("2026-11-21T12:00:00.000Z");
-const props = { facturaId: "f1", clienteId: "c1", puedeFacturar: true, puedeConfigurar: false, puedeAnular: true, cobrado: 0, ahora: AHORA };
+const props = { facturaId: "f1", clienteId: "c1", correoCliente: "cliente@correo.test", puedeFacturar: true, puedeConfigurar: false, puedeAnular: true, cobrado: 0, ahora: AHORA };
 
 describe("FacturaElectronicaCard", () => {
   it("sin documento ofrece enviar a la DIAN", () => {
@@ -56,6 +57,17 @@ describe("FacturaElectronicaCard", () => {
     expect(screen.getByRole("link", { name: "Descargar PDF" })).toHaveAttribute("href", doc.pdfRuta);
     expect(screen.getByRole("link", { name: "Descargar XML" })).toHaveAttribute("href", doc.xmlRuta);
     expect(screen.queryByRole("button", { name: "Reenviar a la DIAN" })).toBeNull();
+  });
+
+  it("aceptada: ofrece reenviar al cliente si tiene correo", () => {
+    render(<FacturaElectronicaCard {...props} vista={vista(doc)} />);
+    expect(screen.getByRole("button", { name: "Reenviar al cliente" })).toBeInTheDocument();
+  });
+
+  it("aceptada: sin correo del cliente lo dice en lugar del botón", () => {
+    render(<FacturaElectronicaCard {...props} correoCliente={null} vista={vista(doc)} />);
+    expect(screen.getByText("El cliente no tiene correo registrado.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reenviar al cliente" })).toBeNull();
   });
 
   it("aceptada en simulado o pruebas no se presenta como válida", () => {

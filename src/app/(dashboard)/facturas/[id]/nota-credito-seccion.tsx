@@ -7,6 +7,7 @@ import {
   type DocumentoFeVista,
   type EnvioFeState,
 } from "@/app/actions/factura-electronica-actions";
+import { ReenviarAlCliente } from "./reenviar-al-cliente";
 import { ConfirmacionEnLinea } from "@/components/confirmacion-en-linea";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -50,11 +51,13 @@ function Resultado({ state }: { state: EnvioFeState }) {
 function NotaCreditoEmitida({
   facturaId,
   nota,
+  correoCliente,
   puedeFacturar,
   ahora,
 }: {
   facturaId: string;
   nota: DocumentoFeVista;
+  correoCliente: string | null;
   puedeFacturar: boolean;
   ahora: Date;
 }) {
@@ -102,6 +105,10 @@ function NotaCreditoEmitida({
             </a>
           ) : null}
         </div>
+      ) : null}
+
+      {nota.estado === "ACEPTADO" && (nota.pdfRuta || nota.xmlRuta) && puedeFacturar ? (
+        <ReenviarAlCliente facturaId={facturaId} documentoId={nota.id} correoCliente={correoCliente} />
       ) : null}
 
       {nota.estado !== "ACEPTADO" && nota.mensajes.length > 0 ? (
@@ -188,12 +195,14 @@ function FormularioAnular({ facturaId, cobrado }: { facturaId: string; cobrado: 
 export function NotaCreditoSeccion({
   facturaId,
   notaCredito,
+  correoCliente,
   puedeAnular,
   puedeFacturar,
   cobrado,
   ahora,
 }: {
   facturaId: string;
+  correoCliente: string | null;
   notaCredito: DocumentoFeVista | null;
   puedeAnular: boolean;
   puedeFacturar: boolean;
@@ -201,7 +210,7 @@ export function NotaCreditoSeccion({
   ahora: Date;
 }) {
   if (notaCredito) {
-    return <NotaCreditoEmitida facturaId={facturaId} nota={notaCredito} puedeFacturar={puedeFacturar} ahora={ahora} />;
+    return <NotaCreditoEmitida facturaId={facturaId} nota={notaCredito} correoCliente={correoCliente} puedeFacturar={puedeFacturar} ahora={ahora} />;
   }
   if (!puedeAnular) return null;
   return <FormularioAnular facturaId={facturaId} cobrado={cobrado} />;

@@ -4,11 +4,12 @@ import { fireEvent, render, screen } from "@testing-library/react";
 vi.mock("@/app/actions/factura-electronica-actions", () => ({
   anularConNotaCreditoAction: vi.fn(),
   reenviarDocumentoAction: vi.fn(),
+  reenviarAlClienteAction: vi.fn(),
 }));
 
 import { NotaCreditoSeccion } from "./nota-credito-seccion";
 
-const props = { facturaId: "f1", puedeAnular: true, puedeFacturar: true, cobrado: 0, ahora: new Date("2026-11-21T15:00:00Z") };
+const props = { facturaId: "f1", correoCliente: "cliente@correo.test", puedeAnular: true, puedeFacturar: true, cobrado: 0, ahora: new Date("2026-11-21T15:00:00Z") };
 
 describe("NotaCreditoSeccion", () => {
   it("sin nota crédito ofrece anular y pide confirmación con concepto y motivo", () => {
@@ -43,5 +44,6 @@ describe("NotaCreditoSeccion", () => {
     );
     expect(screen.getByText("NC-3")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Descargar XML de la nota crédito" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reenviar al cliente" })).toBeInTheDocument();
   });
 });

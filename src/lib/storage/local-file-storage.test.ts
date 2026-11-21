@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { borrarArchivoDeOrden, saveDocumentoElectronico, saveDviFoto, saveOrdenArchivo } from "./local-file-storage";
+import { borrarArchivoDeOrden, leerDocumentoElectronico, saveDocumentoElectronico, saveDviFoto, saveOrdenArchivo } from "./local-file-storage";
 
 let uploadsDir: string;
 const originalUploadsDir = process.env.UPLOADS_DIR;
@@ -194,6 +194,23 @@ describe("saveDocumentoElectronico", () => {
     const xml = new TextEncoder().encode('﻿<?xml version="1.0"?><Invoice/>');
     const saved = await saveDocumentoElectronico("taller_perez", "doc1", "FES-SETP1.xml", xml);
     expect(saved.url).toBe("/api/uploads/taller_perez/facturas-electronicas/doc1/FES-SETP1.xml");
+  });
+});
+
+describe("leerDocumentoElectronico", () => {
+  it("lee un XML guardado por su URL", async () => {
+    const guardado = await saveDocumentoElectronico("taller_x", "doc1", "FES-SETP7.xml", new TextEncoder().encode("<x/>"));
+    expect(await leerDocumentoElectronico("taller_x", guardado.url)).toEqual({ nombre: "FES-SETP7.xml", contenido: Buffer.from("<x/>") });
+  });
+
+  it("rechaza URLs de otro taller, de otra carpeta o con ..", async () => {
+    expect(await leerDocumentoElectronico("taller_x", "/api/uploads/taller_y/facturas-electronicas/d/a.xml")).toBeNull();
+    expect(await leerDocumentoElectronico("taller_x", "/api/uploads/taller_x/dvi/d/a.jpg")).toBeNull();
+    expect(await leerDocumentoElectronico("taller_x", "/api/uploads/taller_x/facturas-electronicas/../../a.xml")).toBeNull();
+  });
+
+  it("null si el archivo ya no existe", async () => {
+    expect(await leerDocumentoElectronico("taller_x", "/api/uploads/taller_x/facturas-electronicas/zz/no.xml")).toBeNull();
   });
 });
 
