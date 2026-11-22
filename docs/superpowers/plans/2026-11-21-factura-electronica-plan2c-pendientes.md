@@ -34,3 +34,11 @@ Resuelto 2026-11-21 (66e72bb): el caso "reenvío con fecha nueva + ERROR_TEMPORA
 Pendiente externo: sandbox de Nextpyme (adaptador real, ambiente por tipo de documento, endpoint de copia de respuesta, pruebas de habilitación). Se retoma cuando Nextpyme envíe la información. Merge a main: después del sandbox.
 
 Campos del cliente adelantados a main (1f130d1, desplegado 2026-11-21) con la migración 20261120130000 completa; ya aplicada en taller_dev y taller_dev_reference (public.tenants solo tiene taller_dev). Al unir esta rama a main, en los conflictos de src/app/(dashboard)/clientes/[id]/page.tsx, su page.test.tsx y src/modulos/factura-electronica/index.ts tomar la versión de esta rama. No hace falta volver a migrar.
+
+Revisión 2026-11-21 de 8a07c80 (aprobado) y 66e72bb (con arreglos) → arreglo 7d51700 (aprobado): un reenvío otro día que la DIAN sí recibió con la respuesta perdida ahora se confirma buscando también con la fecha del intento anterior, y guarda la fecha con la que se halló; la aceptación guarda payload + estado + CUFE en una sola escritura.
+
+Para el sandbox de Nextpyme (aparcados, limitación del proveedor: la búsqueda en el histórico es ±1 día y no devuelve la fecha):
+- Leer la fecha real que aceptó la DIAN (cbc:IssueDate/IssueTime del XML que ya se descarga al aceptar, o la que devuelva el adaptador real) y corregir el payload al aceptar. Cierra la ambigüedad de ±1 día entre fechas contiguas.
+- ultimoIntentoAt solo recuerda el último intento: con dos fallos seguidos (recepción perdida el día 3 y búsqueda SIN_CONFIRMAR el día 5) el día 3 queda fuera de las candidatas. Opción barata: en Regla 90 sin hallazgo, recorrer de la fecha guardada a hoy en saltos de 3 días.
+- Minor: la hora guardada sale de ultimoIntentoAt y la enviada de un reloj nuevo (segundos de diferencia; pasar el mismo "ahora"). La candidata de hoy en confirmarPrevio casi siempre sobra (una llamada extra por reintento).
+- Minor 8a07c80: ordenar por "Estado" en la lista mezcla anuladas con pagadas.
