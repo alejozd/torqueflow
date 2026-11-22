@@ -110,13 +110,18 @@ async function alinearFactura(tx: Prisma.TransactionClient, facturaId: string, m
   });
 }
 
+/** `payload`: la versión del documento a guardar en la misma escritura (si cambió la fecha que conoce la DIAN). */
 async function terminar(
   ctx: ContextoFe,
   id: string,
   estado: EstadoDocumentoElectronico,
   mensajes: MensajeDian[],
+  payload?: DocumentoElectronico,
 ): Promise<ResultadoFe> {
-  await ctx.db.documentoElectronico.update({ where: { id }, data: { estado, mensajes: comoJson(mensajes) } });
+  await ctx.db.documentoElectronico.update({
+    where: { id },
+    data: { estado, mensajes: comoJson(mensajes), ...(payload ? { payload: comoJson(payload) } : {}) },
+  });
   return { ok: true, documentoId: id, estado, mensajes };
 }
 
@@ -128,11 +133,14 @@ async function aceptar(
   cufe: string,
   fechaValidacion: string | null,
   advertencias: MensajeDian[],
+  payload?: DocumentoElectronico,
 ): Promise<ResultadoFe> {
   const fecha = fechaValidacion ? new Date(fechaValidacion) : null;
+  // Una sola escritura: el payload con la fecha que aceptó la DIAN, el estado y el CUFE van juntos.
   await ctx.db.documentoElectronico.update({
     where: { id },
     data: {
+      ...(payload ? { payload: comoJson(payload) } : {}),
       estado: "ACEPTADO",
       cufe,
       fechaValidacion: fecha && !Number.isNaN(fecha.getTime()) ? fecha : null,
@@ -188,26 +196,67 @@ async function buscarEnHistorico(
   return { tipo: "ACEPTADO", cufe: b.cufe, fechaValidacion: null, advertencias: [] };
 }
 
-/** Antes de reenviar algo que pudo llegar: consulta por CUFE si lo hay y, si no, el histórico. */
+/**
+ * Versiones del documento con las que la DIAN pudo haberlo recibido, sin fechas repetidas y con la guardada primero:
+ * la guardada, la del intento anterior (spec §12.2: un reenvío de otro día va con la fecha de ese día y su respuesta
+ * pudo perderse) y la de hoy. Solo se quitan las fechas iguales: dos fechas vecinas tienen ventanas de ±1 día que se
+ * cruzan pero no coinciden, así que se consultan ambas (como mucho tres búsquedas).
+ */
+function versionesCandidatas(
+  anterior: DocumentoElectronico,
+  intentoAnterior: Date | null,
+  hoy: DocumentoElectronico,
+): DocumentoElectronico[] {
+  const versiones = [anterior];
+  if (intentoAnterior) versiones.push(conFechaDeReenvio(anterior, fechaHoraBogota(intentoAnterior)));
+  versiones.push(hoy);
+  return versiones.filter((v, i) => versiones.findIndex((o) => o.fecha === v.fecha) === i);
+}
+
+/** Busca en el histórico con cada versión candidata; devuelve lo hallado y la versión con la que se halló. */
+async function buscarEnVersiones(
+  proveedor: ProveedorFacturaElectronica,
+  ref: ReferenciaDocumento,
+  versiones: DocumentoElectronico[],
+  total: number,
+): Promise<{ previo: Previo; version: DocumentoElectronico }> {
+  let previo: Previo = { tipo: "NO_ENCONTRADO" };
+  let version = versiones[0];
+  for (const v of versiones) {
+    version = v;
+    previo = await buscarEnHistorico(proveedor, ref, v.fecha, total);
+    if (previo.tipo !== "NO_ENCONTRADO") break;
+  }
+  return { previo, version };
+}
+
+/**
+ * Antes de reenviar algo que pudo llegar: consulta por CUFE si lo hay y, si no, el histórico con cada fecha candidata.
+ * `version` es la versión del documento que la DIAN tiene (la guardada si no se halló con otra fecha).
+ */
 async function confirmarPrevio(
   proveedor: ProveedorFacturaElectronica,
   ref: ReferenciaDocumento,
-  fecha: string,
+  versiones: DocumentoElectronico[],
   total: number,
-): Promise<Previo> {
+): Promise<{ previo: Previo; version: DocumentoElectronico }> {
   if (ref.cufe) {
     const c = await proveedor.consultarEstado(ref);
-    if (c.estado === "ACEPTADO") return { tipo: "ACEPTADO", cufe: c.cufe, fechaValidacion: c.fechaValidacion, advertencias: c.advertencias };
-    if (c.estado === "RECHAZADO") return { tipo: "RECHAZADO", motivos: c.motivos };
-    if (c.estado !== "NO_ENCONTRADO") return { tipo: "SIN_CONFIRMAR", mensaje: c.mensaje };
+    const version = versiones[0];
+    if (c.estado === "ACEPTADO") {
+      return { previo: { tipo: "ACEPTADO", cufe: c.cufe, fechaValidacion: c.fechaValidacion, advertencias: c.advertencias }, version };
+    }
+    if (c.estado === "RECHAZADO") return { previo: { tipo: "RECHAZADO", motivos: c.motivos }, version };
+    if (c.estado !== "NO_ENCONTRADO") return { previo: { tipo: "SIN_CONFIRMAR", mensaje: c.mensaje }, version };
   }
-  return buscarEnHistorico(proveedor, ref, fecha, total);
+  return buscarEnVersiones(proveedor, ref, versiones, total);
 }
 
 /**
  * Regla 90 (spec §11.1): lo que se acaba de enviar NO se aceptó; la DIAN tiene un envío anterior de este número.
- * Si el reenvío cambió la fecha (spec §12.2), el documento conserva el payload anterior (el que la DIAN pudo recibir)
- * y el histórico se busca primero con esa fecha y luego con la de hoy (el proveedor busca ±1 día).
+ * El histórico se busca con la fecha guardada, la del intento anterior y la de lo enviado (el proveedor busca ±1 día).
+ * Si se halla con otra fecha que la guardada, esa versión se guarda junto con la aceptación; si no, el payload guardado
+ * sigue siendo el anterior (el enviado con la fecha de hoy solo se guarda si se acepta o rechaza).
  */
 async function resolverYaProcesado(
   ctx: ContextoFe,
@@ -216,16 +265,11 @@ async function resolverYaProcesado(
   ref: ReferenciaDocumento,
   anterior: DocumentoElectronico,
   enviado: DocumentoElectronico,
+  intentoAnterior: Date | null,
   total: number,
 ): Promise<ResultadoFe> {
-  // El payload guardado sigue siendo el anterior: el enviado con la fecha de hoy solo se guarda si se acepta o rechaza.
-  const fechas = enviado.fecha === anterior.fecha ? [anterior.fecha] : [anterior.fecha, enviado.fecha];
-  let h: Previo = { tipo: "NO_ENCONTRADO" };
-  for (const fecha of fechas) {
-    h = await buscarEnHistorico(proveedor, ref, fecha, total);
-    if (h.tipo !== "NO_ENCONTRADO") break;
-  }
-  if (h.tipo === "ACEPTADO") return aceptar(ctx, proveedor, id, ref, h.cufe, null, []);
+  const { previo: h, version } = await buscarEnVersiones(proveedor, ref, versionesCandidatas(anterior, intentoAnterior, enviado), total);
+  if (h.tipo === "ACEPTADO") return aceptar(ctx, proveedor, id, ref, h.cufe, null, [], version !== anterior ? version : undefined);
   return terminar(
     ctx,
     id,
@@ -245,25 +289,24 @@ async function resolverEnvio(
   ref: ReferenciaDocumento,
   anterior: DocumentoElectronico,
   enviado: DocumentoElectronico,
+  intentoAnterior: Date | null,
   total: number,
   r: ResultadoEnvio,
 ): Promise<ResultadoFe> {
   /** Spec §12.2: la fecha de hoy solo queda guardada cuando la DIAN dio una respuesta definitiva sobre ese envío. */
-  const guardarEnviado = async () => {
-    if (enviado !== anterior) await ctx.db.documentoElectronico.update({ where: { id }, data: { payload: comoJson(enviado) } });
-  };
+  const definitivo = enviado !== anterior ? enviado : undefined;
   switch (r.estado) {
     case "ACEPTADO":
-      await guardarEnviado();
-      return aceptar(ctx, proveedor, id, ref, r.cufe, r.fechaValidacion, r.advertencias);
+      return aceptar(ctx, proveedor, id, ref, r.cufe, r.fechaValidacion, r.advertencias, definitivo);
     case "ERROR_TEMPORAL":
       return terminar(ctx, id, "POR_CONFIRMAR", mensaje(r.mensaje));
     case "ERROR_CONFIGURACION":
       return terminar(ctx, id, "PENDIENTE", mensaje(r.mensaje));
     case "RECHAZADO": {
-      if (esDocumentoYaProcesado(r.motivos)) return resolverYaProcesado(ctx, proveedor, id, ref, anterior, enviado, total);
-      await guardarEnviado();
-      return terminar(ctx, id, "RECHAZADO", r.motivos);
+      if (esDocumentoYaProcesado(r.motivos)) {
+        return resolverYaProcesado(ctx, proveedor, id, ref, anterior, enviado, intentoAnterior, total);
+      }
+      return terminar(ctx, id, "RECHAZADO", r.motivos, definitivo);
     }
   }
 }
@@ -272,6 +315,8 @@ interface DocumentoEnCurso {
   id: string;
   documento: DocumentoElectronico;
   cufe: string | null;
+  /** `ultimoIntentoAt` antes de marcar este intento: el reenvío anterior pudo ir con la fecha de ese día. */
+  intentoAnterior: Date | null;
 }
 
 /** El documento ya está en ENVIANDO (lo marcó quien llama). */
@@ -315,21 +360,25 @@ async function enviarConProveedor(
     }
   }
 
+  // Spec §12.2: si el reenvío es otro día, va con la fecha de hoy (mismo número y totales). Se guarda solo tras una
+  // respuesta definitiva (resolverEnvio): un error temporal, una excepción o una Regla 90 conservan la fecha anterior,
+  // que es con la que la DIAN pudo haberlo recibido.
+  const aEnviar = conFechaDeReenvio(doc.documento, fechaHoraBogota(reloj(ctx)));
+
   if (consultarPrimero) {
-    const previo = await confirmarPrevio(proveedor, ref, doc.documento.fecha, total);
+    const versiones = versionesCandidatas(doc.documento, doc.intentoAnterior, aEnviar);
+    const { previo, version } = await confirmarPrevio(proveedor, ref, versiones, total);
+    // Si la DIAN lo tiene con otra fecha (un reenvío cuya respuesta se perdió), esa versión se guarda al aceptar.
+    const hallada = version !== doc.documento ? version : undefined;
     if (previo.tipo === "ACEPTADO") {
-      return aceptar(ctx, proveedor, doc.id, ref, previo.cufe, previo.fechaValidacion, previo.advertencias);
+      return aceptar(ctx, proveedor, doc.id, ref, previo.cufe, previo.fechaValidacion, previo.advertencias, hallada);
     }
     if (previo.tipo === "RECHAZADO") return terminar(ctx, doc.id, "RECHAZADO", previo.motivos);
     if (previo.tipo === "SIN_CONFIRMAR") return terminar(ctx, doc.id, "POR_CONFIRMAR", mensaje(previo.mensaje));
   }
 
-  // Spec §12.2: si el reenvío es otro día, va con la fecha de hoy (mismo número y totales). Se guarda solo tras una
-  // respuesta definitiva (resolverEnvio): un error temporal, una excepción o una Regla 90 conservan la fecha anterior,
-  // que es con la que la DIAN pudo haberlo recibido.
-  const aEnviar = conFechaDeReenvio(doc.documento, fechaHoraBogota(reloj(ctx)));
   const r = await proveedor.enviar(aEnviar);
-  return resolverEnvio(ctx, proveedor, doc.id, ref, doc.documento, aEnviar, total, r);
+  return resolverEnvio(ctx, proveedor, doc.id, ref, doc.documento, aEnviar, doc.intentoAnterior, total, r);
 }
 
 async function ejecutarEnvio(
@@ -442,7 +491,7 @@ export async function emitirDocumentoFactura(ctx: ContextoFe, facturaId: string)
         select: { id: true },
       });
       await alinearFactura(tx, facturaId, mapeo);
-      return { id: doc.id, documento, cufe: null };
+      return { id: doc.id, documento, cufe: null, intentoAnterior: null };
     }, TX);
   } catch (e) {
     if (e instanceof Error && e.message === RANGO_AGOTADO) {
@@ -541,7 +590,7 @@ export async function reintentarDocumento(ctx: ContextoFe, documentoId: string):
   }
 
   const consultarPrimero = doc.estado === "POR_CONFIRMAR" || interrumpido;
-  return ejecutarEnvio(ctx, config, { id: doc.id, documento, cufe: doc.cufe }, consultarPrimero);
+  return ejecutarEnvio(ctx, config, { id: doc.id, documento, cufe: doc.cufe, intentoAnterior: doc.ultimoIntentoAt }, consultarPrimero);
 }
 
 export interface DatosNotaCredito {
@@ -632,7 +681,7 @@ export async function emitirNotaCredito(ctx: ContextoFe, facturaId: string, dato
       },
       select: { id: true },
     });
-    return { id: doc.id, documento, cufe: null } satisfies DocumentoEnCurso;
+    return { id: doc.id, documento, cufe: null, intentoAnterior: null } satisfies DocumentoEnCurso;
   }, TX);
 
   if (!creado) {
